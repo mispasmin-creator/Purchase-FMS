@@ -158,6 +158,14 @@ function App() {
       countLabel: "Pending"
     },
     { 
+      id: "original-bills", 
+      label: "Advance Payement", 
+      icon: <Archive size={20} />, 
+      countKey: "original-bills",  // ✅ Make sure this matches
+      stepName: "accounts",
+      showNotification: true, 
+    },
+    { 
       id: "lift-material", 
       label: "Lift", 
       icon: <Truck size={20} />, 
@@ -193,6 +201,8 @@ function App() {
       countKey: "bilty",
       countLabel: "Pending"
     },
+    
+
     { 
       id: "fullkitting", 
       label: "Fullkitting", 
@@ -213,39 +223,35 @@ function App() {
     },
      { 
       id: "audit-data", 
-      label: "Audit Data", 
+      label: "Accounts Audit", 
       icon: <Search size={20} />, 
       stepName: "accounts",
       showNotification: true,
       countKey: "audit-data",
       countLabel: "Pending"
     },
-    { 
-      id: "rectify-mistake", 
-      label: "Rectify & Bilty", 
-      icon: <FileEdit size={20} />, 
-      stepName: "accounts",
-      showNotification: true,
-      countKey: "rectify-mistake",
-      countLabel: "To Fix"
-    },
+    // { 
+    //   id: "rectify-mistake", 
+    //   label: "Rectify & Bilty", 
+    //   icon: <FileEdit size={20} />, 
+    //   stepName: "accounts",
+    //   showNotification: true,
+    //   countKey: "rectify-mistake",
+    //   countLabel: "To Fix"
+    // },
    
-    { 
-      id: "take-entry-tally", 
-      label: "Tally Entry", 
-      icon: <Calculator size={20} />, 
-      stepName: "accounts",
-      showNotification: true,
-      countKey: "take-entry-tally",
-      countLabel: "Pending"
-    },
-    { 
-      id: "original-bills", 
-      label: "Bills Filing", 
-      icon: <Archive size={20} />, 
-      stepName: "accounts",
-      showNotification: true, 
-    },
+    // { 
+    //   id: "take-entry-tally", 
+    //   label: "Tally Entry", 
+    //   icon: <Calculator size={20} />, 
+    //   stepName: "accounts",
+    //   showNotification: true,
+    //   countKey: "take-entry-tally",
+    //   countLabel: "Pending"
+    // },
+
+
+    
   ];
 
   const accessibleTabs = allTabs.filter(tab =>
@@ -1026,17 +1032,20 @@ async function getPendingTallyEntries2() {
 async function getPendingOriginalBills() {
   try {
     const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
-    const sheetName = "ACCOUNTS";
+    const sheetName = "INDENT-PO";
+    
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
     )}&cb=${new Date().getTime()}`;
+    
+    console.log("Fetching Advance Payment data from:", url);
     
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
     }
     
-    let text = await response.text();
+    const text = await response.text();
     const jsonStart = text.indexOf("{");
     const jsonEnd = text.lastIndexOf("}");
     if (jsonStart === -1 || jsonEnd === -1) {
@@ -1046,53 +1055,70 @@ async function getPendingOriginalBills() {
     const jsonString = text.substring(jsonStart, jsonEnd + 1);
     const data = JSON.parse(jsonString);
     
+    console.log("Total rows received:", data.table?.rows?.length || 0);
+    
     if (!data.table || !data.table.rows) {
+      console.log("No data.table or data.table.rows found");
       return 0;
     }
 
     let pendingCount = 0;
-    const rows = data.table.rows;
+    let validRowCount = 0;
+    let debugRows = [];
     
-    // Helper function to get cell value
-    const getCellValue = (row, colIndex) => {
-      const cell = row.c?.[colIndex];
-      if (!cell) return null;
-      if (cell.v !== undefined && cell.v !== null) return String(cell.v).trim();
-      return null;
-    };
-    
-    rows.forEach((row, index) => {
+    // Process all rows
+    data.table.rows.forEach((row, index) => {
       if (!row || !row.c) return;
       
-      const firstCellValue = getCellValue(row, 0);
-      const secondCellValue = getCellValue(row, 1);
+      // Helper function matching TallyEntry's getCell logic
+      const getCell = (colIdx) => {
+        const cell = row.c?.[colIdx];
+        if (cell && (cell.v !== undefined && cell.v !== null)) {
+          return String(cell.f ?? cell.v).trim();
+        }
+        return "";
+      };
       
-      // Skip header rows and empty rows (same logic as your component)
-      if (firstCellValue === 'Timestamp' || 
-          firstCellValue === 'Rectify The Mistake & Bilty Add' ||
-          secondCellValue === 'Lift Number' ||
-          !firstCellValue || firstCellValue === '') {
-        return;
+      // Get values using the EXACT column indices from TallyEntry's ColumnIndices
+      const indentId = getCell(1); // Column B (INDENT_ID = 1)
+      const planned4 = getCell(43); // Column AR (PLANNED_4 = 43)
+      const actual4 = getCell(44); // Column AS (ACTUAL_4 = 44)
+      
+      // Skip rows without indent ID (empty rows)
+      if (!indentId || indentId === "") return;
+      
+      validRowCount++;
+      
+      // EXACT SAME LOGIC as TallyEntry's pendingEntries filter
+      const hasPlanned4 = planned4 && planned4 !== "" && planned4 !== "-";
+      const hasActual4 = actual4 && actual4 !== "" && actual4 !== "-";
+      
+      // Log first 5 valid rows for debugging
+      if (validRowCount <= 5) {
+        debugRows.push({
+          index,
+          indentId,
+          planned4,
+          actual4,
+          hasPlanned4,
+          hasActual4,
+          willCount: hasPlanned4 && !hasActual4
+        });
       }
       
-      // Check conditions from your component:
-      // 1. Column AT (index 45) has data
-      const columnATValue = getCellValue(row, 45); // Column AT
-      
-      // 2. Column AU (index 46) is empty
-      const columnAUValue = getCellValue(row, 46); // Column AU
-      
-      // Count if: Column AT has data AND Column AU is empty
-      if (columnATValue && columnATValue !== '' && (!columnAUValue || columnAUValue === '')) {
+      if (hasPlanned4 && !hasActual4) {
         pendingCount++;
       }
     });
     
-    console.log(`Found ${pendingCount} pending original bills (Column AT filled, Column AU empty)`);
+    console.log("Valid rows with Indent ID:", validRowCount);
+    console.log("First 5 rows debug info:", debugRows);
+    console.log(`Found ${pendingCount} pending advance payments (Planned 4 filled, Actual 4 empty)`);
+    
     return pendingCount;
     
   } catch (error) {
-    console.error("Error fetching pending original bills:", error);
+    console.error("Error fetching pending advance payments:", error);
     return 0;
   }
 }

@@ -123,8 +123,8 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Iron % (PO)", dataKey: "poIronPercent", toggleable: true },
   { header: "Total Lifted", dataKey: "poTotalLifted", toggleable: true },
   { header: "Pending Qty", dataKey: "poPendingQty", toggleable: true },
-  { header: "Order Cancel Qty", dataKey: "poOrderCancelQty", toggleable: true },
-  { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
+  // { header: "Order Cancel Qty", dataKey: "poOrderCancelQty", toggleable: true },
+  // { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
   
 ];
 
@@ -595,14 +595,14 @@ export default function MismatchAnalysis() {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Debite Note</label>
                 <select
                   value={formData.status || 'Credit Notes'}
                   onChange={(e) => handleFormChange('status', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
                 >
-                  <option value="Credit Notes">Credit Notes</option>
-                  <option value="Others">Others</option>
+                  <option value="Credit Notes">Yes</option>
+                  <option value="Others">No</option>
                 </select>
               </div>
               
@@ -743,8 +743,7 @@ export default function MismatchAnalysis() {
         materialRate: String(row.col16 || "").trim(),
         billImageUrl: String(row.col17 || "").trim(),
         truckQty: String(row.col18 || "").trim(),
-        dateOfReceiving: String(row.col22 || "").trim(),
-        totalBillQuantity: String(row.col23 || "").trim(),
+dateOfReceiving: formatDateString(String(row.col22 || "").trim()) || String(row.col22 || "").trim(),        totalBillQuantity: String(row.col23 || "").trim(),
         actualQuantity: String(row.col24 || "").trim(),
         physicalCondition: String(row.col25 || "").trim(),
         moisture: String(row.col26 || "").trim(),
@@ -753,7 +752,7 @@ export default function MismatchAnalysis() {
         biltyNo2: String(row.col32 || "").trim(),
         biltyImageUrl: String(row.col33 || "").trim(),
         status: String(row.col37 || "").trim(),
-        dateOfTest: String(row.col38 || "").trim(),
+        dateOfTest: formatDateString(String(row.col38 || "").trim()) || String(row.col38 || "").trim(),
         moisturePercent: String(row.col39 || "").trim(),
         bdPercent: String(row.col40 || "").trim(),
         apPercent: String(row.col41 || "").trim(),
@@ -867,8 +866,7 @@ export default function MismatchAnalysis() {
         poCopyUrl: String(row.col25 || "").trim(),
         poAdvanceToBePaid: String(row.col26 || "").trim(),
         poToBePaidAmount: String(row.col27 || "").trim(),
-        poWhenToBePaid: String(row.col28 || "").trim(),
-        poPONotes: String(row.col29 || "").trim(),
+poWhenToBePaid: formatDateString(String(row.col28 || "").trim()) || String(row.col28 || "").trim(),        poPONotes: String(row.col29 || "").trim(),
         poAluminaPercent: String(row.col30 || "").trim(),
         poIronPercent: String(row.col31 || "").trim(),
         poTotalLifted: String(row.col32 || "").trim(),

@@ -1,652 +1,699 @@
-import React, { useState, useEffect } from 'react';
-import { RefreshCw, Save, X, Edit2, Image, Filter } from 'lucide-react';
+"use client";
+import { useState, useEffect, useCallback, useMemo, useContext } from "react";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import {
+  Calculator,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Info,
+  LinkIcon,
+  Filter,
+  ExternalLink,
+} from "lucide-react";
+import { MixerHorizontalIcon } from "@radix-ui/react-icons";
+import { AuthContext } from "../context/AuthContext";
 
-const OriginalBillsFiledPage = () => {
-  const [accountsData, setAccountsData] = useState([]);
+// Constants
+const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+const SHEET_NAME = "INDENT-PO";
+const DATA_START_ROW = 6;
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec";
+
+// Column indices from Google Sheet
+const ColumnIndices = {
+  INDENT_ID: 1,
+  FIRM_NAME: 2,
+  PO_NUMBER: 2,
+  VENDOR_NAME: 4,
+  RAW_MATERIAL_NAME: 5,
+  TYPE_OF_INDENT: 8,
+  NOTES: 10,
+  APPROVED_QTY: 14,
+  PLANNED: 17,
+  PO_COPY_LINK: 25,
+  ADVANCE_AMOUNT: 27,
+  PLANNED_4: 43,
+  ACTUAL_4: 44,
+  STATUS: 45,
+  PAYMENT_LINK: 46,
+  DELIVERY_ORDER_NO: 36,
+  TALLY_ENTRY_TIMESTAMP: 37,
+};
+
+// Helper Functions
+const cleanIndentId = (indentId) => {
+  if (!indentId) return "";
+  return String(indentId).replace(/[^a-zA-Z0-9-]/g, "");
+};
+
+const formatSheetDateString = (dateValue) => {
+  if (!dateValue || typeof dateValue !== "string" || !dateValue.trim()) {
+    return "";
+  }
+  const dateObj = new Date(dateValue);
+  if (isNaN(dateObj.getTime())) {
+    const gvizMatch = dateValue.match(/^Date\((\d+),(\d+),(\d+)/);
+    if (gvizMatch) {
+      const [, year, month, day] = gvizMatch.map(Number);
+      const parsedDate = new Date(year, month, day);
+      if (!isNaN(parsedDate.getTime())) {
+        return new Intl.DateTimeFormat("en-GB", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }).format(parsedDate);
+      }
+    }
+    return dateValue;
+  }
+  return new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(dateObj);
+};
+
+// Column Definitions - Updated with Action column
+const columns = [
+  { header: "Select", dataKey: "selectAction", toggleable: false, alwaysVisible: true },
+  { header: "Action", dataKey: "paymentAction", toggleable: false, alwaysVisible: true },
+  { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
+  { header: "Firm Name", dataKey: "firmName", toggleable: true },
+  { header: "PO Number", dataKey: "poNumber", toggleable: true, alwaysVisible: true },
+  { header: "Delivery Order No.", dataKey: "deliveryOrderNo", toggleable: true },
+  { header: "Vendor", dataKey: "vendorName", toggleable: true },
+  { header: "Material Name", dataKey: "rawMaterialName", toggleable: true },
+  { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
+  { header: "Advance Amount", dataKey: "advanceAmount", toggleable: true },
+  { header: "Indent Type", dataKey: "typeOfIndent", toggleable: true },
+  { header: "Planned 4", dataKey: "planned4", toggleable: true },
+  { header: "Actual 4", dataKey: "actual4", toggleable: true },
+  { header: "Status", dataKey: "status", toggleable: true },
+  { header: "PO Copy", dataKey: "poCopyLink", toggleable: true, isLink: true, linkText: "View PO" },
+  { header: "Notes", dataKey: "notes", toggleable: true },
+  { header: "Planned", dataKey: "planned", toggleable: true },
+];
+
+// React Component
+export default function TallyEntry() {
+  const { user } = useContext(AuthContext);
+  const [sheetData, setSheetData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [processingEntries, setProcessingEntries] = useState({});
   const [error, setError] = useState(null);
-  const [editingRow, setEditingRow] = useState(null); // Changed from editingRows object
-  const [formData, setFormData] = useState({}); // Simplified form data structure
-  const [submitting, setSubmitting] = useState(false); // Changed from submitting object
-  const [submittedRows, setSubmittedRows] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState({
-  timestamp: true,
-  liftNumber: true,
-  type: true,
-  billNo: true,
-  partyName: true,
-  productName: true,
-  qty: true,
-  areaLifting: true,
-  truckNo: true,
-  transporterName: true,
-  billImage: true,
-  biltyNo: true,
-  typeOfRate: true,
-  rate: true,
-  truckQty: true,
-  biltyImage: true,
-  qtyDifferenceStatus: true,
-  differenceQty: true,
-  weightSlip: true,
-  totalFreight: true,
-  status: true,
-  remarks: true,
-  actions: true
-});
-const [showColumnFilter, setShowColumnFilter] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedEntries, setSelectedEntries] = useState({});
+  const [filters, setFilters] = useState({
+    vendorName: "all",
+    rawMaterialName: "all",
+    typeOfIndent: "all",
+    approvedQty: "all",
+    deliveryOrderNo: "all",
+  });
+  const [visibleCols, setVisibleCols] = useState(
+    columns.reduce((acc, col) => ({ ...acc, [col.dataKey]: col.alwaysVisible || col.toggleable }), {})
+  );
 
-  const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
-  const SHEET_NAME = "ACCOUNTS";
-
-  // Updated date format function to handle Date(year,month,day,hour,minute,second) format
-  const formatDate = (dateString) => {
-    if (!dateString || dateString === '') return '-';
-    
+  const fetchSheetData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      let date;
-      
-      // Handle Google Sheets Date(YYYY,MM,DD,HH,MM,SS) format
-      const dateMatch = dateString.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/);
-      if (dateMatch) {
-        const [, year, month, day, hours, minutes, seconds] = dateMatch.map(Number);
-        date = new Date(year, month - 1, day, hours || 0, minutes || 0, seconds || 0);
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
+        SHEET_NAME
+      )}&t=${new Date().getTime()}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+      const text = await response.text();
+      const jsonString = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
+      const data = JSON.parse(jsonString);
+      if (data.status === "error") {
+        throw new Error(data.errors.map((e) => e.detailed_message).join(", "));
       }
-      // Handle Excel serial number format from Google Sheets
-      else if (!isNaN(dateString) && parseFloat(dateString) > 30000) {
-        const serialNumber = parseFloat(dateString);
-        date = new Date((serialNumber - 25569) * 86400 * 1000);
+      let parsedData = (data.table.rows || [])
+        .map((row, index) => {
+          const rowData = {
+      _rowIndex: index + DATA_START_ROW - 1, // ✅ Add +1 here
+            rawCells: row.c.map((cell) => (cell ? cell.f ?? cell.v : null)),
+          };
+          const getCell = (colIdx) => rowData.rawCells[colIdx] || "";
+          
+          // Debug log to verify row index
+          const indentId = cleanIndentId(getCell(ColumnIndices.INDENT_ID));
+          console.log(`Mapping row: Index=${index}, _rowIndex=${rowData._rowIndex}, IndentID=${indentId}`);
+          
+          return {
+            ...rowData,
+            _id: `${SHEET_NAME}-${rowData._rowIndex}-${indentId}`,
+            indentId: indentId,
+            firmName: String(getCell(ColumnIndices.FIRM_NAME)),
+            poNumber: String(getCell(ColumnIndices.PO_NUMBER)),
+            deliveryOrderNo: String(getCell(ColumnIndices.DELIVERY_ORDER_NO)),
+            vendorName: String(getCell(ColumnIndices.VENDOR_NAME)),
+            rawMaterialName: String(getCell(ColumnIndices.RAW_MATERIAL_NAME)),
+            approvedQty: String(getCell(ColumnIndices.APPROVED_QTY)),
+            advanceAmount: String(getCell(ColumnIndices.ADVANCE_AMOUNT)),
+            typeOfIndent: String(getCell(ColumnIndices.TYPE_OF_INDENT)),
+            planned4: String(getCell(ColumnIndices.PLANNED_4)),
+            actual4: String(getCell(ColumnIndices.ACTUAL_4)),
+            status: String(getCell(ColumnIndices.STATUS)),
+            paymentLink: String(getCell(ColumnIndices.PAYMENT_LINK)),
+            poCopyLink: String(getCell(ColumnIndices.PO_COPY_LINK)),
+            notes: String(getCell(ColumnIndices.NOTES)),
+            planned: String(getCell(ColumnIndices.PLANNED)),
+            tallyEntryTimestamp: formatSheetDateString(getCell(ColumnIndices.TALLY_ENTRY_TIMESTAMP)),
+          };
+        })
+        .filter((row) => row.indentId);
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+        const userFirmNameLower = user.firmName.toLowerCase();
+        parsedData = parsedData.filter(
+          (item) => (item.firmName || "").toLowerCase().trim() === userFirmNameLower
+        );
       }
-      // Handle regular date formats
-      else if (dateString.includes('/') || dateString.includes('-')) {
-        date = new Date(dateString);
-      }
-      else {
-        date = new Date(dateString);
-      }
-      
-      if (isNaN(date.getTime())) {
-        return dateString;
-      }
-      
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      const seconds = date.getSeconds().toString().padStart(2, '0');
-      
-      // Format matching the second code: DD/MM/YYYY HH:MM:SS
-      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-      
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return dateString;
+      setSheetData(parsedData);
+    } catch (err) {
+      const errorMessage = `Failed to load data. ${err.message}`;
+      setError(errorMessage);
+      toast.error("Data Load Error", {
+        description: errorMessage,
+        icon: <XCircle className="h-4 w-4" />,
+      });
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [refreshTrigger, user]);
 
-  const getCellValue = (row, colIndex) => {
-    const cell = row.c?.[colIndex];
-    if (!cell) return null;
-    if (cell.v !== undefined && cell.v !== null) return String(cell.v).trim();
-    return null;
-  };
+  useEffect(() => {
+    fetchSheetData();
+  }, [fetchSheetData]);
 
-  const calculateDelayDays = (timestampString) => {
-    if (!timestampString || timestampString === '' || timestampString === '-') return 0;
-    
-    try {
-      let originalDate;
+  const applyFilters = useCallback(
+    (data) => {
+      let filtered = [...data];
+      if (filters.vendorName !== "all") filtered = filtered.filter((entry) => entry.vendorName === filters.vendorName);
+      if (filters.rawMaterialName !== "all")
+        filtered = filtered.filter((entry) => entry.rawMaterialName === filters.rawMaterialName);
+      if (filters.typeOfIndent !== "all")
+        filtered = filtered.filter((entry) => entry.typeOfIndent === filters.typeOfIndent);
+      if (filters.approvedQty !== "all")
+        filtered = filtered.filter((entry) => entry.approvedQty === filters.approvedQty);
+      if (filters.deliveryOrderNo !== "all")
+        filtered = filtered.filter((entry) => entry.deliveryOrderNo === filters.deliveryOrderNo);
+      return filtered;
+    },
+    [filters]
+  );
+
+  const pendingEntries = useMemo(() => {
+    const pending = [];
+
+    sheetData.forEach((row) => {
+      // Show entries where Planned 4 has value AND Actual 4 is empty
+      const hasPlanned4 = row.planned4 && String(row.planned4).trim() !== "" && String(row.planned4).trim() !== "-";
+      const hasActual4 = row.actual4 && String(row.actual4).trim() !== "" && String(row.actual4).trim() !== "-";
       
-      if (!isNaN(timestampString) && parseFloat(timestampString) > 30000) {
-        const serialNumber = parseFloat(timestampString);
-        originalDate = new Date((serialNumber - 25569) * 86400 * 1000);
-      } else if (timestampString.includes('/') || timestampString.includes('-')) {
-        originalDate = new Date(timestampString);
-      } else {
-        originalDate = new Date(timestampString);
+      // Only show if Planned 4 exists but Actual 4 is empty
+      if (hasPlanned4 && !hasActual4) {
+        pending.push(row);
       }
-      
-      if (isNaN(originalDate.getTime())) {
-        return 0;
-      }
-      
-      const currentDate = new Date();
-      const timeDifference = currentDate.getTime() - originalDate.getTime();
-      const daysDifference = Math.floor(timeDifference / (1000 * 3600 * 24));
-      
-      return Math.max(0, daysDifference);
-      
-    } catch (error) {
-      console.error('Error calculating delay:', error);
-      return 0;
-    }
-  };
-
-  const initializeFormData = (rowId) => {
-    setFormData({
-      status: 'Not Done',
-      remarks: ''
     });
+
+    return applyFilters(pending);
+  }, [sheetData, applyFilters]);
+
+  const getUniqueValues = (field) => {
+    const values = sheetData.map((entry) => entry[field]).filter((value) => value && value.trim() !== "");
+    return [...new Set(values)].sort();
   };
 
-  const handleFormChange = (field, value) => {
-    setFormData(prev => ({
+  const updateSheetWithTimestamp = async (entry) => {
+    if (!entry?._rowIndex) {
+      throw new Error("Cannot update: Entry row index is missing.");
+    }
+
+    console.log(`Updating entry: IndentID=${entry.indentId}, PO=${entry.poNumber}, RowIndex=${entry._rowIndex}`);
+
+    const timestamp = new Date().toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).replace(/,/g, "");
+
+    const cellUpdates = {
+      [`col${ColumnIndices.ACTUAL_4 + 1}`]: timestamp,
+      [`col${ColumnIndices.STATUS + 1}`]: "OK",
+    };
+
+    console.log(`Sending update for row ${entry._rowIndex}:`, cellUpdates);
+
+    const params = new URLSearchParams({
+      action: "updateCells",
+      sheetName: SHEET_NAME,
+      rowIndex: entry._rowIndex.toString(),
+      cellUpdates: JSON.stringify(cellUpdates),
+    });
+
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+
+    const responseText = await response.text();
+    console.log(`Response for row ${entry._rowIndex}:`, responseText);
+    
+    let result;
+
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      console.error("Failed to parse script response:", responseText);
+      throw new Error("Received an invalid response from the server. Please check the script logs.");
+    }
+
+    if (!result.success) {
+      console.error("Script returned an error:", result);
+      throw new Error(result.message || result.error || "The script reported an unspecified failure.");
+    }
+
+    console.log(`Successfully updated row ${entry._rowIndex}`);
+    return result;
+  };
+
+  const handleSubmitSelected = async () => {
+    const selectedIds = Object.keys(selectedEntries).filter(id => selectedEntries[id]);
+    
+    if (selectedIds.length === 0) {
+      toast.error("No entries selected", {
+        description: "Please select at least one entry to submit.",
+        icon: <AlertTriangle className="h-4 w-4" />,
+      });
+      return;
+    }
+
+    const entriesToProcess = pendingEntries.filter(entry => selectedIds.includes(entry._id));
+
+    setProcessingEntries(prev => {
+      const newState = { ...prev };
+      entriesToProcess.forEach(entry => {
+        newState[entry._id] = true;
+      });
+      return newState;
+    });
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const entry of entriesToProcess) {
+      try {
+        await updateSheetWithTimestamp(entry);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to update PO ${entry.poNumber}:`, error);
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success("Entries Updated", {
+        description: `${successCount} entries have been successfully updated.`,
+        icon: <CheckCircle className="h-4 w-4" />,
+      });
+    }
+
+    if (errorCount > 0) {
+      toast.error("Some Updates Failed", {
+        description: `${errorCount} entries failed to update. Please try again.`,
+        icon: <XCircle className="h-4 w-4" />,
+      });
+    }
+
+    setSelectedEntries({});
+    setProcessingEntries({});
+    setRefreshTrigger(t => t + 1);
+  };
+
+  const handleSelectEntry = (entryId, checked) => {
+    setSelectedEntries(prev => ({
       ...prev,
-      [field]: value
+      [entryId]: checked,
     }));
   };
 
-  const submitFormData = async () => {
-    if (!editingRow) return;
-
-    const data = formData;
-    
-    if (!data) {
-      alert('No form data to submit');
-      return;
-    }
-
-    const row = accountsData.find(r => r.id === editingRow);
-    if (!row || !row.liftNumber) {
-      alert('Error: Could not find lift number for this row');
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec';
-      
-      const currentDate = new Date();
-      const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
-      const delayDays = calculateDelayDays(row.timestamp);
-      
-      const submitFormData = {
-        actual: actualDateTime,
-        delay: String(delayDays),
-        status: data.status || 'Not Done',
-        remarks: data.remarks || ''
-      };
-
-      const requestData = {
-        action: 'submitForm',
-        sheetName: 'ACCOUNTS',
-        liftNo: row.liftNumber,
-        type: 'original-bills',
-        formData: JSON.stringify(submitFormData)
-      };
-
-      const formDataToSend = new FormData();
-      Object.keys(requestData).forEach(key => {
-        formDataToSend.append(key, requestData[key]);
+  const handleSelectAll = (checked) => {
+    const newSelection = {};
+    if (checked) {
+      pendingEntries.forEach(entry => {
+        newSelection[entry._id] = true;
       });
-
-      const response = await fetch(appsScriptUrl, {
-        method: 'POST',
-        body: formDataToSend,
-        mode: 'cors'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const responseText = await response.text();
-      let result;
-      
-      try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        const responseLower = responseText.toLowerCase();
-        const successIndicators = ['success', 'updated', 'submitted', 'complete', 'true'];
-        const errorIndicators = ['error', 'failed', 'exception', 'false'];
-        
-        const hasSuccess = successIndicators.some(indicator => responseLower.includes(indicator));
-        const hasError = errorIndicators.some(indicator => responseLower.includes(indicator));
-        
-        if (hasError && !hasSuccess) {
-          throw new Error(`Apps Script error: ${responseText}`);
-        } else {
-          result = { success: true, message: 'Form submitted successfully' };
-        }
-      }
-
-      if (result.success === false || (result.error && !result.success)) {
-        throw new Error(result.error || result.message || 'Form submission failed');
-      }
-
-      setSubmittedRows(prev => new Set([...prev, `bills_${editingRow}`]));
-      setEditingRow(null);
-      
-      alert(`✅ SUCCESS: Form submitted successfully for Lift Number: ${row.liftNumber}\nActual Date: ${actualDateTime}\nDelay: ${delayDays} days`);
-      
-      setTimeout(() => {
-        fetchData();
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Submission error:', error);
-      alert(`❌ SUBMISSION FAILED: ${error.message}`);
-    } finally {
-      setSubmitting(false);
     }
+    setSelectedEntries(newSelection);
   };
 
-const fetchData = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}&cb=${new Date().getTime()}`;
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch sheet data: ${response.status} ${response.statusText}`);
-    }
-    
-    let text = await response.text();
-    const jsonStart = text.indexOf("{");
-    const jsonEnd = text.lastIndexOf("}");
-    if (jsonStart === -1 || jsonEnd === -1) {
-      throw new Error("Invalid response format from Google Sheets.");
-    }
-    
-    const data = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
-    
-    if (!data.table || !data.table.rows) {
-      setAccountsData([]);
-      return;
-    }
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+  };
 
-    let parsedData = data.table.rows.map((row, index) => {
-      if (!row || !row.c) return null;
-      
-      const firstCellValue = getCellValue(row, 0);
-      const secondCellValue = getCellValue(row, 1);
-      
-      if (firstCellValue === 'Timestamp' || 
-          firstCellValue === 'Rectify The Mistake & Bilty Add' ||
-          secondCellValue === 'Lift Number' ||
-          !firstCellValue || firstCellValue === '') {
-        return null;
-      }
-      
-      // Check if column AT (index 45) has data and column AU (index 46) is empty
-      const columnATValue = getCellValue(row, 45); // Column AT
-      const columnAUValue = getCellValue(row, 46); // Column AU
-      
-      // Skip rows where Column AT is empty/null OR Column AU is not empty
-      if (!columnATValue || columnATValue === '' || (columnAUValue && columnAUValue !== '')) {
-        return null;
-      }
-      
-      const rowData = {
-        id: index,
-        timestamp: formatDate(getCellValue(row, 0)) || '',
-        liftNumber: getCellValue(row, 1) || '',
-        type: getCellValue(row, 2) || '',
-        billNo: getCellValue(row, 3) || '',
-        partyName: getCellValue(row, 4) || '',
-        productName: getCellValue(row, 5) || '',
-        qty: getCellValue(row, 6) || '',
-        areaLifting: getCellValue(row, 7) || '',
-        truckNo: getCellValue(row, 8) || '',
-        transporterName: getCellValue(row, 9) || '',
-        billImage: getCellValue(row, 10) || '',
-        biltyNo: getCellValue(row, 11) || '',
-        typeOfRate: getCellValue(row, 12) || '',
-        rate: getCellValue(row, 13) || '',
-        truckQty: getCellValue(row, 14) || '',
-        biltyImage: getCellValue(row, 15) || '',
-        qtyDifferenceStatus: getCellValue(row, 16) || '',
-        differenceQty: getCellValue(row, 17) || '',
-        weightSlip: getCellValue(row, 18) || '',
-        totalFreight: getCellValue(row, 19) || '',
-        status: getCellValue(row, 48) || '', // Column AW (index 48)
-        remarks: getCellValue(row, 49) || '' // Column AX (index 49)
-      };
-      
-      const hasData = Object.values(rowData).some(value => 
-        value && value !== '' && value !== index
-      );
-      
-      return hasData ? rowData : null;
-    }).filter(Boolean);
-    
-    // Filter out submitted rows
-    parsedData = parsedData.filter(item => {
-      const submittedKey = `bills_${item.id}`;
-      return !submittedRows.has(submittedKey);
+  const clearAllFilters = () => {
+    setFilters({
+      vendorName: "all",
+      rawMaterialName: "all",
+      typeOfIndent: "all",
+      approvedQty: "all",
+      deliveryOrderNo: "all",
     });
-    
-    setAccountsData(parsedData);
-    
-  } catch (err) {
-    console.error('Error fetching data:', err);
-    setError(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-const toggleColumnVisibility = (columnKey) => {
-  setVisibleColumns(prev => ({
-    ...prev,
-    [columnKey]: !prev[columnKey]
-  }));
-};
+  const renderCellContent = (content, { isLink, linkText } = {}) => {
+    if (isLink) {
+      const link = String(content || "").trim();
+      if (link && link !== "-") {
+        const fullLink = link.startsWith("http") ? link : `https://${link}`;
+        return (
+          <a href={fullLink} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline inline-flex items-center gap-1">
+            <LinkIcon className="h-3.5 w-3.5" />
+            {linkText || "View"}
+          </a>
+        );
+      }
+      return <span className="text-muted-foreground">-</span>;
+    }
+    return String(content || "").trim() || <span className="text-muted-foreground">-</span>;
+  };
 
-const toggleColumnFilter = () => {
-  setShowColumnFilter(prev => !prev);
-};
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const renderModal = () => {
-    if (!editingRow) return null;
-    
-    const row = accountsData.find(r => r.id === editingRow);
-    if (!row) return null;
-
+  const ColumnVisibilityToggle = () => {
+    const handleToggleAll = (checked) => {
+      const newVisibility = { ...visibleCols };
+      columns.forEach((col) => {
+        if (col.toggleable && !col.alwaysVisible) {
+          newVisibility[col.dataKey] = checked;
+        }
+      });
+      setVisibleCols(newVisibility);
+    };
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Add Filing Entry</h3>
-              <button
-                onClick={() => setEditingRow(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-gray-700 mb-2">Lift Details</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-gray-600">Lift Number:</span> {row.liftNumber}</div>
-                <div><span className="text-gray-600">Timestamp:</span> {row.timestamp}</div>
-                <div><span className="text-gray-600">Party:</span> {row.partyName}</div>
-                <div><span className="text-gray-600">Product:</span> {row.productName}</div>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="h-8 bg-white">
+            <MixerHorizontalIcon className="mr-2 h-4 w-4" /> View
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-3" align="end">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Toggle Columns</p>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={formData.status || 'Not Done'}
-                  onChange={(e) => handleFormChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
-                >
-                  <option value="Done">Done</option>
-                  <option value="Not Done">Not Done</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
-                <textarea
-                  value={formData.remarks || ''}
-                  onChange={(e) => handleFormChange('remarks', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
-                  placeholder="Enter your remarks..."
-                  rows={4}
-                />
+                <Button variant="link" className="p-0 h-auto text-xs" onClick={() => handleToggleAll(true)}>
+                  All
+                </Button>
+                <span className="text-muted-foreground mx-1">/</span>
+                <Button variant="link" className="p-0 h-auto text-xs" onClick={() => handleToggleAll(false)}>
+                  None
+                </Button>
               </div>
             </div>
-            
-            <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
-              <button
-                onClick={() => setEditingRow(null)}
-                disabled={submitting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 transition-colors duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitFormData}
-                disabled={submitting}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                {submitting ? (
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                {submitting ? 'Submitting...' : 'Submit Entry'}
-              </button>
+            <div className="space-y-1.5 max-h-60 overflow-y-auto pr-2">
+              {columns
+                .filter((c) => c.toggleable)
+                .map((col) => (
+                  <div key={col.dataKey} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={col.dataKey}
+                      checked={!!visibleCols[col.dataKey]}
+                      onCheckedChange={(checked) => setVisibleCols((p) => ({ ...p, [col.dataKey]: !!checked }))}
+                      disabled={col.alwaysVisible}
+                    />
+                    <Label htmlFor={col.dataKey} className="text-sm font-normal cursor-pointer flex-1">
+                      {col.header} {col.alwaysVisible && <span className="text-xs text-muted-foreground">(Fixed)</span>}
+                    </Label>
+                  </div>
+                ))}
             </div>
           </div>
-        </div>
-      </div>
+        </PopoverContent>
+      </Popover>
     );
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-xl text-gray-600">Loading filing data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-2xl w-full">
-          <div className="flex items-center mb-4">
-            <X className="w-8 h-8 text-red-500 mr-3" />
-            <h3 className="text-xl font-semibold text-red-800">Error Loading Data</h3>
-          </div>
-          <p className="text-red-700 mb-4">{error}</p>
-          <button
-            onClick={fetchData}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const visibleColumns = columns.filter((col) => visibleCols[col.dataKey]);
+  const allSelected = pendingEntries.length > 0 && pendingEntries.every(entry => selectedEntries[entry._id]);
+  const someSelected = Object.values(selectedEntries).some(v => v);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
-      {renderModal()}
-      
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-  <div className="px-6 py-4 border-b border-gray-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Original Bills To Be Filed</h1>
-        <p className="text-sm text-gray-600 mt-1">Final stage documentation filing process</p>
-      </div>
-      <div className="flex items-center space-x-3">
-        {/* Column Filter Dropdown */}
-        <div className="relative">
-          <button
-            onClick={toggleColumnFilter}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Columns
-          </button>
-          
-          {showColumnFilter && (
-            <>
-              {/* Backdrop */}
-              <div 
-                className="fixed inset-0 z-10" 
-                onClick={() => setShowColumnFilter(false)}
-              ></div>
-              
-              {/* Dropdown */}
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-20 max-h-80 overflow-y-auto">
-                <div className="p-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Show/Hide Columns</h3>
-                  <div className="grid grid-cols-1 gap-2">
-                    {Object.entries({
-                      timestamp: 'Timestamp',
-                      liftNumber: 'Lift Number',
-                      type: 'Type',
-                      billNo: 'Bill No.',
-                      partyName: 'Party Name',
-                      productName: 'Product Name',
-                      qty: 'Qty',
-                      areaLifting: 'Area Lifting',
-                      truckNo: 'Truck No.',
-                      transporterName: 'Transporter Name',
-                      billImage: 'Bill Image',
-                      biltyNo: 'Bilty No.',
-                      typeOfRate: 'Type Of Rate',
-                      rate: 'Rate',
-                      truckQty: 'Truck Qty',
-                      biltyImage: 'Bilty Image',
-                      qtyDifferenceStatus: 'Qty Difference Status',
-                      differenceQty: 'Difference Qty',
-                      weightSlip: 'Weight Slip',
-                      totalFreight: 'Total Freight',
-                      status: 'Status',
-                      remarks: 'Remarks',
-                      actions: 'Actions'
-                    }).map(([key, label]) => (
-                      <label key={key} className="flex items-center space-x-2 text-sm py-1 hover:bg-gray-50 px-2 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns[key]}
-                          onChange={() => toggleColumnVisibility(key)}
-                          className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
-                        />
-                        <span className="text-gray-700">{label}</span>
-                      </label>
-                    ))}
-                  </div>
+    <div className="p-4 sm:p-6 lg:p-8 h-full flex flex-col bg-slate-50">
+      <Card className="shadow-md border border-gray-200 flex-1 flex flex-col bg-white">
+        <CardHeader className="p-4 border-b border-gray-200">
+          <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
+            <Calculator className="h-6 w-6 text-purple-600" />
+            Purchase Order Payment Management
+          </CardTitle>
+          <CardDescription className="text-gray-500 mt-1 text-sm">
+            Manage payment entries for purchase orders with Planned 4 dates pending Actual 4 updates.
+            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+              <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4 flex-1 flex flex-col">
+          <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <Label className="text-sm font-medium">Filters</Label>
+              <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+                Clear All
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <Select size="sm" value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
+                <SelectTrigger className="h-8 bg-white">
+                  <SelectValue placeholder="All Vendors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Vendors</SelectItem>
+                  {getUniqueValues("vendorName").map((vendor) => (
+                    <SelectItem key={vendor} value={vendor}>
+                      {vendor}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                size="sm"
+                value={filters.rawMaterialName}
+                onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
+              >
+                <SelectTrigger className="h-8 bg-white">
+                  <SelectValue placeholder="All Materials" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Materials</SelectItem>
+                  {getUniqueValues("rawMaterialName").map((material) => (
+                    <SelectItem key={material} value={material}>
+                      {material}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select size="sm" value={filters.typeOfIndent} onValueChange={(value) => handleFilterChange("typeOfIndent", value)}>
+                <SelectTrigger className="h-8 bg-white">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {getUniqueValues("typeOfIndent").map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select size="sm" value={filters.approvedQty} onValueChange={(value) => handleFilterChange("approvedQty", value)}>
+                <SelectTrigger className="h-8 bg-white">
+                  <SelectValue placeholder="All Quantities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Quantities</SelectItem>
+                  {getUniqueValues("approvedQty").map((qty) => (
+                    <SelectItem key={qty} value={qty}>
+                      {qty}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                size="sm"
+                value={filters.deliveryOrderNo}
+                onValueChange={(value) => handleFilterChange("deliveryOrderNo", value)}
+              >
+                <SelectTrigger className="h-8 bg-white">
+                  <SelectValue placeholder="All Orders" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Orders</SelectItem>
+                  {getUniqueValues("deliveryOrderNo").map((order) => (
+                    <SelectItem key={order} value={order}>
+                      {order}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Card className="shadow-none border flex-1 flex flex-col">
+            <CardHeader className="py-3 px-4 border-b">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center text-base">
+                    Pending Payment Entries ({pendingEntries.length})
+                  </CardTitle>
+                  <CardDescription className="mt-1 text-xs">
+                    Entries with Planned 4 date but no Actual 4 date.
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  {someSelected && (
+                    <Button 
+                      onClick={handleSubmitSelected}
+                      disabled={Object.values(processingEntries).some(v => v)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {Object.values(processingEntries).some(v => v) ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Submit Selected ({Object.values(selectedEntries).filter(v => v).length})
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <ColumnVisibilityToggle />
                 </div>
               </div>
-            </>
-          )}
-        </div>
-        
-        <button
-          onClick={fetchData}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
-        >
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </button>
-      </div>
-    </div>
-  </div>
-  <div className="px-6 py-3">
-    <p className="text-sm text-gray-500">
-      Showing {accountsData.length} records ready for filing
-    </p>
-  </div>
-</div>
-
-
-       {/* Data Table */}
-<div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-  <div className="overflow-x-auto">
-    <table className="w-full">
-      <thead className="bg-gray-50 border-b border-gray-200">
-  <tr>
-    {visibleColumns.timestamp && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>}
-    {visibleColumns.liftNumber && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lift Number</th>}
-    {visibleColumns.type && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>}
-    {visibleColumns.billNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill No.</th>}
-    {visibleColumns.partyName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party Name</th>}
-    {visibleColumns.productName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>}
-    {visibleColumns.qty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>}
-    {visibleColumns.areaLifting && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area Lifting</th>}
-    {visibleColumns.truckNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck No.</th>}
-    {visibleColumns.transporterName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transporter Name</th>}
-    {visibleColumns.billImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Image</th>}
-    {visibleColumns.biltyNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty No.</th>}
-    {visibleColumns.typeOfRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type Of Rate</th>}
-    {visibleColumns.rate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>}
-    {visibleColumns.truckQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck Qty</th>}
-    {visibleColumns.biltyImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty Image</th>}
-    {visibleColumns.qtyDifferenceStatus && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Difference Status</th>}
-    {visibleColumns.differenceQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Difference Qty</th>}
-    {visibleColumns.weightSlip && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight Slip</th>}
-    {visibleColumns.totalFreight && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Freight</th>}
-    {visibleColumns.status && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>}
-    {visibleColumns.remarks && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>}
-    {visibleColumns.actions && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
-  </tr>
-</thead>
-
-      <tbody className="bg-white divide-y divide-gray-200">
-        {accountsData.length === 0 ? (
-          <tr>
-  <td colSpan={Object.values(visibleColumns).filter(Boolean).length} className="px-6 py-12 text-center text-gray-500">
-    <div className="flex flex-col items-center">
-      <p className="text-lg font-medium mb-2">No records available</p>
-      <p className="text-sm">All bills have been filed or no data is available.</p>
-    </div>
-  </td>
-</tr>
-        ) : (
-          accountsData.map((row, index) => (
-  <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-    {visibleColumns.timestamp && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.timestamp || '-'}</td>}
-    {visibleColumns.liftNumber && <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.liftNumber || '-'}</td>}
-    {visibleColumns.type && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.type || '-'}</td>}
-    {visibleColumns.billNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.billNo || '-'}</td>}
-    {visibleColumns.partyName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.partyName || '-'}</td>}
-    {visibleColumns.productName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.productName || '-'}</td>}
-    {visibleColumns.qty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qty || '-'}</td>}
-    {visibleColumns.areaLifting && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.areaLifting || '-'}</td>}
-    {visibleColumns.truckNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.truckNo || '-'}</td>}
-    {visibleColumns.transporterName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.transporterName || '-'}</td>}
-    {visibleColumns.billImage && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.billImage ? (<a href={row.billImage} target='_blank' rel='noopener norefferer'><Image size={20} /></a>) : ("-")}</td>}
-    {visibleColumns.biltyNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.biltyNo || '-'}</td>}
-    {visibleColumns.typeOfRate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.typeOfRate || '-'}</td>}
-    {visibleColumns.rate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.rate || '-'}</td>}
-    {visibleColumns.truckQty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.truckQty || '-'}</td>}
-    {visibleColumns.biltyImage && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.biltyImage ? (<a href={row.biltyImage} target='_blank' rel='noopener norefferer'><Image size={20} /></a>) : ("-")}</td>}
-    {visibleColumns.qtyDifferenceStatus && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qtyDifferenceStatus || '-'}</td>}
-    {visibleColumns.differenceQty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.differenceQty || '-'}</td>}
-    {visibleColumns.weightSlip && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.weightSlip ? (<a href={row.weightSlip} target='_blank' rel='noopener norefferer'><Image size={20} /></a>) : ("-")}</td>}
-    {visibleColumns.totalFreight && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.totalFreight || '-'}</td>}
-    {visibleColumns.status && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.status || '-'}</td>}
-    {visibleColumns.remarks && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.remarks || '-'}</td>}
-    {visibleColumns.actions && (
-      <td className="px-6 py-4 whitespace-nowrap">
-        <button
-          onClick={() => {
-            setEditingRow(row.id);
-            initializeFormData(row.id);
-          }}
-          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
-        >
-          <Edit2 className="w-4 h-4 mr-2" />
-          Add Entry
-        </button>
-      </td>
-    )}
-  </tr>
-))
-        )}
-      </tbody>
-    </table>
-  </div>
-</div>
-      </div>
+            </CardHeader>
+            <CardContent className="p-0 flex-1 overflow-hidden">
+              {loading && pendingEntries.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-purple-600" /> Loading...
+                </div>
+              ) : error && pendingEntries.length === 0 ? (
+                <div className="m-4 p-6 flex flex-1 flex-col items-center justify-center text-center bg-destructive/10 border border-dashed border-destructive rounded-lg">
+                  <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
+                  <p className="font-semibold text-destructive">Error Loading Data</p>
+                  <p className="text-sm text-muted-foreground max-w-md mt-1">{error}</p>
+                </div>
+              ) : pendingEntries.length === 0 ? (
+                <div className="m-4 p-6 flex flex-1 flex-col items-center justify-center text-center bg-secondary/50 border border-dashed rounded-lg">
+                  <Info className="h-10 w-10 text-purple-600 mb-3" />
+                  <p className="font-semibold">No Payment Pending Entries</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    No entries require payment updates.
+                    {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                      <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
+                    )}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-auto h-full">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
+                      <TableRow>
+                        {visibleColumns.map((col) => (
+                          <TableHead 
+                            key={col.dataKey} 
+                            className={col.dataKey === "selectAction" || col.dataKey === "paymentAction" ? "w-[120px] text-center" : ""}
+                          >
+                            {col.dataKey === "selectAction" ? (
+                              <Checkbox
+                                checked={allSelected}
+                                onCheckedChange={handleSelectAll}
+                              />
+                            ) : (
+                              col.header
+                            )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pendingEntries.map((entry) => (
+                        <TableRow key={entry._id} className="hover:bg-muted/50">
+                          {visibleColumns.map((col) => (
+                            <TableCell key={col.dataKey} className="py-2.5 px-3 text-xs">
+                              {col.dataKey === "selectAction" ? (
+                                <div className="flex justify-center items-center">
+                                  {processingEntries[entry._id] ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                                  ) : (
+                                    <Checkbox
+                                      checked={!!selectedEntries[entry._id]}
+                                      onCheckedChange={(checked) => handleSelectEntry(entry._id, checked)}
+                                    />
+                                  )}
+                                </div>
+                              ) : col.dataKey === "paymentAction" ? (
+                                <div className="flex justify-center items-center">
+                                  {entry.paymentLink && entry.paymentLink.trim() !== "" && entry.paymentLink !== "-" ? (
+                                    <Button
+                                      size="sm"
+                                      className="bg-green-600 hover:bg-green-700 text-white text-xs h-8"
+                                      onClick={() => {
+                                        const link = entry.paymentLink.startsWith("http") 
+                                          ? entry.paymentLink 
+                                          : `https://${entry.paymentLink}`;
+                                        window.open(link, "_blank");
+                                      }}
+                                    >
+                                      <ExternalLink className="h-3 w-3 mr-1" />
+                                      Make Payment
+                                    </Button>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">No Link</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span title={typeof entry[col.dataKey] === "string" ? entry[col.dataKey] : ""}>
+                                  {renderCellContent(entry[col.dataKey], { isLink: col.isLink, linkText: col.linkText })}
+                                </span>
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default OriginalBillsFiledPage;
+}

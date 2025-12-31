@@ -43,6 +43,7 @@ const ColumnIndices = {
   APPROVED_QTY: 14,
   PLANNED: 17,
   PO_COPY_LINK: 25,
+  ADVANCE_AMOUNT: 27,
   DELIVERY_ORDER_NO: 36,
   TALLY_ENTRY_TIMESTAMP: 37,
 };
@@ -97,6 +98,7 @@ const baseColumns = [
   { header: "Vendor", dataKey: "vendorName", toggleable: true },
   { header: "Material Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
+  { header: "Advance Amount", dataKey: "advanceAmount", toggleable: true }, // ADD THIS LINE
   { header: "Indent Type", dataKey: "typeOfIndent", toggleable: true },
   { header: "PO Copy", dataKey: "poCopyLink", toggleable: true, isLink: true, linkText: "View PO" },
   { header: "Notes", dataKey: "notes", toggleable: true },
@@ -169,6 +171,7 @@ export default function TallyEntry() {
             vendorName: String(getCell(ColumnIndices.VENDOR_NAME)),
             rawMaterialName: String(getCell(ColumnIndices.RAW_MATERIAL_NAME)),
             approvedQty: String(getCell(ColumnIndices.APPROVED_QTY)),
+            advanceAmount: String(getCell(ColumnIndices.ADVANCE_AMOUNT)), // ADD THIS LINE
             typeOfIndent: String(getCell(ColumnIndices.TYPE_OF_INDENT)),
             poCopyLink: String(getCell(ColumnIndices.PO_COPY_LINK)),
             notes: String(getCell(ColumnIndices.NOTES)),
