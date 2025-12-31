@@ -370,6 +370,9 @@ export default function MismatchAnalysis() {
   const [visibleRateMismatchColumns, setVisibleRateMismatchColumns] = useState({});
   const [visibleQuantityMismatchColumns, setVisibleQuantityMismatchColumns] = useState({});
   const [visibleMaterialMismatchColumns, setVisibleMaterialMismatchColumns] = useState({});
+  const [mismatchSheetData, setMismatchSheetData] = useState([]);
+const [loadingMismatch, setLoadingMismatch] = useState(false);
+
   const [filters, setFilters] = useState({
     vendorName: "all",
     materialName: "all",
@@ -382,6 +385,39 @@ export default function MismatchAnalysis() {
   const [formData, setFormData] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submittedRows, setSubmittedRows] = useState(new Set());
+  const fetchMismatchSheetData = useCallback(async () => {
+  setLoadingMismatch(true);
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Mismatch`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch Mismatch sheet: ${response.status}`);
+    
+    const text = await response.text();
+    const jsonStart = text.indexOf("{");
+    const jsonEnd = text.lastIndexOf("}");
+    const jsonString = text.substring(jsonStart, jsonEnd + 1);
+    const data = JSON.parse(jsonString);
+
+    let processedRows = [];
+    if (data.table && data.table.cols && data.table.rows) {
+      processedRows = (data.table.rows || [])
+        .slice(1) // Skip header row
+        .filter(row => row.c && row.c[2] && row.c[2].v) // Column C (Indent Number)
+        .map(row => ({
+          indentNo: String(row.c[2]?.v || "").trim(), // Column C: Indent Number
+          liftId: String(row.c[1]?.v || "").trim(), // Column B: Lift ID
+          timestamp: String(row.c[0]?.v || "").trim(), // Column A: Timestamp
+        }));
+    }
+
+    setMismatchSheetData(processedRows);
+  } catch (error) {
+    console.error("Failed to load Mismatch sheet:", error);
+    setMismatchSheetData([]);
+  } finally {
+    setLoadingMismatch(false);
+  }
+}, []);
 
   // Initialize column visibility
   useEffect(() => {
@@ -929,46 +965,55 @@ poWhenToBePaid: formatDateString(String(row.col28 || "").trim()) || String(row.c
     fetchLiftAccountsData();
     fetchPurchaseOrdersData();
     fetchTLData();
-  }, [fetchLiftAccountsData, fetchPurchaseOrdersData, fetchTLData]);
+    fetchMismatchSheetData(); // Add this line
+
+  }, [fetchLiftAccountsData, fetchPurchaseOrdersData, fetchTLData,fetchMismatchSheetData]);
 
   // Calculate mismatch data (keeping existing calculations unchanged)
-  const rateMismatchData = useMemo(() => {
-    return liftAccountsData
-      .map((lift) => {
-        const liftMaterialRate = parseFloat(lift.materialRate) || 0;
-        const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
-        const poRate = parseFloat(correspondingPO?.poRate) || 0;
-        
-        if (Math.abs(liftMaterialRate - poRate) >= 0.01 && liftMaterialRate > 0 && poRate > 0) {
-          return {
-            ...lift,
-            // Add PO data to the lift object
-            ...(correspondingPO || {}),
-            poRate: poRate.toFixed(2),
-            rateDifference: (liftMaterialRate - poRate).toFixed(2),
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-  }, [liftAccountsData, purchaseOrdersData]);
+ // Helper function to check if an indent number exists in Mismatch sheet
+const isIndentSubmitted = (indentNo) => {
+  return mismatchSheetData.some(mismatchRow => 
+    mismatchRow.indentNo && 
+    indentNo && 
+    String(mismatchRow.indentNo).trim() === String(indentNo).trim()
+  );
+};
 
-  const quantityMismatchData = useMemo(() => {
+const rateMismatchData = useMemo(() => {
   return liftAccountsData
+    .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
+    .map((lift) => {
+      const liftMaterialRate = parseFloat(lift.materialRate) || 0;
+      const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
+      const poRate = parseFloat(correspondingPO?.poRate) || 0;
+      
+      if (Math.abs(liftMaterialRate - poRate) >= 0.01 && liftMaterialRate > 0 && poRate > 0) {
+        return {
+          ...lift,
+          ...(correspondingPO || {}),
+          poRate: poRate.toFixed(2),
+          rateDifference: (liftMaterialRate - poRate).toFixed(2),
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}, [liftAccountsData, purchaseOrdersData, mismatchSheetData]);
+
+const quantityMismatchData = useMemo(() => {
+  return liftAccountsData
+    .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
     .map((lift) => {
       const liftedQty = parseFloat(lift.liftedQty) || 0;
       const actualQuantityY = parseFloat(lift.actualQuantityY) || 0;
       
-      // ALWAYS find corresponding PO data
       const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
       
-      // Create base object with lift data and PO data
       const rowData = {
         ...lift,
-        ...(correspondingPO || {}),  // Merge PO data even if no mismatch
+        ...(correspondingPO || {}),
       };
       
-      // Check for mismatch
       if (Math.abs(liftedQty - actualQuantityY) >= 0.01 && liftedQty > 0 && actualQuantityY > 0) {
         return {
           ...rowData,
@@ -978,53 +1023,50 @@ poWhenToBePaid: formatDateString(String(row.col28 || "").trim()) || String(row.c
       return null;
     })
     .filter(Boolean);
-}, [liftAccountsData, purchaseOrdersData]);
+}, [liftAccountsData, purchaseOrdersData, mismatchSheetData]);
 
+const materialMismatchData = useMemo(() => {
+  return liftAccountsData
+    .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
+    .map((lift) => {
+      const correspondingTL = tlData.find(tl => 
+        tl.rawMaterial && lift.material && 
+        tl.rawMaterial.toLowerCase().trim() === lift.material.toLowerCase().trim()
+      );
+      
+      if (!correspondingTL) return null;
 
-  const materialMismatchData = useMemo(() => {
-    return liftAccountsData
-      .map((lift) => {
-        const correspondingTL = tlData.find(tl => 
-          tl.rawMaterial && lift.material && 
-          tl.rawMaterial.toLowerCase().trim() === lift.material.toLowerCase().trim()
-        );
-        
-        if (!correspondingTL) return null;
+      const tlAlumina = parseFloat(correspondingTL.alumina) || 0;
+      const liftAlumina = parseFloat(lift.liftAlumina) || 0;
+      const tlIron = parseFloat(correspondingTL.iron) || 0;
+      const liftIron = parseFloat(lift.liftIron) || 0;
+      const tlAP = parseFloat(correspondingTL.ap) || 0;
+      const liftAP = parseFloat(lift.liftAP) || 0;
 
-        const tlAlumina = parseFloat(correspondingTL.alumina) || 0;
-        const liftAlumina = parseFloat(lift.liftAlumina) || 0;
-        const tlIron = parseFloat(correspondingTL.iron) || 0;
-        const liftIron = parseFloat(lift.liftIron) || 0;
-        const tlAP = parseFloat(correspondingTL.ap) || 0;
-        const liftAP = parseFloat(lift.liftAP) || 0;
+      const aluminaMismatch = Math.abs(tlAlumina - liftAlumina) >= 0.01;
+      const ironMismatch = Math.abs(tlIron - liftIron) >= 0.01;
+      const apMismatch = Math.abs(tlAP - liftAP) >= 0.01;
 
-        const aluminaMismatch = Math.abs(tlAlumina - liftAlumina) >= 0.01;
-        const ironMismatch = Math.abs(tlIron - liftIron) >= 0.01;
-        const apMismatch = Math.abs(tlAP - liftAP) >= 0.01;
-
-        if ((aluminaMismatch || ironMismatch || apMismatch) && 
-            (tlAlumina > 0 || liftAlumina > 0 || tlIron > 0 || liftIron > 0 || tlAP > 0 || liftAP > 0)) {
-          // Find corresponding PO data
-          const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
-          return {
-            ...lift,
-            // Add TL and PO data to the lift object
-            ...(correspondingPO || {}),
-            rawMaterial: lift.material,
-            tlRawMaterial: correspondingTL.rawMaterial,
-            tlAlumina: tlAlumina.toFixed(2),
-            tlIron: tlIron.toFixed(2),
-            tlAP: tlAP.toFixed(2),
-            aluminaDiff: (liftAlumina - tlAlumina).toFixed(2),
-            ironDiff: (liftIron - tlIron).toFixed(2),
-            apDiff: (liftAP - tlAP).toFixed(2),
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-  }, [liftAccountsData, tlData, purchaseOrdersData]);
-
+      if ((aluminaMismatch || ironMismatch || apMismatch) && 
+          (tlAlumina > 0 || liftAlumina > 0 || tlIron > 0 || liftIron > 0 || tlAP > 0 || liftAP > 0)) {
+        const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
+        return {
+          ...lift,
+          ...(correspondingPO || {}),
+          rawMaterial: lift.material,
+          tlRawMaterial: correspondingTL.rawMaterial,
+          tlAlumina: tlAlumina.toFixed(2),
+          tlIron: tlIron.toFixed(2),
+          tlAP: tlAP.toFixed(2),
+          aluminaDiff: (liftAlumina - tlAlumina).toFixed(2),
+          ironDiff: (liftIron - tlIron).toFixed(2),
+          apDiff: (liftAP - tlAP).toFixed(2),
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}, [liftAccountsData, tlData, purchaseOrdersData, mismatchSheetData]);
   // Filter options (keeping existing logic unchanged)
   const uniqueFilterOptions = useMemo(() => {
     const vendors = new Set();

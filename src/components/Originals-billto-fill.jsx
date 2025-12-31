@@ -104,8 +104,6 @@ const columns = [
   { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
   { header: "Advance Amount", dataKey: "advanceAmount", toggleable: true },
   { header: "Indent Type", dataKey: "typeOfIndent", toggleable: true },
-  { header: "Planned 4", dataKey: "planned4", toggleable: true },
-  { header: "Actual 4", dataKey: "actual4", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
   { header: "PO Copy", dataKey: "poCopyLink", toggleable: true, isLink: true, linkText: "View PO" },
   { header: "Notes", dataKey: "notes", toggleable: true },
