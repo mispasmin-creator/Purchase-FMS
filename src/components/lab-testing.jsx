@@ -32,11 +32,11 @@ import { MixerHorizontalIcon } from "@radix-ui/react-icons"
 import { AuthContext } from "../context/AuthContext"
 
 // --- Constants for Google Sheets and Apps Script ---
-const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ"
+const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
 const LIFTS_SHEET_NAME = "LIFT-ACCOUNTS"
 const INDENT_SHEET_NAME = "INDENT-PO"
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec"
+  "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec"
 const DATA_START_ROW_LIFTS = 6
 
 // ---- Column Indices for LIFT-ACCOUNTS (0-based) ----

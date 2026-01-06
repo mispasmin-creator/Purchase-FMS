@@ -35,7 +35,7 @@ const [columnVisibility, setColumnVisibility] = useState({
   actions: true
 });
 
-  const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+  const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
   const SHEET_NAME = "ACCOUNTS";
 
   // Updated date format function to handle Date(year,month,day,hour,minute,second) format
@@ -155,7 +155,7 @@ const [columnVisibility, setColumnVisibility] = useState({
     setSubmitting(true);
 
     try {
-      const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec';
+      const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec';
       
       const currentDate = new Date();
       const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");

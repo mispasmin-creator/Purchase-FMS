@@ -57,13 +57,13 @@ function formatTimestamp(timestampStr) {
   })
 }
 
-const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ"
-const DRIVE_FOLDER_ID = "1gvF8u9ZI1Cd0Ajsm4dXHVFOcp2v1GLCQ"; // Your actual folder ID
+const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
+const DRIVE_FOLDER_ID = "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7"; // Your actual folder ID
 const INDENT_PO_SHEET = "INDENT-PO"
 const LIFT_ACCOUNTS_SHEET = "LIFT-ACCOUNTS"
 const MASTER_SHEET_NAME = "Master"
 const API_URL =
-  "https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec"
+  "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec"
 
 const DATA_START_ROW = 7; // Corrected the start row
 

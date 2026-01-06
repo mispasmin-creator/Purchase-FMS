@@ -19,10 +19,10 @@ import { toast } from "sonner";
 import { AuthContext } from "../context/AuthContext";
 
 // Constants
-const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const INDENT_PO_SHEET = "INDENT-PO";
 const DATA_START_ROW = 6; // FIX: Corrected from 7 to 5 to fix 2-row offset
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
 
 // Column mappings
 const COL_INDENT_ID = 1;
@@ -432,7 +432,7 @@ useEffect(() => {
     params.append("fileName", file.name);
     params.append("mimeType", file.type);
     params.append("base64Data", base64Data);
-    params.append("folderId", "1stVz__roPfr5SBqKqfU_GPlxjJkYmsey");
+    params.append("folderId", "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7");
 
     console.log("Sending upload request...");
     

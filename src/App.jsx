@@ -449,7 +449,7 @@ export default App;
 // Placeholder functions for notification counts - You need to implement these based on your Google Sheets data
 async function getPendingStockApprovals() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "INDENT-PO";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -499,7 +499,7 @@ async function getPendingStockApprovals() {
 
 async function getPendingPOs() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "INDENT-PO";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -552,7 +552,7 @@ async function getPendingPOs() {
 
 async function getPendingTallyEntries() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "INDENT-PO";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -615,7 +615,7 @@ async function getPendingTallyEntries() {
 
 async function getPendingLifts() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "INDENT-PO";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -681,7 +681,7 @@ async function getPendingLifts() {
 
 async function getPendingReceipts() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "LIFT-ACCOUNTS";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -746,7 +746,7 @@ async function getPendingReceipts() {
 
 async function getPendingLabTests() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "LIFT-ACCOUNTS";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -808,7 +808,7 @@ async function getPendingLabTests() {
 
 async function getPendingRectifications() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "ACCOUNTS";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -878,7 +878,7 @@ async function getPendingRectifications() {
 
 async function getPendingAudits() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "ACCOUNTS";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -957,7 +957,7 @@ async function getPendingAudits() {
 
 async function getPendingTallyEntries2() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "ACCOUNTS";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -1031,7 +1031,7 @@ async function getPendingTallyEntries2() {
 
 async function getPendingOriginalBills() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "INDENT-PO";
     
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
@@ -1124,7 +1124,7 @@ async function getPendingOriginalBills() {
 }
 async function getPendingBilties() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "LIFT-ACCOUNTS";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,
@@ -1212,7 +1212,7 @@ async function getPendingMismatches() {
 
 // Helper function to fetch LIFT-ACCOUNTS data
 async function getLiftAccountsData() {
-  const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+  const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
   const LIFT_ACCOUNTS_SHEET = "LIFT-ACCOUNTS";
   
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(LIFT_ACCOUNTS_SHEET)}&cb=${new Date().getTime()}`;
@@ -1262,7 +1262,7 @@ async function getLiftAccountsData() {
 
 // Helper function to fetch INDENT-PO data
 async function getPurchaseOrdersData() {
-  const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+  const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
   const INDENT_PO_SHEET = "INDENT-PO";
   
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INDENT_PO_SHEET)}`;
@@ -1301,7 +1301,7 @@ async function getPurchaseOrdersData() {
 
 // Helper function to fetch TL data
 async function getTLData() {
-  const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+  const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
   const TL_SHEET = "TL";
   
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(TL_SHEET)}&cb=${new Date().getTime()}`;
@@ -1442,7 +1442,7 @@ async function getMismatchBreakdown() {
 }
 async function getPendingFullkitting() {
   try {
-    const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+    const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
     const sheetName = "Freight full kittingg";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
       sheetName,

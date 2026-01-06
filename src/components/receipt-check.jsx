@@ -29,9 +29,9 @@ import { AuthContext } from "../context/AuthContext"; // Import AuthContext
 import { toast } from "sonner";
 
 // Constants for Google Sheets and Apps Script
-const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const LIFTS_SHEET_NAME = "LIFT-ACCOUNTS";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
 const DATA_START_ROW_LIFTS = 6; // FIX: Corrected from 7 to 6
 
 // Column Indices for LIFT-ACCOUNTS (0-based) - R is 17
@@ -428,7 +428,7 @@ export default function ReceiptCheck() {
     return Object.keys(newErrors).length === 0;
   };
   
-  const uploadFileToDrive = async (file, folderId = "1g0Tx2uULt8EmMWtS6VjsrM-6IOvc4Jwk") => {
+  const uploadFileToDrive = async (file, folderId = "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7") => {
     if (!file) return "";
     const base64Data = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -462,7 +462,7 @@ export default function ReceiptCheck() {
     toast.loading("Submitting receipt details...", { id: "receipt-submit" });
   
     try {
-      const receiptFolderId = "1Jt4wd7KLTSXeypkO8ODLOzHPkhmaZCBX";
+      const receiptFolderId = "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7";
       let physicalImageUrl = formData.physicalImageUrl || "";
       if (formData.physicalImageFile) {
         physicalImageUrl = await uploadFileToDrive(formData.physicalImageFile, receiptFolderId);

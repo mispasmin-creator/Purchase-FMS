@@ -116,13 +116,13 @@ export default function StockApproval() {
   const [allColumnsMeta, setAllColumnsMeta] = useState([])
 
   // Google Sheet Details
-  const sheetId = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ"
+  const sheetId = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
   const sheetName = "INDENT-PO"
   // FIX: The offset to convert the GVIZ API row index to the absolute sheet row number.
   // This is corrected from 7 to 5 because the API response includes two extra rows from the top of the sheet before the main headers.
   const dataStartRow = 6
   const scriptUrl =
-    "https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec"
+    "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec"
 
   // --- Fetch Data and Initialize Column Meta/Visibility ---
   useEffect(() => {

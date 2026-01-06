@@ -21,10 +21,10 @@ import { toast } from "sonner";
 import { AuthContext } from "../context/AuthContext";
 
 // --- Constants ---
-const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const LIFT_ACCOUNTS_SHEET = "LIFT-ACCOUNTS";
-const API_URL = "https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec";
-const BILTY_IMAGE_FOLDER_ID = "1P1JV_WJLm7Zl0hziPNzzkrAwwKaH94nW"; // Folder for Bilty images
+const API_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
+const BILTY_IMAGE_FOLDER_ID = "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7"; // Folder for Bilty images
 const DATA_START_ROW_LIFTS = 6;
 
 // --- Column Indices (0-based) from 'Copy of LIFT-ACCOUNTS' sheet ---

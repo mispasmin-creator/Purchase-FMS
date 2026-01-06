@@ -32,7 +32,7 @@ import { AuthContext } from "../context/AuthContext";
 import { toast } from "sonner";
 
 // Constants
-const SHEET_ID = "1NUxf4pnQ-CtCFUjA5rqLgYEJiU77wQlwVyimjt8RmFQ";
+const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const LIFT_ACCOUNTS_SHEET = "LIFT-ACCOUNTS";
 const INDENT_PO_SHEET = "INDENT-PO";
 const TL_SHEET = "TL";
@@ -521,7 +521,7 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
     setSubmitting(true);
 
     try {
-      const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzj9zlZTEhdlmaMt78Qy3kpkz7aOfVKVBRuJkd3wv_UERNrIRCaepSULpNa7W1g-pw/exec';
+      const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec';
       
       const currentDate = new Date();
       const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
