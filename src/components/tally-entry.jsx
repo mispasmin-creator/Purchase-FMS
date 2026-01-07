@@ -21,14 +21,17 @@ import {
   LinkIcon,
   History,
   Filter,
+  ChevronsUpDown ,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
+import { Input } from "@/components/ui/input";
+
 
 // Constants
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const SHEET_NAME = "INDENT-PO";
-const DATA_START_ROW = 6; // Ensure this is the correct starting row
+const DATA_START_ROW = 7; // Ensure this is the correct starting row
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
 
 // Column indices from Google Sheet
@@ -44,7 +47,7 @@ const ColumnIndices = {
   PLANNED: 17,
   PO_COPY_LINK: 25,
   ADVANCE_AMOUNT: 27,
-  DELIVERY_ORDER_NO: 36,
+  DELIVERY_ORDER_NO: 9,
   TALLY_ENTRY_TIMESTAMP: 37,
 };
 
@@ -52,6 +55,84 @@ const ColumnIndices = {
 const cleanIndentId = (indentId) => {
   if (!indentId) return "";
   return String(indentId).replace(/[^a-zA-Z0-9-]/g, "");
+};
+
+// Simple SearchableSelect Component
+const SearchableSelect = ({ 
+  value, 
+  onValueChange, 
+  options, 
+  placeholder, 
+  className 
+}) => {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredOptions = options.filter(option =>
+    option.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className={`w-full justify-between h-9 bg-white text-xs ${className}`}
+      >
+        {value === "all" || !value ? `All ${placeholder}` : value}
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+      
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="sticky top-0 bg-white p-2 border-b">
+            <Input
+              type="text"
+              placeholder={`Search ${placeholder.toLowerCase()}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-7 text-xs"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="py-1">
+            <div
+              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+              onClick={() => {
+                onValueChange("all");
+                setOpen(false);
+                setSearchTerm("");
+              }}
+            >
+              All {placeholder}
+            </div>
+            {filteredOptions.map((option, index) => (
+              <div
+                key={`${option}-${index}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                onClick={() => {
+                  onValueChange(option);
+                  setOpen(false);
+                  setSearchTerm("");
+                }}
+              >
+                {option}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
 };
 
 const formatSheetDateString = (dateValue) => {
@@ -93,7 +174,6 @@ const formatSheetDateString = (dateValue) => {
 const baseColumns = [
   { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
-  { header: "PO Number", dataKey: "poNumber", toggleable: true, alwaysVisible: true },
   { header: "Delivery Order No.", dataKey: "deliveryOrderNo", toggleable: true },
   { header: "Vendor", dataKey: "vendorName", toggleable: true },
   { header: "Material Name", dataKey: "rawMaterialName", toggleable: true },
@@ -139,65 +219,83 @@ export default function TallyEntry() {
   );
 
   const fetchSheetData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
-        SHEET_NAME
-      )}&t=${new Date().getTime()}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
-      const text = await response.text();
-      const jsonString = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
-      const data = JSON.parse(jsonString);
-      if (data.status === "error") {
-        throw new Error(data.errors.map((e) => e.detailed_message).join(", "));
-      }
-      let parsedData = (data.table.rows || [])
-        .map((row, index) => {
-          const rowData = {
-            _rowIndex: index + DATA_START_ROW, // Ensure this is correct
-            rawCells: row.c.map((cell) => (cell ? cell.f ?? cell.v : null)),
-          };
-          console.log(`Row index calculated: ${rowData._rowIndex}`); // Log the calculated row index
-          const getCell = (colIdx) => rowData.rawCells[colIdx] || "";
-          return {
-            ...rowData,
-            _id: `${SHEET_NAME}-${rowData._rowIndex}-${getCell(ColumnIndices.INDENT_ID)}`,
-            indentId: cleanIndentId(getCell(ColumnIndices.INDENT_ID)),
-            firmName: String(getCell(ColumnIndices.FIRM_NAME)),
-            poNumber: String(getCell(ColumnIndices.PO_NUMBER)),
-            deliveryOrderNo: String(getCell(ColumnIndices.DELIVERY_ORDER_NO)),
-            vendorName: String(getCell(ColumnIndices.VENDOR_NAME)),
-            rawMaterialName: String(getCell(ColumnIndices.RAW_MATERIAL_NAME)),
-            approvedQty: String(getCell(ColumnIndices.APPROVED_QTY)),
-            advanceAmount: String(getCell(ColumnIndices.ADVANCE_AMOUNT)), // ADD THIS LINE
-            typeOfIndent: String(getCell(ColumnIndices.TYPE_OF_INDENT)),
-            poCopyLink: String(getCell(ColumnIndices.PO_COPY_LINK)),
-            notes: String(getCell(ColumnIndices.NOTES)),
-            planned: String(getCell(ColumnIndices.PLANNED)),
-            tallyEntryTimestamp: formatSheetDateString(getCell(ColumnIndices.TALLY_ENTRY_TIMESTAMP)),
-          };
-        })
-        .filter((row) => row.indentId);
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
-        parsedData = parsedData.filter(
-          (item) => (item.firmName || "").toLowerCase().trim() === userFirmNameLower
-        );
-      }
-      setSheetData(parsedData);
-    } catch (err) {
-      const errorMessage = `Failed to load data. ${err.message}`;
-      setError(errorMessage);
-      toast.error("Data Load Error", {
-        description: errorMessage,
-        icon: <XCircle className="h-4 w-4" />,
-      });
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  setError(null);
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
+      SHEET_NAME
+    )}&t=${new Date().getTime()}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+    const text = await response.text();
+    const jsonString = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
+    const data = JSON.parse(jsonString);
+    if (data.status === "error") {
+      throw new Error(data.errors.map((e) => e.detailed_message).join(", "));
     }
-  }, [refreshTrigger, user]);
+    
+    let parsedData = (data.table.rows || [])
+      .map((row, index) => {
+        // FIX: Calculate the correct Google Sheets row number
+        // Google Sheets rows start at 1, Google Visualization API returns data starting from row 2
+        // Since Google Visualization skips empty rows, we need to handle indexing differently
+        const googleSheetRowNumber = DATA_START_ROW + index -1;
+        
+        const rowData = {
+          _rowIndex: googleSheetRowNumber,
+          rawCells: row.c.map((cell) => (cell ? cell.f ?? cell.v : null)),
+        };
+        
+        console.log(`Row index calculated: ${rowData._rowIndex} for array index ${index}`);
+        
+        const getCell = (colIdx) => rowData.rawCells[colIdx] || "";
+        return {
+          ...rowData,
+          _id: `${SHEET_NAME}-${rowData._rowIndex}-${getCell(ColumnIndices.INDENT_ID)}`,
+          indentId: cleanIndentId(getCell(ColumnIndices.INDENT_ID)),
+          firmName: String(getCell(ColumnIndices.FIRM_NAME)),
+          poNumber: String(getCell(ColumnIndices.PO_NUMBER)),
+          deliveryOrderNo: String(getCell(ColumnIndices.DELIVERY_ORDER_NO)),
+          vendorName: String(getCell(ColumnIndices.VENDOR_NAME)),
+          rawMaterialName: String(getCell(ColumnIndices.RAW_MATERIAL_NAME)),
+          approvedQty: String(getCell(ColumnIndices.APPROVED_QTY)),
+          advanceAmount: String(getCell(ColumnIndices.ADVANCE_AMOUNT)),
+          typeOfIndent: String(getCell(ColumnIndices.TYPE_OF_INDENT)),
+          poCopyLink: String(getCell(ColumnIndices.PO_COPY_LINK)),
+          notes: String(getCell(ColumnIndices.NOTES)),
+          planned: String(getCell(ColumnIndices.PLANNED)),
+          tallyEntryTimestamp: formatSheetDateString(getCell(ColumnIndices.TALLY_ENTRY_TIMESTAMP)),
+        };
+      })
+      .filter((row) => row.indentId);
+    
+    // Debug: Log the first few rows to verify
+    if (parsedData.length > 0) {
+      console.log('First row details:', {
+        _rowIndex: parsedData[0]._rowIndex,
+        indentId: parsedData[0].indentId,
+        poNumber: parsedData[0].poNumber
+      });
+    }
+    
+    if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+      const userFirmNameLower = user.firmName.toLowerCase();
+      parsedData = parsedData.filter(
+        (item) => (item.firmName || "").toLowerCase().trim() === userFirmNameLower
+      );
+    }
+    setSheetData(parsedData);
+  } catch (err) {
+    const errorMessage = `Failed to load data. ${err.message}`;
+    setError(errorMessage);
+    toast.error("Data Load Error", {
+      description: errorMessage,
+      icon: <XCircle className="h-4 w-4" />,
+    });
+  } finally {
+    setLoading(false);
+  }
+}, [refreshTrigger, user]);
 
   useEffect(() => {
     fetchSheetData();
@@ -513,7 +611,7 @@ export default function TallyEntry() {
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
             <Calculator className="h-6 w-6 text-purple-600" />
-            Step 4: Purchase Order Entry In Tally
+            Step 4: Purchase Order Entry In Tally 
           </CardTitle>
           <CardDescription className="text-gray-500 mt-1 text-sm">
             Mark purchase orders as entered in the Tally accounting system.
@@ -532,90 +630,76 @@ export default function TallyEntry() {
                 <History className="h-4 w-4" /> History <Badge variant="secondary" className="ml-2">{completedEntries.length}</Badge>
               </TabsTrigger>
             </TabsList>
-            <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <Label className="text-sm font-medium">Filters</Label>
-                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-                  Clear All
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Select size="sm" value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Vendors" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Vendors</SelectItem>
-                    {getUniqueValues("vendorName").map((vendor) => (
-                      <SelectItem key={vendor} value={vendor}>
-                        {vendor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  size="sm"
-                  value={filters.rawMaterialName}
-                  onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
-                >
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Materials" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Materials</SelectItem>
-                    {getUniqueValues("rawMaterialName").map((material) => (
-                      <SelectItem key={material} value={material}>
-                        {material}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select size="sm" value={filters.typeOfIndent} onValueChange={(value) => handleFilterChange("typeOfIndent", value)}>
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {getUniqueValues("typeOfIndent").map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select size="sm" value={filters.approvedQty} onValueChange={(value) => handleFilterChange("approvedQty", value)}>
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Quantities" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Quantities</SelectItem>
-                    {getUniqueValues("approvedQty").map((qty) => (
-                      <SelectItem key={qty} value={qty}>
-                        {qty}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  size="sm"
-                  value={filters.deliveryOrderNo}
-                  onValueChange={(value) => handleFilterChange("deliveryOrderNo", value)}
-                >
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Orders" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Orders</SelectItem>
-                    {getUniqueValues("deliveryOrderNo").map((order) => (
-                      <SelectItem key={order} value={order}>
-                        {order}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+           <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+  <div className="flex items-center gap-2 mb-3">
+    <Filter className="h-4 w-4 text-gray-500" />
+    <Label className="text-sm font-medium">Filters</Label>
+    <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+      Clear All
+    </Button>
+  </div>
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    {/* Vendor Name Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Vendor Name</Label>
+      <SearchableSelect
+        value={filters.vendorName}
+        onValueChange={(value) => handleFilterChange("vendorName", value)}
+        options={["all", ...getUniqueValues("vendorName")]}
+        placeholder="Vendors"
+        className="h-9"
+      />
+    </div>
+
+    {/* Material Name Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Material Name</Label>
+      <SearchableSelect
+        value={filters.rawMaterialName}
+        onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
+        options={["all", ...getUniqueValues("rawMaterialName")]}
+        placeholder="Materials"
+        className="h-9"
+      />
+    </div>
+
+    {/* Type Of Indent Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Type Of Indent</Label>
+      <SearchableSelect
+        value={filters.typeOfIndent}
+        onValueChange={(value) => handleFilterChange("typeOfIndent", value)}
+        options={["all", ...getUniqueValues("typeOfIndent")]}
+        placeholder="Types"
+        className="h-9"
+      />
+    </div>
+
+    {/* Approved Quantity Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Approved Quantity</Label>
+      <SearchableSelect
+        value={filters.approvedQty}
+        onValueChange={(value) => handleFilterChange("approvedQty", value)}
+        options={["all", ...getUniqueValues("approvedQty")]}
+        placeholder="Quantities"
+        className="h-9"
+      />
+    </div>
+
+    {/* Delivery Order No Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Delivery Order No</Label>
+      <SearchableSelect
+        value={filters.deliveryOrderNo}
+        onValueChange={(value) => handleFilterChange("deliveryOrderNo", value)}
+        options={["all", ...getUniqueValues("deliveryOrderNo")]}
+        placeholder="Orders"
+        className="h-9"
+      />
+    </div>
+  </div>
+</div>
             <TabsContent value="approve" className="flex-1 mt-0">
               {renderTable("approve", pendingEntries, approveColumns, visibleApproveCols, setVisibleApproveCols)}
             </TabsContent>

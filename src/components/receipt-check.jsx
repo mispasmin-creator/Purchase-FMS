@@ -824,7 +824,7 @@ export default function ReceiptCheck() {
                 Total Bill Quantity <span className="text-red-500">*</span>
               </Label>
               <Input
-                type="number"
+                type="text"
                 step="any"
                 id="totalBillQuantity"
                 name="totalBillQuantity"
@@ -840,7 +840,7 @@ export default function ReceiptCheck() {
                 Actual Quantity Received<span className="text-red-500">*</span>
               </Label>
               <Input
-                type="number"
+                type="text"
                 step="any"
                 id="actualQuantity"
                 name="actualQuantity"
@@ -856,7 +856,7 @@ export default function ReceiptCheck() {
                 Weight Slip Qty<span className="text-red-500">*</span>
               </Label>
               <Input
-                type="number"
+                type="text"
                 step="any"
                 id="weightSlipQty"
                 name="weightSlipQty"
@@ -896,7 +896,7 @@ export default function ReceiptCheck() {
                 Moisture (%)<span className="text-red-500">*</span>
               </Label>
               <Input
-                type="number"
+                type="text"
                 step="any"
                 id="moisture"
                 name="moisture"

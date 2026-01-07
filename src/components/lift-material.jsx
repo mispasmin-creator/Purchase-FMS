@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useContext, useMemo } from "react"
-import { Truck, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Filter } from "lucide-react"
+import { Truck, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Filter,ChevronsUpDown  } from "lucide-react"
 import { MixerHorizontalIcon } from "@radix-ui/react-icons"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
@@ -71,7 +71,7 @@ const PO_COLUMNS_META = [
   { header: "Actions", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true, alwaysVisible: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
-  { header: "Party Name", dataKey: "vendorName", toggleable: true },
+  // { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Quantity", dataKey: "quantity", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
@@ -86,7 +86,7 @@ const LIFTS_COLUMNS_META = [
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
-  { header: "Party Name", dataKey: "vendorName", toggleable: true },
+  // { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "material", toggleable: true },
   { header: "PO Qty", dataKey: "quantity", toggleable: true },
   { header: "Lifted Qty", dataKey: "liftingQty", toggleable: true },
@@ -244,6 +244,84 @@ export default function LiftMaterial() {
       setMasterDataLoading(false)
     }
   }, [SHEET_ID, MASTER_SHEET_NAME])
+
+  // Simple SearchableSelect Component
+const SearchableSelect = ({ 
+  value, 
+  onValueChange, 
+  options, 
+  placeholder, 
+  className 
+}) => {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredOptions = options.filter(option =>
+    option.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className={`w-full justify-between h-9 bg-white text-xs ${className}`}
+      >
+        {value === "all" || !value ? `All ${placeholder}` : value}
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+      
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="sticky top-0 bg-white p-2 border-b">
+            <Input
+              type="text"
+              placeholder={`Search ${placeholder.toLowerCase()}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-7 text-xs"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="py-1">
+            <div
+              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+              onClick={() => {
+                onValueChange("all");
+                setOpen(false);
+                setSearchTerm("");
+              }}
+            >
+              All {placeholder}
+            </div>
+            {filteredOptions.map((option, index) => (
+              <div
+                key={`${option}-${index}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                onClick={() => {
+                  onValueChange(option);
+                  setOpen(false);
+                  setSearchTerm("");
+                }}
+              >
+                {option}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
+};
 
   const fetchPurchaseOrders = useCallback(async () => {
     setLoadingPOs(true)
@@ -1100,92 +1178,76 @@ if (!liftResult.success) {
               </TabsTrigger>
             </TabsList>
 
-            <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <Label className="text-sm font-medium">Filters</Label>
-                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-                  Clear All
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Select value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Vendors" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Vendors</SelectItem>
-                    {uniqueFilterOptions.vendorName.map((vendor) => (
-                      <SelectItem key={vendor} value={vendor}>
-                        {vendor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+  <div className="flex items-center gap-2 mb-3">
+    <Filter className="h-4 w-4 text-gray-500" />
+    <Label className="text-sm font-medium">Filters</Label>
+    <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+      Clear All
+    </Button>
+  </div>
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    {/* Vendor Name Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Vendor Name</Label>
+      <SearchableSelect
+        value={filters.vendorName}
+        onValueChange={(value) => handleFilterChange("vendorName", value)}
+        options={["all", ...uniqueFilterOptions.vendorName]}
+        placeholder="Vendors"
+        className="h-9"
+      />
+    </div>
 
-                <Select
-                  value={filters.materialName}
-                  onValueChange={(value) => handleFilterChange("materialName", value)}
-                >
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Materials" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Materials</SelectItem>
-                    {uniqueFilterOptions.materialName.map((material) => (
-                      <SelectItem key={material} value={material}>
-                        {material}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+    {/* Material Name Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Material Name</Label>
+      <SearchableSelect
+        value={filters.materialName}
+        onValueChange={(value) => handleFilterChange("materialName", value)}
+        options={["all", ...uniqueFilterOptions.materialName]}
+        placeholder="Materials"
+        className="h-9"
+      />
+    </div>
 
-                <Select value={filters.liftType} onValueChange={(value) => handleFilterChange("liftType", value)}>
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {typeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+    {/* Lift Type Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Lift Type</Label>
+      <SearchableSelect
+        value={filters.liftType}
+        onValueChange={(value) => handleFilterChange("liftType", value)}
+        options={["all", ...uniqueFilterOptions.liftType]}
+        placeholder="Types"
+        className="h-9"
+      />
+    </div>
 
-                <Select
-                  value={filters.totalQuantity}
-                  onValueChange={(value) => handleFilterChange("totalQuantity", value)}
-                >
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Quantities" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Quantities</SelectItem>
-                    {uniqueFilterOptions.totalQuantity.map((qty) => (
-                      <SelectItem key={qty} value={qty}>
-                        {qty}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+    {/* Total Quantity Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Total Quantity</Label>
+      <SearchableSelect
+        value={filters.totalQuantity}
+        onValueChange={(value) => handleFilterChange("totalQuantity", value)}
+        options={["all", ...uniqueFilterOptions.totalQuantity]}
+        placeholder="Quantities"
+        className="h-9"
+      />
+    </div>
 
-                <Select value={filters.orderNumber} onValueChange={(value) => handleFilterChange("orderNumber", value)}>
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Orders" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Orders</SelectItem>
-                    {uniqueFilterOptions.orderNumber.map((order) => (
-                      <SelectItem key={order} value={order}>
-                        {order}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+    {/* Order Number Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Order Number</Label>
+      <SearchableSelect
+        value={filters.orderNumber}
+        onValueChange={(value) => handleFilterChange("orderNumber", value)}
+        options={["all", ...uniqueFilterOptions.orderNumber]}
+        placeholder="Orders"
+        className="h-9"
+      />
+    </div>
+  </div>
+</div>
 
             <TabsContent value="availablePOs" className="flex-1 flex flex-col mt-0">
               <Card className="shadow-sm border border-border flex-1 flex-col">
@@ -1560,7 +1622,7 @@ if (!liftResult.success) {
                     {
                       label: "Lead Time (days for lifting)",
                       name: "liftingLeadTime",
-                      type: "number",
+                      type: "text",
                       isRequired: true,
                     },
                     { label: "Truck No.", name: "truckNo", type: "text", isRequired: true },
@@ -1579,19 +1641,19 @@ if (!liftResult.success) {
                       options: [{ value: "", label: "Select rate type" }, ...rateTypeOptions],
                       isRequired: true,
                     },
-                    { label: "Material Rate (INR)", name: "rate", type: "number", step: "any", isRequired: true },
-                    { label: "Transport Rate (INR)", name: "transportRate", type: "number", step: "any", isRequired: false }, // Changed to not required
+                    { label: "Material Rate (INR)", name: "rate", type: "text", step: "any", isRequired: true },
+                    { label: "Transport Rate (INR)", name: "transportRate", type: "text", step: "any", isRequired: false }, // Changed to not required
                     {
                       label: "Lifted Quantity (Units)",
                       name: "truckQty",
-                      type: "number",
+                      type: "text",
                       step: "any",
                       isRequired: true,
                     },
                     {
                       label: "Truck Quantity",
                       name: "additionalTruckQty",
-                      type: "number",
+                      type: "text",
                       step: "any",
                       isRequired: false,
                     },

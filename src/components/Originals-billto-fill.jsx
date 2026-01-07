@@ -9,6 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+
 import {
   Calculator,
   Loader2,
@@ -19,22 +21,21 @@ import {
   LinkIcon,
   Filter,
   ExternalLink,
+  ChevronsUpDown,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
 
-// Constants
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const SHEET_NAME = "INDENT-PO";
-const DATA_START_ROW = 6;
+const DATA_START_ROW = 7;
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
 
-// Column indices from Google Sheet
 const ColumnIndices = {
   INDENT_ID: 1,
   FIRM_NAME: 2,
   PO_NUMBER: 2,
-  VENDOR_NAME: 4,
+  VENDOR_NAME: 42,
   RAW_MATERIAL_NAME: 5,
   TYPE_OF_INDENT: 8,
   NOTES: 10,
@@ -46,14 +47,90 @@ const ColumnIndices = {
   ACTUAL_4: 44,
   STATUS: 45,
   PAYMENT_LINK: 46,
-  DELIVERY_ORDER_NO: 36,
+  DELIVERY_ORDER_NO: 9,
   TALLY_ENTRY_TIMESTAMP: 37,
 };
 
-// Helper Functions
 const cleanIndentId = (indentId) => {
   if (!indentId) return "";
   return String(indentId).replace(/[^a-zA-Z0-9-]/g, "");
+};
+
+const SearchableSelect = ({ 
+  value, 
+  onValueChange, 
+  options, 
+  placeholder, 
+  className 
+}) => {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredOptions = options.filter(option =>
+    option.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className={`w-full justify-between h-9 bg-white text-xs ${className}`}
+      >
+        {value === "all" || !value ? `All ${placeholder}` : value}
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+      
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="sticky top-0 bg-white p-2 border-b">
+            <Input
+              type="text"
+              placeholder={`Search ${placeholder.toLowerCase()}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-7 text-xs"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="py-1">
+            <div
+              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+              onClick={() => {
+                onValueChange("all");
+                setOpen(false);
+                setSearchTerm("");
+              }}
+            >
+              All {placeholder}
+            </div>
+            {filteredOptions.map((option, index) => (
+              <div
+                key={`${option}-${index}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                onClick={() => {
+                  onValueChange(option);
+                  setOpen(false);
+                  setSearchTerm("");
+                }}
+              >
+                {option}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
 };
 
 const formatSheetDateString = (dateValue) => {
@@ -91,26 +168,20 @@ const formatSheetDateString = (dateValue) => {
   }).format(dateObj);
 };
 
-// Column Definitions - Updated with Action column
 const columns = [
   { header: "Select", dataKey: "selectAction", toggleable: false, alwaysVisible: true },
   { header: "Action", dataKey: "paymentAction", toggleable: false, alwaysVisible: true },
   { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
-  { header: "PO Number", dataKey: "poNumber", toggleable: true, alwaysVisible: true },
   { header: "Delivery Order No.", dataKey: "deliveryOrderNo", toggleable: true },
   { header: "Vendor", dataKey: "vendorName", toggleable: true },
   { header: "Material Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
   { header: "Advance Amount", dataKey: "advanceAmount", toggleable: true },
-  { header: "Indent Type", dataKey: "typeOfIndent", toggleable: true },
-  { header: "Status", dataKey: "status", toggleable: true },
-  { header: "PO Copy", dataKey: "poCopyLink", toggleable: true, isLink: true, linkText: "View PO" },
   { header: "Notes", dataKey: "notes", toggleable: true },
   { header: "Planned", dataKey: "planned", toggleable: true },
 ];
 
-// React Component
 export default function TallyEntry() {
   const { user } = useContext(AuthContext);
   const [sheetData, setSheetData] = useState([]);
@@ -148,14 +219,12 @@ export default function TallyEntry() {
       let parsedData = (data.table.rows || [])
         .map((row, index) => {
           const rowData = {
-      _rowIndex: index + DATA_START_ROW - 1, // ✅ Add +1 here
+            _rowIndex: index + DATA_START_ROW - 1,
             rawCells: row.c.map((cell) => (cell ? cell.f ?? cell.v : null)),
           };
           const getCell = (colIdx) => rowData.rawCells[colIdx] || "";
           
-          // Debug log to verify row index
           const indentId = cleanIndentId(getCell(ColumnIndices.INDENT_ID));
-          console.log(`Mapping row: Index=${index}, _rowIndex=${rowData._rowIndex}, IndentID=${indentId}`);
           
           return {
             ...rowData,
@@ -224,11 +293,9 @@ export default function TallyEntry() {
     const pending = [];
 
     sheetData.forEach((row) => {
-      // Show entries where Planned 4 has value AND Actual 4 is empty
       const hasPlanned4 = row.planned4 && String(row.planned4).trim() !== "" && String(row.planned4).trim() !== "-";
       const hasActual4 = row.actual4 && String(row.actual4).trim() !== "" && String(row.actual4).trim() !== "-";
       
-      // Only show if Planned 4 exists but Actual 4 is empty
       if (hasPlanned4 && !hasActual4) {
         pending.push(row);
       }
@@ -247,8 +314,6 @@ export default function TallyEntry() {
       throw new Error("Cannot update: Entry row index is missing.");
     }
 
-    console.log(`Updating entry: IndentID=${entry.indentId}, PO=${entry.poNumber}, RowIndex=${entry._rowIndex}`);
-
     const timestamp = new Date().toLocaleString("en-GB", {
       day: "2-digit",
       month: "2-digit",
@@ -264,8 +329,6 @@ export default function TallyEntry() {
       [`col${ColumnIndices.STATUS + 1}`]: "OK",
     };
 
-    console.log(`Sending update for row ${entry._rowIndex}:`, cellUpdates);
-
     const params = new URLSearchParams({
       action: "updateCells",
       sheetName: SHEET_NAME,
@@ -280,8 +343,6 @@ export default function TallyEntry() {
     });
 
     const responseText = await response.text();
-    console.log(`Response for row ${entry._rowIndex}:`, responseText);
-    
     let result;
 
     try {
@@ -296,7 +357,6 @@ export default function TallyEntry() {
       throw new Error(result.message || result.error || "The script reported an unspecified failure.");
     }
 
-    console.log(`Successfully updated row ${entry._rowIndex}`);
     return result;
   };
 
@@ -465,7 +525,7 @@ export default function TallyEntry() {
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
             <Calculator className="h-6 w-6 text-purple-600" />
-            Purchase Order Payment Management
+            Purchase Order Payment Management 
           </CardTitle>
           <CardDescription className="text-gray-500 mt-1 text-sm">
             Manage payment entries for purchase orders with Planned 4 dates pending Actual 4 updates.
@@ -484,79 +544,60 @@ export default function TallyEntry() {
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <Select size="sm" value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
-                <SelectTrigger className="h-8 bg-white">
-                  <SelectValue placeholder="All Vendors" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Vendors</SelectItem>
-                  {getUniqueValues("vendorName").map((vendor) => (
-                    <SelectItem key={vendor} value={vendor}>
-                      {vendor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                size="sm"
-                value={filters.rawMaterialName}
-                onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
-              >
-                <SelectTrigger className="h-8 bg-white">
-                  <SelectValue placeholder="All Materials" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Materials</SelectItem>
-                  {getUniqueValues("rawMaterialName").map((material) => (
-                    <SelectItem key={material} value={material}>
-                      {material}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select size="sm" value={filters.typeOfIndent} onValueChange={(value) => handleFilterChange("typeOfIndent", value)}>
-                <SelectTrigger className="h-8 bg-white">
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {getUniqueValues("typeOfIndent").map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select size="sm" value={filters.approvedQty} onValueChange={(value) => handleFilterChange("approvedQty", value)}>
-                <SelectTrigger className="h-8 bg-white">
-                  <SelectValue placeholder="All Quantities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Quantities</SelectItem>
-                  {getUniqueValues("approvedQty").map((qty) => (
-                    <SelectItem key={qty} value={qty}>
-                      {qty}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                size="sm"
-                value={filters.deliveryOrderNo}
-                onValueChange={(value) => handleFilterChange("deliveryOrderNo", value)}
-              >
-                <SelectTrigger className="h-8 bg-white">
-                  <SelectValue placeholder="All Orders" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Orders</SelectItem>
-                  {getUniqueValues("deliveryOrderNo").map((order) => (
-                    <SelectItem key={order} value={order}>
-                      {order}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div>
+                <Label className="text-xs mb-1 block">Vendor Name</Label>
+                <SearchableSelect
+                  value={filters.vendorName}
+                  onValueChange={(value) => handleFilterChange("vendorName", value)}
+                  options={["all", ...getUniqueValues("vendorName")]}
+                  placeholder="Vendors"
+                  className="h-9"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs mb-1 block">Material Name</Label>
+                <SearchableSelect
+                  value={filters.rawMaterialName}
+                  onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
+                  options={["all", ...getUniqueValues("rawMaterialName")]}
+                  placeholder="Materials"
+                  className="h-9"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs mb-1 block">Type Of Indent</Label>
+                <SearchableSelect
+                  value={filters.typeOfIndent}
+                  onValueChange={(value) => handleFilterChange("typeOfIndent", value)}
+                  options={["all", ...getUniqueValues("typeOfIndent")]}
+                  placeholder="Types"
+                  className="h-9"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs mb-1 block">Approved Quantity</Label>
+                <SearchableSelect
+                  value={filters.approvedQty}
+                  onValueChange={(value) => handleFilterChange("approvedQty", value)}
+                  options={["all", ...getUniqueValues("approvedQty")]}
+                  placeholder="Quantities"
+                  className="h-9"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs mb-1 block">Delivery Order No</Label>
+                <SearchableSelect
+                  value={filters.deliveryOrderNo}
+                  onValueChange={(value) => handleFilterChange("deliveryOrderNo", value)}
+                  options={["all", ...getUniqueValues("deliveryOrderNo")]}
+                  placeholder="Orders"
+                  className="h-9"
+                />
+              </div>
             </div>
           </div>
 

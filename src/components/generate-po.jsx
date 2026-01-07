@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
-import { FileCheck, Loader2, Upload, Wallet, Filter, Link as LinkIcon, File, History, Info, AlertTriangle } from 'lucide-react';
+import { FileCheck, Loader2, Upload, Wallet, Filter, Link as LinkIcon, File, History, Info, AlertTriangle ,ChevronsUpDown } from 'lucide-react';
 import { MixerHorizontalIcon } from '@radix-ui/react-icons';
 import "../scrollbar-hide.css";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -99,6 +99,84 @@ const GeneratePurchaseOrder = () => {
     iron: "",
   });
 
+// Simple SearchableSelect Component (without Command)
+const SearchableSelect = ({ 
+  value, 
+  onValueChange, 
+  options, 
+  placeholder, 
+  className 
+}) => {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredOptions = options.filter(option =>
+    option.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className={`w-full justify-between h-9 bg-white text-xs ${className}`}
+      >
+        {value === "all" || !value ? `All ${placeholder}` : value}
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+      
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="sticky top-0 bg-white p-2 border-b">
+            <Input
+              type="text"
+              placeholder={`Search ${placeholder.toLowerCase()}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-7 text-xs"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="py-1">
+            <div
+              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+              onClick={() => {
+                onValueChange("all");
+                setOpen(false);
+                setSearchTerm("");
+              }}
+            >
+              All {placeholder}
+            </div>
+            {filteredOptions.map((option, index) => (
+              <div
+                key={`${option}-${index}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                onClick={() => {
+                  onValueChange(option);
+                  setOpen(false);
+                  setSearchTerm("");
+                }}
+              >
+                {option}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
+};
+
   // Form state for Advance Payment
   const [paymentFormData, setPaymentFormData] = useState({ amount: "", paymentDate: "" });
   const [paymentFormErrors, setPaymentFormErrors] = useState({});
@@ -114,7 +192,7 @@ const GeneratePurchaseOrder = () => {
     { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
     { header: "Indent ID", dataKey: "id", toggleable: true, alwaysVisible: true },
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
-    { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
+    // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
     { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
     { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
     { header: "Type", dataKey: "typeOfIndent", toggleable: true },
@@ -124,7 +202,7 @@ const GeneratePurchaseOrder = () => {
   const allPoColumnsMeta = useMemo(() => ([
     { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
-    { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
+    // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
     { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
     { header: "Quantity", dataKey: "quantity", toggleable: true },
     { header: "Total Amount", dataKey: "totalAmount", toggleable: true },
@@ -137,7 +215,7 @@ const GeneratePurchaseOrder = () => {
   const ADVANCE_PAYMENT_COLUMNS_META = useMemo(() => ([
     { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
-    { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
+    // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
     { header: "Status", dataKey: "paymentStatus", toggleable: true },
     { header: "Amount to Pay", dataKey: "toBePaidAmount", toggleable: true }, // Data from COL_TO_BE_PAID_AMOUNT
     { header: "Payment Date", dataKey: "whenToBePaid", toggleable: true }, // Data from COL_WHEN_TO_BE_PAID
@@ -1078,7 +1156,7 @@ useEffect(() => {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <FileCheck className="h-5 w-5 text-purple-600" /> Purchase Management
+            <FileCheck className="h-5 w-5 text-purple-600" /> Purchase Management 
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Manage approved indents, generate purchase orders, and record advance payments.
@@ -1110,57 +1188,53 @@ useEffect(() => {
               </TabsTrigger>
             </TabsList>
             <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <Label className="text-sm font-medium">Filters</Label>
-                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-                  Clear All
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Select value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
-                  <SelectTrigger className="h-9 bg-white">
-                    <SelectValue placeholder="All Vendors" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Vendors</SelectItem>
-                    {vendorOptions.map((vendor) => (
-                      <SelectItem key={vendor} value={vendor}>
-                        {vendor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {activeTab !== "advancePayment" && (
-                  <Select value={filters.rawMaterialName} onValueChange={(value) => handleFilterChange("rawMaterialName", value)}>
-                    <SelectTrigger className="h-9 bg-white">
-                      <SelectValue placeholder="All Materials" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Materials</SelectItem>
-                      {materialOptions.map((material) => (
-                        <SelectItem key={material} value={material}>
-                          {material}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <Select value={filters.firmName} onValueChange={(value) => handleFilterChange("firmName", value)}>
-                  <SelectTrigger className="h-9 bg-white">
-                    <SelectValue placeholder="All Firms" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Firms</SelectItem>
-                    {firmOptions.map((firm) => (
-                      <SelectItem key={firm} value={firm}>
-                        {firm}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+  <div className="flex items-center gap-2 mb-3">
+    <Filter className="h-4 w-4 text-gray-500" />
+    <Label className="text-sm font-medium">Filters</Label>
+    <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+      Clear All
+    </Button>
+  </div>
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {/* Vendor Name Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Vendor Name</Label>
+      <SearchableSelect
+        value={filters.vendorName}
+        onValueChange={(value) => handleFilterChange("vendorName", value)}
+        options={vendorOptions}
+        placeholder="Vendors"
+        className="h-9"
+      />
+    </div>
+
+    {/* Material Name Filter - Hidden for advancePayment tab */}
+    {activeTab !== "advancePayment" && (
+      <div>
+        <Label className="text-xs mb-1 block">Material Name</Label>
+        <SearchableSelect
+          value={filters.rawMaterialName}
+          onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
+          options={materialOptions}
+          placeholder="Materials"
+          className="h-9"
+        />
+      </div>
+    )}
+
+    {/* Firm Name Filter */}
+    <div>
+      <Label className="text-xs mb-1 block">Firm Name</Label>
+      <SearchableSelect
+        value={filters.firmName}
+        onValueChange={(value) => handleFilterChange("firmName", value)}
+        options={firmOptions}
+        placeholder="Firms"
+        className="h-9"
+      />
+    </div>
+  </div>
+</div>
             <TabsContent value="approve" className="flex-1 flex flex-col mt-0">
               {renderTableSection(
                 "approve",
@@ -1284,7 +1358,7 @@ useEffect(() => {
                     <div>
                       <Label htmlFor="rate" className="block text-sm font-medium text-gray-700">Rate <span className="text-red-500">*</span></Label>
                       <Input
-                        type="number"
+                        type="text"
                         step="any"
                         id="rate"
                         name="rate"
@@ -1309,7 +1383,7 @@ useEffect(() => {
                     <div>
                       <Label htmlFor="leadTimeToLift" className="block text-sm font-medium text-gray-700">Lead Time (Days) <span className="text-red-500">*</span></Label>
                       <Input
-                        type="number"
+                        type="text"
                         id="leadTimeToLift"
                         name="leadTimeToLift"
                         value={formData.leadTimeToLift}
@@ -1322,7 +1396,7 @@ useEffect(() => {
                     <div>
                       <Label htmlFor="alumina" className="block text-sm font-medium text-gray-700">Alumina % <span className="text-red-500">*</span></Label>
                       <Input
-                        type="number"
+                        type="text"
                         step="any"
                         id="alumina"
                         name="alumina"
@@ -1336,7 +1410,7 @@ useEffect(() => {
                     <div>
                       <Label htmlFor="iron" className="block text-sm font-medium text-gray-700">Iron % <span className="text-red-500">*</span></Label>
                       <Input
-                        type="number"
+                        type="text"
                         step="any"
                         id="iron"
                         name="iron"
