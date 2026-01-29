@@ -236,7 +236,40 @@ export default function IndentForm() {
         formData.currentStock,// Column H
         formData.priority,    // Column I
         formData.deliveryOrderNo, // Column J
-        formData.notes,       // Column K
+        formData.notes,
+        "", // Column K
+        "", // Column L
+        "", // Column M
+        "", // Column N
+        "", // Column O
+        "", // Column P
+        "", // Column Q
+        "", // Column R
+        "", // Column S
+        "", // Column T
+        "", // Column U
+        "", // Column V
+        "", // Column W
+        "", // Column X
+        "", // Column Y
+        "", // Column Z
+        "", // Column AA
+        "", // Column AB
+        "", // Column AC
+        "", // Column AD
+        "", // Column AE
+        "", // Column AF
+        "", // Column AG
+        "", // Column AH
+        "", // Column AI
+        "", // Column AJ
+        "", // Column AK
+        "", // Column AL
+        "", // Column AM
+        "", // Column AN
+        "", // Column AO
+              formData.vendorName   // Column AQ (column 43) - Vendor Name
+       // Column K
       ]
 
       const formPayload = new URLSearchParams()
@@ -270,7 +303,7 @@ export default function IndentForm() {
       // Reset the form
       setFormData({
         generatedBy: "",
-        // vendorName: "",
+        vendorName: "",
         firmName: user?.firmName && user.firmName.toLowerCase() !== "all" ? user.firmName : "",
         rawMaterialName: "",
         quantity: "",
@@ -367,7 +400,7 @@ export default function IndentForm() {
                 {errors.firmName && <p className="text-red-500 text-xs mt-1">{errors.firmName}</p>}
               </div>
 
-              {/* <div>
+              <div>
                 <Label htmlFor="vendorName">Vendor Name</Label>
                 <Select
                   name="vendorName"
@@ -386,7 +419,7 @@ export default function IndentForm() {
                   </SelectContent>
                 </Select>
                 {errors.vendorName && <p className="text-red-500 text-xs mt-1">{errors.vendorName}</p>}
-              </div> */}
+              </div>
 
               <div>
                 <Label htmlFor="rawMaterialName">Raw Material Name</Label>

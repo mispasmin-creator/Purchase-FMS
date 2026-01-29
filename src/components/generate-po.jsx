@@ -1312,7 +1312,7 @@ useEffect(() => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                     <div>
-                      <Label htmlFor="quantity" className="block text-sm font-medium text-gray-700">Indent Quantity</Label>
+                      <Label htmlFor="quantity" className="block text-sm font-medium text-gray-700">Approved Qty</Label>
                       <Input
                         type="text"
                         id="quantity"

@@ -71,7 +71,7 @@ const PO_COLUMNS_META = [
   { header: "Actions", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true, alwaysVisible: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
-  // { header: "Party Name", dataKey: "vendorName", toggleable: true },
+  { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Quantity", dataKey: "quantity", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
@@ -79,14 +79,20 @@ const PO_COLUMNS_META = [
   { header: "Iron %", dataKey: "iron", toggleable: true },
   { header: "Received Qty", dataKey: "receivedQty", toggleable: true },
   { header: "Pending PO Qty", dataKey: "pendingPOQty", toggleable: true },
-  { header: "Planned", dataKey: "planned", toggleable: true },
+  { header: "Status", dataKey: "status", toggleable: true }, // Added status column
   { header: "Notes", dataKey: "whatIsToBeDone", toggleable: true },
+  {
+    header: "Cancel Pending PO",
+    dataKey: "cancelAction",
+    toggleable: false,
+    alwaysVisible: true,
+  },
 ]
 const LIFTS_COLUMNS_META = [
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
-  // { header: "Party Name", dataKey: "vendorName", toggleable: true },
+  { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "material", toggleable: true },
   { header: "PO Qty", dataKey: "quantity", toggleable: true },
   { header: "Lifted Qty", dataKey: "liftingQty", toggleable: true },
@@ -116,40 +122,39 @@ export default function LiftMaterial() {
   const [typeOptions, setTypeOptions] = useState([])
   const [rateTypeOptions, setRateTypeOptions] = useState([])
   const [formData, setFormData] = useState({
-  billNo: "",
-  Arealifting: "",
-  liftingLeadTime: "",
-  truckNo: "",
-  driverNo: "",
-  TransporterName: "",
-  rateType: "",
-  rate: "",
-  truckQty: "",
-  Type: "",
-  biltyNo: "",
-  indentNo: "",
-  vendorName: "",
-  material: "",
-  totalQuantity: "",
-  billImage: null,
-  additionalTruckQty: "",
-  transportRate: "",
-  // ADD NEW FIELDS:
-  hasBilty: "no", // 'yes' or 'no'
-  biltyImage: null,
-})
+    billNo: "",
+    Arealifting: "",
+    liftingLeadTime: "",
+    truckNo: "",
+    driverNo: "",
+    TransporterName: "",
+    rateType: "",
+    rate: "",
+    truckQty: "",
+    Type: "",
+    biltyNo: "",
+    indentNo: "",
+    vendorName: "",
+    material: "",
+    totalQuantity: "",
+    billImage: null,
+    additionalTruckQty: "",
+    transportRate: "",
+    hasBilty: "no",
+    biltyImage: null,
+  })
 
   const [formErrors, setFormErrors] = useState({})
   const [activeTab, setActiveTab] = useState("availablePOs")
   const [visiblePoColumns, setVisiblePoColumns] = useState({})
   const [visibleLiftsColumns, setVisibleLiftsColumns] = useState({})
   const [cancelPendingPO, setCancelPendingPO] = useState({
-  show: false,
-  poId: null,
-  indentNo: "",
-  cancelQuantity: "",
-  loading: false,
-})
+    show: false,
+    poId: null,
+    indentNo: "",
+    cancelQuantity: "",
+    loading: false,
+  })
   const [filters, setFilters] = useState({
     vendorName: "all",
     materialName: "all",
@@ -246,82 +251,82 @@ export default function LiftMaterial() {
   }, [SHEET_ID, MASTER_SHEET_NAME])
 
   // Simple SearchableSelect Component
-const SearchableSelect = ({ 
-  value, 
-  onValueChange, 
-  options, 
-  placeholder, 
-  className 
-}) => {
-  const [open, setOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const SearchableSelect = ({ 
+    value, 
+    onValueChange, 
+    options, 
+    placeholder, 
+    className 
+  }) => {
+    const [open, setOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredOptions = options.filter(option =>
-    option.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    const filteredOptions = options.filter(option =>
+      option.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  return (
-    <div className="relative">
-      <Button
-        variant="outline"
-        role="combobox"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className={`w-full justify-between h-9 bg-white text-xs ${className}`}
-      >
-        {value === "all" || !value ? `All ${placeholder}` : value}
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-      </Button>
-      
-      {open && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-          <div className="sticky top-0 bg-white p-2 border-b">
-            <Input
-              type="text"
-              placeholder={`Search ${placeholder.toLowerCase()}...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-7 text-xs"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          <div className="py-1">
-            <div
-              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
-              onClick={() => {
-                onValueChange("all");
-                setOpen(false);
-                setSearchTerm("");
-              }}
-            >
-              All {placeholder}
+    return (
+      <div className="relative">
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className={`w-full justify-between h-9 bg-white text-xs ${className}`}
+        >
+          {value === "all" || !value ? `All ${placeholder}` : value}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+        
+        {open && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="sticky top-0 bg-white p-2 border-b">
+              <Input
+                type="text"
+                placeholder={`Search ${placeholder.toLowerCase()}...`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-7 text-xs"
+                onClick={(e) => e.stopPropagation()}
+              />
             </div>
-            {filteredOptions.map((option, index) => (
+            <div className="py-1">
               <div
-                key={`${option}-${index}`}
-                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
                 onClick={() => {
-                  onValueChange(option);
+                  onValueChange("all");
                   setOpen(false);
                   setSearchTerm("");
                 }}
               >
-                {option}
+                All {placeholder}
               </div>
-            ))}
+              {filteredOptions.map((option, index) => (
+                <div
+                  key={`${option}-${index}`}
+                  className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                  onClick={() => {
+                    onValueChange(option);
+                    setOpen(false);
+                    setSearchTerm("");
+                  }}
+                >
+                  {option}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-      
-      {open && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setOpen(false)}
-        />
-      )}
-    </div>
-  );
-};
+        )}
+        
+        {open && (
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+          />
+        )}
+      </div>
+    );
+  };
 
   const fetchPurchaseOrders = useCallback(async () => {
     setLoadingPOs(true)
@@ -367,35 +372,41 @@ const SearchableSelect = ({
         throw new Error(data.errors?.[0]?.detailed_message || "PO Sheet data is malformed or empty.")
       }
 
+      // Filter based on Status column (AJ - index 35)
       const filteredRows = processedRows.filter(
-        (row) =>
-          row.col39 !== null && // Column AN (Planned) is filled
-          String(row.col39).trim() !== "" &&
-          (row.col40 === null || String(row.col40).trim() === ""), // Column AO (Lifted On Timestamp) is empty
+        (row) => {
+          const status = String(row.col35 || "").trim(); // Column AJ (index 35) - Status
+          const planned = String(row.col39 || "").trim(); // Column AN (index 39) - Planned
+          const liftedOn = String(row.col40 || "").trim(); // Column AO (index 40) - Lifted On
+          
+          // Show only if status is "Pending" or empty
+          return (status === "" || status.toLowerCase() === "pending") && 
+                 planned && planned !== "" && 
+                 (!liftedOn || liftedOn === "");
+        }
       )
 
-      // In fetchPurchaseOrders function, update the formattedData mapping:
-let formattedData = filteredRows.map((row) => ({
-  id: `PO-${row._rowIndex}`,
-  indentNo: String(row.col1 || "").trim(),
-  firmName: String(row.col2 || "").trim(),
-  vendorName: String(row.col4 || "").trim(),
-  rawMaterialName: String(row.col5 || "").trim(),
-  quantity: String(row.col23 || "").trim(),
-  _rowIndex: row._rowIndex,
-  rate: String(row.col24 || "").trim(),
-  alumina: String(row.col30 || "").trim(),
-  iron: String(row.col31 || "").trim(),
-  pendingQty: String(row.col33 || "").trim(),
-  planned: String(row.col39_formatted || "").trim(),
-  whatIsToBeDone: String(row.col10 || "").trim(),
-  // ADD THESE NEW FIELDS:
-  pendingLiftQty: String(row.col33 || "").trim(), // Column AH
-  receivedQty: String(row.col32 || "").trim(),    // Column AJ
-  pendingPOQty: String(row.col33 || "").trim(),   // Column AK
-  // orderCancelQty: String(row.col35 || "").trim(), // Column AI (Order Cancel Qty)
-}))
-
+      // Format the data with vendor name from column AQ (index 42)
+      let formattedData = filteredRows.map((row) => ({
+        id: `PO-${row._rowIndex}`,
+        indentNo: String(row.col1 || "").trim(),
+        firmName: String(row.col2 || "").trim(),
+        vendorName: String(row.col42 || "").trim(), // CHANGED: Column AQ (index 42) for vendor name
+        rawMaterialName: String(row.col5 || "").trim(),
+        quantity: String(row.col23 || "").trim(),
+        _rowIndex: row._rowIndex,
+        rate: String(row.col24 || "").trim(),
+        alumina: String(row.col30 || "").trim(),
+        iron: String(row.col31 || "").trim(),
+        pendingQty: String(row.col33 || "").trim(),
+        planned: String(row.col39_formatted || "").trim(),
+        whatIsToBeDone: String(row.col10 || "").trim(),
+        pendingLiftQty: String(row.col33 || "").trim(), // Column AH
+        receivedQty: String(row.col32 || "").trim(),    // Column AJ
+        pendingPOQty: String(row.col33 || "").trim(),   // Column AK
+        orderCancelQty: String(row.col35 || "").trim(), // Column AI (Order Cancel Qty)
+        status: String(row.col35 || "").trim(), // Column AJ (Status)
+      }))
 
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase()
@@ -503,7 +514,7 @@ let formattedData = filteredRows.map((row) => ({
       let formattedData = dataRows.map((row) => ({
         id: String(row.col1 || "").trim(),
         indentNo: String(row.col2 || "").trim(),
-        vendorName: String(row.col3 || "").trim(),
+        vendorName: String(row.col3 || "").trim(), // Column D for vendor name
         quantity: String(row.col4 || "").trim(),
         material: String(row.col5 || "").trim(),
         billNo: String(row.col6 || "").trim(),
@@ -524,7 +535,7 @@ let formattedData = filteredRows.map((row) => ({
             ? row.col0_formatted.trim()
             : String(row.col0 || "").trim(),
         firmName: String(row.col55 || "").trim(),
-        transportRate: String(row.col58 || "").trim(), // Transport Rate from column BG
+        transportRate: String(row.col58 || "").trim(),
       }))
 
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
@@ -575,110 +586,108 @@ let formattedData = filteredRows.map((row) => ({
   }, [fetchPurchaseOrders, fetchMaterialLifts, fetchMasterData])
 
   const handleCancelPendingPO = (po) => {
-  setCancelPendingPO({
-    show: true,
-    poId: po.id,
-    indentNo: po.indentNo,
-    cancelQuantity: "",
-    loading: false,
-  })
-}
-
-const handleCloseCancelPopup = () => {
-  setCancelPendingPO({
-    show: false,
-    poId: null,
-    indentNo: "",
-    cancelQuantity: "",
-    loading: false,
-  })
-}
-
-const handleCancelQuantityChange = (e) => {
-  const value = e.target.value
-  setCancelPendingPO(prev => ({
-    ...prev,
-    cancelQuantity: value
-  }))
-}
-
-const submitCancelPendingPO = async () => {
-  if (!cancelPendingPO.cancelQuantity || isNaN(parseFloat(cancelPendingPO.cancelQuantity))) {
-    toast.error("Please enter a valid quantity");
-    return;
+    setCancelPendingPO({
+      show: true,
+      poId: po.id,
+      indentNo: po.indentNo,
+      cancelQuantity: "",
+      loading: false,
+    })
   }
 
-  setCancelPendingPO(prev => ({ ...prev, loading: true }));
-
-  try {
-    const poToUpdate = purchaseOrders.find(po => po.id === cancelPendingPO.poId);
-    
-    if (!poToUpdate) {
-      throw new Error("PO not found");
-    }
-
-    const currentCancelQty = parseFloat(poToUpdate.orderCancelQty) || 0;
-    const newCancelQty = currentCancelQty + parseFloat(cancelPendingPO.cancelQuantity);
-    
-    // Subtract 1 to fix row offset
-    const correctedRow = poToUpdate._rowIndex - 1;
-    
-    console.log("Submitting cancel quantity:", {
-      indentNo: cancelPendingPO.indentNo,
-      currentQty: currentCancelQty,
-      cancelQty: cancelPendingPO.cancelQuantity,
-      newQty: newCancelQty,
-      originalRow: poToUpdate._rowIndex,
-      correctedRow: correctedRow,
-      column: 35
-    });
-
-    // Use this format - it should work with the updated doPost function
-    const updateParams = new URLSearchParams({
-      action: "update",
-      sheetName: "INDENT-PO", 
-      rowIndex: correctedRow.toString(), // Use rowIndex parameter
-      column: "35", // Column AI
-      value: newCancelQty.toString()
-    });
-
-    console.log("Sending params:", updateParams.toString());
-
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: updateParams.toString(),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP error: ${response.status} - ${errorText}`);
-    }
-
-    const result = await response.json();
-    console.log("Server response:", result);
-    
-    if (!result.success) {
-      throw new Error(result.message || "Failed to update cancel quantity");
-    }
-
-    toast.success(`✅ Cancel quantity ${cancelPendingPO.cancelQuantity} submitted successfully to ${cancelPendingPO.indentNo}!`);
-    
-    // Refresh data
-    await fetchPurchaseOrders();
-    handleCloseCancelPopup();
-
-  } catch (error) {
-    console.error("Error submitting cancel quantity:", error);
-    toast.error(`❌ Failed to submit cancel quantity: ${error.message}`);
-  } finally {
-    setCancelPendingPO(prev => ({ ...prev, loading: false }));
+  const handleCloseCancelPopup = () => {
+    setCancelPendingPO({
+      show: false,
+      poId: null,
+      indentNo: "",
+      cancelQuantity: "",
+      loading: false,
+    })
   }
-};
 
+  const handleCancelQuantityChange = (e) => {
+    const value = e.target.value
+    setCancelPendingPO(prev => ({
+      ...prev,
+      cancelQuantity: value
+    }))
+  }
 
+  const submitCancelPendingPO = async () => {
+    if (!cancelPendingPO.cancelQuantity || isNaN(parseFloat(cancelPendingPO.cancelQuantity))) {
+      toast.error("Please enter a valid quantity");
+      return;
+    }
+
+    setCancelPendingPO(prev => ({ ...prev, loading: true }));
+
+    try {
+      const poToUpdate = purchaseOrders.find(po => po.id === cancelPendingPO.poId);
+      
+      if (!poToUpdate) {
+        throw new Error("PO not found");
+      }
+
+      const currentCancelQty = parseFloat(poToUpdate.orderCancelQty) || 0;
+      const newCancelQty = currentCancelQty + parseFloat(cancelPendingPO.cancelQuantity);
+      
+      // Subtract 1 to fix row offset
+      const correctedRow = poToUpdate._rowIndex - 1;
+      
+      console.log("Submitting cancel quantity:", {
+        indentNo: cancelPendingPO.indentNo,
+        currentQty: currentCancelQty,
+        cancelQty: cancelPendingPO.cancelQuantity,
+        newQty: newCancelQty,
+        originalRow: poToUpdate._rowIndex,
+        correctedRow: correctedRow,
+        column: 35
+      });
+
+      // Use this format - it should work with the updated doPost function
+      const updateParams = new URLSearchParams({
+        action: "update",
+        sheetName: "INDENT-PO", 
+        rowIndex: correctedRow.toString(), // Use rowIndex parameter
+        column: "35", // Column AI
+        value: newCancelQty.toString()
+      });
+
+      console.log("Sending params:", updateParams.toString());
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: updateParams.toString(),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log("Server response:", result);
+      
+      if (!result.success) {
+        throw new Error(result.message || "Failed to update cancel quantity");
+      }
+
+      toast.success(`✅ Cancel quantity ${cancelPendingPO.cancelQuantity} submitted successfully to ${cancelPendingPO.indentNo}!`);
+      
+      // Refresh data
+      await fetchPurchaseOrders();
+      handleCloseCancelPopup();
+
+    } catch (error) {
+      console.error("Error submitting cancel quantity:", error);
+      toast.error(`❌ Failed to submit cancel quantity: ${error.message}`);
+    } finally {
+      setCancelPendingPO(prev => ({ ...prev, loading: false }));
+    }
+  };
 
   const uniqueFilterOptions = useMemo(() => {
     const vendors = new Set()
@@ -752,63 +761,61 @@ const submitCancelPendingPO = async () => {
     return filtered
   }, [materialLifts, filters])
 
- const handlePOSelect = (po) => {
-  setSelectedPO(po)
-  setFormData({
-    billNo: "",
-    Arealifting: "",
-    liftingLeadTime: "",
-    truckNo: "",
-    driverNo: "",
-    TransporterName: "",
-    rateType: "",
-    rate: "",
-    truckQty: "",
-    Type: "",
-    biltyNo: "",
-    indentNo: po.indentNo,
-    vendorName: po.vendorName,
-    material: po.rawMaterialName,
-    totalQuantity: po.quantity,
-    billImage: null,
-    additionalTruckQty: "",
-    transportRate: "",
-    hasBilty: "no",
-    biltyImage: null,
-  })
-  setFormErrors({})
-  setShowPopup(true)
-}
-
+  const handlePOSelect = (po) => {
+    setSelectedPO(po)
+    setFormData({
+      billNo: "",
+      Arealifting: "",
+      liftingLeadTime: "",
+      truckNo: "",
+      driverNo: "",
+      TransporterName: "",
+      rateType: "",
+      rate: "",
+      truckQty: "",
+      Type: "",
+      biltyNo: "",
+      indentNo: po.indentNo,
+      vendorName: po.vendorName, // Now correctly gets vendor name from column AQ
+      material: po.rawMaterialName,
+      totalQuantity: po.quantity,
+      billImage: null,
+      additionalTruckQty: "",
+      transportRate: "",
+      hasBilty: "no",
+      biltyImage: null,
+    })
+    setFormErrors({})
+    setShowPopup(true)
+  }
 
   const handleClosePopup = () => {
-  setShowPopup(false)
-  setSelectedPO(null)
-  setFormData({
-    billNo: "",
-    Arealifting: "",
-    liftingLeadTime: "",
-    truckNo: "",
-    driverNo: "",
-    TransporterName: "",
-    rateType: "",
-    rate: "",
-    truckQty: "",
-    Type: "",
-    biltyNo: "",
-    indentNo: "",
-    vendorName: "",
-    material: "",
-    totalQuantity: "",
-    billImage: null,
-    additionalTruckQty: "",
-    transportRate: "",
-    hasBilty: "no", // Reset this
-    biltyImage: null, // Reset this
-  })
-  setFormErrors({})
-}
-
+    setShowPopup(false)
+    setSelectedPO(null)
+    setFormData({
+      billNo: "",
+      Arealifting: "",
+      liftingLeadTime: "",
+      truckNo: "",
+      driverNo: "",
+      TransporterName: "",
+      rateType: "",
+      rate: "",
+      truckQty: "",
+      Type: "",
+      biltyNo: "",
+      indentNo: "",
+      vendorName: "",
+      material: "",
+      totalQuantity: "",
+      billImage: null,
+      additionalTruckQty: "",
+      transportRate: "",
+      hasBilty: "no",
+      biltyImage: null,
+    })
+    setFormErrors({})
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -840,7 +847,6 @@ const submitCancelPendingPO = async () => {
       "rateType",
       "rate",
       "truckQty",
-      // "transportRate", // Removed as not required for validation
     ];
 
     requiredFields.forEach((field) => {
@@ -854,6 +860,9 @@ const submitCancelPendingPO = async () => {
     });
 
     if (formData.rate && isNaN(parseFloat(formData.rate))) newErrors.rate = "Rate must be a valid number.";
+    if (!formData.billImage) {
+              newErrors.billImage = "Bill image is required.";
+            }
     if (formData.transportRate && isNaN(parseFloat(formData.transportRate))) newErrors.transportRate = "Transport Rate must be a valid number.";
     if (formData.truckQty && isNaN(parseFloat(formData.truckQty)))
       newErrors.truckQty = "Truck Qty must be a valid number.";
@@ -866,8 +875,10 @@ const submitCancelPendingPO = async () => {
       newErrors.additionalTruckQty = "Truck Quantity must be a valid number.";
     }
 
-    // NO RATE VALIDATION DURING FORM SUBMISSION
-    // Material Rate validation will be done after submission for display purposes only
+    // Validate bilty fields if hasBilty is yes
+    if (formData.hasBilty === "yes" && !formData.biltyNo.trim()) {
+      newErrors.biltyNo = "Bilty number is required when has bilty is yes";
+    }
 
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -947,131 +958,120 @@ const submitCancelPendingPO = async () => {
   }
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!validateForm()) {
-    toast.error("Validation failed. Please check the required fields.");
-    return;
-  }
-
-  // Validate bilty fields if hasBilty is yes
-  if (formData.hasBilty === "yes" && !formData.biltyNo.trim()) {
-    setFormErrors(prev => ({ ...prev, biltyNo: "Bilty number is required when has bilty is yes" }));
-    toast.error("Please enter bilty number");
-    return;
-  }
-
-  setIsSubmitting(true);
-
-  try {
-    const liftId = await generateLiftId();
-    const now = new Date();
-    const timestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", "");
-
-    // Upload bill image (if provided)
-    const billImageUrl = formData.billImage 
-      ? await uploadFileToDrive(formData.billImage, DRIVE_FOLDER_ID) 
-      : "";
-
-    // Upload bilty image (if provided and hasBilty is yes)
-    let biltyImageUrl = "";
-    if (formData.hasBilty === "yes" && formData.biltyImage) {
-      biltyImageUrl = await uploadFileToDrive(formData.biltyImage, DRIVE_FOLDER_ID);
+    if (!validateForm()) {
+      toast.error("Validation failed. Please check the required fields.");
+      return;
     }
 
-    // Prepare the data for the new row in LIFT-ACCOUNTS
-    const liftLabRowData = Array(59).fill("");
-    liftLabRowData[0] = timestamp;
-    liftLabRowData[1] = liftId;
-    liftLabRowData[2] = formData.indentNo;
-    liftLabRowData[3] = formData.vendorName;
-    liftLabRowData[4] = formData.totalQuantity;
-    liftLabRowData[5] = formData.material;
-    liftLabRowData[6] = formData.billNo;
-    liftLabRowData[7] = formData.Arealifting;
-    liftLabRowData[8] = formData.liftingLeadTime;
-    liftLabRowData[9] = formData.truckQty;
-    liftLabRowData[10] = formData.Type;
-    liftLabRowData[11] = formData.TransporterName;
-    liftLabRowData[12] = formData.truckNo;
-    liftLabRowData[13] = formData.driverNo;
-    // Set bilty number only if hasBilty is yes
-    liftLabRowData[14] = formData.hasBilty === "yes" ? (formData.biltyNo || "") : "";
-    liftLabRowData[15] = formData.rateType;
-    liftLabRowData[16] = formData.rate;
-    liftLabRowData[17] = billImageUrl;
-    liftLabRowData[18] = formData.additionalTruckQty || "";
-    liftLabRowData[55] = selectedPO?.firmName || "";
-    liftLabRowData[58] = formData.transportRate || "";
-    // Store bilty image URL in a custom column
-    liftLabRowData[56] = biltyImageUrl; // Column BG for bilty image
+    setIsSubmitting(true);
 
-    // First, insert the lift record
-   const liftLabParams = new URLSearchParams({
-  action: "insert",
-  sheetName: "LIFT-ACCOUNTS",
-  rowData: JSON.stringify(liftLabRowData),
-});
+    try {
+      const liftId = await generateLiftId();
+      const now = new Date();
+      const timestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", "");
 
-console.log("Submitting lift data:", liftLabRowData); // Add this for debugging
+      // Upload bill image (if provided)
+      const billImageUrl = await uploadFileToDrive(formData.billImage, DRIVE_FOLDER_ID);
+      // Upload bilty image (if provided and hasBilty is yes)
+      let biltyImageUrl = "";
+      if (formData.hasBilty === "yes" && formData.biltyImage) {
+        biltyImageUrl = await uploadFileToDrive(formData.biltyImage, DRIVE_FOLDER_ID);
+      }
 
-const liftLabResponse = await fetch(API_URL, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/x-www-form-urlencoded",
-  },
-  body: liftLabParams.toString(),
-});
+      // Prepare the data for the new row in LIFT-ACCOUNTS
+      const liftLabRowData = Array(59).fill("");
+      liftLabRowData[0] = timestamp;
+      liftLabRowData[1] = liftId;
+      liftLabRowData[2] = formData.indentNo;
+      liftLabRowData[3] = formData.vendorName; // Vendor name will be submitted to column D
+      liftLabRowData[4] = formData.totalQuantity;
+      liftLabRowData[5] = formData.material;
+      liftLabRowData[6] = formData.billNo;
+      liftLabRowData[7] = formData.Arealifting;
+      liftLabRowData[8] = formData.liftingLeadTime;
+      liftLabRowData[9] = formData.truckQty;
+      liftLabRowData[10] = formData.Type;
+      liftLabRowData[11] = formData.TransporterName;
+      liftLabRowData[12] = formData.truckNo;
+      liftLabRowData[13] = formData.driverNo;
+      // Set bilty number only if hasBilty is yes
+      liftLabRowData[14] = formData.hasBilty === "yes" ? (formData.biltyNo || "") : "";
+      liftLabRowData[15] = formData.rateType;
+      liftLabRowData[16] = formData.rate;
+      liftLabRowData[17] = billImageUrl;
+      liftLabRowData[18] = formData.additionalTruckQty || "";
+      liftLabRowData[55] = selectedPO?.firmName || "";
+      liftLabRowData[58] = formData.transportRate || "";
+      // Store bilty image URL in a custom column
+      liftLabRowData[56] = biltyImageUrl; // Column BG for bilty image
 
-if (!liftLabResponse.ok) {
-  const errorText = await liftLabResponse.text();
-  console.error("Lift insertion failed:", errorText);
-  throw new Error(`Failed to insert into LIFT-ACCOUNTS: ${errorText}`);
-}
+      // First, insert the lift record
+      const liftLabParams = new URLSearchParams({
+        action: "insert",
+        sheetName: "LIFT-ACCOUNTS",
+        rowData: JSON.stringify(liftLabRowData),
+      });
 
-const liftResult = await liftLabResponse.json();
-console.log("Lift insertion result:", liftResult);
+      console.log("Submitting lift data:", liftLabRowData);
 
-if (!liftResult.success) {
-  throw new Error(liftResult.message || "Failed to insert lift record");
-}
-    // Update the original PO row to mark it as lifted (column AO - index 40)
-    const updatePOParams = new URLSearchParams({
-      action: "updateCell",
-      sheetName: "INDENT-PO", 
-      row: selectedPO._rowIndex.toString(),
-      column: "40", // Column AO
-      value: timestamp
-    });
+      const liftLabResponse = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: liftLabParams.toString(),
+      });
 
-    const updatePOResponse = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: updatePOParams.toString(),
-    });
+      if (!liftLabResponse.ok) {
+        const errorText = await liftLabResponse.text();
+        console.error("Lift insertion failed:", errorText);
+        throw new Error(`Failed to insert into LIFT-ACCOUNTS: ${errorText}`);
+      }
 
-    if (!updatePOResponse.ok) {
-      const errorText = await updatePOResponse.text();
-      throw new Error(`Failed to update PO status: ${errorText}`);
+      const liftResult = await liftLabResponse.json();
+      console.log("Lift insertion result:", liftResult);
+
+      if (!liftResult.success) {
+        throw new Error(liftResult.message || "Failed to insert lift record");
+      }
+
+      // Update the original PO row to mark it as lifted (column AO - index 40)
+      const updatePOParams = new URLSearchParams({
+        action: "updateCell",
+        sheetName: "INDENT-PO", 
+        row: selectedPO._rowIndex.toString(),
+        column: "40", // Column AO
+        value: timestamp
+      });
+
+      const updatePOResponse = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: updatePOParams.toString(),
+      });
+
+      if (!updatePOResponse.ok) {
+        const errorText = await updatePOResponse.text();
+        throw new Error(`Failed to update PO status: ${errorText}`);
+      }
+
+      toast.success(`Lift ${liftId} recorded successfully!`);
+      
+      // Refresh both tables to reflect the changes
+      await Promise.all([fetchPurchaseOrders(), fetchMaterialLifts()]);
+      handleClosePopup();
+
+    } catch (error) {
+      console.error("Error submitting lift form:", error);
+      toast.error(`Submission failed: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    toast.success(`Lift ${liftId} recorded successfully!`);
-    
-    // Refresh both tables to reflect the changes
-    await Promise.all([fetchPurchaseOrders(), fetchMaterialLifts()]);
-    handleClosePopup();
-
-  } catch (error) {
-    console.error("Error submitting lift form:", error);
-    toast.error(`Submission failed: ${error.message}`);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
-
+  };
 
   const liftExistsForPO = (indentNo) => {
     if (!indentNo) return false
@@ -1118,6 +1118,18 @@ if (!liftResult.success) {
         <span className="text-gray-400 text-xs">N/A</span>
       )
     }
+    
+    // Show status with badge
+    if (column.dataKey === "status") {
+      const statusValue = value || ""
+      const isPending = statusValue.toLowerCase() === "pending"
+      return (
+        <Badge variant={isPending ? "outline" : "secondary"} className={isPending ? "bg-yellow-100 text-yellow-800 border-yellow-200" : "bg-green-100 text-green-800"}>
+          {statusValue || "N/A"}
+        </Badge>
+      )
+    }
+    
     return value || (value === 0 ? "0" : <span className="text-xs text-gray-400">N/A</span>)
   }
 
@@ -1178,76 +1190,71 @@ if (!liftResult.success) {
               </TabsTrigger>
             </TabsList>
 
-          <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
-  <div className="flex items-center gap-2 mb-3">
-    <Filter className="h-4 w-4 text-gray-500" />
-    <Label className="text-sm font-medium">Filters</Label>
-    <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-      Clear All
-    </Button>
-  </div>
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-    {/* Vendor Name Filter */}
-    <div>
-      <Label className="text-xs mb-1 block">Vendor Name</Label>
-      <SearchableSelect
-        value={filters.vendorName}
-        onValueChange={(value) => handleFilterChange("vendorName", value)}
-        options={["all", ...uniqueFilterOptions.vendorName]}
-        placeholder="Vendors"
-        className="h-9"
-      />
-    </div>
+            <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <Label className="text-sm font-medium">Filters</Label>
+                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+                  Clear All
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <Label className="text-xs mb-1 block">Vendor Name</Label>
+                  <SearchableSelect
+                    value={filters.vendorName}
+                    onValueChange={(value) => handleFilterChange("vendorName", value)}
+                    options={["all", ...uniqueFilterOptions.vendorName]}
+                    placeholder="Vendors"
+                    className="h-9"
+                  />
+                </div>
 
-    {/* Material Name Filter */}
-    <div>
-      <Label className="text-xs mb-1 block">Material Name</Label>
-      <SearchableSelect
-        value={filters.materialName}
-        onValueChange={(value) => handleFilterChange("materialName", value)}
-        options={["all", ...uniqueFilterOptions.materialName]}
-        placeholder="Materials"
-        className="h-9"
-      />
-    </div>
+                <div>
+                  <Label className="text-xs mb-1 block">Material Name</Label>
+                  <SearchableSelect
+                    value={filters.materialName}
+                    onValueChange={(value) => handleFilterChange("materialName", value)}
+                    options={["all", ...uniqueFilterOptions.materialName]}
+                    placeholder="Materials"
+                    className="h-9"
+                  />
+                </div>
 
-    {/* Lift Type Filter */}
-    <div>
-      <Label className="text-xs mb-1 block">Lift Type</Label>
-      <SearchableSelect
-        value={filters.liftType}
-        onValueChange={(value) => handleFilterChange("liftType", value)}
-        options={["all", ...uniqueFilterOptions.liftType]}
-        placeholder="Types"
-        className="h-9"
-      />
-    </div>
+                <div>
+                  <Label className="text-xs mb-1 block">Lift Type</Label>
+                  <SearchableSelect
+                    value={filters.liftType}
+                    onValueChange={(value) => handleFilterChange("liftType", value)}
+                    options={["all", ...uniqueFilterOptions.liftType]}
+                    placeholder="Types"
+                    className="h-9"
+                  />
+                </div>
 
-    {/* Total Quantity Filter */}
-    <div>
-      <Label className="text-xs mb-1 block">Total Quantity</Label>
-      <SearchableSelect
-        value={filters.totalQuantity}
-        onValueChange={(value) => handleFilterChange("totalQuantity", value)}
-        options={["all", ...uniqueFilterOptions.totalQuantity]}
-        placeholder="Quantities"
-        className="h-9"
-      />
-    </div>
+                <div>
+                  <Label className="text-xs mb-1 block">Total Quantity</Label>
+                  <SearchableSelect
+                    value={filters.totalQuantity}
+                    onValueChange={(value) => handleFilterChange("totalQuantity", value)}
+                    options={["all", ...uniqueFilterOptions.totalQuantity]}
+                    placeholder="Quantities"
+                    className="h-9"
+                  />
+                </div>
 
-    {/* Order Number Filter */}
-    <div>
-      <Label className="text-xs mb-1 block">Order Number</Label>
-      <SearchableSelect
-        value={filters.orderNumber}
-        onValueChange={(value) => handleFilterChange("orderNumber", value)}
-        options={["all", ...uniqueFilterOptions.orderNumber]}
-        placeholder="Orders"
-        className="h-9"
-      />
-    </div>
-  </div>
-</div>
+                <div>
+                  <Label className="text-xs mb-1 block">Order Number</Label>
+                  <SearchableSelect
+                    value={filters.orderNumber}
+                    onValueChange={(value) => handleFilterChange("orderNumber", value)}
+                    options={["all", ...uniqueFilterOptions.orderNumber]}
+                    placeholder="Orders"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            </div>
 
             <TabsContent value="availablePOs" className="flex-1 flex flex-col mt-0">
               <Card className="shadow-sm border border-border flex-1 flex-col">
@@ -1259,7 +1266,7 @@ if (!liftResult.success) {
                         {filteredPurchaseOrders.length})
                       </CardTitle>
                       <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                        Filtered: Column AN (Planned) is filled & Column AO (Lifted On Timestamp) is empty.
+                        Showing POs with Status = "Pending" and Lifted On Timestamp empty.
                       </CardDescription>
                     </div>
                     <Popover>
@@ -1333,7 +1340,7 @@ if (!liftResult.success) {
                       <FileText className="h-12 w-12 text-purple-500 mb-3" />
                       <p className="font-medium text-foreground">No Eligible POs Found</p>
                       <p className="text-sm text-muted-foreground text-center">
-                        Ensure POs meet criteria: Column AN filled & AO empty.
+                        Ensure POs have Status = "Pending" and Lifted On Timestamp empty.
                         {user?.firmName && user.firmName.toLowerCase() !== "all" && (
                           <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
                         )}
@@ -1355,7 +1362,7 @@ if (!liftResult.success) {
                           {filteredPurchaseOrders.map((po) => (
                             <TableRow
                               key={po.id}
-                              className={`hover:bg-purple-50/50 ${liftExistsForPO(po.indentNo) ? "opacity-60 bg-gray-100 cursor-not-allowed" : ""} ${selectedPO?.id === po.id ? "bg-purple-100 ring-1 ring-purple-300" : ""}`}
+                              className={`hover:bg-purple-50/50 ${selectedPO?.id === po.id ? "bg-purple-100 ring-1 ring-purple-300" : ""}`}
                             >
                               {PO_COLUMNS_META.filter((col) => visiblePoColumns[col.dataKey]).map((column) => (
                                 <TableCell
@@ -1370,37 +1377,35 @@ if (!liftResult.success) {
                                       : ""
                                   }`}
                                 >
-                            {column.dataKey === "actionColumn" ? (
-                              <div className="flex flex-col gap-1">
-                                {liftExistsForPO(po.indentNo) ? (
-                                  <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200 text-xs">
-                                    Lift Recorded
-                                  </Badge>
-                                ) : (
-                                  <Button
-                                    onClick={() => handlePOSelect(po)}
-                                    size="xs"
-                                    variant="outline"
-                                    disabled={isSubmitting || !!selectedPO}
-                                    className="text-xs h-7 px-2 py-1 mb-1"
-                                  >
-                                    Create Lift
-                                  </Button>
-                                )}
-                                <Button
-                                  onClick={() => handleCancelPendingPO(po)}
-                                  size="xs"
-                                  variant="destructive"
-                                  className="text-xs h-7 px-2 py-1"
-                                >
-                                  Cancel Pending PO
-                                </Button>
-                              </div>
-                            ) : (
-                              <span title={column.dataKey === "whatIsToBeDone" ? po[column.dataKey] : undefined}>
-                                {renderCell(po, column)}
-                              </span>
-                            )}
+                                  {column.dataKey === "actionColumn" ? (
+                                    <div className="flex justify-center">
+                                      <Button
+                                        onClick={() => handlePOSelect(po)}
+                                        size="xs"
+                                        variant="outline"
+                                        disabled={isSubmitting}
+                                        className="text-xs h-7 px-2 py-1"
+                                      >
+                                        Create Lift
+                                      </Button>
+                                    </div>
+                                  ) : column.dataKey === "cancelAction" ? (
+                                    <div className="flex justify-center">
+                                      <Button
+                                        onClick={() => handleCancelPendingPO(po)}
+                                        size="xs"
+                                        variant="destructive"
+                                        className="text-xs h-7 px-2 py-1"
+                                        disabled={isSubmitting}
+                                      >
+                                        Cancel PO
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <span title={column.dataKey === "whatIsToBeDone" ? po[column.dataKey] : undefined}>
+                                      {renderCell(po, column)}
+                                    </span>
+                                  )}
                                 </TableCell>
                               ))}
                             </TableRow>
@@ -1423,7 +1428,7 @@ if (!liftResult.success) {
                         {filteredMaterialLifts.length})
                       </CardTitle>
                       <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                        Sorted from latest to oldest recorded lift. Red rows indicate Material Rate mismatch with PO Rate.
+                        Sorted from latest to oldest recorded lift.
                       </CardDescription>
                     </div>
                     <Popover>
@@ -1518,39 +1523,29 @@ if (!liftResult.success) {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredMaterialLifts.map((lift) => {
-                            // Check if Material Rate matches PO Rate - ONLY Material Rate comparison
-                            const liftMaterialRate = parseFloat(lift.rate) || 0;
-                            
-                            // Find corresponding PO rate from INDENT-PO sheet column Y
-                            const correspondingPO = purchaseOrders.find(po => po.indentNo === lift.indentNo);
-                            const poRate = parseFloat(correspondingPO?.rate) || 0;
-                            const materialRateMatches = Math.abs(liftMaterialRate - poRate) < 0.01;
-                            
-                            return (
-                              <TableRow 
-                                key={lift.id} 
-                                className={`hover:bg-purple-50/50 ${!materialRateMatches ? 'bg-red-50 border-red-700' : ''}`}
-                              >
-                                {LIFTS_COLUMNS_META.filter((col) => visibleLiftsColumns[col.dataKey]).map((column) => (
-                                  <TableCell
-                                    key={column.dataKey}
-                                    className={`whitespace-nowrap text-xs px-3 py-2 ${
-                                      column.dataKey === "id" ? "font-medium text-primary" : "text-gray-700"
-                                    } ${
-                                      column.dataKey === "vendorName" ||
-                                      column.dataKey === "material" ||
-                                      column.dataKey === "transporterName"
-                                        ? "truncate max-w-[150px]"
-                                        : ""
-                                    }`}
-                                  >
-                                    {renderCell(lift, column)}
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            )
-                          })}
+                          {filteredMaterialLifts.map((lift) => (
+                            <TableRow 
+                              key={lift.id} 
+                              className="hover:bg-purple-50/50"
+                            >
+                              {LIFTS_COLUMNS_META.filter((col) => visibleLiftsColumns[col.dataKey]).map((column) => (
+                                <TableCell
+                                  key={column.dataKey}
+                                  className={`whitespace-nowrap text-xs px-3 py-2 ${
+                                    column.dataKey === "id" ? "font-medium text-primary" : "text-gray-700"
+                                  } ${
+                                    column.dataKey === "vendorName" ||
+                                    column.dataKey === "material" ||
+                                    column.dataKey === "transporterName"
+                                      ? "truncate max-w-[150px]"
+                                      : ""
+                                  }`}
+                                >
+                                  {renderCell(lift, column)}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
                         </TableBody>
                       </Table>
                     </div>
@@ -1642,7 +1637,7 @@ if (!liftResult.success) {
                       isRequired: true,
                     },
                     { label: "Material Rate (INR)", name: "rate", type: "text", step: "any", isRequired: true },
-                    { label: "Transport Rate (INR)", name: "transportRate", type: "text", step: "any", isRequired: false }, // Changed to not required
+                    { label: "Transport Rate (INR)", name: "transportRate", type: "text", step: "any", isRequired: false },
                     {
                       label: "Lifted Quantity (Units)",
                       name: "truckQty",
@@ -1708,84 +1703,83 @@ if (!liftResult.success) {
                   })}
                 </div>
 
-                {/* Add this to the form grid after the existing fields */}
-<div className="col-span-3">
-  <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="hasBilty">
-    Has Bilty? <span className="text-red-500">*</span>
-  </Label>
-  <Select
-    name="hasBilty"
-    value={formData.hasBilty}
-    onValueChange={(value) => handleFormSelectChange("hasBilty", value)}
-  >
-    <SelectTrigger className={`w-full ${formErrors.hasBilty ? "border-red-500" : "border-gray-300"}`}>
-      <SelectValue placeholder="Select option" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="yes">Yes</SelectItem>
-      <SelectItem value="no">No</SelectItem>
-    </SelectContent>
-  </Select>
-  {formErrors.hasBilty && <p className="mt-1 text-xs text-red-600">{formErrors.hasBilty}</p>}
-</div>
+                <div className="col-span-3">
+                  <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="hasBilty">
+                    Has Bilty? <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    name="hasBilty"
+                    value={formData.hasBilty}
+                    onValueChange={(value) => handleFormSelectChange("hasBilty", value)}
+                  >
+                    <SelectTrigger className={`w-full ${formErrors.hasBilty ? "border-red-500" : "border-gray-300"}`}>
+                      <SelectValue placeholder="Select option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="yes">Yes</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formErrors.hasBilty && <p className="mt-1 text-xs text-red-600">{formErrors.hasBilty}</p>}
+                </div>
 
-{formData.hasBilty === "yes" && (
-  <>
-    <div>
-      <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="biltyNo">
-        Bilty Number <span className="text-red-500">*</span>
-      </Label>
-      <Input
-        type="text"
-        id="biltyNo"
-        name="biltyNo"
-        value={formData.biltyNo}
-        onChange={handleInputChange}
-        className={`${formErrors.biltyNo ? "border-red-500" : "border-gray-300"}`}
-        placeholder="Enter bilty number"
-      />
-      {formErrors.biltyNo && <p className="mt-1 text-xs text-red-600">{formErrors.biltyNo}</p>}
-    </div>
+                {formData.hasBilty === "yes" && (
+                  <>
+                    <div>
+                      <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="biltyNo">
+                        Bilty Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="biltyNo"
+                        name="biltyNo"
+                        value={formData.biltyNo}
+                        onChange={handleInputChange}
+                        className={`${formErrors.biltyNo ? "border-red-500" : "border-gray-300"}`}
+                        placeholder="Enter bilty number"
+                      />
+                      {formErrors.biltyNo && <p className="mt-1 text-xs text-red-600">{formErrors.biltyNo}</p>}
+                    </div>
 
-    <div className="col-span-2">
-      <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="biltyImage">
-        Upload Bilty Image
-      </Label>
-      <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-purple-400 transition-colors">
-        <div className="space-y-1 text-center">
-          <Upload className="mx-auto h-10 w-10 text-gray-400" />
-          <div className="flex text-sm text-gray-600 justify-center">
-            <Label
-              htmlFor="biltyImage"
-              className="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 px-1"
-            >
-              <span>Upload bilty image</span>
-              <Input
-                id="biltyImage"
-                name="biltyImage"
-                type="file"
-                className="sr-only"
-                onChange={(e) => {
-                  const { name, files } = e.target
-                  setFormData({ ...formData, [name]: files && files[0] ? files[0] : null })
-                }}
-                accept="image/*,.pdf"
-              />
-            </Label>
-            <p className="pl-1">or drag and drop</p>
-          </div>
-          <p className="text-xs text-gray-500">
-            {formData.biltyImage ? formData.biltyImage.name : "PNG, JPG, PDF up to 10MB"}
-          </p>
-        </div>
-      </div>
-    </div>
-  </>
-)}
+                    <div className="col-span-2">
+                      <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="biltyImage">
+                        Upload Bilty Image
+                      </Label>
+                      <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-purple-400 transition-colors">
+                        <div className="space-y-1 text-center">
+                          <Upload className="mx-auto h-10 w-10 text-gray-400" />
+                          <div className="flex text-sm text-gray-600 justify-center">
+                            <Label
+                              htmlFor="biltyImage"
+                              className="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 px-1"
+                            >
+                              <span>Upload bilty image</span>
+                              <Input
+                                id="biltyImage"
+                                name="biltyImage"
+                                type="file"
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const { name, files } = e.target
+                                  setFormData({ ...formData, [name]: files && files[0] ? files[0] : null })
+                                }}
+                                accept="image/*,.pdf"
+                              />
+                            </Label>
+                            <p className="pl-1">or drag and drop</p>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {formData.biltyImage ? formData.biltyImage.name : "PNG, JPG, PDF up to 10MB"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="mt-5">
                   <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="billImage">
-                    Upload Bill Image (Optional)
+                  Upload Bill Image <span className="text-red-500">*</span>
                   </Label>
                   <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-purple-400 transition-colors">
                     <div className="space-y-1 text-center">
@@ -1832,83 +1826,69 @@ if (!liftResult.success) {
               </form>
             </CardContent>
           </Card>
-          {/* Cancel Pending PO Quantity Popup */}
-{cancelPendingPO.show && (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-    <Card className="w-full max-w-md shadow-2xl">
-      <CardHeader className="px-6 py-5 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-        <CardTitle className="font-semibold text-lg text-gray-800">
-          Cancel Pending PO Quantity
-        </CardTitle>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleCloseCancelPopup}
-          className="text-gray-400 hover:text-gray-600"
-        >
-          <X className="h-5 w-5" />
-        </Button>
-      </CardHeader>
-      <CardContent className="p-6">
-        <div className="space-y-4">
-          <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-            <h4 className="text-sm font-semibold text-slate-700 mb-2">Purchase Order Details</h4>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <Label className="text-slate-500">Indent No.</Label>
-                <p className="font-medium text-slate-600">{cancelPendingPO.indentNo}</p>
-              </div>
-              <div>
-                <Label className="text-slate-500">Current Cancel Qty</Label>
-                <p className="font-medium text-slate-600">
-                  {purchaseOrders.find(po => po.id === cancelPendingPO.poId)?.orderCancelQty || "0"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <Label className="block text-sm font-medium text-gray-700 mb-2">
-              Cancel Quantity <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={cancelPendingPO.cancelQuantity}
-              onChange={handleCancelQuantityChange}
-              placeholder="Enter quantity to cancel"
-              className="w-full"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              This will be added to the existing Order Cancel Qty in column AI
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={handleCloseCancelPopup}>
-              Cancel
-            </Button>
-            <Button 
-              type="button" 
-              onClick={submitCancelPendingPO}
-              disabled={cancelPendingPO.loading}
-            >
-              {cancelPendingPO.loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...
-                </>
-              ) : (
-                "Submit Cancel Quantity"
-              )}
-            </Button>
-          </div>
         </div>
-      </CardContent>
-    </Card>
-  </div>
-)}
+      )}
 
+      {/* Cancel Pending PO Quantity Popup */}
+      {cancelPendingPO.show && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader className="px-6 py-5 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <CardTitle className="font-semibold text-lg text-gray-800">
+                Cancel Pending PO Quantity
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleCloseCancelPopup}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </CardHeader>
 
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-50 rounded-lg border">
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <Label>Indent No.</Label>
+                      <p className="font-medium">{cancelPendingPO.indentNo}</p>
+                    </div>
+                    <div>
+                      <Label>Current Cancel Qty</Label>
+                      <p className="font-medium">
+                        {purchaseOrders.find(po => po.id === cancelPendingPO.poId)?.orderCancelQty || "0"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Cancel Quantity *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={cancelPendingPO.cancelQuantity}
+                    onChange={handleCancelQuantityChange}
+                    placeholder="Enter quantity"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button variant="outline" onClick={handleCloseCancelPopup}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={submitCancelPendingPO}
+                    disabled={cancelPendingPO.loading}
+                  >
+                    {cancelPendingPO.loading ? "Submitting..." : "Submit"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

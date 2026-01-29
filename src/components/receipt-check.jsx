@@ -32,7 +32,7 @@ import { toast } from "sonner";
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const LIFTS_SHEET_NAME = "LIFT-ACCOUNTS";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
-const DATA_START_ROW_LIFTS = 6; // FIX: Corrected from 7 to 6
+const DATA_START_ROW_LIFTS = 5; // FIX: Corrected from 7 to 6
 
 // Column Indices for LIFT-ACCOUNTS (0-based) - R is 17
 const BILL_COPY_COL = 17;

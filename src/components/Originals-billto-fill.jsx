@@ -39,10 +39,11 @@ const ColumnIndices = {
   RAW_MATERIAL_NAME: 5,
   TYPE_OF_INDENT: 8,
   NOTES: 10,
-  APPROVED_QTY: 14,
+  APPROVED_QTY: 23,
   PLANNED: 17,
   PO_COPY_LINK: 25,
   ADVANCE_AMOUNT: 27,
+  TOTAL_AMOUNT: 24,        // ✅ ADD THIS
   PLANNED_4: 43,
   ACTUAL_4: 44,
   STATUS: 45,
@@ -176,8 +177,20 @@ const columns = [
   { header: "Delivery Order No.", dataKey: "deliveryOrderNo", toggleable: true },
   { header: "Vendor", dataKey: "vendorName", toggleable: true },
   { header: "Material Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
+  { header: "PO Qty", dataKey: "approvedQty", toggleable: true },
   { header: "Advance Amount", dataKey: "advanceAmount", toggleable: true },
+  { header: "Total Amount", dataKey: "totalAmount", toggleable: true },
+
+{ header: "Indent Type", dataKey: "typeOfIndent", toggleable: true },
+
+{
+  header: "PO Copy",
+  dataKey: "poCopyLink",
+  toggleable: true,
+  isLink: true,
+  linkText: "View PO",
+},
+
   { header: "Notes", dataKey: "notes", toggleable: true },
   { header: "Planned", dataKey: "planned", toggleable: true },
 ];
@@ -237,6 +250,9 @@ export default function TallyEntry() {
             rawMaterialName: String(getCell(ColumnIndices.RAW_MATERIAL_NAME)),
             approvedQty: String(getCell(ColumnIndices.APPROVED_QTY)),
             advanceAmount: String(getCell(ColumnIndices.ADVANCE_AMOUNT)),
+            totalAmount: String(getCell(ColumnIndices.TOTAL_AMOUNT)), // ✅ NEW
+            typeOfIndent: String(getCell(ColumnIndices.TYPE_OF_INDENT)), // (already present – OK)
+            poCopyLink: String(getCell(ColumnIndices.PO_COPY_LINK)),     // (already present – OK)
             typeOfIndent: String(getCell(ColumnIndices.TYPE_OF_INDENT)),
             planned4: String(getCell(ColumnIndices.PLANNED_4)),
             actual4: String(getCell(ColumnIndices.ACTUAL_4)),

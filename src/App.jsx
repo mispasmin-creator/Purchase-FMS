@@ -19,6 +19,7 @@ import AgainAuditingPage from "./components/Again-for-auditing";
 import OriginalBillsFiledPage from "./components/Originals-billto-fill";
 import TolrancePage from "./components/Tolrance";
 import Mismatch from "./components/Mis-match";
+import DebitNote from "./components/Debit-note";
 
 import { useAuth } from "./context/AuthContext";
 import BiltyPage from "./components/BiltyPage";
@@ -221,6 +222,15 @@ function App() {
       countKey: "mismatch",
       countLabel: "Issues"
     },
+    { 
+      id: "debit-note", 
+      label: "Debit Note", 
+      icon: <FileText size={20} />, 
+      stepName: "Debit Note",
+      showNotification: true,
+      countKey: "debit-note",
+      countLabel: "Pending"
+    },
      { 
       id: "audit-data", 
       label: "Accounts Audit", 
@@ -375,6 +385,7 @@ function App() {
       case "original-bills": return <OriginalBillsFiledPage />;
       case "tolrance": return <TolrancePage />;
       case "mismatch": return <Mismatch />;
+      case "debit-note": return <DebitNote />;
       case "kyc": return <KycPage />;
       case "vendor-payment": return <VendorPaymentPage />;
       default: return <Dashboard />;
