@@ -36,17 +36,21 @@ export default function LoginForm() {
     return Object.keys(newErrors).length === 0;
   };
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsLoading(true);
     try {
-      await login(formData.username, formData.password);
+      const success = await login(formData.username, formData.password);
+      // Note: login() handles toast messages and page reload on success
+      // On failure, it will show toast error and we just stop loading
+      if (!success) {
+        setIsLoading(false);
+      }
     } catch (error) {
       console.error("Login submission error:", error);
-      // Optionally, set an error state to show a message to the user
-    } finally {
       setIsLoading(false);
     }
   };
@@ -89,9 +93,8 @@ export default function LoginForm() {
                 value={formData.username}
                 onChange={handleChange}
                 disabled={isLoading}
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
-                  errors.username ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-                }`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.username ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                  }`}
                 aria-invalid={!!errors.username}
                 aria-describedby={errors.username ? "username-error" : undefined}
               />
@@ -107,9 +110,8 @@ export default function LoginForm() {
                 value={formData.password}
                 onChange={handleChange}
                 disabled={isLoading}
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
-                  errors.password ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-                }`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.password ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                  }`}
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? "password-error" : undefined}
               />

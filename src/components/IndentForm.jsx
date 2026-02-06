@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { FileText, Loader2, CheckCircle, XCircle } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
+import { supabase } from "../supabase"
+import { fetchMasterData } from "../utils/masterDataUtils"
 
 export default function IndentForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -34,105 +36,52 @@ export default function IndentForm() {
   const [lastRLNumberNumeric, setLastRLNumberNumeric] = useState(0)
   const { user, allowedSteps } = useAuth()
 
+  const fetchLatestRLNumber = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("INDENT-PO")
+        .select('"Indent Id."')
+        .order('"Indent Id."', { ascending: false })
+        .limit(1)
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        const lastId = data[0]['Indent Id.']
+        if (lastId && typeof lastId === "string" && lastId.startsWith("RL-")) {
+          const numStr = lastId.substring(3)
+          const num = parseInt(numStr, 10)
+          if (!isNaN(num)) {
+            setLastRLNumberNumeric(num)
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching latest RL number from Supabase:", error)
+    }
+  }, [])
+
   const APPS_SCRIPT_URL =
     "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec"
   const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
-  const MASTER_SHEET_NAME = "Master"
   const SHEET_NAME = "INDENT-PO"
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const masterUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${MASTER_SHEET_NAME}&cb=${new Date().getTime()}`
-      const indentUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}&cb=${new Date().getTime()}`
+      // Fetch data from Supabase Master table
+      const masterData = await fetchMasterData();
 
-      const masterResponse = await fetch(masterUrl)
-      if (!masterResponse.ok)
-        throw new Error(`Failed to fetch Master sheet: ${masterResponse.status} ${masterResponse.statusText}`)
-      
-      let masterText = await masterResponse.text();
-      const jsonpStart = "google.visualization.Query.setResponse(";
-      if (masterText.startsWith(jsonpStart)) {
-          masterText = masterText.substring(jsonpStart.length, masterText.length - 2);
-      } else {
-          const jsonStartIndex = masterText.indexOf('{');
-          const jsonEndIndex = masterText.lastIndexOf('}');
-          if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex <= jsonStartIndex) {
-              throw new Error("Invalid response format from Google Sheets.");
-          }
-          masterText = masterText.substring(jsonStartIndex, jsonEndIndex + 1);
-      }
-      
-      const masterData = JSON.parse(masterText);
-
-      if (masterData.status === "error" || !masterData.table) {
-        throw new Error("Master sheet data is invalid or returned an error.")
-      }
-      
-      // Data rows from the sheet (header is not included here)
-      const masterRows = masterData.table.rows;
-
-      // **FIX:** The screenshot shows the header row is being included in the data.
-      // We explicitly skip the first row of the returned data to remove the header.
-      const dataRowsOnly = masterRows.slice(1);
-
-      const generatedByIndex = 0;      // Column A
-      const vendorNameIndex = 1;       // Column B
-      const rawMaterialNameIndex = 2;  // Column C
-      const firmNameIndex = 9;         // Column J
-
-      const extractUniqueValues = (rows, columnIndex) => {
-        if (columnIndex === -1 || !rows || rows.length === 0) return [];
-        const values = rows.map((row) => {
-            const cell = row.c[columnIndex];
-            // Ensure row and cell exist before trying to access properties
-            return row && row.c && cell && cell.v !== null ? String(cell.v).trim() : "";
-        }).filter(Boolean); // Filter out any empty strings that might result
-        return [...new Set(values)].sort();
+      let options = {
+        generatedBy: masterData.generatedByOptions,
+        vendorName: masterData.vendorOptions,
+        firmName: masterData.firmNameOptions, // Show ALL firms - no filtering
+        rawMaterialName: masterData.materialOptions,
       };
-
-      const options = {
-        generatedBy: extractUniqueValues(dataRowsOnly, generatedByIndex),
-        vendorName: extractUniqueValues(dataRowsOnly, vendorNameIndex),
-        firmName: extractUniqueValues(dataRowsOnly, firmNameIndex),
-        rawMaterialName: extractUniqueValues(dataRowsOnly, rawMaterialNameIndex),
-      };
-
-      if (!allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-        options.firmName = options.firmName.filter((firm) => firm.toLowerCase() === user.firmName.toLowerCase())
-        setFormData((prev) => ({ ...prev, firmName: user.firmName }))
-      }
 
       setDropdownOptions(options)
-
-      const indentResponse = await fetch(indentUrl)
-      if (!indentResponse.ok)
-        throw new Error(`Failed to fetch Indent-PO sheet: ${indentResponse.status} ${indentResponse.statusText}`)
-
-      const indentCsvData = await indentResponse.text()
-      const indentRows = indentCsvData.split("\n").map((row) => {
-        return row.split(",").map((cell) => cell.trim().replace(/^"|"$/g, ""))
-      })
-
-      const rlNumberColumnIndex = 1
-      let highestNumber = 0
-      if (indentRows.length > 1) {
-        for (let i = 1; i < indentRows.length; i++) {
-          if (indentRows[i] && indentRows[i].length > rlNumberColumnIndex) {
-            const idValue = indentRows[i][rlNumberColumnIndex]
-            if (idValue && typeof idValue === "string" && idValue.startsWith("RL-")) {
-              const numStr = idValue.substring(3)
-              const num = Number.parseInt(numStr, 10)
-              if (!isNaN(num) && num > highestNumber) {
-                highestNumber = num
-              }
-            }
-          }
-        }
-      }
-      setLastRLNumberNumeric(highestNumber)
     } catch (error) {
-      console.error("Error fetching data:", error)
+      console.error("Error fetching master data:", error)
       toast.error("Failed to load initial form data.", {
         description: "Please try refreshing. Error: " + error.message,
         icon: <XCircle className="h-4 w-4" />,
@@ -140,11 +89,12 @@ export default function IndentForm() {
     } finally {
       setIsLoading(false)
     }
-  }, [SHEET_ID, SHEET_NAME, MASTER_SHEET_NAME, user, allowedSteps])
+  }, [])
 
   useEffect(() => {
     fetchData()
-  }, [fetchData])
+    fetchLatestRLNumber()
+  }, [fetchData, fetchLatestRLNumber])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -179,124 +129,88 @@ export default function IndentForm() {
     // if (!formData.vendorName) newErrors.vendorName = "Vendor Name is required."
     if (!formData.firmName) newErrors.firmName = "Firm Name is required."
     if (!formData.rawMaterialName) newErrors.rawMaterialName = "Raw Material Name is required."
-    
+
     // Stricter check for Quantity
     if (!formData.quantity) {
-        newErrors.quantity = "Quantity is required."
+      newErrors.quantity = "Quantity is required."
     } else if (isNaN(Number(formData.quantity)) || Number(formData.quantity) <= 0) {
-        newErrors.quantity = "Quantity must be a positive number."
+      newErrors.quantity = "Quantity must be a positive number."
     }
 
     // Stricter check for Current Stock
     if (!formData.currentStock) {
-        newErrors.currentStock = "Current stock is required."
+      newErrors.currentStock = "Current stock is required."
     } else if (isNaN(Number(formData.currentStock))) {
-        newErrors.currentStock = "Current stock must be a number."
+      newErrors.currentStock = "Current stock must be a number."
     }
 
     if (!formData.priority) newErrors.priority = "Priority is required."
-    
+
     setErrors(newErrors); // Update state for UI error messages
     return newErrors; // Return errors immediately for synchronous check
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    const validationErrors = validateForm(); // Get validation errors directly
+    const validationErrors = validateForm();
 
-    // Check the returned errors object instead of state
     if (Object.keys(validationErrors).length > 0) {
       const firstErrorKey = Object.keys(validationErrors)[0];
       toast.error("Validation Error", {
         description: validationErrors[firstErrorKey],
         icon: <XCircle className="h-4 w-4" />,
       });
-      return; // Stop the submission
+      return;
     }
 
     setIsSubmitting(true)
     try {
-      const nextNumericPart = lastRLNumberNumeric + 1
+      // Re-fetch latest RL number from Supabase to ensure uniqueness
+      const { data: latestData } = await supabase
+        .from("INDENT-PO")
+        .select('"Indent Id."')
+        .order('"Indent Id."', { ascending: false })
+        .limit(1)
+
+      let currentMax = lastRLNumberNumeric
+      if (latestData && latestData.length > 0) {
+        const lastId = latestData[0]['Indent Id.']
+        if (lastId && lastId.startsWith("RL-")) {
+          const num = parseInt(lastId.substring(3), 10)
+          if (!isNaN(num) && num > currentMax) {
+            currentMax = num
+          }
+        }
+      }
+
+      const nextNumericPart = currentMax + 1
       const paddedNumber = String(nextNumericPart).padStart(3, "0")
       const rlNumber = `RL-${paddedNumber}`
 
       const now = new Date()
-      const timestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+      const timestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", "")
 
-      // This array maps your form data to the columns in the sheet.
-      // The order is critical.
-      const rowData = [
-        timestamp,            // Column A
-        rlNumber,             // Column B
-        formData.firmName,    // Column C
-        formData.generatedBy, // Column D
-        " ",  // Column E
-        formData.rawMaterialName, // Column F
-        formData.quantity,    // Column G
-        formData.currentStock,// Column H
-        formData.priority,    // Column I
-        formData.deliveryOrderNo, // Column J
-        formData.notes,
-        "", // Column K
-        "", // Column L
-        "", // Column M
-        "", // Column N
-        "", // Column O
-        "", // Column P
-        "", // Column Q
-        "", // Column R
-        "", // Column S
-        "", // Column T
-        "", // Column U
-        "", // Column V
-        "", // Column W
-        "", // Column X
-        "", // Column Y
-        "", // Column Z
-        "", // Column AA
-        "", // Column AB
-        "", // Column AC
-        "", // Column AD
-        "", // Column AE
-        "", // Column AF
-        "", // Column AG
-        "", // Column AH
-        "", // Column AI
-        "", // Column AJ
-        "", // Column AK
-        "", // Column AL
-        "", // Column AM
-        "", // Column AN
-        "", // Column AO
-              formData.vendorName   // Column AQ (column 43) - Vendor Name
-       // Column K
-      ]
+      const { error: insertError } = await supabase
+        .from("INDENT-PO")
+        .insert([{
+          "Timestamp": timestamp,
+          "Indent Id.": rlNumber,
+          "Firm Name": formData.firmName,
+          "Generated By": formData.generatedBy,
+          "Vendor": formData.vendorName,
+          "Material": formData.rawMaterialName,
+          "Quantity": parseFloat(formData.quantity),
+          "Current Stock As Per factory": parseFloat(formData.currentStock),
+          "Priority": formData.priority,
+          "Delivery Order No.": formData.deliveryOrderNo,
+          "Notes": formData.notes
+        }])
 
-      const formPayload = new URLSearchParams()
-      formPayload.append("sheetName", SHEET_NAME)
-      formPayload.append("action", "insert")
-      formPayload.append("rowData", JSON.stringify(rowData))
-
-      const response = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        body: formPayload,
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(
-          `Submission failed: ${response.status}. Details: ${errorText || "N/A"}`,
-        )
-      }
-
-      const result = await response.json()
-      if (!result.success && result.result !== "success") {
-        throw new Error(result.message || "Submission reported an issue from Apps Script.")
-      }
+      if (insertError) throw insertError
 
       setLastRLNumberNumeric(nextNumericPart)
       toast.success("Success!", {
-        description: `RL Number ${rlNumber} generated successfully!`,
+        description: `RL Number ${rlNumber} generated successfully in Supabase!`,
         icon: <CheckCircle className="h-4 w-4" />,
       })
 
@@ -384,7 +298,6 @@ export default function IndentForm() {
                   name="firmName"
                   value={formData.firmName}
                   onValueChange={(value) => handleSelectChange("firmName", value)}
-                  disabled={!allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all"}
                 >
                   <SelectTrigger className={`mt-1 ${errors.firmName ? "border-red-500" : ""}`}>
                     <SelectValue placeholder="Select firm name" />

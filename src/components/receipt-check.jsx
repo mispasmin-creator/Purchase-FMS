@@ -1,15 +1,16 @@
 "use client";
-import { useState, useEffect, useMemo, useContext } from "react";
+import { useState, useContext, useMemo, useEffect } from "react";
 import {
-  Loader2,
   PackageOpen,
-  AlertTriangle,
   PackageCheck,
+  FileCheckIcon,
+  Loader2,
+  X,
+  History,
+  Info,
+  AlertTriangle,
   FileUp,
   ExternalLink,
-  History,
-  FileCheckIcon,
-  Info,
   Filter,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
@@ -26,7 +27,10 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AuthContext } from "../context/AuthContext"; // Import AuthContext
+import { useNotification } from "../context/NotificationContext";
 import { toast } from "sonner";
+import { supabase } from "../supabase";
+import { uploadFileToStorage } from "../utils/storageUtils";
 
 // Constants for Google Sheets and Apps Script
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
@@ -59,7 +63,7 @@ const FIRM_NAME_COL = 55; // Column BD for Firm Name
 
 // Column Definitions
 const AWAITING_RECEIPT_COLUMNS_META = [
-    { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
+  { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
   { header: "Lift Number", dataKey: "id", toggleable: true, alwaysVisible: true },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
@@ -99,8 +103,8 @@ const PROCESSED_RECEIPTS_COLUMNS_META = [
 // Helper to parse Google Sheet gviz JSON response
 const parseGvizResponse = (text, sheetNameForError) => {
   if (!text || !text.includes("google.visualization.Query.setResponse")) {
-    console.error(`[ParseGviz] Invalid or empty gviz response for ${sheetNameForError}:`, text ? text.substring(0, 500) : "Response was null/empty");
-    throw new Error(`Invalid response format from Google Sheets for ${sheetNameForError}. Ensure it's link-shareable as 'Viewer'.`);
+    console.error(`[ParseGviz] Invalid or empty gviz response for ${sheetNameForError}: `, text ? text.substring(0, 500) : "Response was null/empty");
+    throw new Error(`Invalid response format from Google Sheets for ${sheetNameForError}.Ensure it's link-shareable as 'Viewer'.`);
   }
   const jsonStart = text.indexOf("{");
   const jsonEnd = text.lastIndexOf("}");
@@ -157,7 +161,7 @@ const formatDateString = (dateValue) => {
 const checkQuantitiesMatch = (totalBillQty, actualQty) => {
   const bill = parseFloat(totalBillQty) || 0;
   const actual = parseFloat(actualQty) || 0;
-  
+
   // Check if Total Bill Qty equals Actual Qty only
   return bill === actual;
 };
@@ -187,6 +191,7 @@ function ReceiptFormModal({ isOpen, onClose, liftData, children }) {
 
 export default function ReceiptCheck() {
   const { user } = useContext(AuthContext);
+  const { updateCount } = useNotification();
   const [allLiftsData, setAllLiftsData] = useState([]);
   const [selectedLift, setSelectedLift] = useState(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -207,7 +212,7 @@ export default function ReceiptCheck() {
   const [visibleProcessedReceiptsColumns, setVisibleProcessedReceiptsColumns] = useState({});
   const [formData, setFormData] = useState({
     liftId: "",
-    dateOfReceiving: new Date().toISOString().split("T")[0],
+    dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
     totalBillQuantity: "",
     actualQuantity: "",
     weightSlipQty: "", // New field
@@ -252,65 +257,82 @@ export default function ReceiptCheck() {
       setLoadingData(true);
       setErrorData(null);
       try {
-        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(LIFTS_SHEET_NAME)}&t=${new Date().getTime()}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Network response was not ok: ${response.statusText}`);
-        }
-        const responseText = await response.text();
-        const dataTable = parseGvizResponse(responseText, LIFTS_SHEET_NAME);
-        setDataTableForSubmit(dataTable);
-        
-        let processedData = dataTable.rows.map((row, gvizRowIndex) => {
-          if (!row || !row.c) {
-            return null;
+        // Fetch from Supabase LIFT-ACCOUNTS table
+        const { data, error: fetchError } = await supabase
+          .from("LIFT-ACCOUNTS")
+          .select("*")
+          .order("Timestamp", { ascending: false });
+
+        if (fetchError) throw fetchError;
+
+        // Helper to format date for display
+        const formatTimestamp = (dateValue) => {
+          if (!dateValue) return "";
+          try {
+            const d = new Date(dateValue);
+            if (!isNaN(d.getTime())) {
+              return d.toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+              }).replace(/,/g, "");
+            }
+          } catch (e) {
+            return String(dateValue);
           }
-          const getStringValue = (colIndex) => (row.c?.[colIndex]?.v !== undefined && row.c?.[colIndex]?.v !== null ? String(row.c[colIndex].v) : "");
-          const getFormattedValue = (colIndex) => formatDateString(getStringValue(colIndex));
-          
-          const rowData = { 
-            _id: `lift-${gvizRowIndex}`,
-            _rowIndex: gvizRowIndex + DATA_START_ROW_LIFTS,
-            id: getStringValue(LIFT_ID_COL),
-            liftNo: getStringValue(LIFT_ID_COL),
-            indentNo: getStringValue(INDENT_NO_COL),
-            vendorName: getStringValue(VENDOR_NAME_COL),
-            rawMaterialName: getStringValue(RAW_MATERIAL_COL),
-            billNo: getStringValue(BILL_NO_COL),
-            qty: getStringValue(ORIGINAL_QTY_COL),
-            type: getStringValue(LIFT_TYPE_COL),
-            billCopy: getStringValue(BILL_COPY_COL),
-            driverNo: getStringValue(DRIVER_NO_COL),
-            areaLifting: getStringValue(BILL_NO_COL),
-            truckNo: getStringValue(TRUCK_NO_COL),
-            plannedDate_formatted: getFormattedValue(PLANNED_COL) || getStringValue(PLANNED_COL),
-            filterColT_val: getStringValue(PLANNED_COL),
-            filterColU_val: getStringValue(FILTER_U_COL),
-            actual1Timestamp: getFormattedValue(FILTER_U_COL),
-            dateOfReceiving_fromSheet: getStringValue(DATE_OF_RECEIVING_COL_W),
-            dateOfReceiving_formatted: getFormattedValue(DATE_OF_RECEIVING_COL_W) || getStringValue(DATE_OF_RECEIVING_COL_W),
-            totalBillQuantity_fromSheet: getStringValue(TOTAL_BILL_QUANTITY_COL_X),
-            actualQuantity_fromSheet: getStringValue(ACTUAL_QTY_COL_Y),
-            physicalCondition_fromSheet: getStringValue(PHYSICAL_COND_COL_Z),
-            moisture_fromSheet: getStringValue(MOISTURE_COL_AA),
-            physicalImageUrl_fromSheet: getStringValue(PHYSICAL_IMAGE_URL_COL_AB),
-            weightSlipImageUrl_fromSheet: getStringValue(WEIGHT_SLIP_URL_COL_AC),
-            weightSlipQty_fromSheet: getStringValue(WEIGHT_SLIP_QTY_COL_BF), // New field
-            firmName: getStringValue(FIRM_NAME_COL),
-            // Helper property to check if quantities match (Total Bill Qty vs Actual Qty only)
+          return String(dateValue);
+        };
+
+        let processedData = (data || []).map((row) => {
+          const rowData = {
+            _id: `lift-${row.id}`,
+            _dbId: row.id, // Store the Supabase row ID for updates
+            id: String(row["Lift No"] || "").trim(),
+            liftNo: String(row["Lift No"] || "").trim(),
+            indentNo: String(row["Indent no."] || "").trim(),
+            vendorName: String(row["Vendor Name"] || "").trim(),
+            rawMaterialName: String(row["Raw Material Name"] || "").trim(),
+            billNo: String(row["Bill No."] || "").trim(),
+            qty: String(row["Qty"] || "").trim(),
+            type: String(row["Type"] || "").trim(),
+            billCopy: String(row["Bill Image"] || "").trim(),
+            driverNo: String(row["Driver No."] || "").trim(),
+            areaLifting: String(row["Area lifting"] || "").trim(),
+            truckNo: String(row["Truck No."] || "").trim(),
+            plannedDate_formatted: formatTimestamp(row["Planned 1"]),
+            // Filter columns - using Planned 1 and Actual 1
+            filterColPlanned1: row["Planned 1"],
+            filterColActual1: row["Actual 1"],
+            actual1Timestamp: formatTimestamp(row["Actual 1"]),
+            dateOfReceiving_fromSheet: row["Date Of Receiving"] || "",
+            dateOfReceiving_formatted: formatTimestamp(row["Date Of Receiving"]),
+            totalBillQuantity_fromSheet: String(row["Total Bill Quantity"] || "").trim(),
+            actualQuantity_fromSheet: String(row["Actual Quantity"] || "").trim(),
+            physicalCondition_fromSheet: String(row["Physical Condition"] || "").trim(),
+            moisture_fromSheet: String(row["Moisture"] || "").trim(),
+            physicalImageUrl_fromSheet: String(row["Physical Image Of Product"] || "").trim(),
+            weightSlipImageUrl_fromSheet: String(row["Image Of Weight Slip"] || "").trim(),
+            weightSlipQty_fromSheet: String(row["Weight Slip Qty"] || "").trim(),
+            firmName: String(row["Firm Name"] || "").trim(),
+            // Helper property to check if quantities match
             _quantitiesMatch: checkQuantitiesMatch(
-              getStringValue(TOTAL_BILL_QUANTITY_COL_X),
-              getStringValue(ACTUAL_QTY_COL_Y)
+              row["Total Bill Quantity"],
+              row["Actual Quantity"]
             ),
           };
           return rowData;
         });
 
+        // Filter by user's firm name if applicable
         if (user?.firmName && user.firmName.toLowerCase() !== "all") {
           const userFirmNameLower = user.firmName.toLowerCase();
           processedData = processedData.filter((lift) => lift && lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower);
         }
-        setAllLiftsData(processedData.filter(Boolean));
+        setAllLiftsData(processedData);
       } catch (err) {
         setErrorData(`Failed to load data: ${err.message}.`);
       } finally {
@@ -347,20 +369,31 @@ export default function ReceiptCheck() {
 
   const liftsAwaitingReceipt = useMemo(() => {
     return allLiftsData.filter((lift) => {
-      let matches = lift.filterColT_val && !lift.filterColU_val;
+      // Show when Planned 1 is not null AND Actual 1 is null
+      let matches = lift.filterColPlanned1 && !lift.filterColActual1;
       if (filters.vendorName !== "all") matches = matches && lift.vendorName === filters.vendorName;
       if (filters.materialName !== "all") matches = matches && lift.rawMaterialName === filters.materialName;
-      // ... add other filters
+      if (filters.liftType !== "all") matches = matches && lift.type === filters.liftType;
+      if (filters.orderNumber !== "all") matches = matches && (lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
       return matches;
     });
   }, [allLiftsData, filters]);
 
+  // Update Notification Context
+  useEffect(() => {
+    // Calculate total pending for the firm/user regardless of local filters
+    const totalPending = allLiftsData.filter((lift) => lift.filterColPlanned1 && !lift.filterColActual1).length;
+    updateCount("receipt-check", totalPending);
+  }, [allLiftsData, updateCount]);
+
   const derivedMaterialReceipts = useMemo(() => {
     return allLiftsData.filter((lift) => {
-      let matches = !!lift.filterColU_val;
+      // Show when both Planned 1 and Actual 1 are not null
+      let matches = lift.filterColPlanned1 && lift.filterColActual1;
       if (filters.vendorName !== "all") matches = matches && lift.vendorName === filters.vendorName;
       if (filters.materialName !== "all") matches = matches && lift.rawMaterialName === filters.materialName;
-      // ... add other filters
+      if (filters.liftType !== "all") matches = matches && lift.type === filters.liftType;
+      if (filters.orderNumber !== "all") matches = matches && (lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
       return matches;
     }).sort((a, b) => new Date(b.actual1Timestamp) - new Date(a.actual1Timestamp));
   }, [allLiftsData, filters]);
@@ -400,7 +433,7 @@ export default function ReceiptCheck() {
     const initialWeightSlip = parseFloat(lift.weightSlipQty_fromSheet || lift.qty) || 0;
     setFormData({
       liftId: lift.id,
-      dateOfReceiving: lift.dateOfReceiving_fromSheet || new Date().toISOString().split("T")[0],
+      dateOfReceiving: lift.dateOfReceiving_fromSheet || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       totalBillQuantity: initialTotal.toString(),
       actualQuantity: initialActual.toString(),
       weightSlipQty: initialWeightSlip.toString(), // New field
@@ -423,33 +456,21 @@ export default function ReceiptCheck() {
     if (!formData.weightSlipQty || isNaN(parseFloat(formData.weightSlipQty))) newErrors.weightSlipQty = "Weight Slip Qty must be a number.";
     if (!formData.physicalCondition) newErrors.physicalCondition = "Physical Condition is required.";
     if (!formData.moisture || isNaN(parseFloat(formData.moisture))) newErrors.moisture = "Moisture must be a number.";
-    
+
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
-  const uploadFileToDrive = async (file, folderId = "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7") => {
+
+  // Upload file to Supabase Storage
+  const uploadFileToSupabase = async (file, folder) => {
     if (!file) return "";
-    const base64Data = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = error => reject(error);
-    });
-
-    const uploadPayload = new FormData();
-    uploadPayload.append("action", "uploadFile");
-    uploadPayload.append("fileName", file.name);
-    uploadPayload.append("mimeType", file.type);
-    uploadPayload.append("base64Data", base64Data);
-    uploadPayload.append("folderId", folderId);
-
-    const response = await fetch(APPS_SCRIPT_URL, { method: "POST", body: uploadPayload });
-    if (!response.ok) throw new Error(`Drive upload failed: ${await response.text()}`);
-    
-    const result = await response.json();
-    if (!result.success) throw new Error(result.message || "Apps Script upload failed");
-    return result.fileUrl;
+    try {
+      const { url } = await uploadFileToStorage(file, 'image', folder);
+      return url;
+    } catch (error) {
+      console.error(`Error uploading ${folder} file:`, error);
+      throw new Error(`Failed to upload ${folder}: ${error.message}`);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -460,55 +481,50 @@ export default function ReceiptCheck() {
     }
     setIsSubmitting(true);
     toast.loading("Submitting receipt details...", { id: "receipt-submit" });
-  
+
     try {
-      const receiptFolderId = "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7";
       let physicalImageUrl = formData.physicalImageUrl || "";
       if (formData.physicalImageFile) {
-        physicalImageUrl = await uploadFileToDrive(formData.physicalImageFile, receiptFolderId);
+        physicalImageUrl = await uploadFileToSupabase(formData.physicalImageFile, 'receipt-physical');
       }
-  
+
       let weightSlipImageUrl = formData.weightSlipImageUrl || "";
       if (formData.weightSlipFile) {
-        weightSlipImageUrl = await uploadFileToDrive(formData.weightSlipFile, receiptFolderId);
+        weightSlipImageUrl = await uploadFileToSupabase(formData.weightSlipFile, 'receipt-weight-slip');
       }
-  
-      const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", "");
-  
-      const cellUpdates = {
-        [`col${FILTER_U_COL + 1}`]: timestamp,
-        [`col${DATE_OF_RECEIVING_COL_W + 1}`]: formData.dateOfReceiving,
-        [`col${TOTAL_BILL_QUANTITY_COL_X + 1}`]: parseFloat(formData.totalBillQuantity) || 0,
-        [`col${ACTUAL_QTY_COL_Y + 1}`]: parseFloat(formData.actualQuantity) || 0,
-        [`col${PHYSICAL_COND_COL_Z + 1}`]: formData.physicalCondition,
-        [`col${MOISTURE_COL_AA + 1}`]: parseFloat(formData.moisture) || 0,
-        [`col${PHYSICAL_IMAGE_URL_COL_AB + 1}`]: physicalImageUrl,
-        [`col${WEIGHT_SLIP_URL_COL_AC + 1}`]: weightSlipImageUrl,
-        [`col${WEIGHT_SLIP_QTY_COL_BF + 1}`]: parseFloat(formData.weightSlipQty) || 0, // New field
+
+      const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", ""); // Indian format for Supabase timestamp
+
+      // Prepare update data for Supabase LIFT-ACCOUNTS
+      const updateData = {
+        "Actual 1": timestamp,
+        "Date Of Receiving": formData.dateOfReceiving,
+        "Total Bill Quantity": parseFloat(formData.totalBillQuantity) || null,
+        "Actual Quantity": parseFloat(formData.actualQuantity) || null,
+        "Physical Condition": formData.physicalCondition,
+        "Moisture": parseFloat(formData.moisture) || null,
+        "Physical Image Of Product": physicalImageUrl || null,
+        "Image Of Weight Slip": weightSlipImageUrl || null,
+        "Weight Slip Qty": parseFloat(formData.weightSlipQty) || null,
       };
-  
-      const payload = new URLSearchParams({
-        action: "updateCells",
-        sheetName: LIFTS_SHEET_NAME,
-        rowIndex: selectedLift._rowIndex,
-        cellUpdates: JSON.stringify(cellUpdates),
-      });
-  
-      const response = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: payload.toString(),
-      });
-  
-      const responseText = await response.text();
-      if (!response.ok && !responseText.toLowerCase().includes("success")) {
-        throw new Error(`Sheet update failed: ${response.status}. ${responseText}`);
+
+      console.log("Updating LIFT-ACCOUNTS record:", selectedLift._dbId, updateData);
+
+      // Update the LIFT-ACCOUNTS record in Supabase
+      const { error: updateError } = await supabase
+        .from("LIFT-ACCOUNTS")
+        .update(updateData)
+        .eq("id", selectedLift._dbId);
+
+      if (updateError) {
+        console.error("LIFT-ACCOUNTS update failed:", updateError);
+        throw new Error(`Failed to update LIFT-ACCOUNTS: ${updateError.message}`);
       }
-  
+
       toast.success("Success!", { id: "receipt-submit", description: `Receipt for Lift ID ${selectedLift.id} recorded successfully.` });
       setRefreshTrigger(prev => prev + 1);
       handleModalClose();
-  
+
     } catch (error) {
       console.error("Error submitting receipt form:", error);
       toast.error("Submission Failed", { id: "receipt-submit", description: error.message });
@@ -522,7 +538,7 @@ export default function ReceiptCheck() {
     setFormErrors({});
     setFormData({
       liftId: "",
-      dateOfReceiving: new Date().toISOString().split("T")[0],
+      dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       totalBillQuantity: "",
       actualQuantity: "",
       weightSlipQty: "", // New field
@@ -560,13 +576,13 @@ export default function ReceiptCheck() {
   const renderCell = (item, column) => {
     const value = item[column.dataKey];
     if (column.isLink) {
-        return value && String(value).startsWith("http") ? (
-          <a href={value} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 hover:underline inline-flex items-center text-xs">
-            <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
-          </a>
-        ) : (
-          <span className="text-gray-400 text-xs">N/A</span>
-        );
+      return value && String(value).startsWith("http") ? (
+        <a href={value} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 hover:underline inline-flex items-center text-xs">
+          <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
+        </a>
+      ) : (
+        <span className="text-gray-400 text-xs">N/A</span>
+      );
     }
     return value || <span className="text-gray-400 text-xs">N/A</span>;
   };
@@ -659,13 +675,12 @@ export default function ReceiptCheck() {
                 </TableHeader>
                 <TableBody>
                   {data.map((item) => (
-                    <TableRow 
-                      key={item._id} 
-                      className={`hover:bg-purple-50/50 ${
-                        tabKey === "processedReceipts" && !item._quantitiesMatch 
-                          ? "bg-red-100 hover:bg-red-200/70 border-l-4 border-l-red-500" 
-                          : ""
-                      }`}
+                    <TableRow
+                      key={item._id}
+                      className={`hover:bg-purple-50/50 ${tabKey === "processedReceipts" && !item._quantitiesMatch
+                        ? "bg-red-100 hover:bg-red-200/70 border-l-4 border-l-red-500"
+                        : ""
+                        }`}
                     >
                       {visibleCols.map((column) => (
                         <TableCell key={`${item._id}-${column.dataKey}`} className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "liftNo" ? "font-medium text-primary" : "text-gray-700"}`}>
@@ -694,7 +709,7 @@ export default function ReceiptCheck() {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <PackageOpen className="h-5 w-5 text-purple-600" /> Step 6: Receipt Of Material / Physical Quality Check 
+            <PackageOpen className="h-5 w-5 text-purple-600" /> Step 6: Receipt Of Material / Physical Quality Check
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Record receipt details and perform quality checks for incoming materials.
@@ -946,7 +961,7 @@ export default function ReceiptCheck() {
               )}
             </div>
           </div>
-          
+
           {/* Quantity Comparison Warning */}
           {(formData.totalBillQuantity || formData.actualQuantity || formData.weightSlipQty) && (
             <div className="mt-4 p-3 rounded-lg border-l-4 border-l-amber-400 bg-amber-50">
@@ -968,7 +983,7 @@ export default function ReceiptCheck() {
               </div>
             </div>
           )}
-          
+
           <div className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
             <Button
               type="submit"

@@ -1,6 +1,7 @@
 "use client"
 import { createContext, useContext, useState, useEffect } from "react"
 import { toast } from "sonner"
+import { supabase } from "../supabase"
 
 // Create and export the AuthContext
 export const AuthContext = createContext(undefined)
@@ -11,37 +12,21 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
   const [allowedSteps, setAllowedSteps] = useState([])
 
-  // --- HARDCODED GOOGLE SHEET CONFIGURATION ---
-  const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
-  const SHEET_NAME = "Login"
-  // --- END HARDCODED CONFIG ---
-
-  // --- FIXED COLUMN INDICES (0-indexed) ---
-  const USERNAME_COL_INDEX = 0 // Column A: User Name
-  const PASSWORD_COL_INDEX = 1 // Column B: Password
-  const STEPS_COL_INDEX = 2 // Column C: Steps
-  const FIRM_NAME_COL_INDEX = 3 // Column D: Firm Name
-  // --- END FIXED COLUMN INDICES ---
+  // Using Supabase Login table for authentication
 
   useEffect(() => {
     const initializeAuth = async () => {
       const authStatus = localStorage.getItem("isAuthenticated")
       const userData = localStorage.getItem("user")
-      const userSteps = localStorage.getItem("allowedSteps")
 
       if (authStatus === "true" && userData) {
         const parsedUser = JSON.parse(userData)
         setIsAuthenticated(true)
         setUser(parsedUser)
 
-        if (userSteps) {
-          const parsedUserSteps = JSON.parse(userSteps)
-          setAllowedSteps(parsedUserSteps)
-          console.log("AuthContext: Initialized with allowedSteps from localStorage:", parsedUserSteps)
-        } else {
-          console.log("AuthContext: allowedSteps not in localStorage, fetching roles for:", parsedUser.username)
-          await fetchUserRoles(parsedUser.username)
-        }
+        // Always fetch fresh roles from Supabase on page load
+        console.log("AuthContext: Fetching fresh roles from Supabase for:", parsedUser.username)
+        await fetchUserRoles(parsedUser.username)
       }
       setIsLoading(false)
     }
@@ -51,30 +36,18 @@ export function AuthProvider({ children }) {
 
   const fetchUserRoles = async (username) => {
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}&headers=1`
-      console.log("Fetching user roles from URL:", url)
+      console.log("Fetching user roles from Supabase for:", username)
 
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user roles: ${response.status} ${response.statusText}`)
-      }
+      // Query Supabase Login table
+      const { data, error } = await supabase
+        .from("Login")
+        .select("*")
+        .ilike("User Name", username)
 
-      let text = await response.text()
-      const jsonpStart = "google.visualization.Query.setResponse("
-      if (text.startsWith(jsonpStart)) {
-        text = text.substring(jsonpStart.length, text.length - 2)
-      } else {
-        const jsonStartIndex = text.indexOf("{")
-        const jsonEndIndex = text.lastIndexOf("}")
-        if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex <= jsonStartIndex) {
-          throw new Error("Invalid response format from Google Sheets for user roles.")
-        }
-        text = text.substring(jsonStartIndex, jsonEndIndex + 1)
-      }
+      if (error) throw error
 
-      const data = JSON.parse(text)
-
-      if (data.status === "error" || !data.table || !data.table.rows) {
+      if (!data || data.length === 0) {
+        console.warn("No user found in Supabase Login table")
         setAllowedSteps([])
         localStorage.setItem("allowedSteps", JSON.stringify([]))
         localStorage.removeItem("user")
@@ -82,27 +55,13 @@ export function AuthProvider({ children }) {
         return []
       }
 
-      let userRoles = []
-      let userFirm = null
-      let userFound = false
+      const userRecord = data[0]
+      const stepsString = (userRecord["Pages"] || "").trim()
+      const userRoles = stepsString.toLowerCase() === "all"
+        ? ["admin"]
+        : stepsString.split(",").map((step) => step.trim().toLowerCase()).filter(Boolean)
 
-      data.table.rows.forEach((row) => {
-        if (userFound) return
-
-        const rowUsername = row.c[USERNAME_COL_INDEX]?.v
-        const rowStepsCellValue = row.c[STEPS_COL_INDEX]?.v
-        const rowFirmName = row.c[FIRM_NAME_COL_INDEX]?.v
-
-        if (rowUsername && rowUsername.toLowerCase() === username.toLowerCase()) {
-          const stepsString = (rowStepsCellValue || "").trim()
-          userRoles = stepsString.toLowerCase() === "all"
-            ? ["admin"]
-            : stepsString.split(",").map((step) => step.trim().toLowerCase()).filter(Boolean)
-
-          userFirm = (rowFirmName || "").trim()
-          userFound = true
-        }
-      })
+      const userFirm = (userRecord["Firm Name"] || "").trim()
 
       const currentUserData = JSON.parse(localStorage.getItem("user") || "{}")
       const updatedUserData = { ...currentUserData, firmName: userFirm }
@@ -110,8 +69,11 @@ export function AuthProvider({ children }) {
       setUser(updatedUserData)
       localStorage.setItem("allowedSteps", JSON.stringify(userRoles))
       setAllowedSteps(userRoles)
+
+      console.log("User roles loaded:", userRoles)
       return userRoles
     } catch (error) {
+      console.error("Error fetching user roles:", error)
       toast.error("Role Fetch Error", { description: `Failed to load user roles: ${error.message}` })
       setAllowedSteps([])
       localStorage.setItem("allowedSteps", JSON.stringify([]))
@@ -124,80 +86,63 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     return new Promise(async (resolve) => {
       try {
-        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}&headers=1`
-        const response = await fetch(url)
-        if (!response.ok) {
-          throw new Error(`Failed to fetch login data: ${response.status} ${response.statusText}`)
-        }
+        console.log("Attempting login for user:", username)
 
-        let text = await response.text()
-        const jsonpStart = "google.visualization.Query.setResponse("
-        if (text.startsWith(jsonpStart)) {
-          text = text.substring(jsonpStart.length, text.length - 2)
-        } else {
-          const jsonStartIndex = text.indexOf("{")
-          const jsonEndIndex = text.lastIndexOf("}")
-          if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex <= jsonStartIndex) {
-            throw new Error("Invalid response format from Google Sheets for login.")
-          }
-          text = text.substring(jsonStartIndex, jsonEndIndex + 1)
-        }
+        // Query Supabase Login table
+        const { data, error } = await supabase
+          .from("Login")
+          .select("*")
+          .ilike("User Name", username)
 
-        const data = JSON.parse(text)
+        if (error) throw error
 
-        if (data.status === "error" || !data.table || !data.table.rows) {
-          toast.error("Login Failed", { description: "Could not retrieve login information." })
+        if (!data || data.length === 0) {
+          console.log("❌ User not found in database")
+          toast.error("Login Failed", { description: "Invalid username or password. Please try again." })
           resolve(false)
           return
         }
 
-        let authenticated = false
-        let userFoundRoles = []
-        let userFoundFirm = null
+        // Find matching user with correct password
+        const userRecord = data.find(
+          (record) => record["Password"] && record["Password"].toString() === password
+        )
 
-        for (const row of data.table.rows) {
-          const storedUsername = row.c[USERNAME_COL_INDEX]?.v
-          const passwordCell = row.c[PASSWORD_COL_INDEX]
-          const storedPassword = (passwordCell?.v !== null && passwordCell?.v !== undefined) ? passwordCell.v : passwordCell?.f;
-
-          if (
-            storedUsername &&
-            storedUsername.toLowerCase() === username.toLowerCase() &&
-            storedPassword &&
-            storedPassword.toString() === password
-          ) {
-            authenticated = true
-            const storedStepsCellValue = row.c[STEPS_COL_INDEX]?.v
-            const storedFirmName = row.c[FIRM_NAME_COL_INDEX]?.v
-            
-            const stepsString = (storedStepsCellValue || "").trim()
-            userFoundRoles = stepsString.toLowerCase() === "all" 
-              ? ["admin"] 
-              : stepsString.split(",").map(step => step.trim().toLowerCase()).filter(Boolean);
-
-            userFoundFirm = (storedFirmName || "").trim()
-            break
-          }
-        }
-
-        if (authenticated) {
-          const userData = { username, firmName: userFoundFirm }
-          localStorage.setItem("isAuthenticated", "true")
-          localStorage.setItem("user", JSON.stringify(userData))
-          localStorage.setItem("allowedSteps", JSON.stringify(userFoundRoles))
-
-          setUser(userData)
-          setIsAuthenticated(true)
-          setAllowedSteps(userFoundRoles)
-
-          toast.success("Login Successful", { description: "Welcome to the Purchase Management System." })
-          resolve(true)
-          window.location.reload()
-        } else {
+        if (!userRecord) {
+          console.log("❌ Password mismatch")
           toast.error("Login Failed", { description: "Invalid username or password. Please try again." })
           resolve(false)
+          return
         }
+
+        // Extract user data
+        const stepsString = (userRecord["Pages"] || "").trim()
+        const userFoundRoles = stepsString.toLowerCase() === "all"
+          ? ["admin"]
+          : stepsString.split(",").map((step) => step.trim().toLowerCase()).filter(Boolean)
+
+        const userFoundFirm = (userRecord["Firm Name"] || "").trim()
+
+        // Save to localStorage
+        const userData = { username, firmName: userFoundFirm }
+        localStorage.setItem("isAuthenticated", "true")
+        localStorage.setItem("user", JSON.stringify(userData))
+        localStorage.setItem("allowedSteps", JSON.stringify(userFoundRoles))
+
+        setUser(userData)
+        setIsAuthenticated(true)
+        setAllowedSteps(userFoundRoles)
+
+        console.log("Login successful for:", username, "Roles:", userFoundRoles)
+        toast.success("Login Successful", { description: "Welcome to the Purchase Management System." })
+        resolve(true)
+
+        // Delay reload to show toast message
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
       } catch (error) {
+        console.error("Login error:", error)
         toast.error("Login Error", { description: `An error occurred during login: ${error.message}` })
         resolve(false)
       }
@@ -212,7 +157,11 @@ export function AuthProvider({ children }) {
     setUser(null)
     setAllowedSteps([])
     toast.info("Logged Out", { description: "You have been successfully logged out." })
-    window.location.reload()
+
+    // Delay reload to show toast message
+    setTimeout(() => {
+      window.location.reload()
+    }, 800)
   }
 
   return (

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useContext, useMemo } from "react"
-import { Truck, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Filter,ChevronsUpDown  } from "lucide-react"
+import { Truck, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Filter, ChevronsUpDown, Download, FileUp, Plus, Check } from "lucide-react"
 import { MixerHorizontalIcon } from "@radix-ui/react-icons"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
@@ -14,7 +14,11 @@ import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AuthContext } from "../context/AuthContext"
+import { useNotification } from "../context/NotificationContext"
 import { toast } from "sonner";
+import { supabase } from "../supabase";
+import { fetchMasterDataForSelects } from "../utils/masterDataUtils";
+import { uploadFileToStorage } from "../utils/storageUtils";
 
 function formatTimestamp(timestampStr) {
   if (!timestampStr || typeof timestampStr !== "string") {
@@ -61,7 +65,6 @@ const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
 const DRIVE_FOLDER_ID = "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7"; // Your actual folder ID
 const INDENT_PO_SHEET = "INDENT-PO"
 const LIFT_ACCOUNTS_SHEET = "LIFT-ACCOUNTS"
-const MASTER_SHEET_NAME = "Master"
 const API_URL =
   "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec"
 
@@ -108,6 +111,7 @@ const LIFTS_COLUMNS_META = [
 
 export default function LiftMaterial() {
   const { user } = useContext(AuthContext)
+  const { updateCount } = useNotification()
   const [purchaseOrders, setPurchaseOrders] = useState([])
   const [materialLifts, setMaterialLifts] = useState([])
   const [selectedPO, setSelectedPO] = useState(null)
@@ -179,65 +183,13 @@ export default function LiftMaterial() {
     setMasterDataLoading(true)
     setError(null)
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
-        MASTER_SHEET_NAME,
-      )}&cb=${new Date().getTime()}`
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch Master data: ${response.status} ${response.statusText}`)
-      }
-      let text = await response.text()
-      if (text.startsWith("google.visualization.Query.setResponse(")) {
-        text = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"))
-      } else {
-        const jsonStart = text.indexOf("{")
-        const jsonEnd = text.lastIndexOf("}")
-        if (jsonStart === -1 || jsonEnd === -1) {
-          throw new Error("Invalid JSON response format from Google Sheets for Master data.")
-        }
-        text = text.substring(jsonStart, jsonEnd + 1)
-      }
+      // Fetch data from Supabase Master table
+      const masterData = await fetchMasterDataForSelects();
 
-      const data = JSON.parse(text)
-
-      if (data.status === "error") {
-        throw new Error(data.errors?.[0]?.detailed_message || "Master Sheet API returned error status.")
-      }
-
-      if (!data.table || !data.table.rows || data.table.rows.length === 0) {
-        throw new Error("Master Sheet data is empty or has no rows.")
-      }
-
-      const tempAreaOptions = new Set()
-      const tempTransporterOptions = new Set()
-      const tempTypeOptions = new Set()
-      const tempRateTypeOptions = new Set()
-
-      data.table.rows.forEach((row, rowIndex) => {
-        if (!row || !row.c || rowIndex === 0) {
-          return
-        }
-
-        const rateTypeCell = row.c[4]
-        const areaLiftingCell = row.c[5]
-        const typeCell = row.c[6]
-        const transporterCell = row.c[7]
-
-        const rateType = rateTypeCell?.v ? String(rateTypeCell.v).trim() : null
-        const areaLifting = areaLiftingCell?.v ? String(areaLiftingCell.v).trim() : null
-        const type = typeCell?.v ? String(typeCell?.v).trim() : null
-        const transporterName = transporterCell?.v ? String(transporterCell.v).trim() : null
-
-        if (rateType) tempRateTypeOptions.add(rateType)
-        if (areaLifting) tempAreaOptions.add(areaLifting)
-        if (type) tempTypeOptions.add(type)
-        if (transporterName) tempTransporterOptions.add(transporterName)
-      })
-
-      setAreaOptions(Array.from(tempAreaOptions).sort().map((opt) => ({ value: opt, label: opt })))
-      setTransporterOptions(Array.from(tempTransporterOptions).sort().map((opt) => ({ value: opt, label: opt })))
-      setTypeOptions(Array.from(tempTypeOptions).sort().map((opt) => ({ value: opt, label: opt })))
-      setRateTypeOptions(Array.from(tempRateTypeOptions).sort().map((opt) => ({ value: opt, label: opt })))
+      setAreaOptions(masterData.areaLiftingOptions)
+      setTransporterOptions(masterData.transporterOptions)
+      setTypeOptions(masterData.typeOptions)
+      setRateTypeOptions(masterData.rateTypeOptions)
 
     } catch (error) {
       setError(`Failed to load Master data: ${error.message}`)
@@ -248,15 +200,15 @@ export default function LiftMaterial() {
     } finally {
       setMasterDataLoading(false)
     }
-  }, [SHEET_ID, MASTER_SHEET_NAME])
+  }, [])
 
   // Simple SearchableSelect Component
-  const SearchableSelect = ({ 
-    value, 
-    onValueChange, 
-    options, 
-    placeholder, 
-    className 
+  const SearchableSelect = ({
+    value,
+    onValueChange,
+    options,
+    placeholder,
+    className
   }) => {
     const [open, setOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -277,7 +229,7 @@ export default function LiftMaterial() {
           {value === "all" || !value ? `All ${placeholder}` : value}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
-        
+
         {open && (
           <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
             <div className="sticky top-0 bg-white p-2 border-b">
@@ -317,7 +269,7 @@ export default function LiftMaterial() {
             </div>
           </div>
         )}
-        
+
         {open && (
           <div
             className="fixed inset-0 z-40"
@@ -332,80 +284,54 @@ export default function LiftMaterial() {
     setLoadingPOs(true)
     setError(null)
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
-        INDENT_PO_SHEET,
-      )}`
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PO data: ${response.status}`)
-      }
-      const text = await response.text()
-      const jsonStart = text.indexOf("{")
-      const jsonEnd = text.lastIndexOf("}")
-      const jsonString = text.substring(jsonStart, jsonEnd + 1)
-      const data = JSON.parse(jsonString)
+      const { data, error: fetchError } = await supabase
+        .from("INDENT-PO")
+        .select("*")
+        .not("Planned4", "is", null);
 
-      let processedRows = []
-      if (data.table && data.table.cols && data.table.rows) {
-        processedRows = (data.table.rows || [])
-          .slice(1)
-          .filter(
-            (row) =>
-              row.c &&
-              row.c.some((cell) => cell && cell.v !== null && cell.v !== undefined && String(cell.v).trim() !== ""),
-          )
-          .map((row, gvizRowIndex) => {
-            const rowData = {}
-            rowData._id = Math.random().toString(36).substring(2, 15) + gvizRowIndex
-            rowData._rowIndex = gvizRowIndex + 8
-            if (row.c) {
-              row.c.forEach((cell, cellIndex) => {
-                const colId = `col${cellIndex}`
-                const value = cell && cell.v !== undefined && cell.v !== null ? cell.v : ""
-                rowData[colId] = value
-                if (cell && cell.f) rowData[`${colId}_formatted`] = cell.f
-              })
-            }
-            return rowData
-          })
-      } else if (data.status === "error") {
-        throw new Error(data.errors?.[0]?.detailed_message || "PO Sheet data is malformed or empty.")
-      }
+      if (fetchError) throw fetchError;
 
-      // Filter based on Status column (AJ - index 35)
-      const filteredRows = processedRows.filter(
-        (row) => {
-          const status = String(row.col35 || "").trim(); // Column AJ (index 35) - Status
-          const planned = String(row.col39 || "").trim(); // Column AN (index 39) - Planned
-          const liftedOn = String(row.col40 || "").trim(); // Column AO (index 40) - Lifted On
-          
-          // Show only if status is "Pending" or empty
-          return (status === "" || status.toLowerCase() === "pending") && 
-                 planned && planned !== "" && 
-                 (!liftedOn || liftedOn === "");
-        }
-      )
+      // Filter based on user request: 
+      // Status (Column AJ / index 35) is "Pending" or empty.
+      // Planned4 (Column AK / index 36) is not null.
+      // Actual4 (Column AL / index 37) is null.
+      // Filter based on user request: 
+      // Status is empty OR null OR "pending"
+      // Planned4 is not null
+      // Actual4 is null (the lift hasn't been recorded yet)
+      const filteredRows = data.filter((row) => {
+        const status = String(row["Status"] || "").trim().toLowerCase();
+        const planned4 = row["Planned4"];
+        const actual4 = row["Actual4"];
 
-      // Format the data with vendor name from column AQ (index 42)
+        return (status === "" || status === "pending") &&
+          planned4 !== null && planned4 !== "" &&
+          (actual4 === null || actual4 === "");
+      });
+
+      // Update global notification count with the count of pending lifts
+      updateCount("lift-material", filteredRows.length);
+
       let formattedData = filteredRows.map((row) => ({
-        id: `PO-${row._rowIndex}`,
-        indentNo: String(row.col1 || "").trim(),
-        firmName: String(row.col2 || "").trim(),
-        vendorName: String(row.col42 || "").trim(), // CHANGED: Column AQ (index 42) for vendor name
-        rawMaterialName: String(row.col5 || "").trim(),
-        quantity: String(row.col23 || "").trim(),
-        _rowIndex: row._rowIndex,
-        rate: String(row.col24 || "").trim(),
-        alumina: String(row.col30 || "").trim(),
-        iron: String(row.col31 || "").trim(),
-        pendingQty: String(row.col33 || "").trim(),
-        planned: String(row.col39_formatted || "").trim(),
-        whatIsToBeDone: String(row.col10 || "").trim(),
-        pendingLiftQty: String(row.col33 || "").trim(), // Column AH
-        receivedQty: String(row.col32 || "").trim(),    // Column AJ
-        pendingPOQty: String(row.col33 || "").trim(),   // Column AK
-        orderCancelQty: String(row.col35 || "").trim(), // Column AI (Order Cancel Qty)
-        status: String(row.col35 || "").trim(), // Column AJ (Status)
+        id: `PO-${row.id || Math.random().toString(36).substring(7)}`,
+        indentNo: String(row["Indent Id."] || "").trim(),
+        firmName: String(row["Firm Name"] || "").trim(),
+        vendorName: String(row["Vendor name"] || row["Vendor"] || "").trim(),
+        rawMaterialName: String(row["Material"] || "").trim(),
+        quantity: String(row["Total Quantity"] || row["Quantity"] || "").trim(),
+        _rowIndex: row.id, // Using Supabase ID as row index for updates
+        dbIndentId: row["Indent Id."],
+        rate: String(row["Rate"] || "").trim(),
+        alumina: String(row["Alumina %"] || "").trim(),
+        iron: String(row["Iron %"] || "").trim(),
+        pendingQty: String(row["Total Quantity"] || "").trim(), // AH
+        planned: row["Planned4"],
+        whatIsToBeDone: String(row["PO Notes"] || "").trim(),
+        pendingLiftQty: String(row["Total Quantity"] || "").trim(),
+        receivedQty: String(row["Actual4"] || "").trim(),
+        pendingPOQty: String(row["Total Quantity"] || "").trim(),
+        orderCancelQty: String(row["Order Cancel Qty"] || "").trim(),
+        status: row["Status"] || "Pending",
       }))
 
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
@@ -428,156 +354,81 @@ export default function LiftMaterial() {
     setLoadingLifts(true)
     setError(null)
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
-        LIFT_ACCOUNTS_SHEET,
-      )}&cb=${new Date().getTime()}`
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`Failed to fetch lifts data: ${response.status}`)
-      let text = await response.text()
+      // Fetch from Supabase LIFT-ACCOUNTS table
+      const { data, error: fetchError } = await supabase
+        .from("LIFT-ACCOUNTS")
+        .select("*")
+        .order("Timestamp", { ascending: false });
 
-      if (text.startsWith("google.visualization.Query.setResponse(")) {
-        text = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"))
-      } else {
-        const jsonStart = text.indexOf("{")
-        const jsonEnd = text.lastIndexOf("}")
-        if (jsonStart === -1 || jsonEnd === -1) throw new Error("Invalid response format for lifts from Google Sheets.")
-        text = text.substring(jsonStart, jsonEnd + 1)
-      }
+      if (fetchError) throw fetchError;
 
-      const data = JSON.parse(text)
-
-      if (!data.table || !data.table.cols) {
-        setMaterialLifts([])
-        setLoadingLifts(false)
-        return
-      }
-
-      if (!data.table.rows) data.table.rows = []
-
-      const processedRows = data.table.rows
-        .map((row, indexWithinSlicedData) => {
-          if (!row || !row.c) return null
-          const rowData = { _gvizRowIndex: indexWithinSlicedData }
-          row.c.forEach((cell, cellIndex) => {
-            const colId = `col${cellIndex}`
-            const value = cell && cell.v !== undefined && cell.v !== null ? cell.v : ""
-            rowData[colId] = value
-            if (cell && cell.f) rowData[`${colId}_formatted`] = cell.f
-          })
-          if (rowData.col0 && typeof rowData.col0 === "string" && rowData.col0.startsWith("Date(")) {
-            rowData.col0_formatted = formatTimestamp(rowData.col0)
-          } else if (rowData.col0) {
-            try {
-              const d = new Date(rowData.col0)
-              if (!isNaN(d.getTime())) {
-                rowData.col0_formatted = d
-                  .toLocaleString("en-GB", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: false,
-                  })
-                  .replace(",", "")
-              }
-            } catch (e) {
-              /* ignore */
+      let formattedData = (data || []).map((row) => {
+        // Format timestamp for display
+        let createdAt = "";
+        if (row["Timestamp"]) {
+          try {
+            const d = new Date(row["Timestamp"]);
+            if (!isNaN(d.getTime())) {
+              createdAt = d
+                .toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                })
+                .replace(",", "");
             }
+          } catch (e) {
+            createdAt = String(row["Timestamp"] || "");
           }
-          return rowData
-        })
-        .filter((row) => row !== null)
-
-      const dataRows = processedRows.filter((row) => {
-        if (!row.col1 || typeof row.col1 === "undefined" || String(row.col1).trim() === "") return false
-        const liftIdValue = String(row.col1).trim().toLowerCase()
-        if (liftIdValue.includes("lift id") || liftIdValue.includes("lift no") || !liftIdValue.startsWith("lf-")) {
-          return false
         }
-        if (!row.col0 || String(row.col0).trim() === "") return false
-        const firstCellDisplayValue =
-          typeof row.col0_formatted === "string" && row.col0_formatted.trim() !== ""
-            ? row.col0_formatted
-            : String(row.col0)
-        const cellValueForHeuristic = firstCellDisplayValue.toLowerCase()
-        if (
-          cellValueForHeuristic.includes("timestamp") ||
-          cellValueForHeuristic.includes("date") ||
-          cellValueForHeuristic.includes("time")
-        )
-          return false
-        return true
-      })
 
-      let formattedData = dataRows.map((row) => ({
-        id: String(row.col1 || "").trim(),
-        indentNo: String(row.col2 || "").trim(),
-        vendorName: String(row.col3 || "").trim(), // Column D for vendor name
-        quantity: String(row.col4 || "").trim(),
-        material: String(row.col5 || "").trim(),
-        billNo: String(row.col6 || "").trim(),
-        areaName: String(row.col7 || "").trim(),
-        liftingLeadTime: String(row.col8 || "").trim(),
-        liftingQty: String(row.col9 || "").trim(),
-        liftType: String(row.col10 || "").trim(),
-        transporterName: String(row.col11 || "").trim(),
-        truckNo: String(row.col12 || "").trim(),
-        driverNo: String(row.col13 || "").trim(),
-        biltyNo: String(row.col14 || "").trim(),
-        rateType: String(row.col15 || "").trim(),
-        rate: String(row.col16 || "").trim(),
-        billImageUrl: String(row.col17 || "").trim(),
-        additionalTruckQty: String(row.col18 || "").trim(),
-        createdAt:
-          typeof row.col0_formatted === "string" && row.col0_formatted.trim() !== ""
-            ? row.col0_formatted.trim()
-            : String(row.col0 || "").trim(),
-        firmName: String(row.col55 || "").trim(),
-        transportRate: String(row.col58 || "").trim(),
-      }))
+        return {
+          id: String(row["Lift No"] || "").trim(),
+          indentNo: String(row["Indent no."] || "").trim(),
+          vendorName: String(row["Vendor Name"] || "").trim(),
+          quantity: String(row["Qty"] || "").trim(),
+          material: String(row["Raw Material Name"] || "").trim(),
+          billNo: String(row["Bill No."] || "").trim(),
+          areaName: String(row["Area lifting"] || "").trim(),
+          liftingLeadTime: String(row["Lead Time To Reach Factory (days)"] || "").trim(),
+          liftingQty: String(row["Lifting Qty"] || "").trim(),
+          liftType: String(row["Type"] || "").trim(),
+          transporterName: String(row["Transporter Name"] || "").trim(),
+          truckNo: String(row["Truck No."] || "").trim(),
+          driverNo: String(row["Driver No."] || "").trim(),
+          biltyNo: String(row["Bilty No."] || "").trim(),
+          rateType: String(row["Type Of Transporting Rate"] || "").trim(),
+          rate: String(row["Rate"] || "").trim(),
+          billImageUrl: String(row["Bill Image"] || "").trim(),
+          additionalTruckQty: String(row["Truck Qty"] || "").trim(),
+          createdAt: createdAt,
+          firmName: String(row["Firm Name"] || "").trim(),
+          transportRate: String(row["Transporter Rate"] || "").trim(),
+        };
+      });
 
+      // Filter by user's firm name if applicable
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase()
+        const userFirmNameLower = user.firmName.toLowerCase();
         formattedData = formattedData.filter(
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
-        )
-      }
-      
-      const parseCustomDateStringForSort = (dateString) => {
-        if (!dateString || typeof dateString !== "string") return null
-        const parts = dateString.match(/^(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}):(\d{2}):(\d{2})$/)
-        if (!parts) return null
-        return new Date(
-          parseInt(parts[3], 10),
-          parseInt(parts[2], 10) - 1,
-          parseInt(parts[1], 10),
-          parseInt(parts[4], 10),
-          parseInt(parts[5], 10),
-          parseInt(parts[6], 10),
-        ).getTime()
+        );
       }
 
-      formattedData.sort((a, b) => {
-        const dateA = parseCustomDateStringForSort(a.createdAt)
-        const dateB = parseCustomDateStringForSort(b.createdAt)
-        if (dateA === null && dateB === null) return 0
-        if (dateA === null) return 1
-        if (dateB === null) return -1
-        return dateB - dateA
-      })
-
-      setMaterialLifts(formattedData)
+      setMaterialLifts(formattedData);
     } catch (err) {
       setError((prev) =>
         prev ? `${prev}\nFailed to load lifts data: ${err.message}` : `Failed to load lifts data: ${err.message}`,
-      )
-      setMaterialLifts([])
+      );
+      setMaterialLifts([]);
     } finally {
-      setLoadingLifts(false)
+      setLoadingLifts(false);
     }
-  }, [SHEET_ID, LIFT_ACCOUNTS_SHEET, user])
+  }, [user])
 
   useEffect(() => {
     fetchPurchaseOrders()
@@ -623,17 +474,17 @@ export default function LiftMaterial() {
 
     try {
       const poToUpdate = purchaseOrders.find(po => po.id === cancelPendingPO.poId);
-      
+
       if (!poToUpdate) {
         throw new Error("PO not found");
       }
 
       const currentCancelQty = parseFloat(poToUpdate.orderCancelQty) || 0;
       const newCancelQty = currentCancelQty + parseFloat(cancelPendingPO.cancelQuantity);
-      
+
       // Subtract 1 to fix row offset
       const correctedRow = poToUpdate._rowIndex - 1;
-      
+
       console.log("Submitting cancel quantity:", {
         indentNo: cancelPendingPO.indentNo,
         currentQty: currentCancelQty,
@@ -644,39 +495,17 @@ export default function LiftMaterial() {
         column: 35
       });
 
-      // Use this format - it should work with the updated doPost function
-      const updateParams = new URLSearchParams({
-        action: "update",
-        sheetName: "INDENT-PO", 
-        rowIndex: correctedRow.toString(), // Use rowIndex parameter
-        column: "35", // Column AI
-        value: newCancelQty.toString()
-      });
+      const { error: updateError } = await supabase
+        .from("INDENT-PO")
+        .update({
+          "Order Cancel Qty": newCancelQty.toString()
+        })
+        .eq('"Indent Id."', poToUpdate.dbIndentId);
 
-      console.log("Sending params:", updateParams.toString());
-
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: updateParams.toString(),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log("Server response:", result);
-      
-      if (!result.success) {
-        throw new Error(result.message || "Failed to update cancel quantity");
-      }
+      if (updateError) throw updateError;
 
       toast.success(`✅ Cancel quantity ${cancelPendingPO.cancelQuantity} submitted successfully to ${cancelPendingPO.indentNo}!`);
-      
+
       // Refresh data
       await fetchPurchaseOrders();
       handleCloseCancelPopup();
@@ -853,7 +682,7 @@ export default function LiftMaterial() {
       let readableField = field.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
       if (field === "Arealifting") readableField = "Area Lifting";
       if (field === "TransporterName") readableField = "Transporter Name";
-      
+
       if (!formData[field] || String(formData[field]).trim() === "") {
         newErrors[field] = `${readableField} is required.`;
       }
@@ -861,8 +690,8 @@ export default function LiftMaterial() {
 
     if (formData.rate && isNaN(parseFloat(formData.rate))) newErrors.rate = "Rate must be a valid number.";
     if (!formData.billImage) {
-              newErrors.billImage = "Bill image is required.";
-            }
+      newErrors.billImage = "Bill image is required.";
+    }
     if (formData.transportRate && isNaN(parseFloat(formData.transportRate))) newErrors.transportRate = "Transport Rate must be a valid number.";
     if (formData.truckQty && isNaN(parseFloat(formData.truckQty)))
       newErrors.truckQty = "Truck Qty must be a valid number.";
@@ -884,76 +713,59 @@ export default function LiftMaterial() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const uploadFileToDrive = async (file, folderId) => {
-    if (!folderId) {
-      throw new Error("Configuration error: Drive Folder ID not specified.");
-    }
+  // Upload file to Supabase Storage
+  const uploadFileToSupabase = async (file, folder) => {
     try {
-      const base64Data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = (error) => reject(error);
-      });
-
-      const payload = new URLSearchParams();
-      payload.append("action", "uploadFile");
-      payload.append("fileName", file.name);
-      payload.append("mimeType", file.type);
-      payload.append("base64Data", base64Data);
-      payload.append("folderId", folderId);
-
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: payload.toString(),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Drive upload failed: ${response.status}. ${errorText}`);
-      }
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.message || "Failed to upload file via Apps Script");
-      }
-      return result.fileUrl;
+      console.log(`Uploading ${folder} image:`, file.name);
+      const { url } = await uploadFileToStorage(file, 'image', folder);
+      console.log(`${folder} upload successful:`, url);
+      return url;
     } catch (error) {
-      console.error("Error uploading file to Google Drive:", error);
-      throw error;
+      console.error(`Error uploading ${folder} image:`, error);
+      throw new Error(`Failed to upload ${folder} image: ${error.message}`);
     }
   };
 
   const generateLiftId = async () => {
     try {
-      const params = new URLSearchParams({ action: "getNextLiftId" })
-      const response = await fetch(`${API_URL}?${params.toString()}`)
+      // Query Supabase to get the latest Lift No
+      const { data, error } = await supabase
+        .from("LIFT-ACCOUNTS")
+        .select('"Lift No"')
+        .order('"Lift No"', { ascending: false })
+        .limit(10);
 
-      if (!response.ok) {
-        throw new Error(`Failed to get next Lift ID from server: ${response.status}`)
+      if (error) throw error;
+
+      let maxIdNum = 0;
+      if (data && data.length > 0) {
+        data.forEach((row) => {
+          const liftNo = row["Lift No"];
+          if (liftNo && typeof liftNo === "string" && liftNo.startsWith("LF-")) {
+            const numPart = parseInt(liftNo.substring(3), 10);
+            if (!isNaN(numPart) && numPart > maxIdNum) maxIdNum = numPart;
+          }
+        });
       }
 
-      const result = await response.json()
-      if (result.success && result.nextId) {
-        return result.nextId
-      } else {
-        throw new Error(result.message || "Server did not return a valid next ID.")
-      }
+      const nextLiftId = `LF-${String(maxIdNum + 1).padStart(3, "0")}`;
+      console.log("[generateLiftId] Generated new Lift ID:", nextLiftId);
+      return nextLiftId;
     } catch (error) {
-      console.error("[generateLiftId] Error during server-side ID generation:", error)
-      console.warn("[generateLiftId] Falling back to local materialLifts state for Lift ID generation.")
+      console.error("[generateLiftId] Error during Supabase ID generation:", error);
+      console.warn("[generateLiftId] Falling back to local materialLifts state for Lift ID generation.");
 
-      let maxIdNum = 0
+      let maxIdNum = 0;
       if (Array.isArray(materialLifts)) {
         materialLifts.forEach((lift) => {
           if (lift && typeof lift.id === "string" && lift.id.startsWith("LF-")) {
-            const numPart = parseInt(lift.id.substring(3), 10)
-            if (!isNaN(numPart) && numPart > maxIdNum) maxIdNum = numPart
+            const numPart = parseInt(lift.id.substring(3), 10);
+            if (!isNaN(numPart) && numPart > maxIdNum) maxIdNum = numPart;
           }
-        })
+        });
       }
-      const fallbackLiftId = `LF-${String(maxIdNum + 1).padStart(3, "0")}`
-      return fallbackLiftId
+      const fallbackLiftId = `LF-${String(maxIdNum + 1).padStart(3, "0")}`;
+      return fallbackLiftId;
     }
   }
 
@@ -970,97 +782,70 @@ export default function LiftMaterial() {
     try {
       const liftId = await generateLiftId();
       const now = new Date();
-      const timestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+      const timestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", ""); // Indian format for Supabase timestamp
 
       // Upload bill image (if provided)
-      const billImageUrl = await uploadFileToDrive(formData.billImage, DRIVE_FOLDER_ID);
+      const billImageUrl = await uploadFileToSupabase(formData.billImage, 'lift-bills');
       // Upload bilty image (if provided and hasBilty is yes)
       let biltyImageUrl = "";
       if (formData.hasBilty === "yes" && formData.biltyImage) {
-        biltyImageUrl = await uploadFileToDrive(formData.biltyImage, DRIVE_FOLDER_ID);
+        biltyImageUrl = await uploadFileToSupabase(formData.biltyImage, 'lift-bilty');
       }
 
-      // Prepare the data for the new row in LIFT-ACCOUNTS
-      const liftLabRowData = Array(59).fill("");
-      liftLabRowData[0] = timestamp;
-      liftLabRowData[1] = liftId;
-      liftLabRowData[2] = formData.indentNo;
-      liftLabRowData[3] = formData.vendorName; // Vendor name will be submitted to column D
-      liftLabRowData[4] = formData.totalQuantity;
-      liftLabRowData[5] = formData.material;
-      liftLabRowData[6] = formData.billNo;
-      liftLabRowData[7] = formData.Arealifting;
-      liftLabRowData[8] = formData.liftingLeadTime;
-      liftLabRowData[9] = formData.truckQty;
-      liftLabRowData[10] = formData.Type;
-      liftLabRowData[11] = formData.TransporterName;
-      liftLabRowData[12] = formData.truckNo;
-      liftLabRowData[13] = formData.driverNo;
-      // Set bilty number only if hasBilty is yes
-      liftLabRowData[14] = formData.hasBilty === "yes" ? (formData.biltyNo || "") : "";
-      liftLabRowData[15] = formData.rateType;
-      liftLabRowData[16] = formData.rate;
-      liftLabRowData[17] = billImageUrl;
-      liftLabRowData[18] = formData.additionalTruckQty || "";
-      liftLabRowData[55] = selectedPO?.firmName || "";
-      liftLabRowData[58] = formData.transportRate || "";
-      // Store bilty image URL in a custom column
-      liftLabRowData[56] = biltyImageUrl; // Column BG for bilty image
+      // Prepare the data for insert into Supabase LIFT-ACCOUNTS table
+      const liftAccountData = {
+        "Timestamp": timestamp,
+        "Lift No": liftId,
+        "Indent no.": formData.indentNo,
+        "Vendor Name": formData.vendorName,
+        "Qty": parseFloat(formData.totalQuantity) || null,
+        "Raw Material Name": formData.material,
+        "Bill No.": formData.billNo,
+        "Area lifting": formData.Arealifting,
+        "Lead Time To Reach Factory (days)": parseInt(formData.liftingLeadTime) || null,
+        "Lifting Qty": parseFloat(formData.truckQty) || null,
+        "Type": formData.Type,
+        "Transporter Name": formData.TransporterName,
+        "Truck No.": formData.truckNo,
+        "Driver No.": formData.driverNo,
+        "Bilty No.": formData.hasBilty === "yes" ? (formData.biltyNo || null) : null,
+        "Type Of Transporting Rate": formData.rateType,
+        "Rate": parseFloat(formData.rate) || null,
+        "Bill Image": billImageUrl,
+        "Truck Qty": parseFloat(formData.additionalTruckQty) || null,
+        "Bilty Image": biltyImageUrl || null,
+        "Firm Name": selectedPO?.firmName || null,
+        "Transporter Rate": parseFloat(formData.transportRate) || null,
+      };
 
-      // First, insert the lift record
-      const liftLabParams = new URLSearchParams({
-        action: "insert",
-        sheetName: "LIFT-ACCOUNTS",
-        rowData: JSON.stringify(liftLabRowData),
-      });
+      console.log("Submitting lift data to Supabase LIFT-ACCOUNTS:", liftAccountData);
 
-      console.log("Submitting lift data:", liftLabRowData);
+      // Insert the lift record into Supabase LIFT-ACCOUNTS table
+      const { data: insertedLift, error: insertError } = await supabase
+        .from("LIFT-ACCOUNTS")
+        .insert([liftAccountData])
+        .select();
 
-      const liftLabResponse = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: liftLabParams.toString(),
-      });
-
-      if (!liftLabResponse.ok) {
-        const errorText = await liftLabResponse.text();
-        console.error("Lift insertion failed:", errorText);
-        throw new Error(`Failed to insert into LIFT-ACCOUNTS: ${errorText}`);
+      if (insertError) {
+        console.error("Lift insertion failed:", insertError);
+        throw new Error(`Failed to insert into LIFT-ACCOUNTS: ${insertError.message}`);
       }
 
-      const liftResult = await liftLabResponse.json();
-      console.log("Lift insertion result:", liftResult);
+      console.log("Lift insertion result:", insertedLift);
 
-      if (!liftResult.success) {
-        throw new Error(liftResult.message || "Failed to insert lift record");
-      }
+      // Update the original PO row - set Actual4 with current timestamp
+      const { error: updateError } = await supabase
+        .from("INDENT-PO")
+        .update({ "Actual4": timestamp })
+        .eq('"Indent Id."', selectedPO.dbIndentId);
 
-      // Update the original PO row to mark it as lifted (column AO - index 40)
-      const updatePOParams = new URLSearchParams({
-        action: "updateCell",
-        sheetName: "INDENT-PO", 
-        row: selectedPO._rowIndex.toString(),
-        column: "40", // Column AO
-        value: timestamp
-      });
-
-      const updatePOResponse = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: updatePOParams.toString(),
-      });
-
-      if (!updatePOResponse.ok) {
-        const errorText = await updatePOResponse.text();
-        throw new Error(`Failed to update PO status: ${errorText}`);
+      if (updateError) {
+        console.error("INDENT-PO update failed:", updateError);
+        throw new Error(`Failed to update INDENT-PO: ${updateError.message}`);
       }
 
       toast.success(`Lift ${liftId} recorded successfully!`);
-      
+
       // Refresh both tables to reflect the changes
       await Promise.all([fetchPurchaseOrders(), fetchMaterialLifts()]);
       handleClosePopup();
@@ -1118,7 +903,7 @@ export default function LiftMaterial() {
         <span className="text-gray-400 text-xs">N/A</span>
       )
     }
-    
+
     // Show status with badge
     if (column.dataKey === "status") {
       const statusValue = value || ""
@@ -1129,7 +914,7 @@ export default function LiftMaterial() {
         </Badge>
       )
     }
-    
+
     return value || (value === 0 ? "0" : <span className="text-xs text-gray-400">N/A</span>)
   }
 
@@ -1152,7 +937,7 @@ export default function LiftMaterial() {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <Truck className="h-5 w-5 text-purple-600" /> Step 5: Lift The Material 
+            <Truck className="h-5 w-5 text-purple-600" /> Step 5: Lift The Material
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Record material lifting details for purchase orders.
@@ -1367,15 +1152,13 @@ export default function LiftMaterial() {
                               {PO_COLUMNS_META.filter((col) => visiblePoColumns[col.dataKey]).map((column) => (
                                 <TableCell
                                   key={column.dataKey}
-                                  className={`whitespace-nowrap text-xs px-3 py-2 ${
-                                    column.dataKey === "indentNo" ? "font-medium text-primary" : "text-gray-700"
-                                  } ${
-                                    column.dataKey === "vendorName" ||
-                                    column.dataKey === "rawMaterialName" ||
-                                    column.dataKey === "whatIsToBeDone"
+                                  className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "indentNo" ? "font-medium text-primary" : "text-gray-700"
+                                    } ${column.dataKey === "vendorName" ||
+                                      column.dataKey === "rawMaterialName" ||
+                                      column.dataKey === "whatIsToBeDone"
                                       ? "truncate max-w-[150px]"
                                       : ""
-                                  }`}
+                                    }`}
                                 >
                                   {column.dataKey === "actionColumn" ? (
                                     <div className="flex justify-center">
@@ -1524,22 +1307,20 @@ export default function LiftMaterial() {
                         </TableHeader>
                         <TableBody>
                           {filteredMaterialLifts.map((lift) => (
-                            <TableRow 
-                              key={lift.id} 
+                            <TableRow
+                              key={lift.id}
                               className="hover:bg-purple-50/50"
                             >
                               {LIFTS_COLUMNS_META.filter((col) => visibleLiftsColumns[col.dataKey]).map((column) => (
                                 <TableCell
                                   key={column.dataKey}
-                                  className={`whitespace-nowrap text-xs px-3 py-2 ${
-                                    column.dataKey === "id" ? "font-medium text-primary" : "text-gray-700"
-                                  } ${
-                                    column.dataKey === "vendorName" ||
-                                    column.dataKey === "material" ||
-                                    column.dataKey === "transporterName"
+                                  className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "id" ? "font-medium text-primary" : "text-gray-700"
+                                    } ${column.dataKey === "vendorName" ||
+                                      column.dataKey === "material" ||
+                                      column.dataKey === "transporterName"
                                       ? "truncate max-w-[150px]"
                                       : ""
-                                  }`}
+                                    }`}
                                 >
                                   {renderCell(lift, column)}
                                 </TableCell>
@@ -1656,7 +1437,7 @@ export default function LiftMaterial() {
                     const placeholderLabel =
                       field.type === "select"
                         ? field.options.find((opt) => opt.value === "")?.label ||
-                          `Select ${field.label.toLowerCase().replace(" *", "")}`
+                        `Select ${field.label.toLowerCase().replace(" *", "")}`
                         : field.label.replace(" *", "")
                     const actualOptions = field.type === "select" ? field.options.filter((opt) => opt.value !== "") : []
                     return (
@@ -1779,7 +1560,7 @@ export default function LiftMaterial() {
 
                 <div className="mt-5">
                   <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="billImage">
-                  Upload Bill Image <span className="text-red-500">*</span>
+                    Upload Bill Image <span className="text-red-500">*</span>
                   </Label>
                   <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-purple-400 transition-colors">
                     <div className="space-y-1 text-center">

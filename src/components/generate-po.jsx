@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
-import { FileCheck, Loader2, Upload, Wallet, Filter, Link as LinkIcon, File, History, Info, AlertTriangle ,ChevronsUpDown } from 'lucide-react';
+import { FileCheck, Loader2, Upload, Wallet, Filter, Link as LinkIcon, File, History, Info, AlertTriangle, ChevronsUpDown } from 'lucide-react';
 import { MixerHorizontalIcon } from '@radix-ui/react-icons';
 import "../scrollbar-hide.css";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,11 +17,14 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { AuthContext } from "../context/AuthContext";
+import { useNotification } from "../context/NotificationContext";
+import { supabase } from "../supabase";
+import { fetchMasterData } from "../utils/masterDataUtils";
+import { uploadFileToStorage } from "../utils/storageUtils";
 
 // Constants
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const INDENT_PO_SHEET = "INDENT-PO";
-const DATA_START_ROW = 6; // FIX: Corrected from 7 to 5 to fix 2-row offset
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
 
 // Column mappings
@@ -54,6 +57,7 @@ const firmOptions = ["Purab", "Rkl", "Prmmpl", "PMMPL"];
 
 const GeneratePurchaseOrder = () => {
   const { user } = useContext(AuthContext);
+  const { updateCount } = useNotification();
   const [filters, setFilters] = useState({
     vendorName: "all",
     rawMaterialName: "all",
@@ -99,83 +103,83 @@ const GeneratePurchaseOrder = () => {
     iron: "",
   });
 
-// Simple SearchableSelect Component (without Command)
-const SearchableSelect = ({ 
-  value, 
-  onValueChange, 
-  options, 
-  placeholder, 
-  className 
-}) => {
-  const [open, setOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  // Simple SearchableSelect Component (without Command)
+  const SearchableSelect = ({
+    value,
+    onValueChange,
+    options,
+    placeholder,
+    className
+  }) => {
+    const [open, setOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredOptions = options.filter(option =>
-    option.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    const filteredOptions = options.filter(option =>
+      option.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  return (
-    <div className="relative">
-      <Button
-        variant="outline"
-        role="combobox"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className={`w-full justify-between h-9 bg-white text-xs ${className}`}
-      >
-        {value === "all" || !value ? `All ${placeholder}` : value}
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-      </Button>
-      
-      {open && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-          <div className="sticky top-0 bg-white p-2 border-b">
-            <Input
-              type="text"
-              placeholder={`Search ${placeholder.toLowerCase()}...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-7 text-xs"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          <div className="py-1">
-            <div
-              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
-              onClick={() => {
-                onValueChange("all");
-                setOpen(false);
-                setSearchTerm("");
-              }}
-            >
-              All {placeholder}
+    return (
+      <div className="relative">
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className={`w-full justify-between h-9 bg-white text-xs ${className}`}
+        >
+          {value === "all" || !value ? `All ${placeholder}` : value}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+
+        {open && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="sticky top-0 bg-white p-2 border-b">
+              <Input
+                type="text"
+                placeholder={`Search ${placeholder.toLowerCase()}...`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-7 text-xs"
+                onClick={(e) => e.stopPropagation()}
+              />
             </div>
-            {filteredOptions.map((option, index) => (
+            <div className="py-1">
               <div
-                key={`${option}-${index}`}
-                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
                 onClick={() => {
-                  onValueChange(option);
+                  onValueChange("all");
                   setOpen(false);
                   setSearchTerm("");
                 }}
               >
-                {option}
+                All {placeholder}
               </div>
-            ))}
+              {filteredOptions.map((option, index) => (
+                <div
+                  key={`${option}-${index}`}
+                  className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                  onClick={() => {
+                    onValueChange(option);
+                    setOpen(false);
+                    setSearchTerm("");
+                  }}
+                >
+                  {option}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-      
-      {open && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setOpen(false)}
-        />
-      )}
-    </div>
-  );
-};
+        )}
+
+        {open && (
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+          />
+        )}
+      </div>
+    );
+  };
 
   // Form state for Advance Payment
   const [paymentFormData, setPaymentFormData] = useState({ amount: "", paymentDate: "" });
@@ -308,36 +312,19 @@ const SearchableSelect = ({
   }, []);
 
 
-const fetchVendorOptions = useCallback(async () => {
-  try {
-    const masterUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Master&cb=${new Date().getTime()}`;
-    const response = await fetch(masterUrl);
-    if (!response.ok) throw new Error(`Failed to fetch vendor data: ${response.statusText}`);
-    
-    let text = await response.text();
-    const jsonStart = text.indexOf("{");
-    const jsonEnd = text.lastIndexOf("}");
-    const jsonString = text.substring(jsonStart, jsonEnd + 1);
-    const data = JSON.parse(jsonString);
-    
-    if (data.table && data.table.rows) {
-      const vendors = data.table.rows
-        .slice(1) // Skip header row
-        .map(row => row.c[1] ? String(row.c[1].v).trim() : "") // Column B (index 1) for vendor names
-        .filter(Boolean)
-        .filter((value, index, self) => self.indexOf(value) === index) // Remove duplicates
-        .sort();
-      
-      setVendorOptions(vendors);
+  const fetchVendorOptions = useCallback(async () => {
+    try {
+      // Fetch vendor data from Supabase Master table
+      const masterData = await fetchMasterData();
+      setVendorOptions(masterData.vendorOptions);
+    } catch (error) {
+      console.error("Error fetching vendor options:", error);
     }
-  } catch (error) {
-    console.error("Error fetching vendor options:", error);
-  }
-}, []);
+  }, []);
 
-useEffect(() => {
-  fetchVendorOptions();
-}, [fetchVendorOptions]);
+  useEffect(() => {
+    fetchVendorOptions();
+  }, [fetchVendorOptions]);
 
 
   const fetchAllData = useCallback(async () => {
@@ -346,81 +333,62 @@ useEffect(() => {
     setError(null);
     setPaymentError(null);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INDENT_PO_SHEET)}&t=${new Date().getTime()}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Network response was not ok: ${response.statusText}`);
-      }
-      const responseText = await response.text();
-      const dataTable = parseGvizResponse(responseText, INDENT_PO_SHEET);
+      const { data, error: fetchError } = await supabase
+        .from("INDENT-PO")
+        .select("*")
+        .not("Planned2", "is", null);
 
-      let processedData = dataTable.rows.map((row, gvizRowIndex) => {
-        if (!row || !row.c) return null;
+      if (fetchError) throw fetchError;
 
-        const getStringValue = (colIndex) => {
-          const cell = row.c[colIndex];
-          if (cell && (cell.v !== undefined && cell.v !== null)) {
-            return String(cell.f ?? cell.v).trim();
-          }
-          return "";
-        };
-
+      let processedData = data.map((row) => {
         const rowData = {
-          _id: `${INDENT_PO_SHEET}-${gvizRowIndex}`,
-          _rowIndex: gvizRowIndex + DATA_START_ROW,
-          rawCells: row.c.map(cell => cell ? (cell.f ?? cell.v) : null)
+          ...row,
+          id: row["Indent Id."],
+          firmName: row["Firm Name"],
+          vendorName: row["Vendor"],
+          rawMaterialName: row["Material"],
+          typeOfIndent: row["Priority"],
+          approvedQty: row["Approved Qty"],
+          planned: row["Planned2"],
+          poTimestamp: row["Actual2"],
+          indentId: row["Indent Id."], // For PO History and Advance Payment
+          quantity: row["Total Quantity"] || row["Quantity"], // Use Total Quantity if available
+          totalAmount: row["Total Amount"],
+          alumina: row["Alumina %"],
+          iron: row["Iron %"],
+          poFile: row["PO Copy"],
+          createdAt: row["Actual2"],
+          haveToPO: row["Have To Make PO"],
+          rate: row["Rate"],
+          leadTimeToLift: row["Lead Time To Lift (days)"],
+          notes: row["PO Notes"],
+          advanceToBePaid: row["Advance To Be Paid"],
+          toBePaidAmount: row["To Be Paid Amount"],
+          whenToBePaid: row["When To Be Paid Amount"],
         };
 
-        rowData.id = getStringValue(COL_INDENT_ID);
-        rowData.firmName = getStringValue(COL_FIRM_NAME);
-        rowData.vendorName = getStringValue(COL_VENDOR_NAME);
-        rowData.rawMaterialName = getStringValue(COL_RAW_MATERIAL_NAME);
-        rowData.typeOfIndent = getStringValue(COL_TYPE_OF_INDENT);
-        rowData.approvedQty = getStringValue(COL_APPROVED_QTY);
-        rowData.planned = parseGvizDate(getStringValue(COL_PLANNED_DATE));
-        rowData.poTimestamp = parseGvizDate(getStringValue(COL_PO_TIMESTAMP));
-        rowData.indentId = getStringValue(COL_INDENT_ID); // For PO History and Advance Payment
-        rowData.quantity = getStringValue(COL_TOTAL_QTY); // For PO History quantity
-        rowData.totalAmount = getStringValue(COL_TOTAL_AMOUNT);
-        rowData.alumina = getStringValue(COL_ALUMINA);
-        rowData.iron = getStringValue(COL_IRON);
-        rowData.poFile = getStringValue(COL_PO_FILE_URL);
-        rowData.createdAt = rowData.poTimestamp;
-        rowData.haveToPO = getStringValue(COL_HAVE_TO_PO);
-        rowData.rate = getStringValue(COL_RATE);
-        rowData.leadTimeToLift = getStringValue(COL_LEAD_TIME);
-        rowData.notes = getStringValue(COL_NOTES);
-
-        // Advance Payment: Use the raw value or string value from the sheet for logic and display
-        rowData.advanceToBePaid = getStringValue(COL_ADVANCE_TO_BE_PAID); // "yes" or "no"
-        rowData.toBePaidAmount = getStringValue(COL_TO_BE_PAID_AMOUNT);
-        rowData.whenToBePaid = getStringValue(COL_WHEN_TO_BE_PAID);
-
-        // Determine payment status based on 'Advance To Be Paid' and if amount/date are filled
-        const advanceToBePaidFlag = rowData.advanceToBePaid.toLowerCase();
-        // A payment is considered 'Paid' if AdvanceToBePaid is 'yes' AND both amount and date are non-empty
-        const isPaid = (advanceToBePaidFlag === 'yes' && rowData.toBePaidAmount !== "" && rowData.whenToBePaid !== "");
+        const advanceToBePaidFlag = (rowData.advanceToBePaid || "").toLowerCase();
+        const isPaid = (advanceToBePaidFlag === 'yes' && rowData.toBePaidAmount !== "" && rowData.toBePaidAmount !== null && rowData.whenToBePaid !== "" && rowData.whenToBePaid !== null);
         rowData.paymentStatus = isPaid ? "Paid" : "Pending";
 
         return rowData;
-      }).filter(Boolean); // Filter out any nulls
+      });
 
       if (user?.firmName && user.firmName.toLowerCase() !== 'all') {
         const userFirmNameLower = user.firmName.toLowerCase();
         processedData = processedData.filter(item => (item.firmName || "").toLowerCase().trim() === userFirmNameLower);
       }
 
-      const indentsForApproval = processedData.filter(item => item.planned !== "" && item.poTimestamp === "");
-      const poHistory = processedData.filter(item => item.poTimestamp !== "").sort((a, b) => new Date(b.poTimestamp) - new Date(a.poTimestamp));
+      const indentsForApproval = processedData.filter(item => item.planned && !item.poTimestamp);
+      const poHistory = processedData.filter(item => item.planned && item.poTimestamp).sort((a, b) => new Date(b.poTimestamp) - new Date(a.poTimestamp));
 
-      // Filtering for Advance Payment Needed: Must be 'yes' in COL_ADVANCE_TO_BE_PAID AND paymentStatus is "Pending"
       const advancePaymentNeeded = processedData.filter(item =>
         (item.advanceToBePaid || "").toLowerCase() === 'yes'
       );
-      
+
       setIndents(indentsForApproval);
       setPurchaseOrders(poHistory);
-      setIndentData(advancePaymentNeeded); // Correctly setting data for Advance Payment tab
+      setIndentData(advancePaymentNeeded);
 
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -431,11 +399,17 @@ useEffect(() => {
       setLoading(false);
       setPaymentLoading(false);
     }
-  }, [refreshTrigger, user, parseGvizDate, parseGvizResponse]);
-
+  }, [user]);
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  // Update Notification Context
+  useEffect(() => {
+    // indents state here IS already filtered by 'planned && !poTimestamp' and User Firm
+    // So indents.length is the correct "My Pending" count.
+    updateCount("generate-po", indents.length);
+  }, [indents, updateCount]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -462,202 +436,97 @@ useEffect(() => {
     }
   };
 
- const uploadFileToDrive = async (file) => {
-  toast.loading("Preparing file upload...", { id: "upload-toast" });
-  
-  try {
-    console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
-    
-    // Check file size (Google Apps Script has ~50MB limit)
-    if (file.size > 50 * 1024 * 1024) { // 50MB
-      throw new Error("File size exceeds 50MB limit. Please use a smaller file.");
-    }
+  // Upload file to Supabase Storage
+  const uploadFileToSupabase = async (file) => {
+    toast.loading("Uploading file...", { id: "upload-toast" });
 
-    // Convert file to base64 with better error handling
-    const base64Data = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        console.log("File converted to base64 successfully");
-        // Extract only the base64 part (remove data:mime;base64, prefix)
-        const result = reader.result;
-        const base64 = result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = (error) => {
-        console.error("FileReader error:", error);
-        reject(new Error("Failed to read file. It might be corrupted."));
-      };
-      reader.onabort = () => {
-        reject(new Error("File read was aborted"));
-      };
-      
-      // Add timeout for large files
-      setTimeout(() => {
-        if (reader.readyState !== 2) { // Not DONE
-          reader.abort();
-          reject(new Error("File read timeout. File might be too large."));
-        }
-      }, 30000); // 30 second timeout
-      
-      reader.readAsDataURL(file);
-    });
-
-    console.log("Base64 conversion complete, data length:", base64Data.length);
-
-    // FIX: Use URLSearchParams with proper encoding
-    const params = new URLSearchParams();
-    params.append("action", "uploadFile");
-    params.append("fileName", file.name);
-    params.append("mimeType", file.type);
-    params.append("base64Data", base64Data);
-    params.append("folderId", "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7");
-
-    console.log("Sending upload request...");
-    
-    // IMPORTANT: Add timeout and error handling
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
-
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-      signal: controller.signal,
-      redirect: 'follow'
-    });
-
-    clearTimeout(timeoutId);
-
-    console.log("Response status:", response.status);
-    
-    const responseText = await response.text();
-    console.log("Raw response text (first 500 chars):", responseText.substring(0, 500));
-
-    let result;
     try {
-      result = JSON.parse(responseText);
-      console.log("Parsed response:", result);
-    } catch (parseError) {
-      console.error("Failed to parse response as JSON:", parseError);
-      console.error("Full response:", responseText);
-      throw new Error(`Server returned invalid response. Status: ${response.status}. Response: ${responseText.substring(0, 200)}`);
-    }
+      console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
 
-    if (!result.success) {
-      // Provide more specific error messages
-      if (result.error && result.error.includes("exceeded")) {
-        throw new Error("File too large for Google Apps Script. Try a smaller file.");
-      }
-      if (result.error && result.error.includes("folder")) {
-        throw new Error("Drive folder access error. Check folder ID and permissions.");
-      }
-      throw new Error(result.message || result.error || `Upload failed: ${JSON.stringify(result)}`);
-    }
+      // Upload to Supabase Storage in 'po-files' folder
+      const { url } = await uploadFileToStorage(file, 'image', 'po-files');
 
-    if (!result.fileUrl) {
-      throw new Error("Server didn't return a file URL");
-    }
+      toast.success("File Uploaded!", {
+        id: "upload-toast",
+        description: `${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB) uploaded successfully.`
+      });
 
-    toast.success("File Uploaded!", { 
-      id: "upload-toast", 
-      description: `${file.name} (${(file.size/1024/1024).toFixed(2)}MB) uploaded successfully.` 
-    });
-    
-    console.log("Upload successful, URL:", result.fileUrl);
-    return result.fileUrl;
-    
-  } catch (error) {
-    console.error("Error uploading file to Google Drive:", error);
-    
-    let errorMessage = error.message || "Failed to upload file";
-    if (error.name === 'AbortError') {
-      errorMessage = "Upload timeout. File might be too large or network is slow.";
-    }
-    
-    toast.error("Upload Failed", { 
-      id: "upload-toast", 
-      description: errorMessage
-    });
-    throw error;
-  }
-};
-
-
-  const updateGoogleSheet = async (dataToUpdate, currentHaveToPO) => {
-    toast.loading("Updating Google Sheet...", { id: "sheet-update-toast" });
-    try {
-        if (!selectedIndent || selectedIndent._rowIndex === undefined) {
-            throw new Error("Selected indent details are missing for update.");
-        }
-
-        const now = new Date();
-        const timestamp = now.toLocaleString("en-GB", {
-            day: "2-digit", month: "2-digit", year: "numeric",
-            hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
-        }).replace(/,/g, "");
-
-        const cellUpdates = {
-            [`col${COL_PO_TIMESTAMP + 1}`]: timestamp,
-            [`col${COL_HAVE_TO_PO + 1}`]: currentHaveToPO
-        };
-
-        if (currentHaveToPO === "yes") {
-          cellUpdates[`col${COL_VENDOR_NAME_PO + 1}`] = dataToUpdate.vendorName; // Add this line
-            cellUpdates[`col${COL_RATE + 1}`] = dataToUpdate.rate;
-            cellUpdates[`col${COL_LEAD_TIME + 1}`] = dataToUpdate.leadTimeToLift;
-            cellUpdates[`col${COL_TOTAL_QTY + 1}`] = dataToUpdate.totalQty;
-            cellUpdates[`col${COL_TOTAL_AMOUNT + 1}`] = dataToUpdate.totalAmount;
-            if (dataToUpdate.poFileUrl) {
-                cellUpdates[`col${COL_PO_FILE_URL + 1}`] = dataToUpdate.poFileUrl;
-            }
-            cellUpdates[`col${COL_ADVANCE_TO_BE_PAID + 1}`] = dataToUpdate.advanceToBePaid;
-            if (dataToUpdate.advanceToBePaid === "yes") {
-                cellUpdates[`col${COL_TO_BE_PAID_AMOUNT + 1}`] = dataToUpdate.toBePaidAmount;
-                cellUpdates[`col${COL_WHEN_TO_BE_PAID + 1}`] = dataToUpdate.whenToBePaid;
-            } else {
-                cellUpdates[`col${COL_TO_BE_PAID_AMOUNT + 1}`] = "";
-                cellUpdates[`col${COL_WHEN_TO_BE_PAID + 1}`] = "";
-            }
-            cellUpdates[`col${COL_NOTES + 1}`] = dataToUpdate.notes;
-            cellUpdates[`col${COL_ALUMINA + 1}`] = dataToUpdate.alumina;
-            cellUpdates[`col${COL_IRON + 1}`] = dataToUpdate.iron;
-        } else { // if haveToPO is "no", clear all PO related fields
-            const fieldsToClear = [
-                COL_RATE, COL_LEAD_TIME, COL_TOTAL_QTY, COL_TOTAL_AMOUNT,
-                COL_PO_FILE_URL, COL_ADVANCE_TO_BE_PAID, COL_TO_BE_PAID_AMOUNT,
-                COL_WHEN_TO_BE_PAID, COL_NOTES, COL_ALUMINA, COL_IRON
-            ];
-            fieldsToClear.forEach(colIndex => {
-                cellUpdates[`col${colIndex + 1}`] = "";
-            });
-        }
-
-        const params = new URLSearchParams({
-            action: "updateCells",
-            sheetName: INDENT_PO_SHEET,
-            rowIndex: selectedIndent._rowIndex.toString(),
-            cellUpdates: JSON.stringify(cellUpdates)
-        });
-
-        const response = await fetch(SCRIPT_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: params.toString(),
-        });
-        
-        const responseText = await response.text();
-        if (!response.ok && !responseText.toLowerCase().includes("success")) {
-            throw new Error(`Failed to update sheet: ${response.status} - ${responseText}`);
-        }
-        
-        toast.success("Sheet Updated!", { id: "sheet-update-toast", description: `Indent ID ${selectedIndent.id} processed.` });
+      console.log("Upload successful, URL:", url);
+      return url;
 
     } catch (error) {
-        console.error("Error updating Google Sheet:", error);
-        toast.error("Sheet Update Failed", { id: "sheet-update-toast", description: error.message });
-        throw error;
+      console.error("Error uploading file to Supabase Storage:", error);
+
+      toast.error("Upload Failed", {
+        id: "upload-toast",
+        description: error.message || "Failed to upload file"
+      });
+      throw error;
+    }
+  };
+
+
+  const updateSupabase = async (dataToSubmit, currentHaveToPO) => {
+    toast.loading("Updating Supabase...", { id: "supabase-update-toast" });
+    try {
+      if (!selectedIndent) {
+        throw new Error("Selected indent details are missing for update.");
+      }
+
+      const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", "");
+
+      const updates = {
+        "Actual2": timestamp,
+        "Have To Make PO": currentHaveToPO
+      };
+
+      if (currentHaveToPO === "yes") {
+        updates["Vendor name"] = dataToSubmit.vendorName;
+        updates["Rate"] = parseFloat(dataToSubmit.rate);
+        updates["Lead Time To Lift (days)"] = parseInt(dataToSubmit.leadTimeToLift);
+        updates["Total Quantity"] = parseFloat(dataToSubmit.totalQty);
+        updates["Total Amount"] = parseFloat(dataToSubmit.totalAmount);
+        if (dataToSubmit.poFileUrl) {
+          updates["PO Copy"] = dataToSubmit.poFileUrl;
+        }
+        updates["Advance To Be Paid"] = dataToSubmit.advanceToBePaid === "yes" ? "Yes" : dataToSubmit.advanceToBePaid;
+        if (dataToSubmit.advanceToBePaid === "yes") {
+          updates["To Be Paid Amount"] = parseFloat(dataToSubmit.toBePaidAmount);
+          updates["When To Be Paid Amount"] = dataToSubmit.whenToBePaid;
+        } else {
+          updates["To Be Paid Amount"] = null;
+          updates["When To Be Paid Amount"] = null;
+        }
+        updates["PO Notes"] = dataToSubmit.notes;
+        updates["Alumina %"] = parseFloat(dataToSubmit.alumina);
+        updates["Iron %"] = parseFloat(dataToSubmit.iron);
+      } else {
+        updates["Rate"] = null;
+        updates["Lead Time To Lift (days)"] = null;
+        updates["Total Quantity"] = null;
+        updates["Total Amount"] = null;
+        updates["PO Copy"] = null;
+        updates["Advance To Be Paid"] = null;
+        updates["To Be Paid Amount"] = null;
+        updates["When To Be Paid Amount"] = null;
+        updates["PO Notes"] = null;
+        updates["Alumina %"] = null;
+        updates["Iron %"] = null;
+      }
+
+      const { error: updateError } = await supabase
+        .from("INDENT-PO")
+        .update(updates)
+        .eq('"Indent Id."', selectedIndent.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("Supabase Updated!", { id: "supabase-update-toast", description: `Indent ID ${selectedIndent.id} processed.` });
+
+    } catch (error) {
+      console.error("Error updating Supabase:", error);
+      toast.error("Supabase Update Failed", { id: "supabase-update-toast", description: error.message });
+      throw error;
     }
   };
 
@@ -693,11 +562,11 @@ useEffect(() => {
     setSelectedIndent(indent);
     setFormData({
       indentId: indent.id,
-      vendorName: indent.vendorName,
+      vendorName: indent.vendorName || "",
       quantity: indent.approvedQty,
       rate: "",
       leadTimeToLift: "",
-      totalQty: indent.approvedQty,
+      totalQty: indent.approvedQty || "", // Pre-fill total qty
       totalAmount: "",
       advanceToBePaid: "",
       toBePaidAmount: "",
@@ -708,7 +577,7 @@ useEffect(() => {
       iron: "",
     });
     setPoErrors({});
-    setHaveToPO("");
+    setHaveToPO("yes"); // Default to yes
     setIsModalOpen(true);
   };
 
@@ -736,69 +605,69 @@ useEffect(() => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!haveToPO) {
-    toast.error("Selection Required", { description: "Please select if you need to generate a PO (Yes/No)." });
-    setPoErrors(prev => ({ ...prev, haveToPO: "This selection is mandatory." }));
-    return;
-  }
-
-  if (haveToPO === "yes" && !validatePoForm()) {
-    toast.error("Validation Error", { description: "Please fill all required PO fields." });
-    return;
-  }
-  if (!selectedIndent) {
-    toast.error("Selection Error", { description: "No indent selected." });
-    return;
-  }
-
-  setIsSubmitting(true);
-  toast.loading("Initiating PO process...", { id: "po-submit" });
-
-  try {
-    let fileUrl = "";
-    
-    // Only upload file if "yes" and file is provided
-    if (haveToPO === "yes" && formData.poFile) {
-      console.log("Starting file upload...");
-      try {
-        fileUrl = await uploadFileToDrive(formData.poFile);
-        console.log("File upload result:", fileUrl);
-        
-        if (!fileUrl) {
-          console.warn("File upload returned empty URL, continuing without file");
-        }
-      } catch (uploadError) {
-        console.error("File upload failed:", uploadError);
-        // Continue without file - don't show warning toast here
-        fileUrl = "";
-      }
+    if (!haveToPO) {
+      toast.error("Selection Required", { description: "Please select if you need to generate a PO (Yes/No)." });
+      setPoErrors(prev => ({ ...prev, haveToPO: "This selection is mandatory." }));
+      return;
     }
 
-    const dataToSubmit = {
-      ...formData,
-      poFileUrl: fileUrl,
-    };
+    if (haveToPO === "yes" && !validatePoForm()) {
+      toast.error("Validation Error", { description: "Please fill all required PO fields." });
+      return;
+    }
+    if (!selectedIndent) {
+      toast.error("Selection Error", { description: "No indent selected." });
+      return;
+    }
 
-    await updateGoogleSheet(dataToSubmit, haveToPO);
+    setIsSubmitting(true);
+    toast.loading("Initiating PO process...", { id: "po-submit" });
 
-    toast.success("PO Processed", {
-      id: "po-submit",
-      description: `Purchase Order for ${selectedIndent.id} has been created successfully.`
-    });
-    setRefreshTrigger(prev => prev + 1);
-    closeModal();
-  } catch (error) {
-    console.error("Error submitting form:", error);
-    toast.error("Submission Failed", { 
-      id: "po-submit", 
-      description: error.message || "An unexpected error occurred." 
-    });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    try {
+      let fileUrl = "";
+
+      // Only upload file if "yes" and file is provided
+      if (haveToPO === "yes" && formData.poFile) {
+        console.log("Starting file upload...");
+        try {
+          fileUrl = await uploadFileToSupabase(formData.poFile);
+          console.log("File upload result:", fileUrl);
+
+          if (!fileUrl) {
+            console.warn("File upload returned empty URL, continuing without file");
+          }
+        } catch (uploadError) {
+          console.error("File upload failed:", uploadError);
+          // Continue without file - don't show warning toast here
+          fileUrl = "";
+        }
+      }
+
+      const dataToSubmit = {
+        ...formData,
+        poFileUrl: fileUrl,
+      };
+
+      await updateSupabase(dataToSubmit, haveToPO);
+
+      toast.success("PO Processed", {
+        id: "po-submit",
+        description: `Purchase Order for ${selectedIndent.id} has been created successfully.`
+      });
+      fetchAllData();
+      closeModal();
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error("Submission Failed", {
+        id: "po-submit",
+        description: error.message || "An unexpected error occurred."
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
 
 
@@ -902,30 +771,21 @@ useEffect(() => {
     setIsSubmittingPayment(true);
     toast.loading("Recording payment...", { id: "payment-submit" });
     try {
-      const updatedRowData = [...selectedPaymentIndent.rawCells];
-      updatedRowData[COL_TO_BE_PAID_AMOUNT] = paymentFormData.amount;
-      updatedRowData[COL_WHEN_TO_BE_PAID] = paymentFormData.paymentDate;
+      const { error: updateError } = await supabase
+        .from("INDENT-PO")
+        .update({
+          "To Be Paid Amount": parseFloat(paymentFormData.amount),
+          "When To Be Paid Amount": paymentFormData.paymentDate
+        })
+        .eq('"Indent Id."', selectedPaymentIndent.indentId);
 
-      const payload = new URLSearchParams({
-        action: "update",
-        sheetName: INDENT_PO_SHEET,
-        rowIndex: selectedPaymentIndent._rowIndex,
-        rowData: JSON.stringify(updatedRowData),
-      });
-
-      const response = await fetch(SCRIPT_URL, { method: "POST", body: payload });
-      if (!response.ok) {
-        throw new Error(`Failed to update sheet: ${await response.text()}`);
-      }
-      const result = await response.json();
-      if (!result.success)
-        throw new Error(result.message || "Apps Script update failed.");
+      if (updateError) throw updateError;
 
       toast.success("Payment Recorded!", {
         id: "payment-submit",
         description: `Advance payment for Indent ID ${selectedPaymentIndent.indentId} recorded.`
       });
-      setRefreshTrigger(p => p + 1);
+      fetchAllData();
       handleClosePaymentPopup();
     } catch (error) {
       console.error("Error submitting payment:", error);
@@ -998,7 +858,7 @@ useEffect(() => {
           </div>
         );
       }
-      
+
       if (column.dataKey === "actionColumn") {
         if (tabKey === "approve") {
           return <Button onClick={() => handleIndentSelect(item)} size="sm" className="h-7 px-2.5 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold">Generate PO</Button>;
@@ -1156,7 +1016,7 @@ useEffect(() => {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <FileCheck className="h-5 w-5 text-purple-600" /> Purchase Management 
+            <FileCheck className="h-5 w-5 text-purple-600" /> Purchase Management
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Manage approved indents, generate purchase orders, and record advance payments.
@@ -1188,53 +1048,53 @@ useEffect(() => {
               </TabsTrigger>
             </TabsList>
             <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
-  <div className="flex items-center gap-2 mb-3">
-    <Filter className="h-4 w-4 text-gray-500" />
-    <Label className="text-sm font-medium">Filters</Label>
-    <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-      Clear All
-    </Button>
-  </div>
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {/* Vendor Name Filter */}
-    <div>
-      <Label className="text-xs mb-1 block">Vendor Name</Label>
-      <SearchableSelect
-        value={filters.vendorName}
-        onValueChange={(value) => handleFilterChange("vendorName", value)}
-        options={vendorOptions}
-        placeholder="Vendors"
-        className="h-9"
-      />
-    </div>
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <Label className="text-sm font-medium">Filters</Label>
+                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+                  Clear All
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Vendor Name Filter */}
+                <div>
+                  <Label className="text-xs mb-1 block">Vendor Name</Label>
+                  <SearchableSelect
+                    value={filters.vendorName}
+                    onValueChange={(value) => handleFilterChange("vendorName", value)}
+                    options={vendorOptions}
+                    placeholder="Vendors"
+                    className="h-9"
+                  />
+                </div>
 
-    {/* Material Name Filter - Hidden for advancePayment tab */}
-    {activeTab !== "advancePayment" && (
-      <div>
-        <Label className="text-xs mb-1 block">Material Name</Label>
-        <SearchableSelect
-          value={filters.rawMaterialName}
-          onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
-          options={materialOptions}
-          placeholder="Materials"
-          className="h-9"
-        />
-      </div>
-    )}
+                {/* Material Name Filter - Hidden for advancePayment tab */}
+                {activeTab !== "advancePayment" && (
+                  <div>
+                    <Label className="text-xs mb-1 block">Material Name</Label>
+                    <SearchableSelect
+                      value={filters.rawMaterialName}
+                      onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
+                      options={materialOptions}
+                      placeholder="Materials"
+                      className="h-9"
+                    />
+                  </div>
+                )}
 
-    {/* Firm Name Filter */}
-    <div>
-      <Label className="text-xs mb-1 block">Firm Name</Label>
-      <SearchableSelect
-        value={filters.firmName}
-        onValueChange={(value) => handleFilterChange("firmName", value)}
-        options={firmOptions}
-        placeholder="Firms"
-        className="h-9"
-      />
-    </div>
-  </div>
-</div>
+                {/* Firm Name Filter */}
+                <div>
+                  <Label className="text-xs mb-1 block">Firm Name</Label>
+                  <SearchableSelect
+                    value={filters.firmName}
+                    onValueChange={(value) => handleFilterChange("firmName", value)}
+                    options={firmOptions}
+                    placeholder="Firms"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            </div>
             <TabsContent value="approve" className="flex-1 flex flex-col mt-0">
               {renderTableSection(
                 "approve",
@@ -1266,7 +1126,7 @@ useEffect(() => {
                 "advancePayment",
                 "Advance Payments Needed",
                 "Record advance payments for approved indents.",
-                filteredPaymentIndents, 
+                filteredPaymentIndents,
                 ADVANCE_PAYMENT_COLUMNS_META,
                 visiblePaymentColumns,
                 paymentLoading,
@@ -1290,279 +1150,229 @@ useEffect(() => {
               </DialogDescription>
             </DialogHeader>
             <div className="px-0 py-2 sm:px-0">
-              <div className="mb-6">
-                <Label htmlFor="haveToPO" className="block text-sm font-medium text-gray-700 mb-2">
-                  Generate PO for this Indent?<span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  onValueChange={handleHaveToPOChange}
-                  value={haveToPO}
-                >
-                  <SelectTrigger className={`w-full rounded-md shadow-sm sm:text-sm ${!haveToPO && poErrors.haveToPO ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
-                    <SelectValue placeholder="-- Select an option --" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yes">Yes</SelectItem>
-                    <SelectItem value="no">No</SelectItem>
-                  </SelectContent>
-                </Select>
-                {poErrors.haveToPO && <p className="mt-1 text-xs text-red-500">{poErrors.haveToPO}</p>}
-              </div>
-              {haveToPO === "yes" && (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                    <div>
-                      <Label htmlFor="quantity" className="block text-sm font-medium text-gray-700">Approved Qty</Label>
-                      <Input
-                        type="text"
-                        id="quantity"
-                        name="quantity"
-                        value={selectedIndent?.approvedQty || ""}
-                        readOnly
-                        className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm"
-                      />
-                    </div>
-                    <div>
-  <Label htmlFor="vendorName" className="block text-sm font-medium text-gray-700">Vendor Name <span className="text-red-500">*</span></Label>
-  <Select
-    onValueChange={(value) => handleInputChange({ target: { name: "vendorName", value } })}
-    value={formData.vendorName}
-  >
-    <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${poErrors.vendorName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
-      <SelectValue placeholder="Select vendor name" />
-    </SelectTrigger>
-    <SelectContent>
-      {vendorOptions.map((vendor, index) => (
-        <SelectItem key={`vendor-${index}`} value={vendor}>
-          {vendor}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-  {poErrors.vendorName && <p className="text-red-500 text-xs mt-1">{poErrors.vendorName}</p>}
-</div>
-                    <div>
-                      <Label htmlFor="totalQty" className="block text-sm font-medium text-gray-700">PO Total Quantity</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        id="totalQty"
-                        name="totalQty"
-                        value={formData.totalQty}
-                        onChange={handleInputChange}
-                        placeholder="PO Total Quantity"
-                        className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.totalQty ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
-                      />
-                      {poErrors.totalQty && <p className="text-red-500 text-xs mt-1">{poErrors.totalQty}</p>}
-                    </div>
-                    <div>
-                      <Label htmlFor="rate" className="block text-sm font-medium text-gray-700">Rate <span className="text-red-500">*</span></Label>
-                      <Input
-                        type="text"
-                        step="any"
-                        id="rate"
-                        name="rate"
-                        value={formData.rate}
-                        onChange={handleInputChange}
-                        placeholder="Rate"
-                        className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.rate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
-                      />
-                      {poErrors.rate && <p className="text-red-500 text-xs mt-1">{poErrors.rate}</p>}
-                    </div>
-                    <div>
-                      <Label htmlFor="totalAmount" className="block text-sm font-medium text-gray-700">Total Amount</Label>
-                      <Input
-                        type="text"
-                        id="totalAmount"
-                        name="totalAmount"
-                        value={formData.totalAmount}
-                        readOnly
-                        className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="leadTimeToLift" className="block text-sm font-medium text-gray-700">Lead Time (Days) <span className="text-red-500">*</span></Label>
-                      <Input
-                        type="text"
-                        id="leadTimeToLift"
-                        name="leadTimeToLift"
-                        value={formData.leadTimeToLift}
-                        onChange={handleInputChange}
-                        placeholder="Lead Time To Lift"
-                        className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.leadTimeToLift ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
-                      />
-                      {poErrors.leadTimeToLift && <p className="text-red-500 text-xs mt-1">{poErrors.leadTimeToLift}</p>}
-                    </div>
-                    <div>
-                      <Label htmlFor="alumina" className="block text-sm font-medium text-gray-700">Alumina % <span className="text-red-500">*</span></Label>
-                      <Input
-                        type="text"
-                        step="any"
-                        id="alumina"
-                        name="alumina"
-                        value={formData.alumina}
-                        onChange={handleInputChange}
-                        placeholder="Alumina %"
-                        className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.alumina ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
-                      />
-                      {poErrors.alumina && <p className="text-red-500 text-xs mt-1">{poErrors.alumina}</p>}
-                    </div>
-                    <div>
-                      <Label htmlFor="iron" className="block text-sm font-medium text-gray-700">Iron % <span className="text-red-500">*</span></Label>
-                      <Input
-                        type="text"
-                        step="any"
-                        id="iron"
-                        name="iron"
-                        value={formData.iron}
-                        onChange={handleInputChange}
-                        placeholder="Iron %"
-                        className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.iron ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
-                      />
-                      {poErrors.iron && <p className="text-red-500 text-xs mt-1">{poErrors.iron}</p>}
-                    </div>
-                    <div className="md:col-span-1">
-                      <Label htmlFor="poFile" className="block text-sm font-medium text-gray-700">Upload PO Copy</Label>
-                      <div className="relative flex items-center justify-center h-10 border border-dashed border-purple-200 rounded-md bg-purple-50 cursor-pointer hover:bg-purple-100 mt-1">
-                        <Input
-                          type="file"
-                          id="poFile"
-                          name="poFile"
-                          onChange={handleFileUpload}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        />
-                        <Upload className="h-4 w-4 text-purple-500 mr-2" />
-                        <span className="text-xs text-purple-600 truncate max-w-[calc(100%-30px)]">
-                          {formData.poFile ? formData.poFile.name : "Upload PO Copy"}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="advanceToBePaid" className="block text-sm font-medium text-gray-700">Advance To Be Paid? <span className="text-red-500">*</span></Label>
-                      <Select
-                        onValueChange={(value) =>
-                          handleInputChange({
-                            target: { name: "advanceToBePaid", value },
-                          })
-                        }
-                        value={formData.advanceToBePaid}
-                      >
-                        <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${poErrors.advanceToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
-                          <SelectValue placeholder="-- Select --" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {poErrors.advanceToBePaid && (
-                        <p className="text-red-500 text-xs mt-1">{poErrors.advanceToBePaid}</p>
-                      )}
-                    </div>
-                    {formData.advanceToBePaid === "yes" && (
-                      <>
-                        <div>
-                          <Label htmlFor="toBePaidAmount" className="block text-sm font-medium text-gray-700">Advance Amount <span className="text-red-500">*</span></Label>
-                          <Input
-                            type="number"
-                            step="any"
-                            id="toBePaidAmount"
-                            name="toBePaidAmount"
-                            value={formData.toBePaidAmount}
-                            onChange={handleInputChange}
-                            placeholder="To Be Paid Amount"
-                            className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.toBePaidAmount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
-                          />
-                          {poErrors.toBePaidAmount && (
-                            <p className="text-red-500 text-xs mt-1">{poErrors.toBePaidAmount}</p>
-                          )}
-                        </div>
-                        <div>
-                          <Label htmlFor="whenToBePaid" className="block text-sm font-medium text-gray-700">When To Be Paid <span className="text-red-500">*</span></Label>
-                          <Input
-                            type="date"
-                            id="whenToBePaid"
-                            name="whenToBePaid"
-                            value={formData.whenToBePaid}
-                            onChange={handleInputChange}
-                            placeholder="Payment Date"
-                            className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.whenToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
-                          />
-                          {poErrors.whenToBePaid && (
-                            <p className="text-red-500 text-xs mt-1">{poErrors.whenToBePaid}</p>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="notes" className="block text-sm font-medium text-gray-700">PO Notes/Remarks</Label>
-                    <Textarea
-                      id="notes"
-                      name="notes"
-                      rows={3}
-                      value={formData.notes}
-                      onChange={handleInputChange}
-                      placeholder="Notes"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm focus:border-purple-500 focus:ring-purple-500"
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  <div>
+                    <Label htmlFor="quantity" className="block text-sm font-medium text-gray-700">Approved Qty</Label>
+                    <Input
+                      type="text"
+                      id="quantity"
+                      name="quantity"
+                      value={selectedIndent?.approvedQty || ""}
+                      readOnly
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm"
                     />
                   </div>
-                  <DialogFooter className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmitting ? "bg-purple-400 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"}`}
+                  <div>
+                    <Label htmlFor="vendorName" className="block text-sm font-medium text-gray-700">Vendor Name <span className="text-red-500">*</span></Label>
+                    <Select
+                      onValueChange={(value) => handleInputChange({ target: { name: "vendorName", value } })}
+                      value={formData.vendorName}
                     >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" /> Submitting...
-                        </>
-                      ) : (
-                        "Submit PO"
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={closeModal}
-                      className="w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 sm:mr-3"
+                      <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${poErrors.vendorName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
+                        <SelectValue placeholder="Select vendor name" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vendorOptions.map((vendor, index) => (
+                          <SelectItem key={`vendor-${index}`} value={vendor}>
+                            {vendor}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {poErrors.vendorName && <p className="text-red-500 text-xs mt-1">{poErrors.vendorName}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="totalQty" className="block text-sm font-medium text-gray-700">PO Total Quantity</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      id="totalQty"
+                      name="totalQty"
+                      value={formData.totalQty}
+                      onChange={handleInputChange}
+                      placeholder="PO Total Quantity"
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.totalQty ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                    />
+                    {poErrors.totalQty && <p className="text-red-500 text-xs mt-1">{poErrors.totalQty}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="rate" className="block text-sm font-medium text-gray-700">Rate <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      step="any"
+                      id="rate"
+                      name="rate"
+                      value={formData.rate}
+                      onChange={handleInputChange}
+                      placeholder="Rate"
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.rate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                    />
+                    {poErrors.rate && <p className="text-red-500 text-xs mt-1">{poErrors.rate}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="totalAmount" className="block text-sm font-medium text-gray-700">Total Amount</Label>
+                    <Input
+                      type="text"
+                      id="totalAmount"
+                      name="totalAmount"
+                      value={formData.totalAmount}
+                      readOnly
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="leadTimeToLift" className="block text-sm font-medium text-gray-700">Lead Time (Days) <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      id="leadTimeToLift"
+                      name="leadTimeToLift"
+                      value={formData.leadTimeToLift}
+                      onChange={handleInputChange}
+                      placeholder="Lead Time To Lift"
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.leadTimeToLift ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                    />
+                    {poErrors.leadTimeToLift && <p className="text-red-500 text-xs mt-1">{poErrors.leadTimeToLift}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="alumina" className="block text-sm font-medium text-gray-700">Alumina % <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      step="any"
+                      id="alumina"
+                      name="alumina"
+                      value={formData.alumina}
+                      onChange={handleInputChange}
+                      placeholder="Alumina %"
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.alumina ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                    />
+                    {poErrors.alumina && <p className="text-red-500 text-xs mt-1">{poErrors.alumina}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="iron" className="block text-sm font-medium text-gray-700">Iron % <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      step="any"
+                      id="iron"
+                      name="iron"
+                      value={formData.iron}
+                      onChange={handleInputChange}
+                      placeholder="Iron %"
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.iron ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                    />
+                    {poErrors.iron && <p className="text-red-500 text-xs mt-1">{poErrors.iron}</p>}
+                  </div>
+                  <div className="md:col-span-1">
+                    <Label htmlFor="poFile" className="block text-sm font-medium text-gray-700">Upload PO Copy</Label>
+                    <div className="relative flex items-center justify-center h-10 border border-dashed border-purple-200 rounded-md bg-purple-50 cursor-pointer hover:bg-purple-100 mt-1">
+                      <Input
+                        type="file"
+                        id="poFile"
+                        name="poFile"
+                        onChange={handleFileUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      />
+                      <Upload className="h-4 w-4 text-purple-500 mr-2" />
+                      <span className="text-xs text-purple-600 truncate max-w-[calc(100%-30px)]">
+                        {formData.poFile ? formData.poFile.name : "Upload PO Copy"}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="advanceToBePaid" className="block text-sm font-medium text-gray-700">Advance To Be Paid? <span className="text-red-500">*</span></Label>
+                    <Select
+                      onValueChange={(value) =>
+                        handleInputChange({
+                          target: { name: "advanceToBePaid", value },
+                        })
+                      }
+                      value={formData.advanceToBePaid}
                     >
-                      Cancel
-                    </Button>
-                  </DialogFooter>
-                </form>
-              )}
-              {haveToPO === "no" && (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <p className="text-sm text-gray-600">
-                    You've selected not to generate a PO for this indent. Clicking submit will mark this indent as processed without PO details.
-                  </p>
-                  <DialogFooter className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmitting ? "bg-purple-400 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"}`}
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" /> Submitting...
-                        </>
-                      ) : (
-                        "Submit as No PO"
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={closeModal}
-                      className="w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 sm:mr-3"
-                    >
-                      Cancel
-                    </Button>
-                  </DialogFooter>
-                </form>
-              )}
+                      <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${poErrors.advanceToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
+                        <SelectValue placeholder="-- Select --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {poErrors.advanceToBePaid && (
+                      <p className="text-red-500 text-xs mt-1">{poErrors.advanceToBePaid}</p>
+                    )}
+                  </div>
+                  {formData.advanceToBePaid === "yes" && (
+                    <>
+                      <div>
+                        <Label htmlFor="toBePaidAmount" className="block text-sm font-medium text-gray-700">Advance Amount <span className="text-red-500">*</span></Label>
+                        <Input
+                          type="number"
+                          step="any"
+                          id="toBePaidAmount"
+                          name="toBePaidAmount"
+                          value={formData.toBePaidAmount}
+                          onChange={handleInputChange}
+                          placeholder="To Be Paid Amount"
+                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.toBePaidAmount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                        />
+                        {poErrors.toBePaidAmount && (
+                          <p className="text-red-500 text-xs mt-1">{poErrors.toBePaidAmount}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="whenToBePaid" className="block text-sm font-medium text-gray-700">When To Be Paid <span className="text-red-500">*</span></Label>
+                        <Input
+                          type="date"
+                          id="whenToBePaid"
+                          name="whenToBePaid"
+                          value={formData.whenToBePaid}
+                          onChange={handleInputChange}
+                          placeholder="Payment Date"
+                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.whenToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                        />
+                        {poErrors.whenToBePaid && (
+                          <p className="text-red-500 text-xs mt-1">{poErrors.whenToBePaid}</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="notes" className="block text-sm font-medium text-gray-700">PO Notes/Remarks</Label>
+                  <Textarea
+                    id="notes"
+                    name="notes"
+                    rows={3}
+                    value={formData.notes}
+                    onChange={handleInputChange}
+                    placeholder="Notes"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm focus:border-purple-500 focus:ring-purple-500"
+                  />
+                </div>
+                <DialogFooter className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmitting ? "bg-purple-400 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"}`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" /> Submitting...
+                      </>
+                    ) : (
+                      "Submit PO"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeModal}
+                    className="w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 sm:mr-3"
+                  >
+                    Cancel
+                  </Button>
+                </DialogFooter>
+              </form>
             </div>
           </DialogContent>
         </Dialog>
@@ -1606,7 +1416,7 @@ useEffect(() => {
             </div>
             <DialogFooter className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
               <Button type="submit" disabled={isSubmittingPayment} className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmittingPayment ? "bg-purple-400 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"}`}>
-                {isSubmittingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5"/>Processing...</> : "Submit Payment"}
+                {isSubmittingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" />Processing...</> : "Submit Payment"}
               </Button>
               <Button type="button" variant="outline" onClick={handleClosePaymentPopup} className="w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 sm:mr-3">Cancel</Button>
             </DialogFooter>

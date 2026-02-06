@@ -30,6 +30,7 @@ import { toast } from "sonner"
 import { Beaker, CheckCircle, XCircle, Loader2, AlertTriangle, Info, History, FileCheckIcon, Filter, ChevronsUpDown } from "lucide-react"
 import { MixerHorizontalIcon } from "@radix-ui/react-icons"
 import { AuthContext } from "../context/AuthContext"
+import { supabase } from "../supabase"
 
 // --- Constants for Google Sheets and Apps Script ---
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
@@ -189,12 +190,12 @@ const RECORDED_TESTS_COLUMNS_META = [
 ]
 
 // Simple SearchableSelect Component (without Command)
-const SearchableSelect = ({ 
-  value, 
-  onValueChange, 
-  options, 
-  placeholder, 
-  className 
+const SearchableSelect = ({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  className
 }) => {
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -215,7 +216,7 @@ const SearchableSelect = ({
         {value === "all" || !value ? `All ${placeholder}` : value}
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
-      
+
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
           <div className="sticky top-0 bg-white p-2 border-b">
@@ -255,7 +256,7 @@ const SearchableSelect = ({
           </div>
         </div>
       )}
-      
+
       {open && (
         <div
           className="fixed inset-0 z-40"
@@ -294,7 +295,7 @@ export default function LabTesting() {
   const initialFormData = {
     liftIdToUpdate: "",
     alStatus: "passed",
-    amDateOfTest: new Date().toISOString().split("T")[0],
+    amDateOfTest: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
     anMoisturePercent: "",
     aoBdPercent: "",
     apApPercent: "",
@@ -330,95 +331,95 @@ export default function LabTesting() {
 
   // Function to get expected values
   // Function to get expected values
-// Function to get expected values
-const getExpectedValues = (indentNo) => {
-  try {
-    if (!indentNo || !indentData.length) {
+  // Function to get expected values
+  const getExpectedValues = (indentNo) => {
+    try {
+      if (!indentNo || !indentData.length) {
+        return { poQuantity: "", expectedAlumina: "", expectedIron: "" };
+      }
+
+      // Clean the indent number for comparison
+      const cleanIndentNo = String(indentNo).trim().toLowerCase();
+
+      // Find matching indent with multiple matching strategies
+      const indent = indentData.find(item => {
+        if (!item.indentNo) return false;
+
+        const itemIndent = String(item.indentNo).trim().toLowerCase();
+
+        // Direct match
+        if (itemIndent === cleanIndentNo) return true;
+
+        // Try matching with/without prefixes like "RL-", "PO-", etc.
+        const cleanIndentNoWithoutPrefix = cleanIndentNo.replace(/^(rl[-_ ]?|po[-_ ]?|indent[-_ ]?)/i, '');
+        const itemIndentWithoutPrefix = itemIndent.replace(/^(rl[-_ ]?|po[-_ ]?|indent[-_ ]?)/i, '');
+
+        if (itemIndentWithoutPrefix === cleanIndentNoWithoutPrefix) return true;
+
+        // Try extracting numeric part only
+        const cleanIndentNumeric = cleanIndentNo.match(/\d+/)?.[0];
+        const itemIndentNumeric = itemIndent.match(/\d+/)?.[0];
+
+        if (cleanIndentNumeric && itemIndentNumeric && cleanIndentNumeric === itemIndentNumeric) return true;
+
+        return false;
+      });
+
+      return {
+        poQuantity: indent?.poQuantity || "",
+        expectedAlumina: indent?.expectedAlumina || "",
+        expectedIron: indent?.expectedIron || "",
+      };
+    } catch (error) {
+      console.error("Error in getExpectedValues:", error);
       return { poQuantity: "", expectedAlumina: "", expectedIron: "" };
     }
-    
-    // Clean the indent number for comparison
-    const cleanIndentNo = String(indentNo).trim().toLowerCase();
-    
-    // Find matching indent with multiple matching strategies
-    const indent = indentData.find(item => {
-      if (!item.indentNo) return false;
-      
-      const itemIndent = String(item.indentNo).trim().toLowerCase();
-      
-      // Direct match
-      if (itemIndent === cleanIndentNo) return true;
-      
-      // Try matching with/without prefixes like "RL-", "PO-", etc.
-      const cleanIndentNoWithoutPrefix = cleanIndentNo.replace(/^(rl[-_ ]?|po[-_ ]?|indent[-_ ]?)/i, '');
-      const itemIndentWithoutPrefix = itemIndent.replace(/^(rl[-_ ]?|po[-_ ]?|indent[-_ ]?)/i, '');
-      
-      if (itemIndentWithoutPrefix === cleanIndentNoWithoutPrefix) return true;
-      
-      // Try extracting numeric part only
-      const cleanIndentNumeric = cleanIndentNo.match(/\d+/)?.[0];
-      const itemIndentNumeric = itemIndent.match(/\d+/)?.[0];
-      
-      if (cleanIndentNumeric && itemIndentNumeric && cleanIndentNumeric === itemIndentNumeric) return true;
-      
-      return false;
-    });
-    
-    return {
-      poQuantity: indent?.poQuantity || "",
-      expectedAlumina: indent?.expectedAlumina || "",
-      expectedIron: indent?.expectedIron || "",
-    };
-  } catch (error) {
-    console.error("Error in getExpectedValues:", error);
-    return { poQuantity: "", expectedAlumina: "", expectedIron: "" };
-  }
-};
+  };
 
 
-// Fetch INDENT-PO Data
-useEffect(() => {
-  const fetchIndentData = async () => {
-    try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INDENT_SHEET_NAME)}&t=${new Date().getTime()}`
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`)
+  // Fetch INDENT-PO Data
+  useEffect(() => {
+    const fetchIndentData = async () => {
+      try {
+        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INDENT_SHEET_NAME)}&t=${new Date().getTime()}`
+        const response = await fetch(url)
+        if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`)
 
-      const responseText = await response.text()
-      const dataTable = parseGvizResponse(responseText, INDENT_SHEET_NAME)
+        const responseText = await response.text()
+        const dataTable = parseGvizResponse(responseText, INDENT_SHEET_NAME)
 
-      const processedData = dataTable.rows.map((row) => {
-        const getStringValue = (colIndex) =>
-          row.c?.[colIndex]?.v !== null && row.c?.[colIndex]?.v !== undefined
-            ? String(row.c[colIndex].v)
-            : ""
+        const processedData = dataTable.rows.map((row) => {
+          const getStringValue = (colIndex) =>
+            row.c?.[colIndex]?.v !== null && row.c?.[colIndex]?.v !== undefined
+              ? String(row.c[colIndex].v)
+              : ""
 
-        const indentItem = {
-          indentNo: getStringValue(INDENT_NO_COL_INDENT),
-          poQuantity: getStringValue(TOTAL_QUANTITY_COL_INDENT),
-          expectedAlumina: getStringValue(ALUMINA_COL_INDENT),
-          expectedIron: getStringValue(IRON_COL_INDENT),
-        }
-        
-        // Debug log for RL-007
-        if (indentItem.indentNo && indentItem.indentNo.trim().toLowerCase() === "rl-007") {
-          console.log("Found RL-007 in INDENT-PO:", indentItem)
-        }
-        
-        return indentItem
-      }).filter(item => item.indentNo && item.indentNo.trim() !== "")
+          const indentItem = {
+            indentNo: getStringValue(INDENT_NO_COL_INDENT),
+            poQuantity: getStringValue(TOTAL_QUANTITY_COL_INDENT),
+            expectedAlumina: getStringValue(ALUMINA_COL_INDENT),
+            expectedIron: getStringValue(IRON_COL_INDENT),
+          }
 
-      console.log("Total INDENT-PO records loaded:", processedData.length)
-      console.log("Sample INDENT-PO records:", processedData.slice(0, 5))
-      
-      setIndentData(processedData)
-    } catch (err) {
-      console.error("Failed to load INDENT-PO data:", err.message)
+          // Debug log for RL-007
+          if (indentItem.indentNo && indentItem.indentNo.trim().toLowerCase() === "rl-007") {
+            console.log("Found RL-007 in INDENT-PO:", indentItem)
+          }
+
+          return indentItem
+        }).filter(item => item.indentNo && item.indentNo.trim() !== "")
+
+        console.log("Total INDENT-PO records loaded:", processedData.length)
+        console.log("Sample INDENT-PO records:", processedData.slice(0, 5))
+
+        setIndentData(processedData)
+      } catch (err) {
+        console.error("Failed to load INDENT-PO data:", err.message)
+      }
     }
-  }
-  
-  fetchIndentData()
-}, [refreshTrigger])
+
+    fetchIndentData()
+  }, [refreshTrigger])
 
 
   // Initialize column visibility
@@ -436,184 +437,195 @@ useEffect(() => {
 
   // Fetch LIFT-ACCOUNTS Data
   // Update the fetchLiftAccountData useEffect
-// Update the fetchLiftAccountData useEffect
-useEffect(() => {
-  const fetchLiftAccountData = async () => {
-    setLoadingData(true);
-    setErrorData(null);
-    try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(LIFTS_SHEET_NAME)}&t=${new Date().getTime()}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+  // Update the fetchLiftAccountData useEffect
+  useEffect(() => {
+    const fetchLiftAccountData = async () => {
+      setLoadingData(true);
+      setErrorData(null);
+      try {
+        // Fetch from Supabase LIFT-ACCOUNTS table
+        const { data, error: fetchError } = await supabase
+          .from("LIFT-ACCOUNTS")
+          .select("*")
+          .order("Timestamp", { ascending: false });
 
-      const responseText = await response.text();
-      const dataTable = parseGvizResponse(responseText, LIFTS_SHEET_NAME);
+        if (fetchError) throw fetchError;
 
-      // Process lifts data
-      let processedData = dataTable.rows.map((row, gvizRowIndex) => {
-        const getStringValue = (colIndex) =>
-          row.c?.[colIndex]?.v !== null && row.c?.[colIndex]?.v !== undefined
-            ? String(row.c[colIndex].v)
-            : "";
-        
-        const getFormattedValue = (colIndex) => formatDateString(getStringValue(colIndex));
+        // Helper to format date for display
+        const formatTimestamp = (dateValue) => {
+          if (!dateValue) return "";
+          try {
+            const d = new Date(dateValue);
+            if (!isNaN(d.getTime())) {
+              return d.toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+              }).replace(/,/g, "");
+            }
+          } catch (e) {
+            return String(dateValue);
+          }
+          return String(dateValue);
+        };
 
-        const liftNo = getStringValue(LIFT_ID_COL);
-        const indentNo = getStringValue(INDENT_NO_COL);
-        
-        // Get expected values for this indent
-        let expectedValues = { poQuantity: "", expectedAlumina: "", expectedIron: "" };
-        
-        if (indentNo && indentData.length > 0) {
+        // Process lifts data
+        let processedData = (data || []).map((row) => {
+          const liftNo = String(row["Lift No"] || "").trim();
+          const indentNo = String(row["Indent no."] || "").trim();
+
+          // Get expected values for this indent
+          let expectedValues = { poQuantity: "", expectedAlumina: "", expectedIron: "" };
+
+          if (indentNo && indentData.length > 0) {
+            // Find matching indent in INDENT-PO data
+            const matchingIndent = indentData.find(indent => {
+              const liftIndent = String(indentNo).trim().toLowerCase();
+              const sheetIndent = String(indent.indentNo).trim().toLowerCase();
+
+              // Direct match
+              if (liftIndent === sheetIndent) return true;
+
+              // Try matching numeric parts
+              const liftIndentNumeric = liftIndent.match(/\d+/)?.[0];
+              const sheetIndentNumeric = sheetIndent.match(/\d+/)?.[0];
+
+              return liftIndentNumeric && sheetIndentNumeric && liftIndentNumeric === sheetIndentNumeric;
+            });
+
+            if (matchingIndent) {
+              expectedValues = {
+                poQuantity: matchingIndent.poQuantity || "",
+                expectedAlumina: matchingIndent.expectedAlumina || "",
+                expectedIron: matchingIndent.expectedIron || "",
+              };
+            }
+          }
+
+          const liftData = {
+            _id: `LIFT-ACCOUNTS-${row.id}`,
+            _dbId: row.id, // Store the Supabase row ID for updates
+            liftNo: liftNo,
+            indentNo: indentNo,
+            vendorName: String(row["Vendor Name"] || "").trim(),
+            rawMaterialName: String(row["Raw Material Name"] || "").trim(),
+            type: String(row["Type"] || "").trim(),
+            qty: String(row["Qty"] || "").trim(),
+            totalBillQuantity_fromSheet: String(row["Total Bill Quantity"] || "").trim(),
+            actualQty_fromReceipt: String(row["Actual Quantity"] || "").trim(),
+            billNo: String(row["Bill No."] || "").trim(),
+            dateOfReceiving_formatted: formatTimestamp(row["Date Of Receiving"]),
+            firmName: String(row["Firm Name"] || "").trim(),
+            // Filter columns - using Planned 2 and Actual 2
+            filterColPlanned2: row["Planned 2"],
+            filterColActual2: row["Actual 2"],
+            aiCondition_val: row["Planned 2"],
+            aiCondition_val_formatted: formatTimestamp(row["Planned 2"]),
+            ajTimestamp_val: row["Actual 2"],
+            ajTimestamp_formatted_val: formatTimestamp(row["Actual 2"]),
+            // Lab test data from Supabase - using actual schema column names
+            alStatus_val: String(row["Status"] || "").trim(),
+            amDateOfTest_val: row["Date Of Test"] || "",
+            amDateOfTest_formatted_val: formatTimestamp(row["Date Of Test"]),
+            anMoisturePercent_val: String(row["Moisture Percent Age %"] || "").trim(),
+            aoBdPercent_val: String(row["BD Percent Age %"] || "").trim(),
+            apApPercent_val: String(row["AP Percent Age %"] || "").trim(),
+            aqAluminaPercent_val: String(row["Alumina Percent Age %"] || "").trim(),
+            arIronPercent_val: String(row["Iron Percent Age %"] || "").trim(),
+            asSieveAnalysis_val: String(row["Sieve Analysis"] || "").trim(),
+            atLoiPercent_val: String(row["LOI %"] || "").trim(),
+            auSio2Percent_val: String(row["SIO2 %"] || "").trim(),
+            avCaoPercent_val: String(row["CaO %"] || "").trim(),
+            awMgoPercent_val: String(row["MgO %"] || "").trim(),
+            axTio2Percent_val: String(row["TiO2 %"] || "").trim(),
+            ayKna2oPercent_val: String(row["K2O + Na2O %"] || "").trim(),
+            azFreeIronPercent_val: String(row["Free Iron %"] || "").trim(),
+            // PO Quantity from matching
+            poQuantity: expectedValues.poQuantity,
+            expectedAlumina: expectedValues.expectedAlumina,
+            expectedIron: expectedValues.expectedIron,
+          };
+          return liftData;
+        });
+
+        // Filter by firm name
+        if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+          const userFirmNameLower = user.firmName.toLowerCase();
+          processedData = processedData.filter(
+            (lift) => lift && lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
+          );
+        }
+
+        setAllLiftsData(processedData);
+
+      } catch (err) {
+        const errorMessage = `Failed to load data from LIFT-ACCOUNTS: ${err.message}`;
+        setErrorData(errorMessage);
+        toast.error("Data Load Error", {
+          description: errorMessage,
+          icon: <XCircle className="h-4 w-4" />,
+        });
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    fetchLiftAccountData();
+  }, [refreshTrigger, user, indentData]);
+  // Add indentData to dependencies
+  // NEW: Add this useEffect to combine data AFTER both are loaded
+  // NEW: Add this useEffect to combine data AFTER both are loaded
+  useEffect(() => {
+    // Only run if we have both datasets and lifts don't already have poQuantity
+    if (indentData.length > 0 && allLiftsData.length > 0 && !allLiftsData[0]?.poQuantity) {
+      console.log("Matching PO quantities...", {
+        lifts: allLiftsData.length,
+        indents: indentData.length,
+        sampleIndents: indentData.slice(0, 3)
+      })
+
+      const updatedLifts = allLiftsData.map(lift => {
+        if (lift.indentNo) {
           // Find matching indent in INDENT-PO data
           const matchingIndent = indentData.find(indent => {
-            const liftIndent = String(indentNo).trim().toLowerCase();
-            const sheetIndent = String(indent.indentNo).trim().toLowerCase();
-            
-            // Direct match
-            if (liftIndent === sheetIndent) return true;
-            
-            // Try matching numeric parts
-            const liftIndentNumeric = liftIndent.match(/\d+/)?.[0];
-            const sheetIndentNumeric = sheetIndent.match(/\d+/)?.[0];
-            
-            return liftIndentNumeric && sheetIndentNumeric && liftIndentNumeric === sheetIndentNumeric;
-          });
-          
+            // Clean both indent numbers for comparison
+            const liftIndent = String(lift.indentNo).trim().toLowerCase()
+            const sheetIndent = String(indent.indentNo).trim().toLowerCase()
+
+            // Log for debugging
+            if (liftIndent === "rl-007") {
+              console.log("Looking for RL-007 match:", {
+                liftIndent,
+                sheetIndent,
+                poQuantity: indent.poQuantity,
+                matches: liftIndent === sheetIndent
+              })
+            }
+
+            return liftIndent === sheetIndent
+          })
+
           if (matchingIndent) {
-            expectedValues = {
-              poQuantity: matchingIndent.poQuantity || "",
-              expectedAlumina: matchingIndent.expectedAlumina || "",
-              expectedIron: matchingIndent.expectedIron || "",
-            };
+            console.log(`Found match for ${lift.indentNo}:`, matchingIndent.poQuantity)
+            return {
+              ...lift,
+              poQuantity: matchingIndent.poQuantity || ""
+            }
+          } else {
+            console.log(`No match found for indent: ${lift.indentNo}`)
           }
         }
+        return lift
+      })
 
-        const liftData = {
-          _id: `${LIFTS_SHEET_NAME}-${gvizRowIndex}`,
-          _rowIndex: gvizRowIndex + DATA_START_ROW_LIFTS,
-          rawCells: row.c ? row.c.map((cell) => (cell ? (cell.f ?? cell.v) : null)) : [],
-          liftNo: liftNo,
-          indentNo: indentNo,
-          vendorName: getStringValue(VENDOR_NAME_COL),
-          rawMaterialName: getStringValue(RAW_MATERIAL_NAME_COL),
-          type: getStringValue(LIFT_TYPE_COL),
-          qty: getStringValue(ORIGINAL_QTY_COL),
-          totalBillQuantity_fromSheet: getStringValue(RECEIPT_TOTAL_BILL_QUANTITY_COL),
-          actualQty_fromReceipt: getStringValue(RECEIPT_ACTUAL_QTY_COL),
-          billNo: getStringValue(BILL_NO_COL),
-          dateOfReceiving_formatted: getFormattedValue(RECEIPT_DATE_OF_RECEIVING_COL),
-          firmName: getStringValue(FIRM_NAME_COL),
-          aiCondition_val: getStringValue(AI_CONDITION_NOT_NULL_COL),
-          aiCondition_val_formatted: getFormattedValue(AI_CONDITION_NOT_NULL_COL),
-          ajTimestamp_val: getStringValue(AJ_TIMESTAMP_OR_NULL_COL),
-          ajTimestamp_formatted_val: getFormattedValue(AJ_TIMESTAMP_OR_NULL_COL),
-          alStatus_val: getStringValue(AL_STATUS_COL),
-          amDateOfTest_val: getStringValue(AM_DATE_OF_TEST_COL),
-          amDateOfTest_formatted_val: getFormattedValue(AM_DATE_OF_TEST_COL),
-          anMoisturePercent_val: getStringValue(AN_MOISTURE_PERCENT_COL),
-          aoBdPercent_val: getStringValue(AO_BD_PERCENT_COL),
-          apApPercent_val: getStringValue(AP_AP_PERCENT_COL),
-          aqAluminaPercent_val: getStringValue(AQ_ALUMINA_PERCENT_COL),
-          arIronPercent_val: getStringValue(AR_IRON_PERCENT_COL),
-          asSieveAnalysis_val: getStringValue(AS_SIEVE_ANALYSIS_COL),
-          atLoiPercent_val: getStringValue(AT_LOI_PERCENT_COL),
-          auSio2Percent_val: getStringValue(AU_SIO2_PERCENT_COL),
-          avCaoPercent_val: getStringValue(AV_CAO_PERCENT_COL),
-          awMgoPercent_val: getStringValue(AW_MGO_PERCENT_COL),
-          axTio2Percent_val: getStringValue(AX_TIO2_PERCENT_COL),
-          ayKna2oPercent_val: getStringValue(AY_KNA2O_PERCENT_COL),
-          azFreeIronPercent_val: getStringValue(AZ_FREE_IRON_PERCENT_COL),
-          // Add PO Quantity directly from matching
-          poQuantity: expectedValues.poQuantity,
-          expectedAlumina: expectedValues.expectedAlumina,
-          expectedIron: expectedValues.expectedIron,
-        };
-        return liftData;
-      });
-
-      // Filter by firm name
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
-        processedData = processedData.filter(
-          (lift) => lift && lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
-        );
-      }
-
-      // Debug: Check which lifts have PO Quantity
-      console.log("Processed lifts with PO quantities:");
-      processedData.forEach(lift => {
-        if (lift.indentNo) {
-          console.log(`Lift: ${lift.liftNo}, Indent: ${lift.indentNo}, PO Qty: ${lift.poQuantity}`);
-        }
-      });
-
-      setAllLiftsData(processedData.filter(Boolean));
-      
-    } catch (err) {
-      const errorMessage = `Failed to load data from LIFT-ACCOUNTS: ${err.message}`;
-      setErrorData(errorMessage);
-      toast.error("Data Load Error", {
-        description: errorMessage,
-        icon: <XCircle className="h-4 w-4" />,
-      });
-    } finally {
-      setLoadingData(false);
+      console.log("Updated lifts with PO quantities:", updatedLifts.filter(l => l.indentNo === "RL-007"))
+      setAllLiftsData(updatedLifts)
     }
-  };
-  
-  fetchLiftAccountData();
-}, [refreshTrigger, user, indentData]);
- // Add indentData to dependencies
-// NEW: Add this useEffect to combine data AFTER both are loaded
-// NEW: Add this useEffect to combine data AFTER both are loaded
-useEffect(() => {
-  // Only run if we have both datasets and lifts don't already have poQuantity
-  if (indentData.length > 0 && allLiftsData.length > 0 && !allLiftsData[0]?.poQuantity) {
-    console.log("Matching PO quantities...", { 
-      lifts: allLiftsData.length, 
-      indents: indentData.length,
-      sampleIndents: indentData.slice(0, 3)
-    })
-    
-    const updatedLifts = allLiftsData.map(lift => {
-      if (lift.indentNo) {
-        // Find matching indent in INDENT-PO data
-        const matchingIndent = indentData.find(indent => {
-          // Clean both indent numbers for comparison
-          const liftIndent = String(lift.indentNo).trim().toLowerCase()
-          const sheetIndent = String(indent.indentNo).trim().toLowerCase()
-          
-          // Log for debugging
-          if (liftIndent === "rl-007") {
-            console.log("Looking for RL-007 match:", {
-              liftIndent,
-              sheetIndent,
-              poQuantity: indent.poQuantity,
-              matches: liftIndent === sheetIndent
-            })
-          }
-          
-          return liftIndent === sheetIndent
-        })
-        
-        if (matchingIndent) {
-          console.log(`Found match for ${lift.indentNo}:`, matchingIndent.poQuantity)
-          return {
-            ...lift,
-            poQuantity: matchingIndent.poQuantity || ""
-          }
-        } else {
-          console.log(`No match found for indent: ${lift.indentNo}`)
-        }
-      }
-      return lift
-    })
-    
-    console.log("Updated lifts with PO quantities:", updatedLifts.filter(l => l.indentNo === "RL-007"))
-    setAllLiftsData(updatedLifts)
-  }
-}, [indentData])
+  }, [indentData])
 
   const uniqueFilterOptions = useMemo(() => {
     const vendors = new Set()
@@ -746,49 +758,49 @@ useEffect(() => {
   }
 
   const handleOpenLabTestModal = (receipt) => {
-  console.log("Opening modal for receipt:", {
-    liftNo: receipt?.liftNo,
-    indentNo: receipt?.indentNo,
-    vendorName: receipt?.vendorName
-  });
-  
-  if (!receipt || !receipt.liftNo) {
-    toast.error("Invalid Receipt", {
-      description: "Cannot open lab test form for this receipt.",
-      icon: <XCircle className="h-4 w-4" />,
+    console.log("Opening modal for receipt:", {
+      liftNo: receipt?.liftNo,
+      indentNo: receipt?.indentNo,
+      vendorName: receipt?.vendorName
     });
-    return;
-  }
 
-  // Reset form first
-  setFormErrors({});
-  
-  // Set form data
-  setFormData({
-    liftIdToUpdate: receipt.liftNo,
-    alStatus: receipt.alStatus_val || "passed",
-    amDateOfTest: receipt.amDateOfTest_val || new Date().toISOString().split("T")[0],
-    anMoisturePercent: receipt.anMoisturePercent_val || "",
-    aoBdPercent: receipt.aoBdPercent_val || "",
-    apApPercent: receipt.apApPercent_val || "",
-    aqAluminaPercent: receipt.aqAluminaPercent_val || "",
-    arIronPercent: receipt.arIronPercent_val || "",
-    asSieveAnalysis: receipt.asSieveAnalysis_val || "",
-    atLoiPercent: receipt.atLoiPercent_val || "",
-    auSio2Percent: receipt.auSio2Percent_val || "",
-    avCaoPercent: receipt.avCaoPercent_val || "",
-    awMgoPercent: receipt.awMgoPercent_val || "",
-    axTio2Percent: receipt.axTio2Percent_val || "",
-    ayKna2oPercent: receipt.ayKna2oPercent_val || "",
-    azFreeIronPercent: receipt.azFreeIronPercent_val || "",
-  });
-  
-  // Set the receipt
-  setSelectedReceiptForModal(receipt);
-  
-  // Open modal
-  setIsModalOpen(true);
-};
+    if (!receipt || !receipt.liftNo) {
+      toast.error("Invalid Receipt", {
+        description: "Cannot open lab test form for this receipt.",
+        icon: <XCircle className="h-4 w-4" />,
+      });
+      return;
+    }
+
+    // Reset form first
+    setFormErrors({});
+
+    // Set form data
+    setFormData({
+      liftIdToUpdate: receipt.liftNo,
+      alStatus: receipt.alStatus_val || "passed",
+      amDateOfTest: receipt.amDateOfTest_val || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+      anMoisturePercent: receipt.anMoisturePercent_val || "",
+      aoBdPercent: receipt.aoBdPercent_val || "",
+      apApPercent: receipt.apApPercent_val || "",
+      aqAluminaPercent: receipt.aqAluminaPercent_val || "",
+      arIronPercent: receipt.arIronPercent_val || "",
+      asSieveAnalysis: receipt.asSieveAnalysis_val || "",
+      atLoiPercent: receipt.atLoiPercent_val || "",
+      auSio2Percent: receipt.auSio2Percent_val || "",
+      avCaoPercent: receipt.avCaoPercent_val || "",
+      awMgoPercent: receipt.awMgoPercent_val || "",
+      axTio2Percent: receipt.axTio2Percent_val || "",
+      ayKna2oPercent: receipt.ayKna2oPercent_val || "",
+      azFreeIronPercent: receipt.azFreeIronPercent_val || "",
+    });
+
+    // Set the receipt
+    setSelectedReceiptForModal(receipt);
+
+    // Open modal
+    setIsModalOpen(true);
+  };
 
   const validateForm = useCallback(() => {
     const newErrors = {}
@@ -832,51 +844,39 @@ useEffect(() => {
     setIsSubmitting(true);
 
     try {
-      const systemGeneratedTimestamp = new Date().toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false
-      }).replace(/,/g, "");
+      const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", ""); // Indian format for Supabase timestamp
 
-      const cellUpdates = {
-        [`col${AJ_TIMESTAMP_OR_NULL_COL + 1}`]: systemGeneratedTimestamp,
-        [`col${AL_STATUS_COL + 1}`]: formData.alStatus,
-        [`col${AM_DATE_OF_TEST_COL + 1}`]: formData.amDateOfTest,
-        [`col${AN_MOISTURE_PERCENT_COL + 1}`]: formData.anMoisturePercent,
-        [`col${AO_BD_PERCENT_COL + 1}`]: formData.aoBdPercent,
-        [`col${AP_AP_PERCENT_COL + 1}`]: formData.apApPercent,
-        [`col${AQ_ALUMINA_PERCENT_COL + 1}`]: formData.aqAluminaPercent,
-        [`col${AR_IRON_PERCENT_COL + 1}`]: formData.arIronPercent,
-        [`col${AS_SIEVE_ANALYSIS_COL + 1}`]: formData.asSieveAnalysis,
-        [`col${AT_LOI_PERCENT_COL + 1}`]: formData.atLoiPercent,
-        [`col${AU_SIO2_PERCENT_COL + 1}`]: formData.auSio2Percent,
-        [`col${AV_CAO_PERCENT_COL + 1}`]: formData.avCaoPercent,
-        [`col${AW_MGO_PERCENT_COL + 1}`]: formData.awMgoPercent,
-        [`col${AX_TIO2_PERCENT_COL + 1}`]: formData.axTio2Percent,
-        [`col${AY_KNA2O_PERCENT_COL + 1}`]: formData.ayKna2oPercent,
-        [`col${AZ_FREE_IRON_PERCENT_COL + 1}`]: formData.azFreeIronPercent,
+      // Prepare update data for Supabase LIFT-ACCOUNTS - using actual schema column names
+      const updateData = {
+        "Actual 2": timestamp,
+        "Status": formData.alStatus,
+        "Date Of Test": formData.amDateOfTest,
+        "Moisture Percent Age %": parseFloat(formData.anMoisturePercent) || null,
+        "BD Percent Age %": parseFloat(formData.aoBdPercent) || null,
+        "AP Percent Age %": parseFloat(formData.apApPercent) || null,
+        "Alumina Percent Age %": parseFloat(formData.aqAluminaPercent) || null,
+        "Iron Percent Age %": parseFloat(formData.arIronPercent) || null,
+        "Sieve Analysis": parseFloat(formData.asSieveAnalysis) || null,
+        "LOI %": parseFloat(formData.atLoiPercent) || null,
+        "SIO2 %": parseFloat(formData.auSio2Percent) || null,
+        "CaO %": parseFloat(formData.avCaoPercent) || null,
+        "MgO %": parseFloat(formData.awMgoPercent) || null,
+        "TiO2 %": parseFloat(formData.axTio2Percent) || null,
+        "K2O + Na2O %": parseFloat(formData.ayKna2oPercent) || null,
+        "Free Iron %": parseFloat(formData.azFreeIronPercent) || null,
       };
 
-      const params = new URLSearchParams({
-        action: "updateCells",
-        sheetName: LIFTS_SHEET_NAME,
-        rowIndex: selectedReceiptForModal._rowIndex,
-        cellUpdates: JSON.stringify(cellUpdates),
-      });
+      console.log("Updating LIFT-ACCOUNTS record:", selectedReceiptForModal._dbId, updateData);
 
-      const response = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
-      });
-      
-      const responseText = await response.text();
-      if (!response.ok && !responseText.toLowerCase().includes("success")) {
-        throw new Error(`Server error: ${response.status}. ${responseText}`);
+      // Update the LIFT-ACCOUNTS record in Supabase
+      const { error: updateError } = await supabase
+        .from("LIFT-ACCOUNTS")
+        .update(updateData)
+        .eq("id", selectedReceiptForModal._dbId);
+
+      if (updateError) {
+        console.error("LIFT-ACCOUNTS update failed:", updateError);
+        throw new Error(`Failed to update LIFT-ACCOUNTS: ${updateError.message}`);
       }
 
       toast.success("Success!", {
@@ -884,7 +884,7 @@ useEffect(() => {
         icon: <CheckCircle className="h-4 w-4" />,
       });
 
-      setTimeout(() => setRefreshTrigger(prev => prev + 1), 1000);
+      setRefreshTrigger(prev => prev + 1);
       handleModalClose();
     } catch (error) {
       toast.error("Operation Failed", {
@@ -938,40 +938,40 @@ useEffect(() => {
   }
 
   const renderCell = (item, column) => {
-  const value = item[column.dataKey];
-  
-  if (column.isBadge && column.dataKey === "alStatus_val") {
-    return (
-      <Badge variant={getStatusBadgeVariant(value)} className="capitalize px-2 py-0.5 text-xs whitespace-nowrap">
-        {value || "N/A"}
-      </Badge>
-    );
-  }
-  
-  // Special handling for PO Quantity
-  if (column.dataKey === "poQuantity") {
-    // Check if we have an indent number
-    if (item.indentNo && item.indentNo.trim() !== "") {
-      if (value && value.trim() !== "") {
-        return <span className="font-medium text-blue-600">{value}</span>;
-      } else {
-        // Show loading state or "Not found" with tooltip
-        return (
-          <div className="relative group">
-            <span className="text-xs text-gray-400 italic">Loading...</span>
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-              Indent: {item.indentNo}
-            </div>
-          </div>
-        );
-      }
-    } else {
-      return <span className="text-xs text-gray-400">N/A</span>;
+    const value = item[column.dataKey];
+
+    if (column.isBadge && column.dataKey === "alStatus_val") {
+      return (
+        <Badge variant={getStatusBadgeVariant(value)} className="capitalize px-2 py-0.5 text-xs whitespace-nowrap">
+          {value || "N/A"}
+        </Badge>
+      );
     }
-  }
-  
-  return value || (value === 0 ? "0" : <span className="text-xs text-gray-400">N/A</span>);
-};
+
+    // Special handling for PO Quantity
+    if (column.dataKey === "poQuantity") {
+      // Check if we have an indent number
+      if (item.indentNo && item.indentNo.trim() !== "") {
+        if (value && value.trim() !== "") {
+          return <span className="font-medium text-blue-600">{value}</span>;
+        } else {
+          // Show loading state or "Not found" with tooltip
+          return (
+            <div className="relative group">
+              <span className="text-xs text-gray-400 italic">Loading...</span>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                Indent: {item.indentNo}
+              </div>
+            </div>
+          );
+        }
+      } else {
+        return <span className="text-xs text-gray-400">N/A</span>;
+      }
+    }
+
+    return value || (value === 0 ? "0" : <span className="text-xs text-gray-400">N/A</span>);
+  };
 
   // Reusable Table Rendering Function
   const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
@@ -1309,7 +1309,7 @@ useEffect(() => {
                 />
                 {formErrors.amDateOfTest && <p className="mt-1 text-xs text-destructive">{formErrors.amDateOfTest}</p>}
               </div>
-              
+
               {/* Moisture % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="anMoisturePercent">
@@ -1326,7 +1326,7 @@ useEffect(() => {
                 />
                 {formErrors.anMoisturePercent && <p className="mt-1 text-xs text-destructive">{formErrors.anMoisturePercent}</p>}
               </div>
-              
+
               {/* BD % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="aoBdPercent">
@@ -1343,7 +1343,7 @@ useEffect(() => {
                 />
                 {formErrors.aoBdPercent && <p className="mt-1 text-xs text-destructive">{formErrors.aoBdPercent}</p>}
               </div>
-              
+
               {/* AP % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="apApPercent">
@@ -1360,7 +1360,7 @@ useEffect(() => {
                 />
                 {formErrors.apApPercent && <p className="mt-1 text-xs text-destructive">{formErrors.apApPercent}</p>}
               </div>
-              
+
               {/* Alumina % Field with Expected Value */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="aqAluminaPercent">
@@ -1382,7 +1382,7 @@ useEffect(() => {
                 />
                 {formErrors.aqAluminaPercent && <p className="mt-1 text-xs text-destructive">{formErrors.aqAluminaPercent}</p>}
               </div>
-              
+
               {/* Iron % Field with Expected Value */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="arIronPercent">
@@ -1404,7 +1404,7 @@ useEffect(() => {
                 />
                 {formErrors.arIronPercent && <p className="mt-1 text-xs text-destructive">{formErrors.arIronPercent}</p>}
               </div>
-              
+
               {/* Sieve Analysis Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="asSieveAnalysis">
@@ -1421,7 +1421,7 @@ useEffect(() => {
                 />
                 {formErrors.asSieveAnalysis && <p className="mt-1 text-xs text-destructive">{formErrors.asSieveAnalysis}</p>}
               </div>
-              
+
               {/* LOI % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="atLoiPercent">
@@ -1438,7 +1438,7 @@ useEffect(() => {
                 />
                 {formErrors.atLoiPercent && <p className="mt-1 text-xs text-destructive">{formErrors.atLoiPercent}</p>}
               </div>
-              
+
               {/* SiO2 % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="auSio2Percent">
@@ -1455,7 +1455,7 @@ useEffect(() => {
                 />
                 {formErrors.auSio2Percent && <p className="mt-1 text-xs text-destructive">{formErrors.auSio2Percent}</p>}
               </div>
-              
+
               {/* CaO % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="avCaoPercent">
@@ -1472,7 +1472,7 @@ useEffect(() => {
                 />
                 {formErrors.avCaoPercent && <p className="mt-1 text-xs text-destructive">{formErrors.avCaoPercent}</p>}
               </div>
-              
+
               {/* MgO % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="awMgoPercent">
@@ -1489,7 +1489,7 @@ useEffect(() => {
                 />
                 {formErrors.awMgoPercent && <p className="mt-1 text-xs text-destructive">{formErrors.awMgoPercent}</p>}
               </div>
-              
+
               {/* TiO2 % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="axTio2Percent">
@@ -1506,7 +1506,7 @@ useEffect(() => {
                 />
                 {formErrors.axTio2Percent && <p className="mt-1 text-xs text-destructive">{formErrors.axTio2Percent}</p>}
               </div>
-              
+
               {/* K2O+Na2O % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="ayKna2oPercent">
@@ -1523,7 +1523,7 @@ useEffect(() => {
                 />
                 {formErrors.ayKna2oPercent && <p className="mt-1 text-xs text-destructive">{formErrors.ayKna2oPercent}</p>}
               </div>
-              
+
               {/* Free Iron % Field */}
               <div>
                 <Label className="text-foreground text-xs" htmlFor="azFreeIronPercent">

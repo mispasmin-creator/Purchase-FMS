@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useContext, useMemo } from "react";
-import { 
-  Loader2, 
-  AlertTriangle, 
-  FileText, 
-  CheckCircle, 
-  XCircle, 
-  Calendar, 
-  User, 
-  Package, 
-  Truck, 
+import {
+  Loader2,
+  AlertTriangle,
+  FileText,
+  CheckCircle,
+  XCircle,
+  Calendar,
+  User,
+  Package,
+  Truck,
   Filter,
   ChevronsUpDown,
   Edit,
@@ -30,11 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AuthContext } from "../context/AuthContext";
 import { toast } from "sonner";
-
-// Constants
-const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
-const MISMATCH_SHEET = "Mismatch";
-const API_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
+import { supabase } from "../supabase";
 
 // Column configuration
 const DEBIT_NOTE_COLUMNS_META = [
@@ -52,12 +48,12 @@ const DEBIT_NOTE_COLUMNS_META = [
 ];
 
 // Searchable Select Component
-const SearchableSelect = ({ 
-  value, 
-  onValueChange, 
-  options, 
-  placeholder, 
-  className 
+const SearchableSelect = ({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  className
 }) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -78,7 +74,7 @@ const SearchableSelect = ({
         {value === "all" || !value ? `All ${placeholder}` : value}
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
-      
+
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
           <div className="sticky top-0 bg-white p-2 border-b">
@@ -118,7 +114,7 @@ const SearchableSelect = ({
           </div>
         </div>
       )}
-      
+
       {open && (
         <div
           className="fixed inset-0 z-40"
@@ -146,37 +142,12 @@ export default function DebitNote() {
     status: "all"
   });
 
-  // Format timestamp function
+  // Format timestamp function for ISO timestamps from Supabase
   const formatTimestamp = (timestampStr) => {
-    if (!timestampStr || typeof timestampStr !== "string") {
+    if (!timestampStr) {
       return "N/A";
     }
-    
-    // Check if it's a Google Sheets Date() format
-    const numbers = timestampStr.match(/\d+/g);
-    if (numbers && numbers.length >= 6) {
-      const date = new Date(
-        parseInt(numbers[0]), // Year
-        parseInt(numbers[1]) - 1, // Month (0-based)
-        parseInt(numbers[2]), // Day
-        parseInt(numbers[3]), // Hours
-        parseInt(numbers[4]), // Minutes
-        parseInt(numbers[5]), // Seconds
-      );
-      if (!isNaN(date.getTime())) {
-        return date.toLocaleString("en-GB", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
-        });
-      }
-    }
-    
-    // Try to parse as regular date
+
     try {
       const d = new Date(timestampStr);
       if (!isNaN(d.getTime())) {
@@ -193,115 +164,64 @@ export default function DebitNote() {
     } catch (e) {
       // Ignore parse error
     }
-    
-    return timestampStr;
+
+    return "N/A";
   };
 
-  // Check if timestamp is valid (not N/A)
+  // Check if timestamp is valid (not N/A and not null)
   const isValidTimestamp = (timestamp) => {
-    return timestamp && timestamp !== "N/A" && timestamp.trim() !== "";
+    return timestamp && timestamp !== null && timestamp !== "N/A" && String(timestamp).trim() !== "";
   };
 
   // Categorize data into pending and history
   const categorizeData = useCallback((data) => {
     const pending = [];
     const history = [];
-    
+
     data.forEach(item => {
       const hasPlanned = isValidTimestamp(item.planned);
       const hasActual = isValidTimestamp(item.actual);
-      
+
       if (hasPlanned && !hasActual) {
         pending.push(item);
       } else if (hasPlanned && hasActual) {
         history.push(item);
-      } else {
-        // Items without planned timestamp go to pending as well
-        pending.push(item);
       }
     });
-    
+
     return { pending, history };
   }, []);
 
-  // Fetch data from Mismatch sheet
+  // Fetch data from Supabase Mismatch table
   const fetchMismatchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
-        MISMATCH_SHEET,
-      )}&cb=${new Date().getTime()}`;
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch Mismatch data: ${response.status} ${response.statusText}`);
-      }
-      
-      let text = await response.text();
-      
-      // Parse Google Visualization response
-      if (text.startsWith("google.visualization.Query.setResponse(")) {
-        text = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"));
-      } else {
-        const jsonStart = text.indexOf("{");
-        const jsonEnd = text.lastIndexOf("}");
-        if (jsonStart === -1 || jsonEnd === -1) {
-          throw new Error("Invalid JSON response format from Google Sheets");
-        }
-        text = text.substring(jsonStart, jsonEnd + 1);
-      }
+      const { data, error: fetchError } = await supabase
+        .from("Mismatch")
+        .select("*")
+        .order("Timestamp", { ascending: false });
 
-      const data = JSON.parse(text);
+      if (fetchError) throw fetchError;
 
-      if (data.status === "error") {
-        throw new Error(data.errors?.[0]?.detailed_message || "Mismatch Sheet API returned error status.");
-      }
-
-      if (!data.table || !data.table.cols) {
-        console.warn("Mismatch sheet has no columns or is empty");
-        setMismatchData([]);
-        setLoading(false);
-        return;
-      }
-
-      if (!data.table.rows) data.table.rows = [];
-
-      // Process rows
-      const processedRows = data.table.rows.map((row, index) => {
-        if (!row || !row.c) return null;
-        
-        const rowData = { _id: index, _rowIndex: index + 2 }; // +2 because header is row 1
-        
-        // Map all columns from the sheet
-        row.c.forEach((cell, cellIndex) => {
-          const colId = `col${cellIndex}`;
-          const value = cell && cell.v !== undefined && cell.v !== null ? cell.v : "";
-          rowData[colId] = value;
-          if (cell && cell.f) rowData[`${colId}_formatted`] = cell.f;
-        });
-
-        return rowData;
-      }).filter(row => row !== null);
-
-      // Filter out empty rows and map to our data structure
-      const formattedData = processedRows
-        .filter(row => row.col0 || row.col1 || row.col2) // At least one of timestamp, liftId, or indentNo should exist
-        .map(row => ({
-          id: `MISMATCH-${row._rowIndex}`,
-          _rowIndex: row._rowIndex,
-          timestamp: formatTimestamp(row.col0_formatted || row.col0 || ""),
-          liftId: String(row.col1 || "").trim(),
-          indentNo: String(row.col2 || "").trim(),
-          firmName: String(row.col3 || "").trim(),
-          partyName: String(row.col4 || "").trim(),
-          productName: String(row.col5 || "").trim(),
-          transporterName: String(row.col6 || "").trim(),
-          status: String(row.col7 || "").trim(),
-          remarks: String(row.col8 || "").trim(),
-          planned: formatTimestamp(row.col9_formatted || row.col9 || ""),
-          actual: formatTimestamp(row.col10_formatted || row.col10 || ""),
-        }));
+      // Map to our data structure
+      const formattedData = (data || []).map((row, index) => ({
+        id: `MISMATCH-${index}`,
+        timestamp: formatTimestamp(row["Timestamp"]),
+        liftId: String(row["Lift ID"] || "").trim(),
+        indentNo: String(row["Indent Number"] || "").trim(),
+        firmName: String(row["Firm Name"] || "").trim(),
+        partyName: String(row["Party Name"] || "").trim(),
+        productName: String(row["Product Name"] || "").trim(),
+        transporterName: String(row["Transporter Name"] || "").trim(),
+        status: String(row["Status"] || "").trim(),
+        remarks: String(row["Remarks"] || "").trim(),
+        planned: row["Planned"] ? formatTimestamp(row["Planned"]) : null,
+        actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
+        // Store raw values for updates
+        _rawPlanned: row["Planned"],
+        _rawActual: row["Actual"],
+      }));
 
       // Filter by user's firm if applicable
       let filteredData = formattedData;
@@ -370,7 +290,7 @@ export default function DebitNote() {
   // Apply filters to active tab data
   const filteredData = useMemo(() => {
     let filtered = getActiveTabData();
-    
+
     if (filters.firmName !== "all") {
       filtered = filtered.filter((item) => item.firmName === filters.firmName);
     }
@@ -386,7 +306,7 @@ export default function DebitNote() {
     if (filters.status !== "all") {
       filtered = filtered.filter((item) => item.status === filters.status);
     }
-    
+
     return filtered;
   }, [getActiveTabData, filters]);
 
@@ -417,7 +337,7 @@ export default function DebitNote() {
     setRemarks("");
   };
 
-  // Submit remarks and update actual timestamp
+  // Submit remarks and update actual timestamp in Supabase
   const handleSubmitRemarks = async () => {
     if (!editingRow || !remarks.trim()) {
       toast.error("Please enter remarks before submitting");
@@ -425,7 +345,7 @@ export default function DebitNote() {
     }
 
     setSubmitting(true);
-    
+
     try {
       // Find the item being edited
       const editingItem = mismatchData.find(item => item.id === editingRow);
@@ -437,51 +357,36 @@ export default function DebitNote() {
       const now = new Date();
       const actualTimestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", "");
 
-      // Prepare the update data
-      // Update remarks (column I, index 8) and actual timestamp (column K, index 10)
-      const updateData = {
-        action: "updateCells",
-        sheetName: "Mismatch",
-        rowIndex: editingItem._rowIndex.toString(),
-        cellUpdates: JSON.stringify({
-          col12: remarks.trim(),  // Remarks column (I) - index 8
-          col11: actualTimestamp // Actual column (K) - index 10
+      // Update in Supabase - match by Lift ID and Indent Number
+      const { data: updateData, error: updateError } = await supabase
+        .from("Mismatch")
+        .update({
+          "Remark": remarks.trim(),
+          "Actual": actualTimestamp
         })
-      };
+        .eq("Lift ID", editingItem.liftId)
+        .eq("Indent Number", editingItem.indentNo)
+        .select();
 
-      // Send to Google Apps Script
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams(updateData).toString(),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message || "Failed to update remarks");
-      }
+      if (updateError) throw updateError;
 
       // Update local state
-      setMismatchData(prev => prev.map(item => 
-        item.id === editingRow 
-          ? { 
-              ...item, 
-              remarks: remarks.trim(),
-              actual: actualTimestamp
-            }
+      setMismatchData(prev => prev.map(item =>
+        item.id === editingRow
+          ? {
+            ...item,
+            remarks: remarks.trim(),
+            actual: formatTimestamp(actualTimestamp),
+            _rawActual: actualTimestamp
+          }
           : item
       ));
 
       toast.success(`✅ Remarks submitted successfully for ${editingItem.liftId}!`);
       handleCancelEdit();
+
+      // Refresh data from Supabase to update counts
+      await fetchMismatchData();
 
     } catch (error) {
       console.error("Error submitting remarks:", error);
@@ -494,7 +399,7 @@ export default function DebitNote() {
   // Render status badge
   const renderStatusBadge = (status) => {
     const statusLower = (status || "").toLowerCase();
-    
+
     if (statusLower.includes("credit") || statusLower.includes("note")) {
       return <Badge className="bg-purple-100 text-purple-800 border-purple-200">Credit Note</Badge>;
     } else if (statusLower.includes("pending")) {
@@ -509,11 +414,11 @@ export default function DebitNote() {
   // Render cell content
   const renderCell = (item, column) => {
     const value = item[column.dataKey];
-    
+
     if (column.dataKey === "status") {
       return renderStatusBadge(value);
     }
-    
+
     if (column.dataKey === "actions") {
       if (activeTab === "history") {
         return (
@@ -522,7 +427,7 @@ export default function DebitNote() {
           </Badge>
         );
       }
-      
+
       if (editingRow === item.id) {
         return (
           <div className="flex gap-2">
@@ -552,7 +457,7 @@ export default function DebitNote() {
           </div>
         );
       }
-      
+
       return (
         <Button
           size="sm"
@@ -565,17 +470,17 @@ export default function DebitNote() {
         </Button>
       );
     }
-    
+
     return value || <span className="text-gray-400 text-xs">N/A</span>;
   };
 
   // Render edit modal
   const renderEditModal = () => {
     if (!editingRow) return null;
-    
+
     const editingItem = mismatchData.find(item => item.id === editingRow);
     if (!editingItem) return null;
-    
+
     return (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
         <Card className="w-full max-w-2xl shadow-2xl">
@@ -593,7 +498,7 @@ export default function DebitNote() {
               <X className="h-5 w-5" />
             </Button>
           </CardHeader>
-          
+
           <CardContent className="p-6">
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -614,14 +519,14 @@ export default function DebitNote() {
                   <div className="p-2 bg-gray-50 rounded border text-sm">{editingItem.productName}</div>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Planned Timestamp</Label>
                 <div className="p-2 bg-gray-50 rounded border text-sm">
                   {editingItem.planned || "Not set"}
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
                   Remarks <span className="text-red-500">*</span>
@@ -637,7 +542,7 @@ export default function DebitNote() {
                   Note: Submitting remarks will automatically set the actual timestamp.
                 </p>
               </div>
-              
+
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button
                   variant="outline"
@@ -673,7 +578,7 @@ export default function DebitNote() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
       {renderEditModal()}
-      
+
       <div className="max-w-7xl mx-auto space-y-6">
         <Card className="shadow-md border-none">
           <CardHeader className="p-4 border-b border-gray-200">
@@ -687,7 +592,7 @@ export default function DebitNote() {
               )}
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="p-4">
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -707,7 +612,7 @@ export default function DebitNote() {
                   </Badge>
                 </TabsTrigger>
               </TabsList>
-              
+
               {/* Filters Section - Only for pending tab */}
               {activeTab === "pending" && (
                 <TabsContent value="pending" className="space-y-4">
@@ -719,7 +624,7 @@ export default function DebitNote() {
                         Clear All
                       </Button>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                       <div>
                         <Label className="text-xs mb-1 block">Firm Name</Label>
@@ -731,7 +636,7 @@ export default function DebitNote() {
                           className="h-9"
                         />
                       </div>
-                      
+
                       <div>
                         <Label className="text-xs mb-1 block">Party Name</Label>
                         <SearchableSelect
@@ -742,7 +647,7 @@ export default function DebitNote() {
                           className="h-9"
                         />
                       </div>
-                      
+
                       <div>
                         <Label className="text-xs mb-1 block">Product Name</Label>
                         <SearchableSelect
@@ -753,7 +658,7 @@ export default function DebitNote() {
                           className="h-9"
                         />
                       </div>
-                      
+
                       <div>
                         <Label className="text-xs mb-1 block">Transporter</Label>
                         <SearchableSelect
@@ -764,7 +669,7 @@ export default function DebitNote() {
                           className="h-9"
                         />
                       </div>
-                      
+
                       <div>
                         <Label className="text-xs mb-1 block">Status</Label>
                         <SearchableSelect
@@ -802,7 +707,7 @@ export default function DebitNote() {
                         </Button>
                       </div>
                     </CardHeader>
-                    
+
                     <CardContent className="p-0">
                       {loading ? (
                         <div className="flex flex-col justify-center items-center py-10">
@@ -832,11 +737,10 @@ export default function DebitNote() {
                             <TableHeader className="bg-yellow-50/50 sticky top-0 z-10">
                               <TableRow>
                                 {DEBIT_NOTE_COLUMNS_META.map((col) => (
-                                  <TableHead 
-                                    key={col.dataKey} 
-                                    className={`whitespace-nowrap text-xs px-3 py-2 ${
-                                      col.dataKey === "actions" ? "w-[150px]" : ""
-                                    }`}
+                                  <TableHead
+                                    key={col.dataKey}
+                                    className={`whitespace-nowrap text-xs px-3 py-2 ${col.dataKey === "actions" ? "w-[150px]" : ""
+                                      }`}
                                   >
                                     {col.header}
                                   </TableHead>
@@ -845,18 +749,16 @@ export default function DebitNote() {
                             </TableHeader>
                             <TableBody>
                               {filteredData.map((item) => (
-                                <TableRow 
-                                  key={item.id} 
-                                  className={`hover:bg-yellow-50/50 ${
-                                    editingRow === item.id ? "bg-yellow-100 ring-1 ring-yellow-300" : ""
-                                  }`}
+                                <TableRow
+                                  key={item.id}
+                                  className={`hover:bg-yellow-50/50 ${editingRow === item.id ? "bg-yellow-100 ring-1 ring-yellow-300" : ""
+                                    }`}
                                 >
                                   {DEBIT_NOTE_COLUMNS_META.map((column) => (
                                     <TableCell
                                       key={`${item.id}-${column.dataKey}`}
-                                      className={`text-xs px-3 py-2 ${
-                                        column.dataKey === "actions" ? "w-[150px]" : ""
-                                      }`}
+                                      className={`text-xs px-3 py-2 ${column.dataKey === "actions" ? "w-[150px]" : ""
+                                        }`}
                                     >
                                       {renderCell(item, column)}
                                     </TableCell>
@@ -871,7 +773,7 @@ export default function DebitNote() {
                   </Card>
                 </TabsContent>
               )}
-              
+
               {/* History Tab */}
               <TabsContent value="history" className="space-y-4">
                 <Card className="shadow-sm border border-border">
@@ -897,7 +799,7 @@ export default function DebitNote() {
                       </Button>
                     </div>
                   </CardHeader>
-                  
+
                   <CardContent className="p-0">
                     {loading ? (
                       <div className="flex flex-col justify-center items-center py-10">
@@ -927,11 +829,10 @@ export default function DebitNote() {
                           <TableHeader className="bg-green-50/50 sticky top-0 z-10">
                             <TableRow>
                               {DEBIT_NOTE_COLUMNS_META.map((col) => (
-                                <TableHead 
-                                  key={col.dataKey} 
-                                  className={`whitespace-nowrap text-xs px-3 py-2 ${
-                                    col.dataKey === "actions" ? "w-[150px]" : ""
-                                  }`}
+                                <TableHead
+                                  key={col.dataKey}
+                                  className={`whitespace-nowrap text-xs px-3 py-2 ${col.dataKey === "actions" ? "w-[150px]" : ""
+                                    }`}
                                 >
                                   {col.header}
                                 </TableHead>
@@ -940,16 +841,15 @@ export default function DebitNote() {
                           </TableHeader>
                           <TableBody>
                             {history.map((item) => (
-                              <TableRow 
-                                key={item.id} 
+                              <TableRow
+                                key={item.id}
                                 className="hover:bg-green-50/50"
                               >
                                 {DEBIT_NOTE_COLUMNS_META.map((column) => (
                                   <TableCell
                                     key={`${item.id}-${column.dataKey}`}
-                                    className={`text-xs px-3 py-2 ${
-                                      column.dataKey === "actions" ? "w-[150px]" : ""
-                                    }`}
+                                    className={`text-xs px-3 py-2 ${column.dataKey === "actions" ? "w-[150px]" : ""
+                                      }`}
                                   >
                                     {renderCell(item, column)}
                                   </TableCell>
@@ -964,59 +864,7 @@ export default function DebitNote() {
                 </Card>
               </TabsContent>
             </Tabs>
-            
-            {/* Summary Stats */}
-            {activeTab === "pending" && filteredData.length > 0 && (
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <Clock className="h-5 w-5 text-yellow-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Pending Entries</p>
-                      <p className="text-2xl font-semibold">{pending.length}</p>
-                    </div>
-                  </div>
-                </Card>
-                
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <History className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Processed Entries</p>
-                      <p className="text-2xl font-semibold">{history.length}</p>
-                    </div>
-                  </div>
-                </Card>
-                
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <FileText className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Total Entries</p>
-                      <p className="text-2xl font-semibold">{mismatchData.length}</p>
-                    </div>
-                  </div>
-                </Card>
-                
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <Calendar className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Filtered Entries</p>
-                      <p className="text-2xl font-semibold">{filteredData.length}</p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            )}
+
           </CardContent>
         </Card>
       </div>

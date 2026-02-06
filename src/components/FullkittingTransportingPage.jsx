@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { PackageSearch, PlusCircle, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../supabase";
 
 // Shadcn UI components
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -19,18 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 
 // --- Constants ---
-const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
-const SHEET_NAME = "Freight full kittingg";
-
-// --- Column Indices (0-based) from 'Freight full kittingg' sheet ---
-const COL_FIRM_NAME = 1;         // B
-const COL_LIFT_NUMBER = 2;       // C
-const COL_PARTY_NAME = 4;        // E
-const COL_PRODUCT_NAME = 5;      // F
-const COL_TRANSPORTER_NAME = 9;  // J
-const COL_PLANNED = 22;          // W (Condition column 1)
-const COL_ACTUAL = 23;           // X (Condition column 2)
-const COL_KITTING_LINK = 25;     // Z (Link for the action button)
+// Google Sheets constants removed
+// Supabase constants handled in fetch logic
+// Using LIFT-ACCOUNTS table with Planned 4 and Actual 4 columns
 
 const KITTING_COLUMNS_META = [
     { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
@@ -52,7 +44,7 @@ export default function FullkittingTransportingPage() {
 
     const [visiblePendingColumns, setVisiblePendingColumns] = useState({});
     const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({});
-    
+
     // State for filters
     const [filters, setFilters] = useState({
         partyName: "all",
@@ -79,60 +71,51 @@ export default function FullkittingTransportingPage() {
         setLoading(true);
         setError(null);
         try {
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}&cb=${new Date().getTime()}`;
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Failed to fetch sheet data: ${response.status}`);
-            
-            let text = await response.text();
-            const jsonStart = text.indexOf("{");
-            const jsonEnd = text.lastIndexOf("}");
-            if (jsonStart === -1 || jsonEnd === -1) throw new Error("Invalid response format from Google Sheets.");
-            
-            const data = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
-            if (!data.table || !data.table.rows) {
-                setKittingData([]);
-                return;
-            }
+            // Fetch from Supabase LIFT-ACCOUNTS table
+            const { data, error: fetchError } = await supabase
+                .from("LIFT-ACCOUNTS")
+                .select("*")
+                .order("Timestamp", { ascending: false });
 
-            let parsedData = data.table.rows.map((row, index) => {
-                if (!row || !row.c) return null;
-                const get = (colIndex) => {
-                    const cell = row.c?.[colIndex];
-                    return cell?.v !== undefined && cell?.v !== null ? String(cell.v).trim() : null;
-                };
-                const getLinkValue = (colIndex) => {
-                    const cell = row.c?.[colIndex];
-                    return cell && (typeof cell.v !== 'undefined' ? String(cell.v).trim() : (cell.f ? String(cell.f).trim() : null));
-                };
+            if (fetchError) throw fetchError;
 
-                const planned = get(COL_PLANNED);
-                const actual = get(COL_ACTUAL);
+            let parsedData = (data || []).map((row) => {
+                // Determine status based on Planned 4 and Actual 4
+                const planned4 = row["Planned 4"];
+                const actual4 = row["Actual 4"];
 
-                if (planned === null) { 
-                    return null;
-                }
-                
+                // Only include if Planned 4 is set
+                if (!planned4) return null;
+
                 return {
-                    id: `kitting-${index}`,
-                    firmName: get(COL_FIRM_NAME),
-                    liftNumber: get(COL_LIFT_NUMBER),
-                    partyName: get(COL_PARTY_NAME),
-                    productName: get(COL_PRODUCT_NAME),
-                    transporterName: get(COL_TRANSPORTER_NAME),
-                    kittingLink: getLinkValue(COL_KITTING_LINK),
-                    isPending: actual === null,
-                    isHistory: actual !== null,
+                    id: `kitting-${row.id}`,
+                    firmName: String(row["Firm Name"] || "").trim(),
+                    liftNumber: String(row["Lift No"] || "").trim(),
+                    partyName: String(row["Vendor Name"] || "").trim(),
+                    productName: String(row["Raw Material Name"] || "").trim(),
+                    transporterName: String(row["Transporter Name"] || "").trim(),
+                    kittingLink: null,
+                    isPending: !actual4,
+                    isHistory: !!actual4,
                 };
             }).filter(Boolean);
-            
-            setKittingData(parsedData); // Set the full dataset
+
+            // Filter by firm name
+            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                parsedData = parsedData.filter(
+                    (item) => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower,
+                );
+            }
+
+            setKittingData(parsedData);
         } catch (err) {
             console.error("Error fetching kitting data:", err);
             setError(`Failed to load data: ${err.message}`);
         } finally {
             setLoading(false);
         }
-    }, []); // Removed dependencies to only fetch once
+    }, [user]);
 
     useEffect(() => {
         fetchData();
@@ -169,7 +152,7 @@ export default function FullkittingTransportingPage() {
                 item => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower
             );
         }
-        
+
         // Apply general filters to the already firm-filtered data
         if (filters.partyName !== "all") {
             baseData = baseData.filter(item => item.partyName === filters.partyName);
@@ -184,9 +167,9 @@ export default function FullkittingTransportingPage() {
             baseData = baseData.filter(item => item.liftNumber === filters.liftNumber);
         }
 
-        return { 
-            pendingKitting: baseData.filter(d => d.isPending), 
-            historyKitting: baseData.filter(d => d.isHistory) 
+        return {
+            pendingKitting: baseData.filter(d => d.isPending),
+            historyKitting: baseData.filter(d => d.isHistory)
         };
     }, [kittingData, filters, user, hasAllFirmAccess]);
 
@@ -252,8 +235,8 @@ export default function FullkittingTransportingPage() {
 
     const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState, isLoading, hasError, emptyMessage) => {
         const visibleCols = columnsMeta.filter((col) => visibilityState[col.dataKey]);
-        const isLocalLoading = isLoading; 
-        const hasLocalError = hasError; 
+        const isLocalLoading = isLoading;
+        const hasLocalError = hasError;
 
         return (
             <Card className="shadow-sm border border-border flex-1 flex flex-col">
@@ -284,13 +267,13 @@ export default function FullkittingTransportingPage() {
                                         {columnsMeta.filter(col => col.toggleable).map(col => (
                                             <div key={`toggle-${tabKey}-${col.dataKey}`} className="flex items-center space-x-2">
                                                 <Checkbox
-                                                  id={`toggle-${tabKey}-${col.dataKey}`}
-                                                  checked={!!visibilityState[col.dataKey]}
-                                                  onCheckedChange={(checked) => handleToggleColumn(tabKey, col.dataKey, Boolean(checked))}
-                                                  disabled={col.alwaysVisible}
+                                                    id={`toggle-${tabKey}-${col.dataKey}`}
+                                                    checked={!!visibilityState[col.dataKey]}
+                                                    onCheckedChange={(checked) => handleToggleColumn(tabKey, col.dataKey, Boolean(checked))}
+                                                    disabled={col.alwaysVisible}
                                                 />
                                                 <Label htmlFor={`toggle-${tabKey}-${col.dataKey}`} className="text-xs font-normal cursor-pointer">
-                                                  {col.header} {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
+                                                    {col.header} {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
                                                 </Label>
                                             </div>
                                         ))}

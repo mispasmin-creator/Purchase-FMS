@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Save,
   X,
+  History,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -30,70 +31,51 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { AuthContext } from "../context/AuthContext";
 import { toast } from "sonner";
-
-// Constants
-const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
-const LIFT_ACCOUNTS_SHEET = "LIFT-ACCOUNTS";
-const INDENT_PO_SHEET = "INDENT-PO";
-const TL_SHEET = "TL";
+import { supabase } from "../supabase";
 
 // Rate Mismatch Columns Meta - ALL LIFT-ACCOUNTS + INDENT-PO columns
 const RATE_MISMATCH_COLUMNS_META = [
   // Core mismatch fields
-    { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
 
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true },
   { header: "Material Rate (Lift)", dataKey: "materialRate", toggleable: true },
   { header: "PO Rate (Original)", dataKey: "poRate", toggleable: true },
   { header: "Rate Difference", dataKey: "rateDifference", toggleable: true },
-  
+
   // ALL LIFT-ACCOUNTS columns (excluding Planned/Actual/Delay - columns 19-21, 29-31, 34-36, 52-54)
-  { header: "Timestamp (Lift)", dataKey: "timestamp", toggleable: true },
-  { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
+  { header: "Date", dataKey: "timestamp", toggleable: true },
+  { header: "Firm Name", dataKey: "firmName", toggleable: true },
+  { header: "Party Name", dataKey: "vendorName", toggleable: true },
+  { header: "Product Name", dataKey: "material", toggleable: true },
   { header: "Qty", dataKey: "quantity", toggleable: true },
-  { header: "Raw Material Name", dataKey: "material", toggleable: true },
-  { header: "Bill No.", dataKey: "billNo", toggleable: true },
-  { header: "Area lifting", dataKey: "areaLifting", toggleable: true },
-  { header: "Lead Time To Reach Factory (days)", dataKey: "leadTimeToFactory", toggleable: true },
-  { header: "Lifting Qty", dataKey: "liftingQty", toggleable: true },
-  { header: "Type", dataKey: "liftType", toggleable: true },
-  { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+  { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
-  { header: "Driver No.", dataKey: "driverNo", toggleable: true },
+  { header: "Transporter", dataKey: "transporterName", toggleable: true },
+  { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Type", dataKey: "liftType", toggleable: true },
   { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
-  { header: "Type Of Transporting Rate", dataKey: "typeOfTransportingRate", toggleable: true },
-  { header: "Rate (Lift)", dataKey: "materialRate", toggleable: true },
-  { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
+  { header: "Rate", dataKey: "materialRate", toggleable: true },
   { header: "Truck Qty", dataKey: "truckQty", toggleable: true },
-  { header: "Date Of Receiving", dataKey: "dateOfReceiving", toggleable: true },
-  { header: "Total Bill Quantity", dataKey: "totalBillQuantity", toggleable: true },
-  { header: "Actual Quantity", dataKey: "actualQuantity", toggleable: true },
-  { header: "Physical Condition", dataKey: "physicalCondition", toggleable: true },
-  { header: "Moisture", dataKey: "moisture", toggleable: true },
-  { header: "Physical Image", dataKey: "physicalImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Image Of Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Bilty No. 2", dataKey: "biltyNo2", toggleable: true },
+  { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Status (Lift)", dataKey: "status", toggleable: true },
-  { header: "Date Of Test", dataKey: "dateOfTest", toggleable: true },
-  { header: "Moisture Percent Age %", dataKey: "moisturePercent", toggleable: true },
-  { header: "BD Percent Age %", dataKey: "bdPercent", toggleable: true },
-  { header: "AP Percent Age %", dataKey: "apPercent", toggleable: true },
-  { header: "Alumina % (Lift)", dataKey: "aluminaPercent", toggleable: true },
-  { header: "Iron % (Lift)", dataKey: "ironPercent", toggleable: true },
-  { header: "Sieve Analysis", dataKey: "sieveAnalysis", toggleable: true },
-  { header: "LOI %", dataKey: "loiPercent", toggleable: true },
-  { header: "SIO2 %", dataKey: "sio2Percent", toggleable: true },
-  { header: "CaO %", dataKey: "caoPercent", toggleable: true },
-  { header: "MgO %", dataKey: "mgoPercent", toggleable: true },
-  { header: "TiO2 %", dataKey: "tio2Percent", toggleable: true },
-  { header: "K2O + Na2O %", dataKey: "k2oNa2oPercent", toggleable: true },
-  { header: "Free Iron %", dataKey: "freeIronPercent", toggleable: true },
-  { header: "Firm Name (Lift)", dataKey: "firmName", toggleable: true },
-  { header: "Weight Slip Qty", dataKey: "weightSlipQty", toggleable: true },
-  { header: "Transporter Rate", dataKey: "transporterRate", toggleable: true },
-  
+  { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
+  { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
+  { header: "Total Freight", dataKey: "totalFreight", toggleable: true },
+  { header: "Status", dataKey: "status", toggleable: true },
+  { header: "Driver No.", dataKey: "driverNo", toggleable: true },
+  { header: "Lead Time", dataKey: "leadTimeToFactory", toggleable: true },
+  { header: "Lifting Qty", dataKey: "liftingQty", toggleable: true },
+  { header: "Date Received", dataKey: "dateOfReceiving", toggleable: true },
+  { header: "Bill Qty", dataKey: "totalBillQuantity", toggleable: true },
+  { header: "Actual Qty", dataKey: "actualQuantity", toggleable: true },
+  { header: "Moisture", dataKey: "moisture", toggleable: true },
+  { header: "Alumina %", dataKey: "aluminaPercent", toggleable: true },
+  { header: "Iron %", dataKey: "ironPercent", toggleable: true },
+
   // ALL INDENT-PO columns (excluding Planned/Actual/Delay and duplicates)
   { header: "PO Timestamp", dataKey: "poTimestamp", toggleable: true },
   { header: "Indent Id", dataKey: "indentId", toggleable: true },
@@ -125,7 +107,7 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Pending Qty", dataKey: "poPendingQty", toggleable: true },
   // { header: "Order Cancel Qty", dataKey: "poOrderCancelQty", toggleable: true },
   // { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
-  
+
 ];
 
 // Quantity Mismatch Columns Meta - ALL LIFT-ACCOUNTS + INDENT-PO columns
@@ -140,29 +122,30 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Actual Quantity (Column Y)", dataKey: "actualQuantityY", toggleable: true },
   { header: "Weight Slip Qty (Column BF)", dataKey: "weightSlipQty", toggleable: true },
   { header: "Quantity Difference", dataKey: "qtyDifference", toggleable: true },
-  
+
   // Additional LIFT-ACCOUNTS columns
-  { header: "Timestamp (Lift)", dataKey: "timestamp", toggleable: true },
-  { header: "Bill No.", dataKey: "billNo", toggleable: true },
-  { header: "Area lifting", dataKey: "areaLifting", toggleable: true },
-  { header: "Lead Time To Reach Factory (days)", dataKey: "leadTimeToFactory", toggleable: true },
-  { header: "Type", dataKey: "liftType", toggleable: true },
-  { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+  { header: "Date", dataKey: "timestamp", toggleable: true },
+  { header: "Firm Name", dataKey: "firmName", toggleable: true },
+  { header: "Party Name", dataKey: "vendorName", toggleable: true },
+  { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
+  { header: "Qty", dataKey: "quantity", toggleable: true },
+  { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
-  { header: "Driver No.", dataKey: "driverNo", toggleable: true },
+  { header: "Transporter", dataKey: "transporterName", toggleable: true },
+  { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Type", dataKey: "liftType", toggleable: true },
   { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
-  { header: "Type Of Transporting Rate", dataKey: "typeOfTransportingRate", toggleable: true },
-  { header: "Rate (Lift)", dataKey: "materialRate", toggleable: true },
-  { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
+  { header: "Rate", dataKey: "materialRate", toggleable: true },
   { header: "Truck Qty", dataKey: "truckQty", toggleable: true },
-  { header: "Date Of Receiving", dataKey: "dateOfReceiving_formatted", toggleable: true },
-  { header: "Total Bill Quantity", dataKey: "totalBillQuantity", toggleable: true },
-  { header: "Actual Quantity", dataKey: "actualQuantity", toggleable: true },
-  { header: "Physical Condition", dataKey: "physicalCondition_fromSheet", toggleable: true },
-  { header: "Moisture", dataKey: "moisture", toggleable: true },
-  { header: "Physical Image", dataKey: "physicalImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Image Of Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  
+  { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
+  { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
+  { header: "Total Freight", dataKey: "totalFreight", toggleable: true },
+  { header: "Status", dataKey: "status", toggleable: true },
+
   // INDENT-PO columns
   { header: "PO Timestamp", dataKey: "poTimestamp", toggleable: true },
   { header: "Generated By", dataKey: "poGeneratedBy", toggleable: true },
@@ -189,7 +172,7 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Pending Qty (PO)", dataKey: "poPendingQty", toggleable: true },
   { header: "Order Cancel Qty", dataKey: "poOrderCancelQty", toggleable: true },
   { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
-  
+
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
 ];
 
@@ -208,31 +191,30 @@ const MATERIAL_MISMATCH_COLUMNS_META = [
   { header: "TL AP", dataKey: "tlAP", toggleable: true },
   { header: "Lift AP", dataKey: "liftAP", toggleable: true },
   { header: "AP Diff", dataKey: "apDiff", toggleable: true },
-  
+
   // Additional LIFT-ACCOUNTS columns
-  { header: "Indent Number", dataKey: "indentNo", toggleable: true },
-  { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
-  { header: "Bill No.", dataKey: "billNo", toggleable: true },
-  { header: "Lifted On", dataKey: "createdAt", toggleable: true },
-  { header: "Lifting Qty", dataKey: "liftingQty", toggleable: true },
-  { header: "Type", dataKey: "liftType", toggleable: true },
-  { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+  { header: "Date", dataKey: "timestamp", toggleable: true },
+  { header: "Firm Name", dataKey: "firmName", toggleable: true },
+  { header: "Party Name", dataKey: "vendorName", toggleable: true },
+  { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
+  { header: "Qty", dataKey: "quantity", toggleable: true },
+  { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
-  { header: "Date Of Receiving", dataKey: "dateOfReceiving_formatted", toggleable: true },
-  { header: "Physical Condition", dataKey: "physicalCondition_fromSheet", toggleable: true },
-  { header: "Moisture %", dataKey: "moisturePercent", toggleable: true },
-  { header: "BD %", dataKey: "bdPercent", toggleable: true },
-  { header: "AP % (Lift)", dataKey: "apPercent", toggleable: true },
-  { header: "Sieve Analysis", dataKey: "sieveAnalysis", toggleable: true },
-  { header: "LOI %", dataKey: "loiPercent", toggleable: true },
-  { header: "SIO2 %", dataKey: "sio2Percent", toggleable: true },
-  { header: "CaO %", dataKey: "caoPercent", toggleable: true },
-  { header: "MgO %", dataKey: "mgoPercent", toggleable: true },
-  { header: "TiO2 %", dataKey: "tio2Percent", toggleable: true },
-  { header: "K2O + Na2O %", dataKey: "k2oNa2oPercent", toggleable: true },
-  { header: "Free Iron %", dataKey: "freeIronPercent", toggleable: true },
-  { header: "Weight Slip Qty", dataKey: "weightSlipQty", toggleable: true },
-  
+  { header: "Transporter", dataKey: "transporterName", toggleable: true },
+  { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Type", dataKey: "liftType", toggleable: true },
+  { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
+  { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
+  { header: "Rate", dataKey: "materialRate", toggleable: true },
+  { header: "Truck Qty", dataKey: "truckQty", toggleable: true },
+  { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
+  { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
+  { header: "Total Freight", dataKey: "totalFreight", toggleable: true },
+  { header: "Status", dataKey: "status", toggleable: true },
+
   // INDENT-PO columns
   { header: "PO Timestamp", dataKey: "poTimestamp", toggleable: true },
   { header: "Generated By", dataKey: "poGeneratedBy", toggleable: true },
@@ -253,109 +235,42 @@ const MATERIAL_MISMATCH_COLUMNS_META = [
   { header: "Total Lifted (PO)", dataKey: "poTotalLifted", toggleable: true },
   { header: "Pending Qty (PO)", dataKey: "poPendingQty", toggleable: true },
   { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
-  
+
   // TL columns
   { header: "TL Raw Material", dataKey: "tlRawMaterial", toggleable: true },
-  
+
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
 ];
 
-// Helper functions
-const parseGvizResponse = (text, sheetNameForError) => {
-  if (!text || !text.includes("google.visualization.Query.setResponse")) {
-    console.error(`[ParseGviz] Invalid or empty gviz response for ${sheetNameForError}:`, text ? text.substring(0, 500) : "Response was null/empty");
-    throw new Error(`Invalid response format from Google Sheets for ${sheetNameForError}. Ensure it's link-shareable as 'Viewer'.`);
-  }
-  const jsonStart = text.indexOf("{");
-  const jsonEnd = text.lastIndexOf("}");
-  if (jsonStart === -1 || jsonEnd === -1) {
-    console.error(`[ParseGviz] JSON delimiters not found for ${sheetNameForError}. Text:`, text.substring(0, 200));
-    throw new Error(`Could not parse JSON from Google Sheets response for ${sheetNameForError}. Text: ${text.substring(0, 200)}`);
-  }
-  const jsonString = text.substring(jsonStart, jsonEnd + 1);
-  try {
-    const data = JSON.parse(jsonString);
-    if (!data.table || !data.table.cols) {
-      console.warn(`[ParseGviz] No data.table or cols in ${sheetNameForError} or sheet is empty`, data);
-      return { cols: [], rows: [] };
-    }
-    if (!data.table.rows) {
-      console.warn(`[ParseGviz] No data.table.rows in ${sheetNameForError}, treating as empty.`, data);
-      data.table.rows = [];
-    }
-    return data.table;
-  } catch (e) {
-    console.error(`[ParseGviz] Error parsing JSON for ${sheetNameForError}:`, e, "JSON String:", jsonString.substring(0, 500));
-    throw new Error(`Failed to parse JSON response from Google Sheets for ${sheetNameForError}. Error: ${e.message}`);
-  }
-};
+const HISTORY_COLUMNS_META = [
+  { header: "Date", dataKey: "Timestamp", toggleable: true, alwaysVisible: true },
+  { header: "Lift ID", dataKey: "Lift ID", toggleable: true, alwaysVisible: true },
+  { header: "Indent Number", dataKey: "Indent Number", toggleable: true, alwaysVisible: true },
+  { header: "Firm Name", dataKey: "Firm Name", toggleable: true },
+  { header: "Party Name", dataKey: "Party Name", toggleable: true },
+  { header: "Product Name", dataKey: "Product Name", toggleable: true },
+  { header: "Transporter", dataKey: "Transporter Name", toggleable: true },
+  { header: "Status", dataKey: "Status", toggleable: true },
+  { header: "Remarks", dataKey: "Remarks", toggleable: true },
+  { header: "Lift Number", dataKey: "Lift Number", toggleable: true },
+  { header: "Type", dataKey: "Type", toggleable: true },
+  { header: "Bill No.", dataKey: "Bill No.", toggleable: true },
+  { header: "Qty", dataKey: "Qty", toggleable: true },
+  { header: "Area Lifting", dataKey: "Area Lifting", toggleable: true },
+  { header: "Truck No.", dataKey: "Truck No.", toggleable: true },
+  { header: "Bill Image", dataKey: "Bill Image", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Bilty No.", dataKey: "Bilty No.", toggleable: true },
+  { header: "Type Of Rate", dataKey: "Type Of Rate", toggleable: true },
+  { header: "Rate", dataKey: "Rate", toggleable: true },
+  { header: "Truck Qty", dataKey: "Truck Qty", toggleable: true },
+  { header: "Bilty Image", dataKey: "Bilty Image", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Qty Diff Status", dataKey: "Qty Diff Status", toggleable: true },
+  { header: "Diff Qty", dataKey: "Diff Qty", toggleable: true },
+  { header: "Weight Slip", dataKey: "Weight Slip", toggleable: true, isLink: true, linkText: "View" },
+  { header: "Total Freight", dataKey: "Total Freight", toggleable: true },
+  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+];
 
-const formatDateString = (dateValue) => {
-  if (!dateValue || typeof dateValue !== "string" || !dateValue.trim()) {
-    return "";
-  }
-  let parsedDate;
-  const gvizMatch = dateValue.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?/);
-  if (gvizMatch) {
-    const [, year, month, day, hours, minutes, seconds] = gvizMatch.map(Number);
-    parsedDate = new Date(year, month, day, hours || 0, minutes || 0, seconds || 0);
-  } else {
-    parsedDate = new Date(dateValue);
-  }
-  if (!isNaN(parsedDate.getTime())) {
-    return new Intl.DateTimeFormat("en-GB", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    }).format(parsedDate).replace(/,/g, "");
-  }
-  return dateValue;
-};
-
-const formatTimestamp = (timestampStr) => {
-  if (!timestampStr || typeof timestampStr !== "string") {
-    return "N/A";
-  }
-  const numbers = timestampStr.match(/\d+/g);
-  if (!numbers || numbers.length < 6) {
-    const d = new Date(timestampStr);
-    if (!isNaN(d.getTime())) {
-      return d
-        .toLocaleString("en-GB", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
-        })
-        .replace(",", "");
-    }
-    return "Invalid Date";
-  }
-  const date = new Date(
-    parseInt(numbers[0]), // Year
-    parseInt(numbers[1]) - 1, // Month (0-based)
-    parseInt(numbers[2]), // Day
-    parseInt(numbers[3]), // Hours
-    parseInt(numbers[4]), // Minutes
-    parseInt(numbers[5]), // Seconds
-  );
-  return date.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-};
 
 export default function MismatchAnalysis() {
   const { user } = useContext(AuthContext);
@@ -365,13 +280,19 @@ export default function MismatchAnalysis() {
   const [loadingLifts, setLoadingLifts] = useState(true);
   const [loadingPOs, setLoadingPOs] = useState(true);
   const [loadingTL, setLoadingTL] = useState(true);
+  const [loadingMismatch, setLoadingMismatch] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("rateMismatch");
+  const [editingRow, setEditingRow] = useState(null);
+  const [editingRowData, setEditingRowData] = useState(null); // Store full row data
+  const [submitting, setSubmitting] = useState(false);
   const [visibleRateMismatchColumns, setVisibleRateMismatchColumns] = useState({});
   const [visibleQuantityMismatchColumns, setVisibleQuantityMismatchColumns] = useState({});
   const [visibleMaterialMismatchColumns, setVisibleMaterialMismatchColumns] = useState({});
+  const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({});
   const [mismatchSheetData, setMismatchSheetData] = useState([]);
-const [loadingMismatch, setLoadingMismatch] = useState(false);
+  const [formData, setFormData] = useState({});
+  const [submittedRows, setSubmittedRows] = useState(new Set());
 
   const [filters, setFilters] = useState({
     vendorName: "all",
@@ -380,44 +301,25 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
     orderNumber: "all",
   });
 
-  // Modal states
-  const [editingRow, setEditingRow] = useState(null);
-  const [formData, setFormData] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-  const [submittedRows, setSubmittedRows] = useState(new Set());
+  // Fetch Mismatch data from Supabase
   const fetchMismatchSheetData = useCallback(async () => {
-  setLoadingMismatch(true);
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Mismatch`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch Mismatch sheet: ${response.status}`);
-    
-    const text = await response.text();
-    const jsonStart = text.indexOf("{");
-    const jsonEnd = text.lastIndexOf("}");
-    const jsonString = text.substring(jsonStart, jsonEnd + 1);
-    const data = JSON.parse(jsonString);
+    setLoadingMismatch(true);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from("Mismatch")
+        .select("*")
+        .order("Timestamp", { ascending: false });
 
-    let processedRows = [];
-    if (data.table && data.table.cols && data.table.rows) {
-      processedRows = (data.table.rows || [])
-        .slice(1) // Skip header row
-        .filter(row => row.c && row.c[2] && row.c[2].v) // Column C (Indent Number)
-        .map(row => ({
-          indentNo: String(row.c[2]?.v || "").trim(), // Column C: Indent Number
-          liftId: String(row.c[1]?.v || "").trim(), // Column B: Lift ID
-          timestamp: String(row.c[0]?.v || "").trim(), // Column A: Timestamp
-        }));
+      if (fetchError) throw fetchError;
+
+      setMismatchSheetData(data || []);
+    } catch (error) {
+      console.error("Failed to load Mismatch data:", error);
+      setMismatchSheetData([]);
+    } finally {
+      setLoadingMismatch(false);
     }
-
-    setMismatchSheetData(processedRows);
-  } catch (error) {
-    console.error("Failed to load Mismatch sheet:", error);
-    setMismatchSheetData([]);
-  } finally {
-    setLoadingMismatch(false);
-  }
-}, []);
+  }, []);
 
   // Initialize column visibility
   useEffect(() => {
@@ -431,6 +333,7 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
     setVisibleRateMismatchColumns(initializeVisibility(RATE_MISMATCH_COLUMNS_META));
     setVisibleQuantityMismatchColumns(initializeVisibility(QUANTITY_MISMATCH_COLUMNS_META));
     setVisibleMaterialMismatchColumns(initializeVisibility(MATERIAL_MISMATCH_COLUMNS_META));
+    setVisibleHistoryColumns(initializeVisibility(HISTORY_COLUMNS_META));
   }, []);
 
   // Initialize form data
@@ -457,8 +360,8 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
         content: `Lift ID: ${item.id}\nMaterial Rate: ₹${item.materialRate}\nPO Rate: ₹${item.poRate}\nDifference: ₹${item.rateDifference}\nVendor: ${item.vendorName}\nMaterial: ${item.material}`
       },
       quantityMismatch: {
-        title: "Quantity Mismatch Details", 
-      content: `Lift No: ${item.liftNo}\nLifting Qty (Col J): ${item.liftedQty}\nActual Qty (Col Y): ${item.actualQuantityY}\nDifference: ${item.qtyDifference}\nVendor: ${item.vendorName}\nMaterial: ${item.rawMaterialName}`
+        title: "Quantity Mismatch Details",
+        content: `Lift No: ${item.liftNo}\nLifting Qty (Col J): ${item.liftedQty}\nActual Qty (Col Y): ${item.actualQuantityY}\nDifference: ${item.qtyDifference}\nVendor: ${item.vendorName}\nMaterial: ${item.rawMaterialName}`
       },
       materialMismatch: {
         title: "Material Properties Mismatch Details",
@@ -474,6 +377,7 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
 
   const handleCorrectData = (item, mismatchType) => {
     setEditingRow(item.id || item.liftNo);
+    setEditingRowData(item); // Store the full item data
     initializeFormData(item.id || item.liftNo);
   };
 
@@ -500,98 +404,96 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
-    
+
     toast.success("Data Exported", {
       description: `${mismatchType} data exported successfully for ${item.id || item.liftNo}`,
       duration: 3000,
     });
   };
 
-  // UPDATED: Submit form data to Mismatch sheet with correct sheetName
+  // Submit form data to Supabase Mismatch table
   const submitFormData = async () => {
-    if (!editingRow) return;
+    if (!editingRow || !editingRowData) return;
 
     const data = formData;
-    
+
     if (!data) {
-      alert('No form data to submit');
+      toast.error('No form data to submit');
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec';
-      
       const currentDate = new Date();
-      const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
-      
-      const submitFormData = {
-        actual: actualDateTime,
-        status: data.status || 'Credit Notes',
-        remarks: data.remarks || ''
+
+      // Prepare data for Mismatch table according to schema
+      const mismatchData = {
+        "Timestamp": currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", ""),
+        "Lift ID": editingRowData.id || editingRowData.liftNo || "",
+        "Indent Number": editingRowData.indentNo || "",
+        "Firm Name": editingRowData.firmName || "",
+        "Party Name": editingRowData.vendorName || "",
+        "Product Name": editingRowData.material || editingRowData.rawMaterialName || "",
+        "Transporter Name": editingRowData.transporterName || "",
+        "Status": data.status || 'Credit Notes',
+        "Remarks": data.remarks || '',
+        "Planned": null,
+        "Actual": null,
+        "Planned2": null,
+        "Actual2": null,
+        "Planned3": null,
+        "Actual3": null,
+        "Planned4": null,
+        "Actual4": null,
+        "Planned5": null,
+        "Actual5": null,
+        "Planned6": null,
+        "Actual6": null,
+        "Remark": data.remarks || '',
+        "Lift Number": editingRowData.liftNo || "",
+        "Type": editingRowData.liftType || "",
+        "Bill No.": editingRowData.billNo || "",
+        "Qty": Number(editingRowData.quantity) || 0,
+        "Area Lifting": editingRowData.areaLifting || "",
+        "Truck No.": editingRowData.truckNo || "",
+        "Transporter": editingRowData.transporterName || "",
+        "Bill Image": editingRowData.billImageUrl || "",
+        "Bilty No.": editingRowData.biltyNo || "",
+        "Type Of Rate": editingRowData.typeOfTransportingRate || "",
+        "Rate": Number(editingRowData.materialRate) || 0,
+        "Truck Qty": Number(editingRowData.truckQty) || 0,
+        "Bilty Image": editingRowData.biltyImageUrl || "",
+        "Qty Diff Status": editingRowData.qtyDifferenceStatus || "",
+        "Diff Qty": Number(editingRowData.differenceQty) || 0,
+        "Weight Slip": editingRowData.weightSlipImageUrl || "",
+        "Total Freight": Number(editingRowData.totalFreight) || 0
       };
 
-      // FIXED: Use LIFT-ACCOUNTS as source sheet to find the data, then Apps Script will create row in Mismatch sheet
-      const requestData = {
-        action: 'submitForm',
-        sheetName: 'LIFT-ACCOUNTS', // This tells Apps Script where to find the source data
-        liftNo: editingRow,
-        type: 'mismatch-correction', // This triggers the new case that creates Mismatch sheet entry
-        formData: JSON.stringify(submitFormData)
-      };
+      // Insert into Supabase Mismatch table
+      const { data: insertedData, error: insertError } = await supabase
+        .from("Mismatch")
+        .insert([mismatchData])
+        .select();
 
-      const formDataToSend = new FormData();
-      Object.keys(requestData).forEach(key => {
-        formDataToSend.append(key, requestData[key]);
-      });
+      if (insertError) throw insertError;
 
-      const response = await fetch(appsScriptUrl, {
-        method: 'POST',
-        body: formDataToSend,
-        mode: 'cors'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const responseText = await response.text();
-      let result;
-      
-      try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        const responseLower = responseText.toLowerCase();
-        const successIndicators = ['success', 'updated', 'submitted', 'complete', 'true'];
-        const errorIndicators = ['error', 'failed', 'exception', 'false'];
-        
-        const hasSuccess = successIndicators.some(indicator => responseLower.includes(indicator));
-        const hasError = errorIndicators.some(indicator => responseLower.includes(indicator));
-        
-        if (hasError && !hasSuccess) {
-          throw new Error(`Apps Script error: ${responseText}`);
-        } else {
-          result = { success: true, message: 'Form submitted successfully' };
-        }
-      }
-
-      if (result.success === false || (result.error && !result.success)) {
-        throw new Error(result.error || result.message || 'Form submission failed');
-      }
-
+      // Mark as submitted
       setSubmittedRows(prev => new Set([...prev, `mismatch_${editingRow}`]));
       setEditingRow(null);
-      
-      toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch sheet for: ${editingRow}\nSubmitted at: ${actualDateTime}`);
-      
+      setEditingRowData(null);
+
+      const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+      toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${editingRow}\nSubmitted at: ${actualDateTime}`);
+
+      // Refresh data
       setTimeout(() => {
-        // Refresh data
         fetchLiftAccountsData();
         fetchPurchaseOrdersData();
         fetchTLData();
-      }, 2000);
-      
+        fetchMismatchSheetData();
+      }, 1000);
+
     } catch (error) {
       console.error('Submission error:', error);
       toast.error(`❌ SUBMISSION FAILED: ${error.message}`);
@@ -603,9 +505,10 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
   // Modal render function
   const renderModal = () => {
     if (!editingRow) return null;
-    
+
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+
         <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
@@ -617,7 +520,7 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h4 className="font-medium text-gray-700 mb-2">Mismatch Details</h4>
               <div className="grid grid-cols-1 gap-2 text-sm">
@@ -628,7 +531,7 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
                 </div>
               </div>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Debite Note</label>
@@ -641,7 +544,7 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
                   <option value="Others">No</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
                 <textarea
@@ -653,7 +556,7 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
                 />
               </div>
             </div>
-            
+
             <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
               <button
                 onClick={() => setEditingRow(null)}
@@ -681,50 +584,30 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
     );
   };
 
-  // Enhanced fetch function to get ALL columns from LIFT-ACCOUNTS
+  // Fetch LIFT-ACCOUNTS data from Supabase
   const fetchLiftAccountsData = useCallback(async () => {
     setLoadingLifts(true);
     setError(null);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(LIFT_ACCOUNTS_SHEET)}&cb=${new Date().getTime()}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to fetch lifts data: ${response.status}`);
-      
-      let text = await response.text();
-      if (text.startsWith("google.visualization.Query.setResponse(")) {
-        text = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"));
-      } else {
-        const jsonStart = text.indexOf("{");
-        const jsonEnd = text.lastIndexOf("}");
-        if (jsonStart === -1 || jsonEnd === -1) throw new Error("Invalid response format for lifts from Google Sheets.");
-        text = text.substring(jsonStart, jsonEnd + 1);
-      }
+      const { data, error: fetchError } = await supabase
+        .from("LIFT-ACCOUNTS")
+        .select("*")
+        .order("Timestamp", { ascending: false });
 
-      const data = JSON.parse(text);
-      if (!data.table || !data.table.cols) {
-        setLiftAccountsData([]);
-        return;
-      }
-      if (!data.table.rows) data.table.rows = [];
+      if (fetchError) throw fetchError;
 
-      const processedRows = data.table.rows
-        .map((row, indexWithinSlicedData) => {
-          if (!row || !row.c) return null;
-          const rowData = { _gvizRowIndex: indexWithinSlicedData };
-          row.c.forEach((cell, cellIndex) => {
-            const colId = `col${cellIndex}`;
-            const value = cell && cell.v !== undefined && cell.v !== null ? cell.v : "";
-            rowData[colId] = value;
-            if (cell && cell.f) rowData[`${colId}_formatted`] = cell.f;
-          });
+      let formattedData = (data || [])
+        .filter((row) => row["Planned 4"] && row["Actual 4"])
+        .map((row) => {
 
-          if (rowData.col0 && typeof rowData.col0 === "string" && rowData.col0.startsWith("Date(")) {
-            rowData.col0_formatted = formatTimestamp(rowData.col0);
-          } else if (rowData.col0) {
+          // Format timestamp for display
+          let createdAt = "";
+          let timestamp = "";
+          if (row["Timestamp"]) {
             try {
-              const d = new Date(rowData.col0);
+              const d = new Date(row["Timestamp"]);
               if (!isNaN(d.getTime())) {
-                rowData.col0_formatted = d
+                createdAt = d
                   .toLocaleString("en-GB", {
                     day: "2-digit",
                     month: "2-digit",
@@ -735,93 +618,97 @@ const [loadingMismatch, setLoadingMismatch] = useState(false);
                     hour12: false,
                   })
                   .replace(",", "");
+                timestamp = createdAt;
               }
             } catch (e) {
-              /* ignore */
+              createdAt = String(row["Timestamp"] || "");
+              timestamp = createdAt;
             }
           }
-          return rowData;
-        })
-        .filter((row) => row !== null);
 
-      const dataRows = processedRows.filter((row) => {
-        if (!row.col1 || typeof row.col1 === "undefined" || String(row.col1).trim() === "") return false;
-        const liftIdValue = String(row.col1).trim().toLowerCase();
-        if (liftIdValue.includes("lift id") || liftIdValue.includes("lift no") || !liftIdValue.startsWith("lf-")) {
-          return false;
-        }
-        if (!row.col0 || String(row.col0).trim() === "") return false;
-        return true;
-      });
+          // Format dates
+          const formatDate = (dateValue) => {
+            if (!dateValue) return "";
+            try {
+              const d = new Date(dateValue);
+              if (!isNaN(d.getTime())) {
+                return d.toLocaleDateString("en-GB");
+              }
+            } catch (e) {
+              return String(dateValue);
+            }
+            return String(dateValue);
+          };
 
-      let formattedData = dataRows.map((row) => ({
-        // Core fields
-        id: String(row.col1 || "").trim(),
-        liftNo: String(row.col1 || "").trim(),
-        indentNo: String(row.col2 || "").trim(),
-        vendorName: String(row.col3 || "").trim(),
-        quantity: String(row.col4 || "").trim(),
-        material: String(row.col5 || "").trim(),
-        rawMaterialName: String(row.col5 || "").trim(),
-        
-        // LIFT-ACCOUNTS columns 6-58
-        actualQuantityY: String(row.col24 || "").trim(),
-        billNo: String(row.col6 || "").trim(),
-        areaLifting: String(row.col7 || "").trim(),
-        leadTimeToFactory: String(row.col8 || "").trim(),
-        liftingQty: String(row.col9 || "").trim(),
-        liftType: String(row.col10 || "").trim(),
-        transporterName: String(row.col11 || "").trim(),
-        truckNo: String(row.col12 || "").trim(),
-        driverNo: String(row.col13 || "").trim(),
-        biltyNo: String(row.col14 || "").trim(),
-        typeOfTransportingRate: String(row.col15 || "").trim(),
-        materialRate: String(row.col16 || "").trim(),
-        billImageUrl: String(row.col17 || "").trim(),
-        truckQty: String(row.col18 || "").trim(),
-dateOfReceiving: formatDateString(String(row.col22 || "").trim()) || String(row.col22 || "").trim(),        totalBillQuantity: String(row.col23 || "").trim(),
-        actualQuantity: String(row.col24 || "").trim(),
-        physicalCondition: String(row.col25 || "").trim(),
-        moisture: String(row.col26 || "").trim(),
-        physicalImageUrl: String(row.col27 || "").trim(),
-        weightSlipImageUrl: String(row.col28 || "").trim(),
-        biltyNo2: String(row.col32 || "").trim(),
-        biltyImageUrl: String(row.col33 || "").trim(),
-        status: String(row.col37 || "").trim(),
-        dateOfTest: formatDateString(String(row.col38 || "").trim()) || String(row.col38 || "").trim(),
-        moisturePercent: String(row.col39 || "").trim(),
-        bdPercent: String(row.col40 || "").trim(),
-        apPercent: String(row.col41 || "").trim(),
-        aluminaPercent: String(row.col42 || "").trim(),
-        ironPercent: String(row.col43 || "").trim(),
-        sieveAnalysis: String(row.col44 || "").trim(),
-        loiPercent: String(row.col45 || "").trim(),
-        sio2Percent: String(row.col46 || "").trim(),
-        caoPercent: String(row.col47 || "").trim(),
-        mgoPercent: String(row.col48 || "").trim(),
-        tio2Percent: String(row.col49 || "").trim(),
-        k2oNa2oPercent: String(row.col50 || "").trim(),
-        freeIronPercent: String(row.col51 || "").trim(),
-        firmName: String(row.col56 || "").trim(),
-        weightSlipQty: String(row.col57 || "").trim(),
-        transporterRate: String(row.col58 || "").trim(),
-        
-        // Additional fields for existing functionality
-        createdAt: typeof row.col0_formatted === "string" && row.col0_formatted.trim() !== ""
-          ? row.col0_formatted.trim()
-          : String(row.col0 || "").trim(),
-        liftedQty: String(row.col9 || "").trim(),
-         actualQuantityY: String(row.col24 || "").trim(),
-        dateOfReceiving_formatted: formatDateString(String(row.col22 || "").trim()) || String(row.col22 || "").trim(),
-        physicalCondition_fromSheet: String(row.col25 || "").trim(),
-        liftAlumina: String(row.col42 || "").trim(),
-        liftIron: String(row.col43 || "").trim(),
-        liftAP: String(row.col41 || "").trim(),
-        timestamp: typeof row.col0_formatted === "string" && row.col0_formatted.trim() !== ""
-          ? row.col0_formatted.trim()
-          : String(row.col0 || "").trim(),
-      }));
+          return {
+            // Core fields
+            id: String(row["Lift No"] || "").trim(),
+            liftNo: String(row["Lift No"] || "").trim(),
+            indentNo: String(row["Indent no."] || "").trim(),
+            vendorName: String(row["Vendor Name"] || "").trim(),
+            quantity: String(row["Qty"] || "").trim(),
+            material: String(row["Raw Material Name"] || "").trim(),
+            rawMaterialName: String(row["Raw Material Name"] || "").trim(),
 
+            // LIFT-ACCOUNTS columns
+            billNo: String(row["Bill No."] || "").trim(),
+            areaLifting: String(row["Area lifting"] || "").trim(),
+            leadTimeToFactory: String(row["Lead Time To Reach Factory (days)"] || "").trim(),
+            liftingQty: String(row["Lifting Qty"] || "").trim(),
+            liftType: String(row["Type"] || "").trim(),
+            transporterName: String(row["Transporter Name"] || "").trim(),
+            truckNo: String(row["Truck No."] || "").trim(),
+            driverNo: String(row["Driver No."] || "").trim(),
+            biltyNo: String(row["Bilty No."] || "").trim(),
+            typeOfTransportingRate: String(row["Type Of Transporting Rate"] || "").trim(),
+            materialRate: String(row["Rate"] || "").trim(),
+            billImageUrl: String(row["Bill Image"] || "").trim(),
+            truckQty: String(row["Truck Qty"] || "").trim(),
+            dateOfReceiving: formatDate(row["Date Of Receiving"]),
+            totalBillQuantity: String(row["Total Bill Quantity"] || "").trim(),
+            actualQuantity: String(row["Actual Quantity"] || "").trim(),
+            actualQuantityY: String(row["Actual Quantity"] || "").trim(),
+            physicalCondition: String(row["Physical Condition"] || "").trim(),
+            moisture: String(row["Moisture"] || "").trim(),
+            physicalImageUrl: String(row["Physical Image Of Product"] || "").trim(),
+            weightSlipImageUrl: String(row["Image Of Weight Slip"] || "").trim(),
+            biltyNo2: String(row["Bilty No. 2"] || "").trim(),
+            biltyImageUrl: String(row["Bilty Image"] || "").trim(),
+            status: String(row["Status"] || "").trim(),
+            dateOfTest: formatDate(row["Date Of Test"]),
+            moisturePercent: String(row["Moisture Percent Age %"] || "").trim(),
+            bdPercent: String(row["BD Percent Age %"] || "").trim(),
+            apPercent: String(row["AP Percent Age %"] || "").trim(),
+            aluminaPercent: String(row["Alumina Percent Age %"] || "").trim(),
+            ironPercent: String(row["Iron Percent Age %"] || "").trim(),
+            sieveAnalysis: String(row["Sieve Analysis"] || "").trim(),
+            loiPercent: String(row["LOI %"] || "").trim(),
+            sio2Percent: String(row["SIO2 %"] || "").trim(),
+            caoPercent: String(row["CaO %"] || "").trim(),
+            mgoPercent: String(row["MgO %"] || "").trim(),
+            tio2Percent: String(row["TiO2 %"] || "").trim(),
+            k2oNa2oPercent: String(row["K2O + Na2O %"] || "").trim(),
+            freeIronPercent: String(row["Free Iron %"] || "").trim(),
+            firmName: String(row["Firm Name"] || "").trim(),
+            weightSlipQty: String(row["Weight Slip Qty"] || "").trim(),
+            transporterRate: String(row["Transporter Rate"] || "").trim(),
+            qtyDifferenceStatus: String(row["Qty Difference Status"] || "").trim(),
+            differenceQty: String(row["Difference Qty"] || "").trim(),
+            totalFreight: String(row["Total Freight"] || "").trim(),
+
+            // Additional fields for existing functionality
+            createdAt: createdAt,
+            liftedQty: String(row["Lifting Qty"] || "").trim(),
+            dateOfReceiving_formatted: formatDate(row["Date Of Receiving"]),
+            physicalCondition_fromSheet: String(row["Physical Condition"] || "").trim(),
+            liftAlumina: String(row["Alumina Percent Age %"] || "").trim(),
+            liftIron: String(row["Iron Percent Age %"] || "").trim(),
+            liftAP: String(row["AP Percent Age %"] || "").trim(),
+            timestamp: timestamp,
+          };
+        });
+
+      // Filter by user's firm name if applicable
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
         formattedData = formattedData.filter(
@@ -838,84 +725,94 @@ dateOfReceiving: formatDateString(String(row.col22 || "").trim()) || String(row.
     }
   }, [user]);
 
-  // Enhanced fetch function to get ALL columns from INDENT-PO
+  // Fetch INDENT-PO data from Supabase
   const fetchPurchaseOrdersData = useCallback(async () => {
     setLoadingPOs(true);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INDENT_PO_SHEET)}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PO data: ${response.status}`);
-      }
-      const text = await response.text();
-      const jsonStart = text.indexOf("{");
-      const jsonEnd = text.lastIndexOf("}");
-      const jsonString = text.substring(jsonStart, jsonEnd + 1);
-      const data = JSON.parse(jsonString);
+      const { data, error: fetchError } = await supabase
+        .from("INDENT-PO")
+        .select("*");
 
-      let processedRows = [];
-      if (data.table && data.table.cols && data.table.rows) {
-        processedRows = (data.table.rows || [])
-          .slice(1)
-          .filter(
-            (row) =>
-              row.c &&
-              row.c.some((cell) => cell && cell.v !== null && cell.v !== undefined && String(cell.v).trim() !== ""),
-          )
-          .map((row) => {
-            const rowData = {};
-            if (row.c) {
-              row.c.forEach((cell, cellIndex) => {
-                const colId = `col${cellIndex}`;
-                const value = cell && cell.v !== undefined && cell.v !== null ? cell.v : "";
-                rowData[colId] = value;
-                if (cell && cell.f) rowData[`${colId}_formatted`] = cell.f;
-              });
+      if (fetchError) throw fetchError;
+
+      // Format dates
+      const formatDate = (dateValue) => {
+        if (!dateValue) return "";
+        try {
+          const d = new Date(dateValue);
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleDateString("en-GB");
+          }
+        } catch (e) {
+          return String(dateValue);
+        }
+        return String(dateValue);
+      };
+
+      const formattedData = (data || []).map((row) => {
+        // Format timestamp for display
+        let poTimestamp = "";
+        if (row["Timestamp"]) {
+          try {
+            const d = new Date(row["Timestamp"]);
+            if (!isNaN(d.getTime())) {
+              poTimestamp = d
+                .toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                })
+                .replace(",", "");
             }
-            return rowData;
-          });
-      }
+          } catch (e) {
+            poTimestamp = String(row["Timestamp"] || "");
+          }
+        }
 
-      const formattedData = processedRows.map((row) => ({
-        // INDENT-PO columns 0-42
-        poTimestamp: typeof row.col0_formatted === "string" && row.col0_formatted.trim() !== ""
-          ? row.col0_formatted.trim()
-          : String(row.col0 || "").trim(),
-        indentId: String(row.col1 || "").trim(),
-        poFirmName: String(row.col2 || "").trim(),
-        poGeneratedBy: String(row.col3 || "").trim(),
-        poVendor: String(row.col4 || "").trim(),
-        poMaterial: String(row.col5 || "").trim(),
-        poQuantity: String(row.col6 || "").trim(),
-        poCurrentStock: String(row.col7 || "").trim(),
-        poPriority: String(row.col8 || "").trim(),
-        poDeliveryOrderNo: String(row.col9 || "").trim(),
-        poNotes: String(row.col10 || "").trim(),
-        poApprovedQty: String(row.col14 || "").trim(),
-        poApprovalStatus: String(row.col15 || "").trim(),
-        poRemarks: String(row.col16 || "").trim(),
-        poHaveToMake: String(row.col20 || "").trim(),
-        poRate: String(row.col21 || "").trim(),
-        poLeadTime: String(row.col22 || "").trim(),
-        poTotalQuantity: String(row.col23 || "").trim(),
-        poTotalAmount: String(row.col24 || "").trim(),
-        poCopyUrl: String(row.col25 || "").trim(),
-        poAdvanceToBePaid: String(row.col26 || "").trim(),
-        poToBePaidAmount: String(row.col27 || "").trim(),
-poWhenToBePaid: formatDateString(String(row.col28 || "").trim()) || String(row.col28 || "").trim(),        poPONotes: String(row.col29 || "").trim(),
-        poAluminaPercent: String(row.col30 || "").trim(),
-        poIronPercent: String(row.col31 || "").trim(),
-        poTotalLifted: String(row.col32 || "").trim(),
-        poPendingQty: String(row.col33 || "").trim(),
-        poOrderCancelQty: String(row.col34 || "").trim(),
-        poStatus: String(row.col35 || "").trim(),
-        
-        // Additional fields for existing functionality
-        indentNo: String(row.col1 || "").trim(),
-        firmName: String(row.col2 || "").trim(),
-        vendorName: String(row.col4 || "").trim(),
-        rawMaterialName: String(row.col5 || "").trim(),
-      }));
+        return {
+          // INDENT-PO columns
+          poTimestamp: poTimestamp,
+          indentId: String(row["Indent Id."] || "").trim(),
+          poFirmName: String(row["Firm Name"] || "").trim(),
+          poGeneratedBy: String(row["Generated By"] || "").trim(),
+          poVendor: String(row["Vendor"] || "").trim(),
+          poMaterial: String(row["Material"] || "").trim(),
+          poQuantity: String(row["Quantity"] || "").trim(),
+          poCurrentStock: String(row["Current Stock As Per factory"] || "").trim(),
+          poPriority: String(row["Priority"] || "").trim(),
+          poDeliveryOrderNo: String(row["Delivery Order No."] || "").trim(),
+          poNotes: String(row["Notes"] || "").trim(),
+          poApprovedQty: String(row["Approved Qty"] || "").trim(),
+          poApprovalStatus: String(row["Approval Status"] || "").trim(),
+          poRemarks: String(row["Remarks"] || "").trim(),
+          poHaveToMake: String(row["Have To Make PO"] || "").trim(),
+          poRate: String(row["Rate"] || "").trim(),
+          poLeadTime: String(row["Lead Time To Lift (days)"] || "").trim(),
+          poTotalQuantity: String(row["Total Quantity"] || "").trim(),
+          poTotalAmount: String(row["Total Amount"] || "").trim(),
+          poCopyUrl: String(row["PO Copy"] || "").trim(),
+          poAdvanceToBePaid: String(row["Advance To Be Paid"] || "").trim(),
+          poToBePaidAmount: String(row["To Be Paid Amount"] || "").trim(),
+          poWhenToBePaid: formatDate(row["When To Be Paid Amount"]),
+          poPONotes: String(row["PO Notes"] || "").trim(),
+          poAluminaPercent: String(row["Alumina %"] || "").trim(),
+          poIronPercent: String(row["Iron %"] || "").trim(),
+          poTotalLifted: String(row["Total Lifted"] || "").trim(),
+          poPendingQty: String(row["Pending Qty"] || "").trim(),
+          poOrderCancelQty: String(row["Order Cancel Qty"] || "").trim(),
+          poStatus: String(row["Status"] || "").trim(),
+
+          // Additional fields for existing functionality
+          indentNo: String(row["Indent Id."] || "").trim(),
+          firmName: String(row["Firm Name"] || "").trim(),
+          vendorName: String(row["Vendor name"] || row["Vendor"] || "").trim(),
+          rawMaterialName: String(row["Material"] || "").trim(),
+        };
+      });
 
       setPurchaseOrdersData(formattedData);
     } catch (error) {
@@ -929,27 +826,20 @@ poWhenToBePaid: formatDateString(String(row.col28 || "").trim()) || String(row.c
   const fetchTLData = useCallback(async () => {
     setLoadingTL(true);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(TL_SHEET)}&cb=${new Date().getTime()}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to fetch TL data: ${response.status}`);
-      
-      const text = await response.text();
-      const dataTable = parseGvizResponse(text, TL_SHEET);
+      const { data, error: fetchError } = await supabase
+        .from("TL")
+        .select("*");
 
-      const formattedData = dataTable.rows
-        .map((row, index) => {
-          if (!row || !row.c) return null;
-          const getStringValue = (colIndex) => (row.c?.[colIndex]?.v !== undefined && row.c?.[colIndex]?.v !== null ? String(row.c[colIndex].v) : "");
-          
-          return {
-            _id: `tl-${index}`,
-            rawMaterial: getStringValue(1),
-            alumina: getStringValue(2),
-            iron: getStringValue(3),
-            ap: getStringValue(4),
-          };
-        })
-        .filter(Boolean)
+      if (fetchError) throw fetchError;
+
+      const formattedData = (data || [])
+        .map((row, index) => ({
+          _id: `tl-${index}`,
+          rawMaterial: String(row["Raw Material"] || "").trim(),
+          alumina: String(row["Alumina"] || "").trim(),
+          iron: String(row["Iron"] || "").trim(),
+          ap: String(row["AP"] || "").trim(),
+        }))
         .filter(item => item.rawMaterial && item.rawMaterial.trim() !== "");
 
       setTlData(formattedData);
@@ -967,106 +857,106 @@ poWhenToBePaid: formatDateString(String(row.col28 || "").trim()) || String(row.c
     fetchTLData();
     fetchMismatchSheetData(); // Add this line
 
-  }, [fetchLiftAccountsData, fetchPurchaseOrdersData, fetchTLData,fetchMismatchSheetData]);
+  }, [fetchLiftAccountsData, fetchPurchaseOrdersData, fetchTLData, fetchMismatchSheetData]);
 
   // Calculate mismatch data (keeping existing calculations unchanged)
- // Helper function to check if an indent number exists in Mismatch sheet
-const isIndentSubmitted = (indentNo) => {
-  return mismatchSheetData.some(mismatchRow => 
-    mismatchRow.indentNo && 
-    indentNo && 
-    String(mismatchRow.indentNo).trim() === String(indentNo).trim()
-  );
-};
+  // Helper function to check if an indent number exists in Mismatch sheet
+  const isIndentSubmitted = (indentNo) => {
+    return mismatchSheetData.some(mismatchRow =>
+      mismatchRow.indentNo &&
+      indentNo &&
+      String(mismatchRow.indentNo).trim() === String(indentNo).trim()
+    );
+  };
 
-const rateMismatchData = useMemo(() => {
-  return liftAccountsData
-    .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
-    .map((lift) => {
-      const liftMaterialRate = parseFloat(lift.materialRate) || 0;
-      const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
-      const poRate = parseFloat(correspondingPO?.poRate) || 0;
-      
-      if (Math.abs(liftMaterialRate - poRate) >= 0.01 && liftMaterialRate > 0 && poRate > 0) {
-        return {
-          ...lift,
-          ...(correspondingPO || {}),
-          poRate: poRate.toFixed(2),
-          rateDifference: (liftMaterialRate - poRate).toFixed(2),
-        };
-      }
-      return null;
-    })
-    .filter(Boolean);
-}, [liftAccountsData, purchaseOrdersData, mismatchSheetData]);
-
-const quantityMismatchData = useMemo(() => {
-  return liftAccountsData
-    .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
-    .map((lift) => {
-      const liftedQty = parseFloat(lift.liftedQty) || 0;
-      const actualQuantityY = parseFloat(lift.actualQuantityY) || 0;
-      
-      const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
-      
-      const rowData = {
-        ...lift,
-        ...(correspondingPO || {}),
-      };
-      
-      if (Math.abs(liftedQty - actualQuantityY) >= 0.01 && liftedQty > 0 && actualQuantityY > 0) {
-        return {
-          ...rowData,
-          qtyDifference: (liftedQty - actualQuantityY).toFixed(2),
-        };
-      }
-      return null;
-    })
-    .filter(Boolean);
-}, [liftAccountsData, purchaseOrdersData, mismatchSheetData]);
-
-const materialMismatchData = useMemo(() => {
-  return liftAccountsData
-    .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
-    .map((lift) => {
-      const correspondingTL = tlData.find(tl => 
-        tl.rawMaterial && lift.material && 
-        tl.rawMaterial.toLowerCase().trim() === lift.material.toLowerCase().trim()
-      );
-      
-      if (!correspondingTL) return null;
-
-      const tlAlumina = parseFloat(correspondingTL.alumina) || 0;
-      const liftAlumina = parseFloat(lift.liftAlumina) || 0;
-      const tlIron = parseFloat(correspondingTL.iron) || 0;
-      const liftIron = parseFloat(lift.liftIron) || 0;
-      const tlAP = parseFloat(correspondingTL.ap) || 0;
-      const liftAP = parseFloat(lift.liftAP) || 0;
-
-      const aluminaMismatch = Math.abs(tlAlumina - liftAlumina) >= 0.01;
-      const ironMismatch = Math.abs(tlIron - liftIron) >= 0.01;
-      const apMismatch = Math.abs(tlAP - liftAP) >= 0.01;
-
-      if ((aluminaMismatch || ironMismatch || apMismatch) && 
-          (tlAlumina > 0 || liftAlumina > 0 || tlIron > 0 || liftIron > 0 || tlAP > 0 || liftAP > 0)) {
+  const rateMismatchData = useMemo(() => {
+    return liftAccountsData
+      .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
+      .map((lift) => {
+        const liftMaterialRate = parseFloat(lift.materialRate) || 0;
         const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
-        return {
+        const poRate = parseFloat(correspondingPO?.poRate) || 0;
+
+        if (Math.abs(liftMaterialRate - poRate) >= 0.01 && liftMaterialRate > 0 && poRate > 0) {
+          return {
+            ...lift,
+            ...(correspondingPO || {}),
+            poRate: poRate.toFixed(2),
+            rateDifference: (liftMaterialRate - poRate).toFixed(2),
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }, [liftAccountsData, purchaseOrdersData, mismatchSheetData]);
+
+  const quantityMismatchData = useMemo(() => {
+    return liftAccountsData
+      .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
+      .map((lift) => {
+        const liftedQty = parseFloat(lift.liftedQty) || 0;
+        const actualQuantityY = parseFloat(lift.actualQuantityY) || 0;
+
+        const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
+
+        const rowData = {
           ...lift,
           ...(correspondingPO || {}),
-          rawMaterial: lift.material,
-          tlRawMaterial: correspondingTL.rawMaterial,
-          tlAlumina: tlAlumina.toFixed(2),
-          tlIron: tlIron.toFixed(2),
-          tlAP: tlAP.toFixed(2),
-          aluminaDiff: (liftAlumina - tlAlumina).toFixed(2),
-          ironDiff: (liftIron - tlIron).toFixed(2),
-          apDiff: (liftAP - tlAP).toFixed(2),
         };
-      }
-      return null;
-    })
-    .filter(Boolean);
-}, [liftAccountsData, tlData, purchaseOrdersData, mismatchSheetData]);
+
+        if (Math.abs(liftedQty - actualQuantityY) >= 0.01 && liftedQty > 0 && actualQuantityY > 0) {
+          return {
+            ...rowData,
+            qtyDifference: (liftedQty - actualQuantityY).toFixed(2),
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }, [liftAccountsData, purchaseOrdersData, mismatchSheetData]);
+
+  const materialMismatchData = useMemo(() => {
+    return liftAccountsData
+      .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
+      .map((lift) => {
+        const correspondingTL = tlData.find(tl =>
+          tl.rawMaterial && lift.material &&
+          tl.rawMaterial.toLowerCase().trim() === lift.material.toLowerCase().trim()
+        );
+
+        if (!correspondingTL) return null;
+
+        const tlAlumina = parseFloat(correspondingTL.alumina) || 0;
+        const liftAlumina = parseFloat(lift.liftAlumina) || 0;
+        const tlIron = parseFloat(correspondingTL.iron) || 0;
+        const liftIron = parseFloat(lift.liftIron) || 0;
+        const tlAP = parseFloat(correspondingTL.ap) || 0;
+        const liftAP = parseFloat(lift.liftAP) || 0;
+
+        const aluminaMismatch = Math.abs(tlAlumina - liftAlumina) >= 0.01;
+        const ironMismatch = Math.abs(tlIron - liftIron) >= 0.01;
+        const apMismatch = Math.abs(tlAP - liftAP) >= 0.01;
+
+        if ((aluminaMismatch || ironMismatch || apMismatch) &&
+          (tlAlumina > 0 || liftAlumina > 0 || tlIron > 0 || liftIron > 0 || tlAP > 0 || liftAP > 0)) {
+          const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
+          return {
+            ...lift,
+            ...(correspondingPO || {}),
+            rawMaterial: lift.material,
+            tlRawMaterial: correspondingTL.rawMaterial,
+            tlAlumina: tlAlumina.toFixed(2),
+            tlIron: tlIron.toFixed(2),
+            tlAP: tlAP.toFixed(2),
+            aluminaDiff: (liftAlumina - tlAlumina).toFixed(2),
+            ironDiff: (liftIron - tlIron).toFixed(2),
+            apDiff: (liftAP - tlAP).toFixed(2),
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }, [liftAccountsData, tlData, purchaseOrdersData, mismatchSheetData]);
   // Filter options (keeping existing logic unchanged)
   const uniqueFilterOptions = useMemo(() => {
     const vendors = new Set();
@@ -1164,6 +1054,8 @@ const materialMismatchData = useMemo(() => {
       setVisibleQuantityMismatchColumns((prev) => ({ ...prev, [dataKey]: checked }));
     } else if (tab === "material") {
       setVisibleMaterialMismatchColumns((prev) => ({ ...prev, [dataKey]: checked }));
+    } else if (tab === "history") {
+      setVisibleHistoryColumns((prev) => ({ ...prev, [dataKey]: checked }));
     }
   };
 
@@ -1178,6 +1070,8 @@ const materialMismatchData = useMemo(() => {
       setVisibleQuantityMismatchColumns(newVisibility);
     } else if (tab === "material") {
       setVisibleMaterialMismatchColumns(newVisibility);
+    } else if (tab === "history") {
+      setVisibleHistoryColumns(newVisibility);
     }
   };
 
@@ -1189,7 +1083,11 @@ const materialMismatchData = useMemo(() => {
       let mismatchType = "rateMismatch";
       if (activeTab === "quantityMismatch") mismatchType = "quantityMismatch";
       if (activeTab === "materialMismatch") mismatchType = "materialMismatch";
-      
+
+      if (activeTab === "history") {
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Submitted</Badge>;
+      }
+
       return (
         <div className="flex gap-2 whitespace-nowrap">
           <button
@@ -1217,10 +1115,10 @@ const materialMismatchData = useMemo(() => {
         <span className="text-gray-400 text-xs">N/A</span>
       );
     }
-    
+
     // Highlight differences with color coding
-    if (column.dataKey === "rateDifference" || column.dataKey === "qtyDifference" || 
-        column.dataKey === "aluminaDiff" || column.dataKey === "ironDiff" || column.dataKey === "apDiff") {
+    if (column.dataKey === "rateDifference" || column.dataKey === "qtyDifference" ||
+      column.dataKey === "aluminaDiff" || column.dataKey === "ironDiff" || column.dataKey === "apDiff") {
       const numValue = parseFloat(value) || 0;
       return (
         <span className={numValue < 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
@@ -1228,14 +1126,14 @@ const materialMismatchData = useMemo(() => {
         </span>
       );
     }
-    
+
     return value || <span className="text-gray-400 text-xs">N/A</span>;
   };
 
   const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
     const visibleCols = columnsMeta.filter((col) => visibilityState[col.dataKey]);
-    const isLoading = (tabKey === "rateMismatch" ? loadingLifts || loadingPOs : 
-                     tabKey === "materialMismatch" ? loadingLifts || loadingTL : loadingLifts) && data.length === 0;
+    const isLoading = (tabKey === "rateMismatch" ? loadingLifts || loadingPOs :
+      tabKey === "materialMismatch" ? loadingLifts || loadingTL : loadingLifts) && data.length === 0;
     const hasError = error && data.length === 0;
 
     return (
@@ -1262,11 +1160,11 @@ const materialMismatchData = useMemo(() => {
                   fetchPurchaseOrdersData();
                   fetchTLData();
                 }}
-                variant="outline" 
-                size="sm" 
+                variant="outline"
+                size="sm"
                 className="h-8 text-xs bg-white"
               >
-                <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> 
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                 Refresh
               </Button>
               <Popover>
@@ -1284,8 +1182,8 @@ const materialMismatchData = useMemo(() => {
                         size="sm"
                         className="p-0 h-auto text-xs"
                         onClick={() => handleSelectAllColumns(
-                          tabKey === "rateMismatch" ? "rate" : 
-                          tabKey === "quantityMismatch" ? "quantity" : "material", 
+                          tabKey === "rateMismatch" ? "rate" :
+                            tabKey === "quantityMismatch" ? "quantity" : "material",
                           columnsMeta, true)}
                       >
                         Select All
@@ -1296,8 +1194,9 @@ const materialMismatchData = useMemo(() => {
                         size="sm"
                         className="p-0 h-auto text-xs"
                         onClick={() => handleSelectAllColumns(
-                          tabKey === "rateMismatch" ? "rate" : 
-                          tabKey === "quantityMismatch" ? "quantity" : "material", 
+                          tabKey === "rateMismatch" ? "rate" :
+                            tabKey === "quantityMismatch" ? "quantity" :
+                              tabKey === "materialMismatch" ? "material" : "history",
                           columnsMeta, false)}
                       >
                         Deselect All
@@ -1313,8 +1212,9 @@ const materialMismatchData = useMemo(() => {
                               checked={!!visibilityState[col.dataKey]}
                               onCheckedChange={(checked) =>
                                 handleToggleColumn(
-                                  tabKey === "rateMismatch" ? "rate" : 
-                                  tabKey === "quantityMismatch" ? "quantity" : "material", 
+                                  tabKey === "rateMismatch" ? "rate" :
+                                    tabKey === "quantityMismatch" ? "quantity" :
+                                      tabKey === "materialMismatch" ? "material" : "history",
                                   col.dataKey, Boolean(checked))
                               }
                               disabled={col.alwaysVisible}
@@ -1348,11 +1248,11 @@ const materialMismatchData = useMemo(() => {
               <Info className="h-12 w-12 text-green-500 mb-3" />
               <p className="font-medium text-foreground">No Mismatches Found</p>
               <p className="text-sm text-muted-foreground text-center">
-                {tabKey === "rateMismatch" 
-                  ? "All material rates match their corresponding PO rates." 
+                {tabKey === "rateMismatch"
+                  ? "All material rates match their corresponding PO rates."
                   : tabKey === "quantityMismatch"
-                  ? "All lifted quantities match their weight slip quantities."
-                  : "All material properties match between TL and LIFT-ACCOUNTS sheets."}
+                    ? "All lifted quantities match their weight slip quantities."
+                    : "All material properties match between TL and LIFT-ACCOUNTS sheets."}
                 {user?.firmName && user.firmName.toLowerCase() !== "all" && (
                   <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
                 )}
@@ -1372,20 +1272,19 @@ const materialMismatchData = useMemo(() => {
                 </TableHeader>
                 <TableBody>
                   {data.map((item, index) => (
-                    <TableRow 
-                      key={`${tabKey}-${item.id || item.liftNo}-${index}`} 
+                    <TableRow
+                      key={`${tabKey}-${item.id || item.liftNo}-${index}`}
                       className="hover:bg-red-50/50 bg-red-100/30 border-l-4 border-l-red-500"
                     >
                       {visibleCols.map((column) => (
-                        <TableCell 
-                          key={`${item.id || item.liftNo}-${column.dataKey}`} 
-                          className={`text-xs px-3 py-2 ${
-                            column.dataKey === "id" || column.dataKey === "liftNo" 
-                              ? "font-medium text-primary" 
-                              : column.dataKey === "actions"
+                        <TableCell
+                          key={`${item.id || item.liftNo}-${column.dataKey}`}
+                          className={`text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "liftNo"
+                            ? "font-medium text-primary"
+                            : column.dataKey === "actions"
                               ? "w-[150px]"
                               : "text-gray-700"
-                          }`}
+                            }`}
                         >
                           {renderCell(item, column)}
                         </TableCell>
@@ -1397,14 +1296,14 @@ const materialMismatchData = useMemo(() => {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card >
     );
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
       {renderModal()}
-      
+
       <div className="max-w-7xl mx-auto space-y-6">
         <Card className="shadow-md border-none">
           <CardHeader className="p-4 border-b border-gray-200">
@@ -1541,6 +1440,8 @@ const materialMismatchData = useMemo(() => {
                   visibleMaterialMismatchColumns
                 )}
               </TabsContent>
+
+
             </Tabs>
           </CardContent>
         </Card>

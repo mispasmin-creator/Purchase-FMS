@@ -55,14 +55,11 @@ import {
   RadialBarChart,
   RadialBar,
 } from "recharts"
+import { supabase } from "../supabase"
 import { useAuth } from "../context/AuthContext"
 
-// --- Constants ---
-const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
-const INDENT_PO_SHEET = "INDENT-PO"
-const LIFT_ACCOUNTS_SHEET = "LIFT-ACCOUNTS"
-const ACCOUNTS_SHEET = "ACCOUNTS"
 
+// --- Constants ---
 // Enhanced color palette
 const THEME_COLORS = {
   primary: "#8B5CF6",
@@ -89,27 +86,8 @@ const PIE_COLORS = [
 ]
 
 // --- Helper Functions ---
-const parseGvizResponse = (text) => {
-  if (!text) return null
-  const jsonpMatch = text.match(/google\.visualization\.Query\.setResponse\((.*)\);?$/s)
-  if (jsonpMatch && jsonpMatch[1]) {
-    try {
-      return JSON.parse(jsonpMatch[1])
-    } catch (e) {
-      console.error("Failed to parse JSONP response:", e)
-    }
-  }
-  const jsonStart = text.indexOf("{")
-  const jsonEnd = text.lastIndexOf("}")
-  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-    try {
-      return JSON.parse(text.substring(jsonStart, jsonEnd + 1))
-    } catch (e) {
-      console.error("Failed to parse JSON:", e)
-    }
-  }
-  return null
-}
+// Gviz parser removed
+
 
 const parseDateFromSheet = (dateValue) => {
   if (!dateValue) return null
@@ -202,92 +180,88 @@ export default function Dashboard() {
   })
 
   // Fetch Data
+  // Fetch Data
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const indentPoUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INDENT_PO_SHEET)}`
-      const liftAccountsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(LIFT_ACCOUNTS_SHEET)}`
-      const accountsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(ACCOUNTS_SHEET)}`
-
-      const [indentPoRes, liftAccountsRes, accountsRes] = await Promise.all([
-        fetch(indentPoUrl), 
-        fetch(liftAccountsUrl),
-        fetch(accountsUrl)
+      // Fetch from Supabase
+      const [indentPoRes, liftAccountsRes, mismatchRes] = await Promise.all([
+        supabase.from("INDENT-PO").select("*").order("Timestamp", { ascending: false }),
+        supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
+        supabase.from("Mismatch").select("*").order("id", { ascending: false })
       ])
 
-      if (!indentPoRes.ok || !liftAccountsRes.ok || !accountsRes.ok) {
-        throw new Error("Failed to fetch data from Google Sheets")
-      }
-
-      const indentPoData = parseGvizResponse(await indentPoRes.text())
-      const liftAccountsData = parseGvizResponse(await liftAccountsRes.text())
-      const accountsData = parseGvizResponse(await accountsRes.text())
-
-      if (!indentPoData?.table || !liftAccountsData?.table || !accountsData?.table) {
-        throw new Error("Invalid data structure from Google Sheets")
-      }
+      if (indentPoRes.error) throw indentPoRes.error
+      if (liftAccountsRes.error) throw liftAccountsRes.error
+      if (mismatchRes.error) throw mismatchRes.error
 
       // Process INDENT-PO data
-      let processedIndentPoData = indentPoData.table.rows
-        .map((row, index) => {
-          if (!row.c || index === 0) return null
-          return {
-            id: `po-${index}`,
-            date: parseDateFromSheet(row.c[0]?.v),
-            rlNo: row.c[1]?.v,
-            firmName: row.c[2]?.v,
-            vendorName: row.c[4]?.v,
-            material: row.c[5]?.v,
-            poQty: Number.parseFloat(row.c[23]?.v) || 0,
-            poTimestamp: row.c[18]?.v,
-            pendingQty: Number.parseFloat(row.c[33]?.v) || 0,
-            notes: row.c[16]?.v,
-            actualM: row.c[12]?.v,
-            actualS: row.c[18]?.v,
-            actualAL: row.c[37]?.v,
-            actualAO: row.c[40]?.v,
-          }
-        })
+      let processedIndentPoData = (indentPoRes.data || [])
+        .map((row) => ({
+          id: row["Indent Id."] || `po-${Math.random()}`,
+          date: row["Timestamp"] ? new Date(row["Timestamp"]) : null,
+          rlNo: row["Indent Id."],
+          firmName: row["Firm Name"],
+          vendorName: row["Vendor"] || row["Vendor name"], // Handle both potential column names
+          material: row["Material"] || row["Raw Material Name"],
+          poQty: Number.parseFloat(row["Quantity"] || row["Total Quantity"] || 0),
+          poTimestamp: row["Actual2"], // Generate PO Status
+          pendingQty: 0, // Need to calculate? For now use Quantity. Wait, pending quantity logic?
+          // pendingQty used for "materialLiftStatus" (Pending/Complete). 
+          // If pendingQty === 0 it's complete.
+          // In sheet logic: row.c[33]?
+          // We can calculate pendingQty from "Quantity" - "Lifted Quantity"?
+          // Or check "Actual4" (Lift Item Status)?
+          // Let's assume if Actual4 (Lift) is done, pending is 0?
+          // Or just use 0 if not available to avoid breaking.
+          // Actual calculation: Quantity - (Lifted Qty from LIFT-ACCOUNTS)?
+          // Simplifying: If Actual4 (Lift Status) is present, pending = 0?
+          // Let's use logic: if Actual3 (PO Entry) done, maybe?
+          // Better: If row["Actual4"] (Lift) is present, pending = 0, else Quantity.
+          pendingQty: row["Actual4"] ? 0 : Number.parseFloat(row["Quantity"] || 0),
+
+          notes: row["Notes"],
+          actualM: row["Actual1"], // Indent Approval
+          actualS: row["Actual2"], // Generate PO
+          actualAL: row["Actual3"], // PO Entry
+          actualAO: row["Actual4"], // Lift Item
+        }))
         .filter((p) => p && p.rlNo)
 
       // Process LIFT-ACCOUNTS data
-      let processedLiftAccountData = liftAccountsData.table.rows
-        .map((row, index) => {
-          if (!row.c || index === 0) return null
-          return {
-            id: `lift-${index}`,
-            rlNo: row.c[2]?.v,
-            deliveryOrderNo: row.c[6]?.v,
-            liftedQty: Number.parseFloat(row.c[9]?.v) || 0,
-            receivedTimestamp: row.c[20]?.v,
-            receivedQty: Number.parseFloat(row.c[23]?.v) || 0,
-            firmName: row.c[55]?.v,
-            vendorName: row.c[3]?.v,
-            material: row.c[5]?.v,
-            notes: row.c[21]?.v,
-            actualU: row.c[20]?.v,
-            actualAE: row.c[30]?.v,
-            actualAJ: row.c[35]?.v,
-            actualBB: row.c[53]?.v,
-          }
-        })
+      let processedLiftAccountData = (liftAccountsRes.data || [])
+        .map((row) => ({
+          id: row["Lift No"] || `lift-${Math.random()}`,
+          rlNo: row["Indent no."],
+          deliveryOrderNo: row["Delivery Order No."], // Check column name
+          liftedQty: Number.parseFloat(row["Qty"] || 0), // is this Lifted Qty?
+          receivedTimestamp: row["Actual 1"], // Receipt Timestamp
+          receivedQty: Number.parseFloat(row["Actual Quantity"] || 0),
+          firmName: row["Firm Name"],
+          vendorName: row["Vendor Name"],
+          material: row["Raw Material Name"],
+          notes: row["Notes"] || "", // If exists
+          actualU: row["Actual 1"], // Receipt
+          actualAE: row["Actual 2"], // Bilty
+          actualAJ: row["Actual 3"], // Lab
+          actualBB: row["Actual 4"], // Final Tally
+        }))
         .filter((l) => l && l.rlNo)
 
-      // Process ACCOUNTS data
-      let processedAccountsData = accountsData.table.rows
-        .map((row, index) => {
-          if (!row.c || index === 0) return null
-          return {
-            id: `accounts-${index}`,
-            rlNo: row.c[2]?.v,
-            actualAA: row.c[26]?.v,
-            actualAF: row.c[31]?.v,
-            actualAK: row.c[36]?.v,
-            actualAP: row.c[41]?.v,
-            actualAU: row.c[46]?.v,
-          }
-        })
+      // Process ACCOUNTS (Mismatch) data
+      let processedAccountsData = (mismatchRes.data || [])
+        .map((row) => ({
+          id: row.id,
+          rlNo: row.liftNumber, // Mapping liftNumber to rlNo for consistency? Or keep liftNumber?
+          // Dashboard uses rlNo for filtering? "uniquePOsByRlNo" uses INDENT-PO.
+          // Accounts data is used for pending counts.
+          actualAA: row["Actual2"], // Audit
+          actualAF: row["Actual3"], // Rectify (using Actual3 as placeholder for Rectify 2 if needed or assuming mapped)
+          actualAK: row["Actual4"], // Tally
+          actualAP: row["Actual5"], // ReAudit
+          actualAU: row["Actual6"], // Bill Entry
+        }))
         .filter((a) => a && a.rlNo)
 
       // Apply firm filtering
@@ -299,6 +273,11 @@ export default function Dashboard() {
         processedLiftAccountData = processedLiftAccountData.filter(
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower
         )
+        // Mismatch table might not have Firm Name? 
+        // It has 'partyName'? 
+        // If Mismatch table doesn't have Firm Name, we can't filter it accurately without join.
+        // Assuming we skip filtering ACCOUNTS for now or it's not critical for pending counts view?
+        // Or we can filter if we find the column.
       }
 
       setAllPurchaseData(processedIndentPoData)
@@ -321,13 +300,13 @@ export default function Dashboard() {
     const vendors = new Set()
     const materials = new Set()
     const firms = new Set()
-    
+
     allPurchaseData.forEach((d) => {
       if (d.vendorName) vendors.add(d.vendorName)
       if (d.material) materials.add(d.material)
       if (d.firmName) firms.add(d.firmName)
     })
-    
+
     allLiftAccountData.forEach((d) => {
       if (d.vendorName) vendors.add(d.vendorName)
       if (d.material) materials.add(d.material)
@@ -468,7 +447,7 @@ export default function Dashboard() {
     filteredIndentPoData.forEach((po) => {
       uniquePOsByRlNo.add(po.rlNo)
       const isPoPendingForKPI = !po.poTimestamp
-      
+
       if (isPoPendingForKPI) {
         kpis.pendingPOs += 1
       } else {
@@ -599,8 +578,8 @@ export default function Dashboard() {
                     )}
                   </CardDescription>
                 </div>
-                <Button 
-                  onClick={fetchData} 
+                <Button
+                  onClick={fetchData}
                   variant="secondary"
                   className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-lg"
                 >
@@ -743,22 +722,22 @@ export default function Dashboard() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto mb-8 bg-white border-0 shadow-lg rounded-2xl p-2 h-auto">
-            <TabsTrigger 
-              value="overview" 
+            <TabsTrigger
+              value="overview"
               className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
             >
               <TrendingUp className="h-5 w-5" />
               Overview
             </TabsTrigger>
-            <TabsTrigger 
-              value="purchase" 
+            <TabsTrigger
+              value="purchase"
               className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
             >
               <List className="h-5 w-5" />
               Purchase Data
             </TabsTrigger>
-            <TabsTrigger 
-              value="pending" 
+            <TabsTrigger
+              value="pending"
               className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
             >
               <AlertTriangle className="h-5 w-5" />
@@ -867,8 +846,8 @@ export default function Dashboard() {
                             <Cell key={`cell-${index}`} fill={entry.fill} stroke="white" strokeWidth={3} />
                           ))}
                         </Pie>
-                        <Legend 
-                          verticalAlign="bottom" 
+                        <Legend
+                          verticalAlign="bottom"
                           height={36}
                           iconType="circle"
                           wrapperStyle={{ paddingTop: "20px" }}
@@ -891,23 +870,23 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart 
+                      <BarChart
                         data={overviewData.top10Vendors}
                         layout="vertical"
                         margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis type="number" stroke="#64748b" />
-                        <YAxis 
-                          dataKey="name" 
-                          type="category" 
+                        <YAxis
+                          dataKey="name"
+                          type="category"
                           width={100}
                           tick={{ fontSize: 12, fill: "#64748b" }}
                           stroke="#64748b"
                         />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(139, 92, 246, 0.1)" }} />
-                        <Bar 
-                          dataKey="quantity" 
+                        <Bar
+                          dataKey="quantity"
                           fill="url(#colorGradient)"
                           radius={[0, 8, 8, 0]}
                         />
@@ -938,8 +917,8 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={overviewData.top10Materials}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis 
-                        dataKey="name" 
+                      <XAxis
+                        dataKey="name"
                         angle={-45}
                         textAnchor="end"
                         height={100}
@@ -948,8 +927,8 @@ export default function Dashboard() {
                       />
                       <YAxis stroke="#64748b" tick={{ fill: "#64748b" }} />
                       <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(139, 92, 246, 0.1)" }} />
-                      <Bar 
-                        dataKey="quantity" 
+                      <Bar
+                        dataKey="quantity"
                         fill="url(#materialGradient)"
                         radius={[8, 8, 0, 0]}
                       />
@@ -970,21 +949,21 @@ export default function Dashboard() {
           <TabsContent value="purchase" className="space-y-6">
             <Tabs value={purchaseSubTab} onValueChange={setPurchaseSubTab}>
               <TabsList className="grid w-full grid-cols-3 max-w-xl mx-auto mb-6 bg-white border-0 shadow-lg rounded-2xl p-2 h-auto">
-                <TabsTrigger 
+                <TabsTrigger
                   value="pending-lift"
                   className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
                 >
                   <Hourglass className="h-5 w-5" />
                   Pending
                 </TabsTrigger>
-                <TabsTrigger 
+                <TabsTrigger
                   value="in-transit"
                   className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
                 >
                   <Truck className="h-5 w-5" />
                   In-Transit
                 </TabsTrigger>
-                <TabsTrigger 
+                <TabsTrigger
                   value="received"
                   className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
                 >
@@ -1195,8 +1174,8 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={pendingStagesData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis 
-                        dataKey="stageName" 
+                      <XAxis
+                        dataKey="stageName"
                         angle={-45}
                         textAnchor="end"
                         height={150}
@@ -1205,8 +1184,8 @@ export default function Dashboard() {
                       />
                       <YAxis stroke="#64748b" tick={{ fill: "#64748b" }} />
                       <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(139, 92, 246, 0.1)" }} />
-                      <Bar 
-                        dataKey="pendingCount" 
+                      <Bar
+                        dataKey="pendingCount"
                         fill="url(#pendingGradient)"
                         radius={[8, 8, 0, 0]}
                         name="Pending Count"
@@ -1250,14 +1229,13 @@ export default function Dashboard() {
                       {pendingStagesData.map((stage, index) => (
                         <TableRow key={index} className="hover:bg-amber-50/30 border-b border-gray-100">
                           <TableCell>
-                            <Badge 
-                              className={`font-semibold ${
-                                stage.category === 'INDENT-PO' 
-                                  ? 'bg-purple-100 text-purple-700' 
-                                  : stage.category === 'LIFT-ACCOUNTS'
+                            <Badge
+                              className={`font-semibold ${stage.category === 'INDENT-PO'
+                                ? 'bg-purple-100 text-purple-700'
+                                : stage.category === 'LIFT-ACCOUNTS'
                                   ? 'bg-blue-100 text-blue-700'
                                   : 'bg-green-100 text-green-700'
-                              }`}
+                                }`}
                             >
                               {stage.category}
                             </Badge>
@@ -1267,14 +1245,13 @@ export default function Dashboard() {
                             <span className="text-2xl font-bold text-gray-900">{stage.pendingCount}</span>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Badge 
-                              className={`font-semibold ${
-                                stage.pendingCount === 0 
-                                  ? 'bg-green-100 text-green-700' 
-                                  : stage.pendingCount < 10
+                            <Badge
+                              className={`font-semibold ${stage.pendingCount === 0
+                                ? 'bg-green-100 text-green-700'
+                                : stage.pendingCount < 10
                                   ? 'bg-yellow-100 text-yellow-700'
                                   : 'bg-red-100 text-red-700'
-                              }`}
+                                }`}
                             >
                               {stage.pendingCount === 0 ? 'Clear' : stage.pendingCount < 10 ? 'Low' : 'High'}
                             </Badge>

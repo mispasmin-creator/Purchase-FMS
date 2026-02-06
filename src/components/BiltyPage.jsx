@@ -19,6 +19,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { AuthContext } from "../context/AuthContext";
+import { supabase } from "../supabase";
+import { uploadFileToStorage } from "../utils/storageUtils";
 
 // --- Constants ---
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
@@ -77,7 +79,7 @@ const parseGvizResponse = (text, sheetNameForError) => {
   const jsonString = text.substring(jsonStart, jsonEnd + 1);
   const data = JSON.parse(jsonString);
   if (data.status === 'error') {
-      throw new Error(`Google Sheets API Error: ${data.errors?.[0]?.detailed_message || "Unknown error"}`);
+    throw new Error(`Google Sheets API Error: ${data.errors?.[0]?.detailed_message || "Unknown error"}`);
   }
   if (!data.table || !data.table.cols) {
     console.warn(`No data.table or cols in ${sheetNameForError} or sheet is empty`);
@@ -88,18 +90,18 @@ const parseGvizResponse = (text, sheetNameForError) => {
 };
 
 const formatDateString = (dateValue) => {
-    if (!dateValue || typeof dateValue !== 'string' || !dateValue.trim()) return "";
-    const gvizMatch = dateValue.match(/^Date\((\d+),(\d+),(\d+)(,(\d+),(\d+),(\d+))?\)/);
-    if (gvizMatch) {
-        const [, year, month, day, hours, minutes, seconds] = gvizMatch.map(Number);
-        const d = new Date(year, month, day, hours || 0, minutes || 0, seconds || 0);
-        return d.toLocaleString("en-GB", { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/,/g, "");
-    }
-    const d = new Date(dateValue);
-    if (!isNaN(d.getTime())) {
-        return d.toLocaleString("en-GB", { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/,/g, "");
-    }
-    return dateValue;
+  if (!dateValue || typeof dateValue !== 'string' || !dateValue.trim()) return "";
+  const gvizMatch = dateValue.match(/^Date\((\d+),(\d+),(\d+)(,(\d+),(\d+),(\d+))?\)/);
+  if (gvizMatch) {
+    const [, year, month, day, hours, minutes, seconds] = gvizMatch.map(Number);
+    const d = new Date(year, month, day, hours || 0, minutes || 0, seconds || 0);
+    return d.toLocaleString("en-GB", { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/,/g, "");
+  }
+  const d = new Date(dateValue);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleString("en-GB", { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/,/g, "");
+  }
+  return dateValue;
 };
 
 export default function BiltyPage() {
@@ -161,41 +163,59 @@ export default function BiltyPage() {
     setLoading(true);
     setError(null);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(LIFT_ACCOUNTS_SHEET)}&cb=${new Date().getTime()}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to fetch lifts data: ${response.status}`);
+      // Fetch from Supabase LIFT-ACCOUNTS table
+      const { data, error: fetchError } = await supabase
+        .from("LIFT-ACCOUNTS")
+        .select("*")
+        .order("Timestamp", { ascending: false });
 
-      const text = await response.text();
-      const dataTable = parseGvizResponse(text, LIFT_ACCOUNTS_SHEET);
+      if (fetchError) throw fetchError;
 
-      let processedRawRows = dataTable.rows.map((row, index) => {
-        if (!row || !row.c) return null;
+      // Helper to format date for display
+      const formatTimestamp = (dateValue) => {
+        if (!dateValue) return "";
+        try {
+          const d = new Date(dateValue);
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleString("en-GB", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+            }).replace(/,/g, "");
+          }
+        } catch (e) {
+          return String(dateValue);
+        }
+        return String(dateValue);
+      };
 
-        const getStringValue = (colIndex) => {
-          const cell = row.c[colIndex];
-          return cell && (typeof cell.f !== 'undefined' ? cell.f : (typeof cell.v !== 'undefined' ? cell.v : null));
-        };
-
+      let processedRawRows = (data || []).map((row) => {
         return {
-          _id: `lift-${index}-${getStringValue(LIFT_ID_COL) || ''}`,
-          _rowIndex: index + DATA_START_ROW_LIFTS,
-          rawCells: row.c ? row.c.map(cell => cell ? (cell.f ?? cell.v) : null) : [],
-          id: getStringValue(LIFT_ID_COL),
-          vendorName: getStringValue(VENDOR_NAME_COL),
-          rawMaterialName: getStringValue(RAW_MATERIAL_COL),
-          liftType: getStringValue(LIFT_TYPE_COL),
-          originalQty: getStringValue(ORIGINAL_QTY_COL),
-          totalBillQuantity: getStringValue(TOTAL_BILL_QUANTITY_COL_X),
-          actualQty: getStringValue(ACTUAL_QTY_COL_Y),
-          indentNo: getStringValue(INDENT_NO_COL),
-          billNo: getStringValue(BILL_NO_COL),
-          firmName: getStringValue(FIRM_NAME_COL),
-          planned2: formatDateString(getStringValue(NOT_NULL_CONDITION_COL)),
-          isPending: getStringValue(NOT_NULL_CONDITION_COL) && !getStringValue(TIMESTAMP_COL),
-          isHistory: !!getStringValue(TIMESTAMP_COL),
-          biltyNumber: getStringValue(BILTY_NUMBER_COL),
-          biltyImageUrl: getStringValue(BILTY_IMAGE_COL),
-          timestamp: formatDateString(getStringValue(TIMESTAMP_COL)),
+          _id: `lift-${row.id}-${row["Lift No"] || ''}`,
+          _dbId: row.id, // Store Supabase row ID for updates
+          id: String(row["Lift No"] || "").trim(),
+          vendorName: String(row["Vendor Name"] || "").trim(),
+          rawMaterialName: String(row["Raw Material Name"] || "").trim(),
+          liftType: String(row["Type"] || "").trim(),
+          originalQty: String(row["Qty"] || "").trim(),
+          totalBillQuantity: String(row["Total Bill Quantity"] || "").trim(),
+          actualQty: String(row["Actual Quantity"] || "").trim(),
+          indentNo: String(row["Indent no."] || "").trim(),
+          billNo: String(row["Bill No."] || "").trim(),
+          firmName: String(row["Firm Name"] || "").trim(),
+          // Using Planned 3 and Actual 3 for filtering
+          planned3: formatTimestamp(row["Planned 3"]),
+          filterColPlanned3: row["Planned 3"],
+          filterColActual3: row["Actual 3"],
+          isPending: row["Planned 3"] && !row["Actual 3"],
+          isHistory: row["Planned 3"] && row["Actual 3"],
+          biltyNumber: String(row["Bilty No. 2"] || "").trim(),
+          biltyImageUrl: String(row["Bilty Image"] || "").trim(),
+          timestamp: formatTimestamp(row["Actual 3"]),
         };
       }).filter(row => row && row.id);
 
@@ -205,7 +225,7 @@ export default function BiltyPage() {
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
         );
       }
-      
+
       setLiftData(processedRawRows);
 
     } catch (err) {
@@ -216,6 +236,8 @@ export default function BiltyPage() {
       setLoading(false);
     }
   }, [refreshTrigger, user]);
+
+
 
   useEffect(() => {
     fetchLiftData();
@@ -234,10 +256,10 @@ export default function BiltyPage() {
     let filtered = liftData.filter(lift => lift.isHistory);
     if (filters.vendorName !== "all") filtered = filtered.filter(lift => lift.vendorName === filters.vendorName);
     if (filters.materialName !== "all") filtered = filtered.filter(lift => lift.rawMaterialName === filters.materialName);
-     // ... add other filters
+    // ... add other filters
     return filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }, [liftData, filters]);
-  
+
   const uniqueFilterOptions = useMemo(() => {
     const vendors = new Set();
     const materials = new Set();
@@ -278,32 +300,19 @@ export default function BiltyPage() {
     setFormData({ biltyNumber: "", biltyImageFile: null });
     setFormErrors({});
   };
-  
-  const uploadFileToDrive = async (file, folderId) => {
+
+  // Upload file to Supabase Storage
+  const uploadFileToSupabase = async (file) => {
     if (!file || !(file instanceof File)) {
-        throw new Error("Invalid file provided for upload.");
+      throw new Error("Invalid file provided for upload.");
     }
-
-    const base64Data = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = error => reject(error);
-    });
-
-    const uploadPayload = new FormData();
-    uploadPayload.append("action", "uploadFile");
-    uploadPayload.append("fileName", file.name);
-    uploadPayload.append("mimeType", file.type);
-    uploadPayload.append("base64Data", base64Data);
-    uploadPayload.append("folderId", folderId);
-
-    const response = await fetch(API_URL, { method: "POST", body: uploadPayload });
-    if (!response.ok) throw new Error(`Drive upload failed: ${await response.text()}`);
-    
-    const result = await response.json();
-    if (!result.success) throw new Error(result.message || "Apps Script upload failed");
-    return result.fileUrl;
+    try {
+      const { url } = await uploadFileToStorage(file, 'image', 'bilty-images');
+      return url;
+    } catch (error) {
+      console.error("Error uploading bilty image:", error);
+      throw new Error(`Failed to upload bilty image: ${error.message}`);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -333,77 +342,66 @@ export default function BiltyPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm() || !selectedLift) {
-        toast.error("Validation Error", { description: "Please fill all required fields or select a lift." });
-        return;
+      toast.error("Validation Error", { description: "Please fill all required fields or select a lift." });
+      return;
     }
     setIsSubmitting(true);
     toast.loading("Submitting Bilty details...", { id: "bilty-submit" });
 
     try {
-        let biltyImageUrl = "";
-        if (formData.biltyImageFile) {
-            biltyImageUrl = await uploadFileToDrive(formData.biltyImageFile, BILTY_IMAGE_FOLDER_ID);
-        }
+      let biltyImageUrl = "";
+      if (formData.biltyImageFile) {
+        biltyImageUrl = await uploadFileToSupabase(formData.biltyImageFile);
+      }
 
-        const timestamp = new Date().toLocaleString("en-GB", {
-            day: "2-digit", month: "2-digit", year: "numeric",
-            hour: "2-digit", minute: "2-digit", second: "2-digit",
-            hour12: false
-        }).replace(/,/g, "");
+      const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", ""); // ISO format for Supabase
 
-        const cellUpdates = {
-            [`col${TIMESTAMP_COL + 1}`]: timestamp,
-            [`col${BILTY_NUMBER_COL + 1}`]: formData.biltyNumber,
-            [`col${BILTY_IMAGE_COL + 1}`]: biltyImageUrl,
-        };
+      // Update data for Supabase LIFT-ACCOUNTS
+      // Using user-specified schema: Planned 3 and Actual 3 logic
+      // We are setting Actual 3 when Bilty is entered
+      const updateData = {
+        "Actual 3": timestamp,
+        "Bilty No. 2": formData.biltyNumber,
+        "Bilty Image": biltyImageUrl,
+      };
 
-        const params = new URLSearchParams({
-            action: "updateCells",
-            sheetName: LIFT_ACCOUNTS_SHEET,
-            rowIndex: selectedLift._rowIndex,
-            cellUpdates: JSON.stringify(cellUpdates),
-        });
+      console.log("Updating LIFT-ACCOUNTS record:", selectedLift._dbId, updateData);
 
-        const response = await fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: params.toString(),
-        });
+      // Update the LIFT-ACCOUNTS record in Supabase
+      const { error: updateError } = await supabase
+        .from("LIFT-ACCOUNTS")
+        .update(updateData)
+        .eq("id", selectedLift._dbId);
 
-        const responseText = await response.text();
+      if (updateError) {
+        console.error("LIFT-ACCOUNTS update failed:", updateError);
+        throw new Error(`Failed to update LIFT-ACCOUNTS: ${updateError.message}`);
+      }
 
-        // FIX: Handle the Apps Script CORS error gracefully
-        if (!response.ok && !responseText.toLowerCase().includes('success')) {
-            throw new Error(`Server error: ${response.status}. ${responseText}`);
-        }
-        
-        // Don't try to parse JSON if the response is not ok, just assume success
-        // because the user confirmed the data gets submitted.
+      toast.success("Success!", {
+        id: "bilty-submit",
+        description: `Bilty for Lift ID ${selectedLift.id} submitted successfully.`,
+      });
 
-        toast.success("Success!", {
-            id: "bilty-submit",
-            description: `Bilty for Lift ID ${selectedLift.id} submitted successfully.`,
-        });
-
-        setRefreshTrigger((p) => p + 1);
-        handleClosePopup();
+      setRefreshTrigger((p) => p + 1);
+      handleClosePopup();
     } catch (error) {
-        console.error("Error submitting bilty:", error);
-        toast.error("Submission Failed", {
-            id: "bilty-submit",
-            description: error.message,
-        });
+      console.error("Error submitting bilty:", error);
+      toast.error("Submission Failed", {
+        id: "bilty-submit",
+        description: error.message,
+      });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
-  
+
   const renderCell = (item, column) => {
     const value = item[column.dataKey];
     if (column.isLink) {
       return value && String(value).startsWith("http") ? (
         <a href={value} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 hover:underline font-medium text-xs inline-flex items-center gap-1">
-          <ExternalLink className="h-3 w-3"/>{column.linkText || "View"}
+          <ExternalLink className="h-3 w-3" />{column.linkText || "View"}
         </a>
       ) : <span className="text-gray-400 text-xs">N/A</span>;
     }
@@ -430,102 +428,102 @@ export default function BiltyPage() {
     }
   };
 
-    const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
+  const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
     const isLocalLoading = loading && data.length === 0;
     const hasLocalError = error && data.length === 0 && activeTab === tabKey;
 
     return (
-        <Card className="shadow-sm border border-border flex-1 flex flex-col">
-            <CardHeader className="py-3 px-4 bg-muted/30">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle className="flex items-center text-md font-semibold text-foreground">
-                          {tabKey === 'pendingBilty' ? <FileCheck className="h-5 w-5 text-purple-600 mr-2" /> : <History className="h-5 w-5 text-purple-600 mr-2" />}
-                          {title} ({data.length})
-                        </CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
-                    </div>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 text-xs">
-                          <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[220px] p-3">
-                        <div className="grid gap-2">
-                          <p className="text-sm font-medium">Toggle Columns</p>
-                          <div className="flex items-center justify-between mt-1 mb-2">
-                            <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => handleSelectAllColumns(tabKey === 'pendingBilty' ? 'pending' : 'history', columnsMeta, true)}>Select All</Button>
-                            <span className="text-gray-300 mx-1">|</span>
-                            <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => handleSelectAllColumns(tabKey === 'pendingBilty' ? 'pending' : 'history', columnsMeta, false)}>Deselect All</Button>
-                          </div>
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                            {columnsMeta.filter(col => col.toggleable).map(col => (
-                              <div key={`toggle-${tabKey}-${col.dataKey}`} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`toggle-${tabKey}-${col.dataKey}`}
-                                  checked={!!visibilityState[col.dataKey]}
-                                  onCheckedChange={(checked) => handleToggleColumn(tabKey === 'pendingBilty' ? 'pending' : 'history', col.dataKey, Boolean(checked))}
-                                  disabled={col.alwaysVisible}
-                                />
-                                <Label htmlFor={`toggle-${tabKey}-${col.dataKey}`} className="text-xs font-normal cursor-pointer">
-                                  {col.header} {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+      <Card className="shadow-sm border border-border flex-1 flex flex-col">
+        <CardHeader className="py-3 px-4 bg-muted/30">
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="flex items-center text-md font-semibold text-foreground">
+                {tabKey === 'pendingBilty' ? <FileCheck className="h-5 w-5 text-purple-600 mr-2" /> : <History className="h-5 w-5 text-purple-600 mr-2" />}
+                {title} ({data.length})
+              </CardTitle>
+              <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs">
+                  <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[220px] p-3">
+                <div className="grid gap-2">
+                  <p className="text-sm font-medium">Toggle Columns</p>
+                  <div className="flex items-center justify-between mt-1 mb-2">
+                    <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => handleSelectAllColumns(tabKey === 'pendingBilty' ? 'pending' : 'history', columnsMeta, true)}>Select All</Button>
+                    <span className="text-gray-300 mx-1">|</span>
+                    <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => handleSelectAllColumns(tabKey === 'pendingBilty' ? 'pending' : 'history', columnsMeta, false)}>Deselect All</Button>
+                  </div>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {columnsMeta.filter(col => col.toggleable).map(col => (
+                      <div key={`toggle-${tabKey}-${col.dataKey}`} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`toggle-${tabKey}-${col.dataKey}`}
+                          checked={!!visibilityState[col.dataKey]}
+                          onCheckedChange={(checked) => handleToggleColumn(tabKey === 'pendingBilty' ? 'pending' : 'history', col.dataKey, Boolean(checked))}
+                          disabled={col.alwaysVisible}
+                        />
+                        <Label htmlFor={`toggle-${tabKey}-${col.dataKey}`} className="text-xs font-normal cursor-pointer">
+                          {col.header} {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-            </CardHeader>
-            <CardContent className="p-0 flex-1 flex flex-col">
-                {isLocalLoading ? (
-                    <div className="flex flex-col justify-center items-center py-10 flex-1"><Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" /><p className="text-muted-foreground">Loading...</p></div>
-                ) : hasLocalError ? (
-                    <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1"><AlertTriangle className="h-10 w-10 text-destructive mb-3" /><p className="font-medium text-destructive">Error Loading Data</p><p className="text-sm text-muted-foreground max-w-md">{error}</p></div>
-                ) : data.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-                      <Info className="h-12 w-12 text-purple-500 mb-3" />
-                      <p className="font-medium text-foreground">No Data Found</p>
-                      <p className="text-sm text-muted-foreground text-center">
-                        No lifts match the criteria for this view.
-                        {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                          <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
-                        )}
-                      </p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto rounded-b-lg flex-1">
-                        <Table>
-                            <TableHeader className="bg-muted/50 sticky top-0 z-10">
-                                <TableRow>
-                                    {columnsMeta.filter(col => visibilityState[col.dataKey]).map(col => (
-                                        <TableHead key={col.dataKey} className="whitespace-nowrap text-xs px-3 py-2">{col.header}</TableHead>
-                                    ))}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {data.map(item => (
-                                    <TableRow key={item._id} className="hover:bg-purple-50/50">
-                                        {columnsMeta.filter(col => visibilityState[col.dataKey]).map(column => (
-                                            <TableCell key={column.dataKey} className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === 'id' ? 'font-medium text-primary' : 'text-gray-700'}`}>
-                                                {column.dataKey === "actionColumn" ? (
-                                                    <Button onClick={() => handleLiftSelect(item)} size="xs" variant="outline" className="text-xs h-7 px-2 py-1">Enter Bilty</Button>
-                                                ) : renderCell(item, column)}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0 flex-1 flex flex-col">
+          {isLocalLoading ? (
+            <div className="flex flex-col justify-center items-center py-10 flex-1"><Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" /><p className="text-muted-foreground">Loading...</p></div>
+          ) : hasLocalError ? (
+            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1"><AlertTriangle className="h-10 w-10 text-destructive mb-3" /><p className="font-medium text-destructive">Error Loading Data</p><p className="text-sm text-muted-foreground max-w-md">{error}</p></div>
+          ) : data.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-4 my-4 text-center flex-1">
+              <Info className="h-12 w-12 text-purple-500 mb-3" />
+              <p className="font-medium text-foreground">No Data Found</p>
+              <p className="text-sm text-muted-foreground text-center">
+                No lifts match the criteria for this view.
+                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                  <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
                 )}
-            </CardContent>
-        </Card>
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-b-lg flex-1">
+              <Table>
+                <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                  <TableRow>
+                    {columnsMeta.filter(col => visibilityState[col.dataKey]).map(col => (
+                      <TableHead key={col.dataKey} className="whitespace-nowrap text-xs px-3 py-2">{col.header}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.map(item => (
+                    <TableRow key={item._id} className="hover:bg-purple-50/50">
+                      {columnsMeta.filter(col => visibilityState[col.dataKey]).map(column => (
+                        <TableCell key={column.dataKey} className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === 'id' ? 'font-medium text-primary' : 'text-gray-700'}`}>
+                          {column.dataKey === "actionColumn" ? (
+                            <Button onClick={() => handleLiftSelect(item)} size="xs" variant="outline" className="text-xs h-7 px-2 py-1">Enter Bilty</Button>
+                          ) : renderCell(item, column)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     );
   };
-  
+
   return (
     <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen">
       <Card className="shadow-md border-none">
@@ -600,10 +598,10 @@ export default function BiltyPage() {
               </div>
             </div>
             <TabsContent value="pendingBilty" className="flex-1 flex flex-col mt-0">
-                {renderTableSection("pendingBilty", "Lifts Pending Bilty", "Filtered: Column AD is filled & Column AE is empty.", pendingBilty, PENDING_BILTY_COLUMNS_META, visiblePendingColumns)}
+              {renderTableSection("pendingBilty", "Lifts Pending Bilty", "Filtered: Column AD is filled & Column AE is empty.", pendingBilty, PENDING_BILTY_COLUMNS_META, visiblePendingColumns)}
             </TabsContent>
             <TabsContent value="biltyHistory" className="flex-1 flex flex-col mt-0">
-                {renderTableSection("biltyHistory", "Bilty History", "Sorted from latest to oldest recorded bilty.", biltyHistory, BILTY_HISTORY_COLUMNS_META, visibleHistoryColumns)}
+              {renderTableSection("biltyHistory", "Bilty History", "Sorted from latest to oldest recorded bilty.", biltyHistory, BILTY_HISTORY_COLUMNS_META, visibleHistoryColumns)}
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -613,7 +611,7 @@ export default function BiltyPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-6 w-6 text-purple-600"/>
+              <Receipt className="h-6 w-6 text-purple-600" />
               Enter Bilty for <span className="text-purple-600 font-bold">{selectedLift?.id}</span>
             </DialogTitle>
             <DialogDescription>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
@@ -22,47 +23,25 @@ import {
   Filter,
   ExternalLink,
   ChevronsUpDown,
+  History,
+  FileClock
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
+import { supabase } from "../supabase";
 
-const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
-const SHEET_NAME = "INDENT-PO";
-const DATA_START_ROW = 7;
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
-
-const ColumnIndices = {
-  INDENT_ID: 1,
-  FIRM_NAME: 2,
-  PO_NUMBER: 2,
-  VENDOR_NAME: 42,
-  RAW_MATERIAL_NAME: 5,
-  TYPE_OF_INDENT: 8,
-  NOTES: 10,
-  APPROVED_QTY: 23,
-  PLANNED: 17,
-  PO_COPY_LINK: 25,
-  ADVANCE_AMOUNT: 27,
-  TOTAL_AMOUNT: 24,        // ✅ ADD THIS
-  PLANNED_4: 43,
-  ACTUAL_4: 44,
-  STATUS: 45,
-  PAYMENT_LINK: 46,
-  DELIVERY_ORDER_NO: 9,
-  TALLY_ENTRY_TIMESTAMP: 37,
-};
-
+// Helper Functions
 const cleanIndentId = (indentId) => {
   if (!indentId) return "";
   return String(indentId).replace(/[^a-zA-Z0-9-]/g, "");
 };
 
-const SearchableSelect = ({ 
-  value, 
-  onValueChange, 
-  options, 
-  placeholder, 
-  className 
+const SearchableSelect = ({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  className
 }) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -83,7 +62,7 @@ const SearchableSelect = ({
         {value === "all" || !value ? `All ${placeholder}` : value}
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
-      
+
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
           <div className="sticky top-0 bg-white p-2 border-b">
@@ -123,7 +102,7 @@ const SearchableSelect = ({
           </div>
         </div>
       )}
-      
+
       {open && (
         <div
           className="fixed inset-0 z-40"
@@ -181,21 +160,22 @@ const columns = [
   { header: "Advance Amount", dataKey: "advanceAmount", toggleable: true },
   { header: "Total Amount", dataKey: "totalAmount", toggleable: true },
 
-{ header: "Indent Type", dataKey: "typeOfIndent", toggleable: true },
+  { header: "Indent Type", dataKey: "typeOfIndent", toggleable: true },
 
-{
-  header: "PO Copy",
-  dataKey: "poCopyLink",
-  toggleable: true,
-  isLink: true,
-  linkText: "View PO",
-},
+  {
+    header: "PO Copy",
+    dataKey: "poCopyLink",
+    toggleable: true,
+    isLink: true,
+    linkText: "View PO",
+  },
 
   { header: "Notes", dataKey: "notes", toggleable: true },
   { header: "Planned", dataKey: "planned", toggleable: true },
+  { header: "Paid On", dataKey: "actual", toggleable: true },
 ];
 
-export default function TallyEntry() {
+export default function OriginalBillsFiledPage() {
   const { user } = useContext(AuthContext);
   const [sheetData, setSheetData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -203,6 +183,7 @@ export default function TallyEntry() {
   const [error, setError] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedEntries, setSelectedEntries] = useState({});
+  const [activeTab, setActiveTab] = useState("pending");
   const [filters, setFilters] = useState({
     vendorName: "all",
     rawMaterialName: "all",
@@ -218,53 +199,41 @@ export default function TallyEntry() {
     setLoading(true);
     setError(null);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
-        SHEET_NAME
-      )}&t=${new Date().getTime()}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
-      const text = await response.text();
-      const jsonString = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
-      const data = JSON.parse(jsonString);
-      if (data.status === "error") {
-        throw new Error(data.errors.map((e) => e.detailed_message).join(", "));
-      }
-      let parsedData = (data.table.rows || [])
-        .map((row, index) => {
-          const rowData = {
-            _rowIndex: index + DATA_START_ROW - 1,
-            rawCells: row.c.map((cell) => (cell ? cell.f ?? cell.v : null)),
-          };
-          const getCell = (colIdx) => rowData.rawCells[colIdx] || "";
-          
-          const indentId = cleanIndentId(getCell(ColumnIndices.INDENT_ID));
-          
+      const { data, error: fetchError } = await supabase
+        .from("INDENT-PO")
+        .select("*")
+        .not("Planned5", "is", null);
+
+      if (fetchError) throw fetchError;
+
+      let parsedData = (data || [])
+        .map((row) => {
           return {
-            ...rowData,
-            _id: `${SHEET_NAME}-${rowData._rowIndex}-${indentId}`,
-            indentId: indentId,
-            firmName: String(getCell(ColumnIndices.FIRM_NAME)),
-            poNumber: String(getCell(ColumnIndices.PO_NUMBER)),
-            deliveryOrderNo: String(getCell(ColumnIndices.DELIVERY_ORDER_NO)),
-            vendorName: String(getCell(ColumnIndices.VENDOR_NAME)),
-            rawMaterialName: String(getCell(ColumnIndices.RAW_MATERIAL_NAME)),
-            approvedQty: String(getCell(ColumnIndices.APPROVED_QTY)),
-            advanceAmount: String(getCell(ColumnIndices.ADVANCE_AMOUNT)),
-            totalAmount: String(getCell(ColumnIndices.TOTAL_AMOUNT)), // ✅ NEW
-            typeOfIndent: String(getCell(ColumnIndices.TYPE_OF_INDENT)), // (already present – OK)
-            poCopyLink: String(getCell(ColumnIndices.PO_COPY_LINK)),     // (already present – OK)
-            typeOfIndent: String(getCell(ColumnIndices.TYPE_OF_INDENT)),
-            planned4: String(getCell(ColumnIndices.PLANNED_4)),
-            actual4: String(getCell(ColumnIndices.ACTUAL_4)),
-            status: String(getCell(ColumnIndices.STATUS)),
-            paymentLink: String(getCell(ColumnIndices.PAYMENT_LINK)),
-            poCopyLink: String(getCell(ColumnIndices.PO_COPY_LINK)),
-            notes: String(getCell(ColumnIndices.NOTES)),
-            planned: String(getCell(ColumnIndices.PLANNED)),
-            tallyEntryTimestamp: formatSheetDateString(getCell(ColumnIndices.TALLY_ENTRY_TIMESTAMP)),
+            ...row,
+            _id: row.id || `adv-pay-${row["Indent Id."]}-${row.Timestamp}`,
+            dbIndentId: row["Indent Id."],
+            indentId: cleanIndentId(row["Indent Id."]),
+            firmName: String(row["Firm Name"] || ""),
+            poNumber: String(row["Indent Id."] || ""),
+            deliveryOrderNo: String(row["Delivery Order No."] || ""),
+            vendorName: String(row["Vendor name"] || row["Vendor"] || ""),
+            rawMaterialName: String(row["Material"] || ""),
+            approvedQty: String(row["Total Quantity"] || row["Approved Qty"] || ""),
+            advanceAmount: String(row["To Be Paid Amount"] || ""),
+            totalAmount: String(row["Total Amount"] || ""),
+            typeOfIndent: String(row["Priority"] || ""),
+            poCopyLink: String(row["PO Copy"] || ""),
+            notes: String(row["PO Notes"] || ""),
+            planned: formatSheetDateString(row["Planned5"]),
+            planned5: row["Planned5"],
+            actual: formatSheetDateString(row["Actual5"]),
+            actual5: row["Actual5"],
+            status: row["Status5"],
+            paymentLink: String(row["Payment Link"] || ""),
           };
         })
         .filter((row) => row.indentId);
+
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
         parsedData = parsedData.filter(
@@ -306,18 +275,22 @@ export default function TallyEntry() {
   );
 
   const pendingEntries = useMemo(() => {
-    const pending = [];
-
-    sheetData.forEach((row) => {
-      const hasPlanned4 = row.planned4 && String(row.planned4).trim() !== "" && String(row.planned4).trim() !== "-";
-      const hasActual4 = row.actual4 && String(row.actual4).trim() !== "" && String(row.actual4).trim() !== "-";
-      
-      if (hasPlanned4 && !hasActual4) {
-        pending.push(row);
-      }
+    const pending = sheetData.filter((row) => {
+      const hasPlanned5 = row.planned5 && String(row.planned5).trim() !== "" && String(row.planned5).trim() !== "-";
+      const hasActual5 = row.actual5 && String(row.actual5).trim() !== "" && String(row.actual5).trim() !== "-";
+      return hasPlanned5 && !hasActual5;
     });
-
     return applyFilters(pending);
+  }, [sheetData, applyFilters]);
+
+  const historyEntries = useMemo(() => {
+    const history = sheetData.filter((row) => {
+      const hasPlanned5 = row.planned5 && String(row.planned5).trim() !== "" && String(row.planned5).trim() !== "-";
+      const hasActual5 = row.actual5 && String(row.actual5).trim() !== "" && String(row.actual5).trim() !== "-";
+      return hasPlanned5 && hasActual5;
+    });
+    // Sort logic removed to simply show all history
+    return applyFilters(history);
   }, [sheetData, applyFilters]);
 
   const getUniqueValues = (field) => {
@@ -325,60 +298,27 @@ export default function TallyEntry() {
     return [...new Set(values)].sort();
   };
 
-  const updateSheetWithTimestamp = async (entry) => {
-    if (!entry?._rowIndex) {
-      throw new Error("Cannot update: Entry row index is missing.");
+  const updateSupabase = async (entry) => {
+    if (!entry?.dbIndentId) {
+      throw new Error("Cannot update: Entry database ID is missing.");
     }
 
-    const timestamp = new Date().toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    }).replace(/,/g, "");
+    const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", "");
 
-    const cellUpdates = {
-      [`col${ColumnIndices.ACTUAL_4 + 1}`]: timestamp,
-      [`col${ColumnIndices.STATUS + 1}`]: "OK",
-    };
+    const { error: updateError } = await supabase
+      .from("INDENT-PO")
+      .update({
+        "Actual5": timestamp
+      })
+      .eq('"Indent Id."', entry.dbIndentId);
 
-    const params = new URLSearchParams({
-      action: "updateCells",
-      sheetName: SHEET_NAME,
-      rowIndex: entry._rowIndex.toString(),
-      cellUpdates: JSON.stringify(cellUpdates),
-    });
-
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
-    });
-
-    const responseText = await response.text();
-    let result;
-
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      console.error("Failed to parse script response:", responseText);
-      throw new Error("Received an invalid response from the server. Please check the script logs.");
-    }
-
-    if (!result.success) {
-      console.error("Script returned an error:", result);
-      throw new Error(result.message || result.error || "The script reported an unspecified failure.");
-    }
-
-    return result;
+    if (updateError) throw updateError;
+    return { success: true };
   };
 
   const handleSubmitSelected = async () => {
     const selectedIds = Object.keys(selectedEntries).filter(id => selectedEntries[id]);
-    
+
     if (selectedIds.length === 0) {
       toast.error("No entries selected", {
         description: "Please select at least one entry to submit.",
@@ -402,7 +342,7 @@ export default function TallyEntry() {
 
     for (const entry of entriesToProcess) {
       try {
-        await updateSheetWithTimestamp(entry);
+        await updateSupabase(entry);
         successCount++;
       } catch (error) {
         console.error(`Failed to update PO ${entry.poNumber}:`, error);
@@ -535,218 +475,267 @@ export default function TallyEntry() {
   const allSelected = pendingEntries.length > 0 && pendingEntries.every(entry => selectedEntries[entry._id]);
   const someSelected = Object.values(selectedEntries).some(v => v);
 
+  const renderTable = (entries, isHistory) => (
+    <div className="overflow-auto h-full rounded-md border">
+      <Table>
+        <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
+          <TableRow>
+            {visibleColumns.map((col) => (
+              <TableHead
+                key={col.dataKey}
+                className={col.dataKey === "selectAction" || col.dataKey === "paymentAction" ? "w-[120px] text-center" : ""}
+              >
+                {col.dataKey === "selectAction" ? (
+                  !isHistory ? (
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={handleSelectAll}
+                    />) : <span>#</span>
+                ) : (
+                  col.header
+                )}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {entries.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={visibleColumns.length} className="h-24 text-center text-muted-foreground">
+                No {isHistory ? "history" : "pending"} records found.
+              </TableCell>
+            </TableRow>
+          ) : (
+            entries.map((entry) => (
+              <TableRow key={entry._id} className="hover:bg-muted/50">
+                {visibleColumns.map((col) => (
+                  <TableCell key={col.dataKey} className="py-2.5 px-3 text-xs">
+                    {col.dataKey === "selectAction" ? (
+                      <div className="flex justify-center items-center">
+                        {!isHistory ? (
+                          <>
+                            {processingEntries[entry._id] ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                            ) : (
+                              <Checkbox
+                                checked={!!selectedEntries[entry._id]}
+                                onCheckedChange={(checked) => handleSelectEntry(entry._id, checked)}
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <div className="h-2 w-2 rounded-full bg-green-500" />
+                        )}
+                      </div>
+                    ) : col.dataKey === "paymentAction" ? (
+                      <div className="flex justify-center items-center">
+                        {entry.paymentLink && entry.paymentLink.trim() !== "" && entry.paymentLink !== "-" ? (
+                          <Button
+                            size="sm"
+                            className={`text-xs h-7 ${isHistory ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                            variant={isHistory ? "ghost" : "default"}
+                            onClick={() => {
+                              const link = entry.paymentLink.startsWith("http")
+                                ? entry.paymentLink
+                                : `https://${entry.paymentLink}`;
+                              window.open(link, "_blank");
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            {isHistory ? "View Link" : "Make Payment"}
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">No Link</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span title={typeof entry[col.dataKey] === "string" ? entry[col.dataKey] : ""}>
+                        {renderCellContent(entry[col.dataKey], { isLink: col.isLink, linkText: col.linkText })}
+                      </span>
+                    )}
+                  </TableCell>
+                ))}
+              </TableRow>
+            )))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 h-full flex flex-col bg-slate-50">
       <Card className="shadow-md border border-gray-200 flex-1 flex flex-col bg-white">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
             <Calculator className="h-6 w-6 text-purple-600" />
-            Purchase Order Payment Management 
+            Advance Payment Management
           </CardTitle>
           <CardDescription className="text-gray-500 mt-1 text-sm">
-            Manage payment entries for purchase orders with Planned 4 dates pending Actual 4 updates.
+            Manage advance payments for purchase orders (Stage 5).
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
               <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>
             )}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 flex-1 flex flex-col">
-          <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
-            <div className="flex items-center gap-2 mb-3">
-              <Filter className="h-4 w-4 text-gray-500" />
-              <Label className="text-sm font-medium">Filters</Label>
-              <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-                Clear All
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div>
-                <Label className="text-xs mb-1 block">Vendor Name</Label>
-                <SearchableSelect
-                  value={filters.vendorName}
-                  onValueChange={(value) => handleFilterChange("vendorName", value)}
-                  options={["all", ...getUniqueValues("vendorName")]}
-                  placeholder="Vendors"
-                  className="h-9"
-                />
-              </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+            <TabsList className="grid w-[400px] grid-cols-2 mb-4">
+              <TabsTrigger value="pending" className="flex items-center gap-2">
+                <FileClock className="h-4 w-4" />
+                Pending Payments
+                <Badge variant="secondary" className="ml-1 text-xs">{pendingEntries.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="history" className="flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Payment History
+                <Badge variant="outline" className="ml-1 text-xs">{historyEntries.length}</Badge>
+              </TabsTrigger>
+            </TabsList>
 
-              <div>
-                <Label className="text-xs mb-1 block">Material Name</Label>
-                <SearchableSelect
-                  value={filters.rawMaterialName}
-                  onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
-                  options={["all", ...getUniqueValues("rawMaterialName")]}
-                  placeholder="Materials"
-                  className="h-9"
-                />
+            <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <Label className="text-sm font-medium">Filters</Label>
+                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+                  Clear All
+                </Button>
               </div>
-
-              <div>
-                <Label className="text-xs mb-1 block">Type Of Indent</Label>
-                <SearchableSelect
-                  value={filters.typeOfIndent}
-                  onValueChange={(value) => handleFilterChange("typeOfIndent", value)}
-                  options={["all", ...getUniqueValues("typeOfIndent")]}
-                  placeholder="Types"
-                  className="h-9"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs mb-1 block">Approved Quantity</Label>
-                <SearchableSelect
-                  value={filters.approvedQty}
-                  onValueChange={(value) => handleFilterChange("approvedQty", value)}
-                  options={["all", ...getUniqueValues("approvedQty")]}
-                  placeholder="Quantities"
-                  className="h-9"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs mb-1 block">Delivery Order No</Label>
-                <SearchableSelect
-                  value={filters.deliveryOrderNo}
-                  onValueChange={(value) => handleFilterChange("deliveryOrderNo", value)}
-                  options={["all", ...getUniqueValues("deliveryOrderNo")]}
-                  placeholder="Orders"
-                  className="h-9"
-                />
-              </div>
-            </div>
-          </div>
-
-          <Card className="shadow-none border flex-1 flex flex-col">
-            <CardHeader className="py-3 px-4 border-b">
-              <div className="flex justify-between items-center">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div>
-                  <CardTitle className="flex items-center text-base">
-                    Pending Payment Entries ({pendingEntries.length})
-                  </CardTitle>
-                  <CardDescription className="mt-1 text-xs">
-                    Entries with Planned 4 date but no Actual 4 date.
-                  </CardDescription>
+                  <Label className="text-xs mb-1 block">Vendor Name</Label>
+                  <SearchableSelect
+                    value={filters.vendorName}
+                    onValueChange={(value) => handleFilterChange("vendorName", value)}
+                    options={["all", ...getUniqueValues("vendorName")]}
+                    placeholder="Vendors"
+                    className="h-9"
+                  />
                 </div>
-                <div className="flex gap-2">
-                  {someSelected && (
-                    <Button 
-                      onClick={handleSubmitSelected}
-                      disabled={Object.values(processingEntries).some(v => v)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {Object.values(processingEntries).some(v => v) ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Submit Selected ({Object.values(selectedEntries).filter(v => v).length})
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  <ColumnVisibilityToggle />
+
+                <div>
+                  <Label className="text-xs mb-1 block">Material Name</Label>
+                  <SearchableSelect
+                    value={filters.rawMaterialName}
+                    onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
+                    options={["all", ...getUniqueValues("rawMaterialName")]}
+                    placeholder="Materials"
+                    className="h-9"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs mb-1 block">Type Of Indent</Label>
+                  <SearchableSelect
+                    value={filters.typeOfIndent}
+                    onValueChange={(value) => handleFilterChange("typeOfIndent", value)}
+                    options={["all", ...getUniqueValues("typeOfIndent")]}
+                    placeholder="Types"
+                    className="h-9"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs mb-1 block">Approved Quantity</Label>
+                  <SearchableSelect
+                    value={filters.approvedQty}
+                    onValueChange={(value) => handleFilterChange("approvedQty", value)}
+                    options={["all", ...getUniqueValues("approvedQty")]}
+                    placeholder="Quantities"
+                    className="h-9"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs mb-1 block">Delivery Order No</Label>
+                  <SearchableSelect
+                    value={filters.deliveryOrderNo}
+                    onValueChange={(value) => handleFilterChange("deliveryOrderNo", value)}
+                    options={["all", ...getUniqueValues("deliveryOrderNo")]}
+                    placeholder="Orders"
+                    className="h-9"
+                  />
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="p-0 flex-1 overflow-hidden">
-              {loading && pendingEntries.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center gap-2">
-                  <Loader2 className="h-6 w-6 animate-spin text-purple-600" /> Loading...
-                </div>
-              ) : error && pendingEntries.length === 0 ? (
-                <div className="m-4 p-6 flex flex-1 flex-col items-center justify-center text-center bg-destructive/10 border border-dashed border-destructive rounded-lg">
-                  <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
-                  <p className="font-semibold text-destructive">Error Loading Data</p>
-                  <p className="text-sm text-muted-foreground max-w-md mt-1">{error}</p>
-                </div>
-              ) : pendingEntries.length === 0 ? (
-                <div className="m-4 p-6 flex flex-1 flex-col items-center justify-center text-center bg-secondary/50 border border-dashed rounded-lg">
-                  <Info className="h-10 w-10 text-purple-600 mb-3" />
-                  <p className="font-semibold">No Payment Pending Entries</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    No entries require payment updates.
-                    {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                      <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
-                    )}
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-auto h-full">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
-                      <TableRow>
-                        {visibleColumns.map((col) => (
-                          <TableHead 
-                            key={col.dataKey} 
-                            className={col.dataKey === "selectAction" || col.dataKey === "paymentAction" ? "w-[120px] text-center" : ""}
-                          >
-                            {col.dataKey === "selectAction" ? (
-                              <Checkbox
-                                checked={allSelected}
-                                onCheckedChange={handleSelectAll}
-                              />
-                            ) : (
-                              col.header
-                            )}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pendingEntries.map((entry) => (
-                        <TableRow key={entry._id} className="hover:bg-muted/50">
-                          {visibleColumns.map((col) => (
-                            <TableCell key={col.dataKey} className="py-2.5 px-3 text-xs">
-                              {col.dataKey === "selectAction" ? (
-                                <div className="flex justify-center items-center">
-                                  {processingEntries[entry._id] ? (
-                                    <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-                                  ) : (
-                                    <Checkbox
-                                      checked={!!selectedEntries[entry._id]}
-                                      onCheckedChange={(checked) => handleSelectEntry(entry._id, checked)}
-                                    />
-                                  )}
-                                </div>
-                              ) : col.dataKey === "paymentAction" ? (
-                                <div className="flex justify-center items-center">
-                                  {entry.paymentLink && entry.paymentLink.trim() !== "" && entry.paymentLink !== "-" ? (
-                                    <Button
-                                      size="sm"
-                                      className="bg-green-600 hover:bg-green-700 text-white text-xs h-8"
-                                      onClick={() => {
-                                        const link = entry.paymentLink.startsWith("http") 
-                                          ? entry.paymentLink 
-                                          : `https://${entry.paymentLink}`;
-                                        window.open(link, "_blank");
-                                      }}
-                                    >
-                                      <ExternalLink className="h-3 w-3 mr-1" />
-                                      Make Payment
-                                    </Button>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">No Link</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span title={typeof entry[col.dataKey] === "string" ? entry[col.dataKey] : ""}>
-                                  {renderCellContent(entry[col.dataKey], { isLink: col.isLink, linkText: col.linkText })}
-                                </span>
-                              )}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+
+
+            <TabsContent value="pending" className="flex-1 flex flex-col mt-0 h-full">
+              <Card className="shadow-none border flex-1 flex flex-col h-full bg-white">
+                <CardHeader className="py-3 px-4 border-b">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="flex items-center text-base">
+                        Pending Entries ({pendingEntries.length})
+                      </CardTitle>
+                      <CardDescription className="mt-1 text-xs">
+                        POs waiting for Payment (Planned5 set, Actual5 empty)
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      {someSelected && (
+                        <Button
+                          onClick={handleSubmitSelected}
+                          disabled={Object.values(processingEntries).some(v => v)}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {Object.values(processingEntries).some(v => v) ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Submit Selected ({Object.values(selectedEntries).filter(v => v).length})
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      <ColumnVisibilityToggle />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 flex-1 overflow-hidden h-full">
+                  {loading && pendingEntries.length === 0 ? (
+                    <div className="flex h-40 items-center justify-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-purple-600" /> Loading...
+                    </div>
+                  ) : (
+                    renderTable(pendingEntries, false)
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="history" className="flex-1 flex flex-col mt-0 h-full">
+              <Card className="shadow-none border flex-1 flex flex-col h-full bg-white">
+                <CardHeader className="py-3 px-4 border-b">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="flex items-center text-base">
+                        Payment History ({historyEntries.length})
+                      </CardTitle>
+                      <CardDescription className="mt-1 text-xs">
+                        Completed payments (Planned5 and Actual5 set)
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <ColumnVisibilityToggle />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 flex-1 overflow-hidden h-full">
+                  {loading && historyEntries.length === 0 ? (
+                    <div className="flex h-40 items-center justify-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-purple-600" /> Loading...
+                    </div>
+                  ) : (
+                    renderTable(historyEntries, true)
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
