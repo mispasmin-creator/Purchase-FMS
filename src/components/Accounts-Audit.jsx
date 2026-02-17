@@ -3,6 +3,53 @@ import { RefreshCw, Save, X, Edit2, Filter, CheckCircle, AlertCircle } from 'luc
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
 
+// Define all columns based on schemas provided
+const COLUMN_DEFINITIONS = [
+  { key: 'timestamp', label: 'Timestamp' },
+  { key: 'liftId', label: 'Lift ID' },
+  { key: 'indentNumber', label: 'Indent Number' },
+  { key: 'firmName', label: 'Firm Name' },
+  { key: 'partyName', label: 'Party Name' },
+  { key: 'productName', label: 'Product Name' },
+  { key: 'transporterName', label: 'Transporter Name' },
+  { key: 'status', label: 'Status' },
+  { key: 'remarks', label: 'Remarks' },
+  { key: 'planned2', label: 'Planned Date' },
+
+  // Extended Columns from Mismatch Schema
+  { key: 'liftNumber', label: 'Lift Number' },
+  { key: 'type', label: 'Type' },
+  { key: 'billNo', label: 'Bill No.' },
+  { key: 'qty', label: 'Qty' },
+  { key: 'areaLifting', label: 'Area Lifting' },
+  { key: 'truckNo', label: 'Truck No.' },
+  { key: 'rateType', label: 'Rate Type' },
+  { key: 'rate', label: 'Rate' },
+  { key: 'truckQty', label: 'Truck Qty' },
+  { key: 'biltyNo', label: 'Bilty No.' },
+  { key: 'qtyDiffStatus', label: 'Qty Diff Status' },
+  { key: 'diffQty', label: 'Diff Qty' },
+  { key: 'totalFreight', label: 'Total Freight' },
+  { key: 'rateDifference', label: 'Rate Diff' },
+  { key: 'aluminaDifference', label: 'Alumina Diff' },
+  { key: 'ironDifference', label: 'Iron Diff' },
+  { key: 'quantityDifference', label: 'Qty Diff' },
+
+  // Columns from LIFT-ACCOUNTS (that might be in Mismatch or relevant)
+  { key: 'vendorName', label: 'Vendor Name' },
+  { key: 'rawMaterialName', label: 'Raw Material Name' },
+  { key: 'physicalCondition', label: 'Physical Condition' },
+  { key: 'moisture', label: 'Moisture' },
+  { key: 'dateOfReceiving', label: 'Date Of Receiving' },
+
+  // Image Links (display as text/link)
+  { key: 'billImage', label: 'Bill Image' },
+  { key: 'biltyImage', label: 'Bilty Image' },
+  { key: 'weightSlip', label: 'Weight Slip' },
+
+  { key: 'actions', label: 'Actions' }
+];
+
 const AccountsAudit = () => {
   const [auditData, setAuditData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,35 +58,15 @@ const AccountsAudit = () => {
   const [formData, setFormData] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submittedRows, setSubmittedRows] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState({
-    timestamp: true,
-    liftId: true,
-    indentNumber: true,
-    firmName: true,
-    partyName: true,
-    productName: true,
-    transporterName: true,
-    status: true,
-    remarks: true,
-    planned2: true,
-    actions: true
-  });
+
+  // Initialize with all columns visible by default
+  const [visibleColumns, setVisibleColumns] = useState(() =>
+    COLUMN_DEFINITIONS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {})
+  );
+
   const [showColumnFilter, setShowColumnFilter] = useState(false);
 
-  // Column definitions
-  const columns = [
-    { key: 'timestamp', label: 'Timestamp' },
-    { key: 'liftId', label: 'Lift ID' },
-    { key: 'indentNumber', label: 'Indent Number' },
-    { key: 'firmName', label: 'Firm Name' },
-    { key: 'partyName', label: 'Party Name' },
-    { key: 'productName', label: 'Product Name' },
-    { key: 'transporterName', label: 'Transporter Name' },
-    { key: 'status', label: 'Status' },
-    { key: 'remarks', label: 'Remarks' },
-    { key: 'planned2', label: 'Planned Date' },
-    { key: 'actions', label: 'Actions' }
-  ];
+  const columns = COLUMN_DEFINITIONS;
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -87,7 +114,8 @@ const AccountsAudit = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      // 1. Fetch Mismatch Data (Pending Items)
+      const { data: mismatchData, error: fetchError } = await supabase
         .from("Mismatch")
         .select("*")
         .not("Planned2", "is", null)
@@ -96,20 +124,107 @@ const AccountsAudit = () => {
 
       if (fetchError) throw fetchError;
 
-      const formattedData = (data || []).map((row, index) => ({
-        id: row.id || index,
-        timestamp: row.Timestamp || '',
-        liftId: row["Lift ID"] || '',
-        indentNumber: row["Indent Number"] || '',
-        firmName: row["Firm Name"] || '',
-        partyName: row["Party Name"] || '',
-        productName: row["Product Name"] || '',
-        transporterName: row["Transporter Name"] || '',
-        status: row.Status || '',
-        remarks: row.Remarks || '',
-        planned2: row.Planned2 || '',
-        remark: row.Remark || ''
-      }));
+      if (!mismatchData || mismatchData.length === 0) {
+        setAuditData([]);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Fetch LIFT-ACCOUNTS Data (Manual Join)
+      // Extract Lift IDs to query LIFT-ACCOUNTS (Robust extraction)
+      const liftIds = [...new Set(mismatchData
+        .map(item => {
+          const val = item["Lift ID"] || item["Lift Number"];
+          return val ? String(val).trim() : null;
+        })
+        .filter(id => id))]; // Remove null/empty
+
+      let liftAccountsMap = {};
+
+      if (liftIds.length > 0) {
+        // Fetch matching records
+        const { data: liftData, error: liftError } = await supabase
+          .from("LIFT-ACCOUNTS")
+          .select("*")
+          .in("Lift No", liftIds);
+
+        if (liftError) {
+          console.error("Error fetching LIFT-ACCOUNTS:", liftError);
+          // We continue, just without extra data
+        } else {
+          // Create lookup map: Lift No -> Record (normalized key)
+          (liftData || []).forEach(record => {
+            const key = record["Lift No"] ? String(record["Lift No"]).trim() : null;
+            if (key) {
+              liftAccountsMap[key] = record;
+            }
+          });
+        }
+      }
+
+      // 3. Merge Data
+      const formattedData = mismatchData.map((row, index) => {
+        // Find match using normalized key
+        const rawLiftId = row["Lift ID"] || row["Lift Number"];
+        const liftId = rawLiftId ? String(rawLiftId).trim() : '';
+        const liftRecord = liftAccountsMap[liftId] || {}; // Linked record or empty
+
+        return {
+          id: row.id || index,
+
+          // --- Mismatch Table Columns ---
+          timestamp: row.Timestamp || '',
+          liftId: liftId || '',
+          indentNumber: row["Indent Number"] || '',
+          firmName: row["Firm Name"] || '',
+          partyName: row["Party Name"] || '',
+          productName: row["Product Name"] || '',
+          transporterName: row["Transporter Name"] || '',
+          status: row.Status || '',
+          remarks: row.Remarks || '',
+          planned2: row.Planned2 || '',
+          remark: row.Remark || '',
+
+          // Mismatch specific extended
+          liftNumber: row["Lift Number"] || '',
+          type: row["Type"] || '',
+          billNo: row["Bill No."] || '',
+          qty: row["Qty"] || '',
+          areaLifting: row["Area Lifting"] || '',
+          truckNo: row["Truck No."] || '',
+          rateType: row["Type Of Rate"] || '',
+          rate: row["Rate"] || '',
+          truckQty: row["Truck Qty"] || '',
+          biltyNo: row["Bilty No."] || '',
+          qtyDiffStatus: row["Qty Diff Status"] || '',
+          diffQty: row["Diff Qty"] || '',
+          totalFreight: row["Total Freight"] || '',
+          rateDifference: row["Rate Difference"] || '',
+          aluminaDifference: row["Alumina Difference"] || '',
+          ironDifference: row["Iron Difference"] || '',
+          quantityDifference: row["Quantity Difference"] || '',
+
+          // --- LIFT-ACCOUNTS Table Columns (Merged) ---
+          // Use LIFT-ACCOUNTS value if Mismatch value is missing, or specifically requests it
+          vendorName: liftRecord["Vendor Name"] || '',
+          rawMaterialName: liftRecord["Raw Material Name"] || '',
+          physicalCondition: liftRecord["Physical Condition"] || '',
+          moisture: liftRecord["Moisture"] || '',
+          dateOfReceiving: liftRecord["Date Of Receiving"] || '',
+          driverNo: liftRecord["Driver No."] || '', // Specific to LIFT-ACCOUNTS
+          leadTime: liftRecord["Lead Time To Reach Factory (days)"] || '',
+
+          // Image Links (Prioritize LIFT-ACCOUNTS if richer)
+          billImage: row["Bill Image"] || liftRecord["Bill Image"] || '',
+          biltyImage: row["Bilty Image"] || liftRecord["Bilty Image"] || '',
+          weightSlip: row["Weight Slip"] || liftRecord["Image Of Weight Slip"] || '',
+          physicalImage: liftRecord["Physical Image Of Product"] || '',
+
+          // Fallbacks/Overlaps (e.g. if Mismatch has empty Truck No, check LIFT-ACCOUNTS)
+          truckNo: row["Truck No."] || liftRecord["Truck No."] || '',
+          transporterName: row["Transporter Name"] || liftRecord["Transporter Name"] || ''
+        };
+      });
 
       // Filter out submitted rows
       const filteredData = formattedData.filter(item => {
@@ -404,72 +519,30 @@ const AccountsAudit = () => {
                 ) : (
                   auditData.map((row, index) => (
                     <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      {visibleColumns.timestamp && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDate(row.timestamp)}
+                      {columns.filter(col => visibleColumns[col.key]).map(col => (
+                        <td key={`${row.id}-${col.key}`} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {col.key === 'actions' ? (
+                            <button
+                              onClick={() => {
+                                setEditingRow(row.id);
+                                initializeFormData();
+                              }}
+                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                            >
+                              <Edit2 className="w-4 h-4 mr-1" />
+                              Add Entry
+                            </button>
+                          ) : col.key.toLowerCase().includes('date') || col.key.toLowerCase().includes('timestamp') || col.key.toLowerCase().includes('planned') ? (
+                            formatDate(row[col.key])
+                          ) : col.key === 'remarks' ? (
+                            <div className="max-w-xs truncate" title={row.remarks}>
+                              {row.remarks || '-'}
+                            </div>
+                          ) : (
+                            row[col.key] || '-'
+                          )}
                         </td>
-                      )}
-                      {visibleColumns.liftId && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {row.liftId || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.indentNumber && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.indentNumber || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.firmName && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.firmName || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.partyName && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.partyName || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.productName && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.productName || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.transporterName && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.transporterName || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.status && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.status || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.remarks && (
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          <div className="max-w-xs truncate" title={row.remarks}>
-                            {row.remarks || '-'}
-                          </div>
-                        </td>
-                      )}
-                      {visibleColumns.planned2 && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDate(row.planned2)}
-                        </td>
-                      )}
-                      {visibleColumns.actions && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <button
-                            onClick={() => {
-                              setEditingRow(row.id);
-                              initializeFormData();
-                            }}
-                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
-                          >
-                            <Edit2 className="w-4 h-4 mr-1" />
-                            Add Entry
-                          </button>
-                        </td>
-                      )}
+                      ))}
                     </tr>
                   ))
                 )}

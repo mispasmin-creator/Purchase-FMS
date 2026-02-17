@@ -38,7 +38,7 @@ const RATE_MISMATCH_COLUMNS_META = [
   // Core mismatch fields
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
 
-  { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
+  { header: "Lift Number", dataKey: "liftIdDisplay", toggleable: true, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true },
   { header: "Material Rate (Lift)", dataKey: "materialRate", toggleable: true },
   { header: "PO Rate (Original)", dataKey: "poRate", toggleable: true },
@@ -57,7 +57,7 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Type", dataKey: "liftType", toggleable: true },
   { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
   { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
-  { header: "Rate", dataKey: "materialRate", toggleable: true },
+
   { header: "Truck Qty", dataKey: "truckQty", toggleable: true },
   { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
@@ -92,7 +92,7 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Approval Status", dataKey: "poApprovalStatus", toggleable: true },
   { header: "Remarks (PO)", dataKey: "poRemarks", toggleable: true },
   { header: "Have To Make PO", dataKey: "poHaveToMake", toggleable: true },
-  { header: "Rate (PO)", dataKey: "poRate", toggleable: true },
+
   { header: "Lead Time (days)", dataKey: "poLeadTime", toggleable: true },
   { header: "Total Quantity (PO)", dataKey: "poTotalQuantity", toggleable: true },
   { header: "Total Amount", dataKey: "poTotalAmount", toggleable: true },
@@ -125,9 +125,7 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
 
   // Additional LIFT-ACCOUNTS columns
   { header: "Date", dataKey: "timestamp", toggleable: true },
-  { header: "Firm Name", dataKey: "firmName", toggleable: true },
-  { header: "Party Name", dataKey: "vendorName", toggleable: true },
-  { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
+
   { header: "Qty", dataKey: "quantity", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
@@ -176,27 +174,25 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
 ];
 
-// Material Properties Mismatch Columns Meta - ALL LIFT-ACCOUNTS + INDENT-PO + TL columns
 const MATERIAL_MISMATCH_COLUMNS_META = [
   // Core mismatch fields
+  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
   { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
-  { header: "Raw Material", dataKey: "rawMaterial", toggleable: true },
-  { header: "Firm Name", dataKey: "firmName", toggleable: true },
-  { header: "TL Alumina %", dataKey: "tlAlumina", toggleable: true },
-  { header: "Lift Alumina %", dataKey: "liftAlumina", toggleable: true },
-  { header: "Alumina Diff", dataKey: "aluminaDiff", toggleable: true },
-  { header: "TL Iron %", dataKey: "tlIron", toggleable: true },
-  { header: "Lift Iron %", dataKey: "liftIron", toggleable: true },
-  { header: "Iron Diff", dataKey: "ironDiff", toggleable: true },
-  { header: "TL AP", dataKey: "tlAP", toggleable: true },
-  { header: "Lift AP", dataKey: "liftAP", toggleable: true },
-  { header: "AP Diff", dataKey: "apDiff", toggleable: true },
-
-  // Additional LIFT-ACCOUNTS columns
-  { header: "Date", dataKey: "timestamp", toggleable: true },
+  { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
+
+  { header: "PO Alumina %", dataKey: "poAluminaPercent", toggleable: true },
+  { header: "Lab Alumina %", dataKey: "liftAlumina", toggleable: true },
+  { header: "Alumina Diff", dataKey: "aluminaDiff", toggleable: true },
+  { header: "PO Iron %", dataKey: "poIronPercent", toggleable: true },
+  { header: "Lab Iron %", dataKey: "liftIron", toggleable: true },
+  { header: "Iron Diff", dataKey: "ironDiff", toggleable: true },
+
+  // Additional LIFT-ACCOUNTS columns
+  { header: "Date", dataKey: "timestamp", toggleable: true },
+
   { header: "Qty", dataKey: "quantity", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
@@ -204,42 +200,18 @@ const MATERIAL_MISMATCH_COLUMNS_META = [
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
   { header: "Type", dataKey: "liftType", toggleable: true },
   { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
-  { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
   { header: "Rate", dataKey: "materialRate", toggleable: true },
-  { header: "Truck Qty", dataKey: "truckQty", toggleable: true },
   { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
-  { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
-  { header: "Total Freight", dataKey: "totalFreight", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
 
   // INDENT-PO columns
   { header: "PO Timestamp", dataKey: "poTimestamp", toggleable: true },
-  { header: "Generated By", dataKey: "poGeneratedBy", toggleable: true },
-  { header: "Vendor (PO)", dataKey: "poVendor", toggleable: true },
-  { header: "Quantity (PO)", dataKey: "poQuantity", toggleable: true },
-  { header: "Current Stock", dataKey: "poCurrentStock", toggleable: true },
-  { header: "Priority", dataKey: "poPriority", toggleable: true },
-  { header: "Delivery Order No.", dataKey: "poDeliveryOrderNo", toggleable: true },
-  { header: "Notes (PO)", dataKey: "poNotes", toggleable: true },
   { header: "Approved Qty", dataKey: "poApprovedQty", toggleable: true },
-  { header: "Approval Status", dataKey: "poApprovalStatus", toggleable: true },
   { header: "Rate (PO)", dataKey: "poRate", toggleable: true },
-  { header: "Lead Time (days)", dataKey: "poLeadTime", toggleable: true },
   { header: "Total Quantity (PO)", dataKey: "poTotalQuantity", toggleable: true },
-  { header: "Total Amount", dataKey: "poTotalAmount", toggleable: true },
-  { header: "Alumina % (PO)", dataKey: "poAluminaPercent", toggleable: true },
-  { header: "Iron % (PO)", dataKey: "poIronPercent", toggleable: true },
-  { header: "Total Lifted (PO)", dataKey: "poTotalLifted", toggleable: true },
-  { header: "Pending Qty (PO)", dataKey: "poPendingQty", toggleable: true },
-  { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
 
-  // TL columns
-  { header: "TL Raw Material", dataKey: "tlRawMaterial", toggleable: true },
-
-  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
 ];
 
 const HISTORY_COLUMNS_META = [
@@ -365,7 +337,7 @@ export default function MismatchAnalysis() {
       },
       materialMismatch: {
         title: "Material Properties Mismatch Details",
-        content: `Lift No: ${item.liftNo}\nRaw Material: ${item.rawMaterial}\nAlumina: TL ${item.tlAlumina}% vs Lift ${item.liftAlumina}% (Diff: ${item.aluminaDiff}%)\nIron: TL ${item.tlIron}% vs Lift ${item.liftIron}% (Diff: ${item.ironDiff}%)\nAP: TL ${item.tlAP} vs Lift ${item.liftAP} (Diff: ${item.apDiff})`
+        content: `Lift No: ${item.liftNo}\nRaw Material: ${item.rawMaterialName}\nAlumina: PO ${item.poAluminaPercent}% vs Lab ${item.liftAlumina}% (Diff: ${item.aluminaDiff}%)\nIron: PO ${item.poIronPercent}% vs Lab ${item.liftIron}% (Diff: ${item.ironDiff}%)`
       }
     };
 
@@ -411,88 +383,45 @@ export default function MismatchAnalysis() {
     });
   };
 
-  // Submit form data to Supabase Mismatch table
+  // Submit form data to Supabase Mismatch table (Update existing record)
   const submitFormData = async () => {
     if (!editingRow || !editingRowData) return;
-
-    const data = formData;
-
-    if (!data) {
-      toast.error('No form data to submit');
-      return;
-    }
 
     setSubmitting(true);
 
     try {
+      const recordId = editingRowData.id;
+      if (!recordId) throw new Error("Missing Record ID for update");
+
       const currentDate = new Date();
 
-      // Prepare data for Mismatch table according to schema
-      const mismatchData = {
-        "Timestamp": currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", ""),
-        "Lift ID": editingRowData.id || editingRowData.liftNo || "",
-        "Indent Number": editingRowData.indentNo || "",
-        "Firm Name": editingRowData.firmName || "",
-        "Party Name": editingRowData.vendorName || "",
-        "Product Name": editingRowData.material || editingRowData.rawMaterialName || "",
-        "Transporter Name": editingRowData.transporterName || "",
-        "Status": data.status || 'Credit Notes',
-        "Remarks": data.remarks || '',
-        "Planned": null,
-        "Actual": null,
-        "Planned2": null,
-        "Actual2": null,
-        "Planned3": null,
-        "Actual3": null,
-        "Planned4": null,
-        "Actual4": null,
-        "Planned5": null,
-        "Actual5": null,
-        "Planned6": null,
-        "Actual6": null,
-        "Remark": data.remarks || '',
-        "Lift Number": editingRowData.liftNo || "",
-        "Type": editingRowData.liftType || "",
-        "Bill No.": editingRowData.billNo || "",
-        "Qty": Number(editingRowData.quantity) || 0,
-        "Area Lifting": editingRowData.areaLifting || "",
-        "Truck No.": editingRowData.truckNo || "",
-        "Transporter": editingRowData.transporterName || "",
-        "Bill Image": editingRowData.billImageUrl || "",
-        "Bilty No.": editingRowData.biltyNo || "",
-        "Type Of Rate": editingRowData.typeOfTransportingRate || "",
-        "Rate": Number(editingRowData.materialRate) || 0,
-        "Truck Qty": Number(editingRowData.truckQty) || 0,
-        "Bilty Image": editingRowData.biltyImageUrl || "",
-        "Qty Diff Status": editingRowData.qtyDifferenceStatus || "",
-        "Diff Qty": Number(editingRowData.differenceQty) || 0,
-        "Weight Slip": editingRowData.weightSlipImageUrl || "",
-        "Total Freight": Number(editingRowData.totalFreight) || 0
+      // Prepare updates
+      const updates = {
+        "Status": formData.status || 'Credit Notes',
+        "Remarks": formData.remarks || '',
       };
 
-      // Insert into Supabase Mismatch table
-      const { data: insertedData, error: insertError } = await supabase
+      // Update the existing record in Mismatch table
+      const { error: updateError } = await supabase
         .from("Mismatch")
-        .insert([mismatchData])
-        .select();
+        .update(updates)
+        .eq('id', recordId);
 
-      if (insertError) throw insertError;
+      if (updateError) throw updateError;
 
-      // Mark as submitted
+      // Update UI state
       setSubmittedRows(prev => new Set([...prev, `mismatch_${editingRow}`]));
       setEditingRow(null);
       setEditingRowData(null);
+      setFormData({});
 
       const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
-      toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${editingRow}\nSubmitted at: ${actualDateTime}`);
+      toast.success(`✅ SUCCESS: Mismatch data corrected and resolved for: ${editingRow}\nUpdated at: ${actualDateTime}`);
 
-      // Refresh data
+      // Refresh data to reflect changes immediately
       setTimeout(() => {
-        fetchLiftAccountsData();
-        fetchPurchaseOrdersData();
-        fetchTLData();
         fetchMismatchSheetData();
-      }, 1000);
+      }, 500);
 
     } catch (error) {
       console.error('Submission error:', error);
@@ -859,104 +788,59 @@ export default function MismatchAnalysis() {
 
   }, [fetchLiftAccountsData, fetchPurchaseOrdersData, fetchTLData, fetchMismatchSheetData]);
 
-  // Calculate mismatch data (keeping existing calculations unchanged)
-  // Helper function to check if an indent number exists in Mismatch sheet
-  const isIndentSubmitted = (indentNo) => {
-    return mismatchSheetData.some(mismatchRow =>
-      mismatchRow.indentNo &&
-      indentNo &&
-      String(mismatchRow.indentNo).trim() === String(indentNo).trim()
-    );
-  };
+  // Calculate mismatch data (Hybrid: Differences from DB, Details from Source Tables)
+  const getHybridRow = useCallback((mismatchItem) => {
+    const lift = liftAccountsData.find(l =>
+      String(l.liftNo || "").trim() === String(mismatchItem["Lift Number"] || "").trim()
+    ) || {};
+
+    const po = purchaseOrdersData.find(p =>
+      String(p.indentNo || "").trim() === String(mismatchItem["Indent Number"] || "").trim()
+    ) || {};
+
+    return {
+      ...lift,
+      ...po,
+      // Map DB Mismatch columns to component props
+      id: mismatchItem.id,
+      liftIdDisplay: mismatchItem["Lift ID"],
+      // Core Identifiers
+      liftNo: mismatchItem["Lift Number"],
+      indentNo: mismatchItem["Indent Number"],
+
+      // Differences from Mismatch Table
+      rateDifference: mismatchItem["Rate Difference"],
+      qtyDifference: mismatchItem["Quantity Difference"],
+      qtyDifferenceStatus: mismatchItem["Qty Diff Status"],
+      differenceQty: mismatchItem["Diff Qty"],
+      aluminaDiff: mismatchItem["Alumina Difference"],
+      ironDiff: mismatchItem["Iron Difference"],
+
+      // Fallback/Priority for shared fields
+      vendorName: mismatchItem["Party Name"] || lift.vendorName || po.vendorName,
+      material: mismatchItem["Product Name"] || lift.material || po.materialName,
+      firmName: mismatchItem["Firm Name"] || lift.firmName || po.firmName,
+      timestamp: mismatchItem["Timestamp"]
+    };
+  }, [liftAccountsData, purchaseOrdersData]);
 
   const rateMismatchData = useMemo(() => {
-    return liftAccountsData
-      .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
-      .map((lift) => {
-        const liftMaterialRate = parseFloat(lift.materialRate) || 0;
-        const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
-        const poRate = parseFloat(correspondingPO?.poRate) || 0;
-
-        if (Math.abs(liftMaterialRate - poRate) >= 0.01 && liftMaterialRate > 0 && poRate > 0) {
-          return {
-            ...lift,
-            ...(correspondingPO || {}),
-            poRate: poRate.toFixed(2),
-            rateDifference: (liftMaterialRate - poRate).toFixed(2),
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-  }, [liftAccountsData, purchaseOrdersData, mismatchSheetData]);
+    return mismatchSheetData
+      .filter(item => Math.abs(parseFloat(item["Rate Difference"] || 0)) > 0.001 && item["Status"] === "Pending")
+      .map(getHybridRow);
+  }, [mismatchSheetData, getHybridRow]);
 
   const quantityMismatchData = useMemo(() => {
-    return liftAccountsData
-      .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
-      .map((lift) => {
-        const liftedQty = parseFloat(lift.liftedQty) || 0;
-        const actualQuantityY = parseFloat(lift.actualQuantityY) || 0;
-
-        const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
-
-        const rowData = {
-          ...lift,
-          ...(correspondingPO || {}),
-        };
-
-        if (Math.abs(liftedQty - actualQuantityY) >= 0.01 && liftedQty > 0 && actualQuantityY > 0) {
-          return {
-            ...rowData,
-            qtyDifference: (liftedQty - actualQuantityY).toFixed(2),
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-  }, [liftAccountsData, purchaseOrdersData, mismatchSheetData]);
+    return mismatchSheetData
+      .filter(item => (Math.abs(parseFloat(item["Quantity Difference"] || 0)) > 0.001 || Math.abs(parseFloat(item["Diff Qty"] || 0) !== 0) || item["Qty Diff Status"] === "Mismatch") && item["Status"] === "Pending")
+      .map(getHybridRow);
+  }, [mismatchSheetData, getHybridRow]);
 
   const materialMismatchData = useMemo(() => {
-    return liftAccountsData
-      .filter(lift => !isIndentSubmitted(lift.indentNo)) // Filter out submitted rows
-      .map((lift) => {
-        const correspondingTL = tlData.find(tl =>
-          tl.rawMaterial && lift.material &&
-          tl.rawMaterial.toLowerCase().trim() === lift.material.toLowerCase().trim()
-        );
-
-        if (!correspondingTL) return null;
-
-        const tlAlumina = parseFloat(correspondingTL.alumina) || 0;
-        const liftAlumina = parseFloat(lift.liftAlumina) || 0;
-        const tlIron = parseFloat(correspondingTL.iron) || 0;
-        const liftIron = parseFloat(lift.liftIron) || 0;
-        const tlAP = parseFloat(correspondingTL.ap) || 0;
-        const liftAP = parseFloat(lift.liftAP) || 0;
-
-        const aluminaMismatch = Math.abs(tlAlumina - liftAlumina) >= 0.01;
-        const ironMismatch = Math.abs(tlIron - liftIron) >= 0.01;
-        const apMismatch = Math.abs(tlAP - liftAP) >= 0.01;
-
-        if ((aluminaMismatch || ironMismatch || apMismatch) &&
-          (tlAlumina > 0 || liftAlumina > 0 || tlIron > 0 || liftIron > 0 || tlAP > 0 || liftAP > 0)) {
-          const correspondingPO = purchaseOrdersData.find(po => po.indentNo === lift.indentNo);
-          return {
-            ...lift,
-            ...(correspondingPO || {}),
-            rawMaterial: lift.material,
-            tlRawMaterial: correspondingTL.rawMaterial,
-            tlAlumina: tlAlumina.toFixed(2),
-            tlIron: tlIron.toFixed(2),
-            tlAP: tlAP.toFixed(2),
-            aluminaDiff: (liftAlumina - tlAlumina).toFixed(2),
-            ironDiff: (liftIron - tlIron).toFixed(2),
-            apDiff: (liftAP - tlAP).toFixed(2),
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-  }, [liftAccountsData, tlData, purchaseOrdersData, mismatchSheetData]);
+    return mismatchSheetData
+      .filter(item => (Math.abs(parseFloat(item["Alumina Difference"] || 0)) > 0.001 || Math.abs(parseFloat(item["Iron Difference"] || 0)) > 0.001) && item["Status"] === "Pending")
+      .map(getHybridRow);
+  }, [mismatchSheetData, getHybridRow]);
   // Filter options (keeping existing logic unchanged)
   const uniqueFilterOptions = useMemo(() => {
     const vendors = new Set();
@@ -1111,6 +995,7 @@ export default function MismatchAnalysis() {
         >
           <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
         </a>
+        
       ) : (
         <span className="text-gray-400 text-xs">N/A</span>
       );
@@ -1279,7 +1164,7 @@ export default function MismatchAnalysis() {
                       {visibleCols.map((column) => (
                         <TableCell
                           key={`${item.id || item.liftNo}-${column.dataKey}`}
-                          className={`text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "liftNo"
+                          className={`text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "liftNo" || column.dataKey === "liftIdDisplay"
                             ? "font-medium text-primary"
                             : column.dataKey === "actions"
                               ? "w-[150px]"
@@ -1434,7 +1319,7 @@ export default function MismatchAnalysis() {
                 {renderTableSection(
                   "materialMismatch",
                   "Material Properties Mismatches",
-                  "Material properties (Alumina, Iron, AP) that don't match between TL sheet and LIFT-ACCOUNTS sheet for the same raw material.",
+                  "Alumina % and Iron % mismatches between INDENT-PO (PO) and LIFT-ACCOUNTS (Lab/Lift) for the same material.",
                   filteredMaterialMismatchData,
                   MATERIAL_MISMATCH_COLUMNS_META,
                   visibleMaterialMismatchColumns

@@ -377,49 +377,34 @@ export default function LabTesting() {
   };
 
 
-  // Fetch INDENT-PO Data
+  // Fetch INDENT-PO Data from Supabase
   useEffect(() => {
     const fetchIndentData = async () => {
       try {
-        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INDENT_SHEET_NAME)}&t=${new Date().getTime()}`
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`)
+        const { data, error } = await supabase
+          .from("INDENT-PO")
+          .select('"Indent Id.", "Total Quantity", Quantity, "Alumina %", "Iron %"');
 
-        const responseText = await response.text()
-        const dataTable = parseGvizResponse(responseText, INDENT_SHEET_NAME)
+        if (error) throw error;
 
-        const processedData = dataTable.rows.map((row) => {
-          const getStringValue = (colIndex) =>
-            row.c?.[colIndex]?.v !== null && row.c?.[colIndex]?.v !== undefined
-              ? String(row.c[colIndex].v)
-              : ""
+        const processedData = data.map((row) => ({
+          indentNo: row["Indent Id."] ? String(row["Indent Id."]) : "",
+          poQuantity: row["Total Quantity"] ? String(row["Total Quantity"]) : String(row["Quantity"] || ""),
+          expectedAlumina: row["Alumina %"] ? String(row["Alumina %"]) : "",
+          expectedIron: row["Iron %"] ? String(row["Iron %"]) : "",
+        })).filter(item => item.indentNo && item.indentNo.trim() !== "");
 
-          const indentItem = {
-            indentNo: getStringValue(INDENT_NO_COL_INDENT),
-            poQuantity: getStringValue(TOTAL_QUANTITY_COL_INDENT),
-            expectedAlumina: getStringValue(ALUMINA_COL_INDENT),
-            expectedIron: getStringValue(IRON_COL_INDENT),
-          }
+        console.log("Total INDENT-PO records loaded from Supabase:", processedData.length);
 
-          // Debug log for RL-007
-          if (indentItem.indentNo && indentItem.indentNo.trim().toLowerCase() === "rl-007") {
-            console.log("Found RL-007 in INDENT-PO:", indentItem)
-          }
-
-          return indentItem
-        }).filter(item => item.indentNo && item.indentNo.trim() !== "")
-
-        console.log("Total INDENT-PO records loaded:", processedData.length)
-        console.log("Sample INDENT-PO records:", processedData.slice(0, 5))
-
-        setIndentData(processedData)
+        setIndentData(processedData);
       } catch (err) {
-        console.error("Failed to load INDENT-PO data:", err.message)
+        console.error("Failed to load INDENT-PO data from Supabase:", err.message);
+        toast.error("Failed to load Indent Data", { description: err.message });
       }
-    }
+    };
 
-    fetchIndentData()
-  }, [refreshTrigger])
+    fetchIndentData();
+  }, [refreshTrigger]);
 
 
   // Initialize column visibility
@@ -844,7 +829,14 @@ export default function LabTesting() {
     setIsSubmitting(true);
 
     try {
-      const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", ""); // Indian format for Supabase timestamp
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
       // Prepare update data for Supabase LIFT-ACCOUNTS - using actual schema column names
       const updateData = {

@@ -213,10 +213,12 @@ export default function ReceiptCheck() {
   const [formData, setFormData] = useState({
     liftId: "",
     dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+    liftId: "",
+    dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
     totalBillQuantity: "",
     actualQuantity: "",
-    weightSlipQty: "", // New field
     qtyDifference: "0.00",
+
     physicalCondition: "Good",
     moisture: "",
     physicalImageFile: null,
@@ -430,14 +432,16 @@ export default function ReceiptCheck() {
     setFormErrors({});
     const initialTotal = parseFloat(lift.totalBillQuantity_fromSheet || lift.qty) || 0;
     const initialActual = parseFloat(lift.actualQuantity_fromSheet || lift.qty) || 0;
-    const initialWeightSlip = parseFloat(lift.weightSlipQty_fromSheet || lift.qty) || 0;
+
     setFormData({
+      liftId: lift.id,
+      dateOfReceiving: lift.dateOfReceiving_fromSheet || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       liftId: lift.id,
       dateOfReceiving: lift.dateOfReceiving_fromSheet || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       totalBillQuantity: initialTotal.toString(),
       actualQuantity: initialActual.toString(),
-      weightSlipQty: initialWeightSlip.toString(), // New field
       qtyDifference: (initialTotal - initialActual).toFixed(2),
+
       physicalCondition: lift.physicalCondition_fromSheet || "Good",
       moisture: lift.moisture_fromSheet || "",
       physicalImageFile: null,
@@ -451,11 +455,14 @@ export default function ReceiptCheck() {
   const validateForm = () => {
     const newErrors = {};
     if (!formData.dateOfReceiving) newErrors.dateOfReceiving = "Date of Receiving is required.";
-    if (!formData.totalBillQuantity || isNaN(parseFloat(formData.totalBillQuantity))) newErrors.totalBillQuantity = "Total Bill Quantity must be a number.";
-    if (!formData.actualQuantity || isNaN(parseFloat(formData.actualQuantity))) newErrors.actualQuantity = "Actual Quantity must be a number.";
-    if (!formData.weightSlipQty || isNaN(parseFloat(formData.weightSlipQty))) newErrors.weightSlipQty = "Weight Slip Qty must be a number.";
-    if (!formData.physicalCondition) newErrors.physicalCondition = "Physical Condition is required.";
-    if (!formData.moisture || isNaN(parseFloat(formData.moisture))) newErrors.moisture = "Moisture must be a number.";
+
+    // Mandatory Image Fields
+    if (!formData.physicalImageUrl && !formData.physicalImageFile) {
+      newErrors.physicalImageFile = "Physical Image is required.";
+    }
+    if (!formData.weightSlipImageUrl && !formData.weightSlipFile) {
+      newErrors.weightSlipFile = "Weight Slip Image is required.";
+    }
 
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -493,7 +500,16 @@ export default function ReceiptCheck() {
         weightSlipImageUrl = await uploadFileToSupabase(formData.weightSlipFile, 'receipt-weight-slip');
       }
 
-      const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", ""); // Indian format for Supabase timestamp
+      const now = new Date();
+      // Format as YYYY-MM-DD HH:mm:ss (IST)
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
+      const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
       // Prepare update data for Supabase LIFT-ACCOUNTS
       const updateData = {
@@ -502,10 +518,10 @@ export default function ReceiptCheck() {
         "Total Bill Quantity": parseFloat(formData.totalBillQuantity) || null,
         "Actual Quantity": parseFloat(formData.actualQuantity) || null,
         "Physical Condition": formData.physicalCondition,
-        "Moisture": parseFloat(formData.moisture) || null,
+        "Moisture": formData.moisture || null,
         "Physical Image Of Product": physicalImageUrl || null,
         "Image Of Weight Slip": weightSlipImageUrl || null,
-        "Weight Slip Qty": parseFloat(formData.weightSlipQty) || null,
+
       };
 
       console.log("Updating LIFT-ACCOUNTS record:", selectedLift._dbId, updateData);
@@ -539,10 +555,12 @@ export default function ReceiptCheck() {
     setFormData({
       liftId: "",
       dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+      liftId: "",
+      dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       totalBillQuantity: "",
       actualQuantity: "",
-      weightSlipQty: "", // New field
       qtyDifference: "0.00",
+
       physicalCondition: "Good",
       moisture: "",
       physicalImageFile: null,
@@ -836,95 +854,79 @@ export default function ReceiptCheck() {
             </div>
             <div>
               <Label htmlFor="totalBillQuantity" className="block text-sm font-medium text-gray-700">
-                Total Bill Quantity <span className="text-red-500">*</span>
+                Total Bill Quantity
               </Label>
               <Input
-                type="text"
-                step="any"
+                type="number"
+                step="0.01"
                 id="totalBillQuantity"
                 name="totalBillQuantity"
                 value={formData.totalBillQuantity}
                 onChange={handleInputChange}
-                placeholder="e.g. 15.00"
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${formErrors.totalBillQuantity ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
               />
-              {formErrors.totalBillQuantity && <p className="text-red-500 text-xs mt-1">{formErrors.totalBillQuantity}</p>}
             </div>
             <div>
               <Label htmlFor="actualQuantity" className="block text-sm font-medium text-gray-700">
-                Actual Quantity Received<span className="text-red-500">*</span>
+                Actual Quantity
               </Label>
               <Input
-                type="text"
-                step="any"
+                type="number"
+                step="0.01"
                 id="actualQuantity"
                 name="actualQuantity"
                 value={formData.actualQuantity}
                 onChange={handleInputChange}
-                placeholder="e.g. 14.80"
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${formErrors.actualQuantity ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
               />
-              {formErrors.actualQuantity && <p className="text-red-500 text-xs mt-1">{formErrors.actualQuantity}</p>}
             </div>
+
             <div>
-              <Label htmlFor="weightSlipQty" className="block text-sm font-medium text-gray-700">
-                Weight Slip Qty<span className="text-red-500">*</span>
+              <Label htmlFor="qtyDifference" className="block text-sm font-medium text-gray-700">
+                Difference
               </Label>
               <Input
                 type="text"
-                step="any"
-                id="weightSlipQty"
-                name="weightSlipQty"
-                value={formData.weightSlipQty}
-                onChange={handleInputChange}
-                placeholder="e.g. 15.00"
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${formErrors.weightSlipQty ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                id="qtyDifference"
+                name="qtyDifference"
+                value={formData.qtyDifference}
+                readOnly
+                className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm sm:text-sm"
               />
-              {formErrors.weightSlipQty && <p className="text-red-500 text-xs mt-1">{formErrors.weightSlipQty}</p>}
-            </div>
-            <div>
-              <Label htmlFor="qtyDifference" className="block text-sm font-medium text-gray-700">
-                Quantity Difference
-              </Label>
-              <Input type="text" id="qtyDifference" name="qtyDifference" value={formData.qtyDifference} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm text-gray-700" />
             </div>
             <div>
               <Label htmlFor="physicalCondition" className="block text-sm font-medium text-gray-700">
-                Physical Condition<span className="text-red-500">*</span>
+                Physical Condition
               </Label>
               <Select value={formData.physicalCondition} onValueChange={(value) => handleFormSelectChange("physicalCondition", value)}>
                 <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.physicalCondition ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
                   <SelectValue placeholder="Select condition" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Excellent">Excellent</SelectItem>
                   <SelectItem value="Good">Good</SelectItem>
-                  <SelectItem value="Average">Average</SelectItem>
-                  <SelectItem value="Poor">Poor</SelectItem>
-                  <SelectItem value="Damaged">Damaged</SelectItem>
+                  <SelectItem value="Bad">Bad</SelectItem>
                 </SelectContent>
               </Select>
               {formErrors.physicalCondition && <p className="text-red-500 text-xs mt-1">{formErrors.physicalCondition}</p>}
             </div>
             <div>
               <Label htmlFor="moisture" className="block text-sm font-medium text-gray-700">
-                Moisture (%)<span className="text-red-500">*</span>
+                Moisture
               </Label>
-              <Input
-                type="text"
-                step="any"
-                id="moisture"
-                name="moisture"
-                value={formData.moisture}
-                onChange={handleInputChange}
-                placeholder="e.g. 2.5"
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${formErrors.moisture ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
-              />
+              <Select value={formData.moisture} onValueChange={(value) => handleFormSelectChange("moisture", value)}>
+                <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.moisture ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Yes">Yes</SelectItem>
+                  <SelectItem value="No">No</SelectItem>
+                </SelectContent>
+              </Select>
               {formErrors.moisture && <p className="text-red-500 text-xs mt-1">{formErrors.moisture}</p>}
             </div>
             <div className="md:col-span-1">
               <Label htmlFor="physicalImageFile" className="block text-sm font-medium text-gray-700">
-                Physical Image
+                Physical Image <span className="text-red-500">*</span>
               </Label>
               <Input
                 type="file"
@@ -932,7 +934,7 @@ export default function ReceiptCheck() {
                 name="physicalImageFile"
                 onChange={handleInputChange}
                 accept="image/*,.pdf"
-                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 ${formErrors.physicalImageFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
               />
               {formData.physicalImageFile && <p className="text-xs text-gray-500 mt-1">Selected: {formData.physicalImageFile.name}</p>}
               {formData.physicalImageUrl && !formData.physicalImageFile && (
@@ -940,10 +942,11 @@ export default function ReceiptCheck() {
                   Existing: <a href={formData.physicalImageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View</a>
                 </p>
               )}
+              {formErrors.physicalImageFile && <p className="text-red-500 text-xs mt-1">{formErrors.physicalImageFile}</p>}
             </div>
             <div className="md:col-span-1">
               <Label htmlFor="weightSlipFile" className="block text-sm font-medium text-gray-700">
-                Weight Slip Image
+                Weight Slip Image <span className="text-red-500">*</span>
               </Label>
               <Input
                 type="file"
@@ -951,7 +954,7 @@ export default function ReceiptCheck() {
                 name="weightSlipFile"
                 onChange={handleInputChange}
                 accept="image/*,.pdf"
-                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 ${formErrors.weightSlipFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
               />
               {formData.weightSlipFile && <p className="text-xs text-gray-500 mt-1">Selected: {formData.weightSlipFile.name}</p>}
               {formData.weightSlipImageUrl && !formData.weightSlipFile && (
@@ -959,30 +962,12 @@ export default function ReceiptCheck() {
                   Existing: <a href={formData.weightSlipImageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View</a>
                 </p>
               )}
+              {formErrors.weightSlipFile && <p className="text-red-500 text-xs mt-1">{formErrors.weightSlipFile}</p>}
             </div>
           </div>
 
-          {/* Quantity Comparison Warning */}
-          {(formData.totalBillQuantity || formData.actualQuantity || formData.weightSlipQty) && (
-            <div className="mt-4 p-3 rounded-lg border-l-4 border-l-amber-400 bg-amber-50">
-              <div className="flex">
-                {/* <div className="flex-shrink-0">
-                  <AlertTriangle className="h-5 w-5 text-amber-400" />
-                </div> */}
-                {/* <div className="ml-3">
-                  <h3 className="text-sm font-medium text-amber-800">
-                    Quantity Comparison
-                  </h3>
-                  <div className="mt-2 text-sm text-amber-700">
-                    <p>Bill Qty: {formData.totalBillQuantity || "0"} | Actual Qty: {formData.actualQuantity || "0"} | Weight Slip Qty: {formData.weightSlipQty || "0"}</p>
-                    {!checkQuantitiesMatch(formData.totalBillQuantity, formData.actualQuantity, formData.weightSlipQty) && (
-                      <p className="mt-1 font-medium text-red-600">⚠️ Warning: Quantities do not match!</p>
-                    )}
-                  </div>
-                </div> */}
-              </div>
-            </div>
-          )}
+
+          {/* Quantity Comparison Warning Removed */}
 
           <div className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
             <Button

@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
+import { AuthContext } from '../context/AuthContext';
 
 const CallTrackerPage = () => {
+  const { user } = useContext(AuthContext);
   const [accountsData, setAccountsData] = useState([]);
   const [auditMismatchData, setAuditMismatchData] = useState([]); // New state for Audit tab from Supabase
   const [tallyEntryMismatchData, setTallyEntryMismatchData] = useState([]); // New state for Tally Entry tab from Supabase
@@ -42,11 +44,8 @@ const CallTrackerPage = () => {
     truckQty: true,
     biltyImage: true,
     qtyDifferenceStatus: true,
-    differenceQty: true,
     weightSlip: true,
-    totalFreight: true,
     status: true,
-    remarks: true,
     actions: true
   });
   const [showColumnFilter, setShowColumnFilter] = useState(false);
@@ -319,7 +318,7 @@ const CallTrackerPage = () => {
       setSubmitting(true);
       try {
         const currentDate = new Date();
-        const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
         // Update the Actual2 column in Supabase Mismatch table
         const { data: updateData, error: updateError } = await supabase
@@ -338,7 +337,7 @@ const CallTrackerPage = () => {
         setSubmittedRows(prev => new Set([...prev, `AUDIT_${editingRow}`]));
         setEditingRow(null);
 
-        const formattedDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${auditRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
         // Refresh data
@@ -364,7 +363,7 @@ const CallTrackerPage = () => {
       setSubmitting(true);
       try {
         const currentDate = new Date();
-        const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
         // Update the Actual4, Status4, and Remarks4 columns in Supabase Mismatch table
         const { data: updateData, error: updateError } = await supabase
@@ -383,7 +382,7 @@ const CallTrackerPage = () => {
         setSubmittedRows(prev => new Set([...prev, `TALLY_ENTRY_${editingRow}`]));
         setEditingRow(null);
 
-        const formattedDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${tallyEntryRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
         // Refresh data
@@ -409,7 +408,7 @@ const CallTrackerPage = () => {
       setSubmitting(true);
       try {
         const currentDate = new Date();
-        const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
         // Update the Actual6, Status6, and Remarks6 columns in Supabase Mismatch table
         const { data: updateData, error: updateError } = await supabase
@@ -428,7 +427,7 @@ const CallTrackerPage = () => {
         setSubmittedRows(prev => new Set([...prev, `BILL_ENTRY_${editingRow}`]));
         setEditingRow(null);
 
-        const formattedDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${billEntryRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
         // Refresh data
@@ -454,7 +453,7 @@ const CallTrackerPage = () => {
       setSubmitting(true);
       try {
         const currentDate = new Date();
-        const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
         // Update the Actual3, Status3, and Remarks3 columns in Supabase Mismatch table
         const { data: updateData, error: updateError } = await supabase
@@ -473,7 +472,7 @@ const CallTrackerPage = () => {
         setSubmittedRows(prev => new Set([...prev, `RECTIFY_${editingRow}`]));
         setEditingRow(null);
 
-        const formattedDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${rectifyRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
         // Refresh data
@@ -499,7 +498,7 @@ const CallTrackerPage = () => {
       setSubmitting(true);
       try {
         const currentDate = new Date();
-        const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
         // Update the Actual5, Status5, and Remarks5 columns in Supabase Mismatch table
         const { data: updateData, error: updateError } = await supabase
@@ -518,7 +517,7 @@ const CallTrackerPage = () => {
         setSubmittedRows(prev => new Set([...prev, `RE_AUDIT_${editingRow}`]));
         setEditingRow(null);
 
-        const formattedDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${reAuditRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
         // Refresh data
@@ -544,7 +543,7 @@ const CallTrackerPage = () => {
       setSubmitting(true);
       try {
         const currentDate = new Date();
-        const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
         // Determine which columns to update based on the row's currentStage
         let updateColumns = {};
@@ -608,7 +607,7 @@ const CallTrackerPage = () => {
         setSubmittedRows(prev => new Set([...prev, `ALL_${editingRow}`]));
         setEditingRow(null);
 
-        const formattedDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+        const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${allRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
         // Refresh ALL data and all individual stage tabs for complete sync
@@ -917,6 +916,15 @@ const CallTrackerPage = () => {
 
       setAuditMismatchData(filteredData);
 
+      // Filter by Firm Name
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+        const userFirmNameLower = user.firmName.toLowerCase();
+        filteredData = filteredData.filter(
+          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
+        );
+      }
+      setAuditMismatchData(filteredData);
+
     } catch (err) {
       console.error('Error fetching audit data from Supabase:', err);
       // Don't set error state here, just log it
@@ -983,6 +991,13 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
+      // Filter by Firm Name
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+        const userFirmNameLower = user.firmName.toLowerCase();
+        filteredData = filteredData.filter(
+          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
+        );
+      }
       setTallyEntryMismatchData(filteredData);
 
     } catch (err) {
@@ -1051,6 +1066,13 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
+      // Filter by Firm Name
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+        const userFirmNameLower = user.firmName.toLowerCase();
+        filteredData = filteredData.filter(
+          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
+        );
+      }
       setBillEntryMismatchData(filteredData);
 
     } catch (err) {
@@ -1119,6 +1141,13 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
+      // Filter by Firm Name
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+        const userFirmNameLower = user.firmName.toLowerCase();
+        filteredData = filteredData.filter(
+          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
+        );
+      }
       setRectifyMismatchData(filteredData);
 
     } catch (err) {
@@ -1187,6 +1216,13 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
+      // Filter by Firm Name
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+        const userFirmNameLower = user.firmName.toLowerCase();
+        filteredData = filteredData.filter(
+          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
+        );
+      }
       setReAuditMismatchData(filteredData);
 
     } catch (err) {
@@ -1273,6 +1309,13 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
+      // Filter by Firm Name
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+        const userFirmNameLower = user.firmName.toLowerCase();
+        filteredData = filteredData.filter(
+          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
+        );
+      }
       setAllMismatchData(filteredData);
 
     } catch (err) {
@@ -1291,7 +1334,7 @@ const CallTrackerPage = () => {
     fetchRectifyDataFromSupabase();
     fetchReAuditDataFromSupabase();
     fetchAllDataFromSupabase();
-  }, [submittedRows]);
+  }, [submittedRows, user]);
 
   const toggleColumnVisibility = (columnKey) => {
     setVisibleColumns(prev => ({
@@ -1552,11 +1595,8 @@ const CallTrackerPage = () => {
                               truckQty: 'Truck Qty',
                               biltyImage: 'Bilty Image',
                               qtyDifferenceStatus: 'Qty Diff Status',
-                              differenceQty: 'Diff Qty',
                               weightSlip: 'Weight Slip',
-                              totalFreight: 'Total Freight',
                               status: 'Status',
-                              remarks: 'Remarks',
                               actions: 'Actions'
                             }).map(([key, label]) => (
                               <label key={key} className="flex items-center space-x-2 text-sm py-1 hover:bg-gray-50 px-2 rounded cursor-pointer">
@@ -1681,11 +1721,8 @@ const CallTrackerPage = () => {
                   {visibleColumns.truckQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck Qty</th>}
                   {visibleColumns.biltyImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty Image</th>}
                   {visibleColumns.qtyDifferenceStatus && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Diff Status</th>}
-                  {visibleColumns.differenceQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diff Qty</th>}
                   {visibleColumns.weightSlip && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight Slip</th>}
-                  {visibleColumns.totalFreight && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Freight</th>}
                   {visibleColumns.status && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>}
-                  {visibleColumns.remarks && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -1751,11 +1788,8 @@ const CallTrackerPage = () => {
                         {visibleColumns.truckQty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.truckQty || '-'}</td>}
                         {visibleColumns.biltyImage && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.biltyImage ? (<a href={row.biltyImage} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
                         {visibleColumns.qtyDifferenceStatus && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qtyDifferenceStatus || '-'}</td>}
-                        {visibleColumns.differenceQty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.differenceQty || '-'}</td>}
                         {visibleColumns.weightSlip && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.weightSlip ? (<a href={row.weightSlip} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
-                        {visibleColumns.totalFreight && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.totalFreight || '-'}</td>}
                         {visibleColumns.status && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.status || '-'}</td>}
-                        {visibleColumns.remarks && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.remarks || '-'}</td>}
                       </tr>
                     );
                   })

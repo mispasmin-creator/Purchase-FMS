@@ -261,11 +261,14 @@ export default function Dashboard() {
           actualAK: row["Actual4"], // Tally
           actualAP: row["Actual5"], // ReAudit
           actualAU: row["Actual6"], // Bill Entry
+          firmName: row["Firm Name"] || row["firmName"], // Add Firm Name for filtering
         }))
         .filter((a) => a && a.rlNo)
 
       // Apply firm filtering
-      if (!allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+      // Firm filtering removed as per user request (Dashboard shows all data)
+      /*
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase()
         processedIndentPoData = processedIndentPoData.filter(
           (po) => po.firmName && String(po.firmName).toLowerCase() === userFirmNameLower
@@ -273,12 +276,11 @@ export default function Dashboard() {
         processedLiftAccountData = processedLiftAccountData.filter(
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower
         )
-        // Mismatch table might not have Firm Name? 
-        // It has 'partyName'? 
-        // If Mismatch table doesn't have Firm Name, we can't filter it accurately without join.
-        // Assuming we skip filtering ACCOUNTS for now or it's not critical for pending counts view?
-        // Or we can filter if we find the column.
+        processedAccountsData = processedAccountsData.filter(
+          (acc) => acc.firmName && String(acc.firmName).toLowerCase().trim() === userFirmNameLower
+        )
       }
+      */
 
       setAllPurchaseData(processedIndentPoData)
       setAllLiftAccountData(processedLiftAccountData)

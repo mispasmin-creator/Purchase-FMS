@@ -309,7 +309,11 @@ export default function TallyEntry() {
       throw new Error("Cannot update: Entry database ID is missing.");
     }
 
-    const timestamp = checked ? new Date().toLocaleString("en-GB", { hour12: false }).replace(",", "") : null;
+    let timestamp = null;
+    if (checked) {
+      const now = new Date();
+      timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    }
 
     const { error: updateError } = await supabase
       .from("INDENT-PO")

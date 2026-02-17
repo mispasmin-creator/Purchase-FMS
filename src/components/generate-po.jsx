@@ -365,11 +365,10 @@ const GeneratePurchaseOrder = () => {
           advanceToBePaid: row["Advance To Be Paid"],
           toBePaidAmount: row["To Be Paid Amount"],
           whenToBePaid: row["When To Be Paid Amount"],
+          status5: row["Status5"],
         };
 
-        const advanceToBePaidFlag = (rowData.advanceToBePaid || "").toLowerCase();
-        const isPaid = (advanceToBePaidFlag === 'yes' && rowData.toBePaidAmount !== "" && rowData.toBePaidAmount !== null && rowData.whenToBePaid !== "" && rowData.whenToBePaid !== null);
-        rowData.paymentStatus = isPaid ? "Paid" : "Pending";
+        rowData.paymentStatus = row["Status5"];
 
         return rowData;
       });
@@ -433,6 +432,7 @@ const GeneratePurchaseOrder = () => {
         poFile: file,
       });
       toast.info("File Selected", { description: file.name });
+      setPoErrors(prev => ({ ...prev, poFile: null }));
     }
   };
 
@@ -473,7 +473,16 @@ const GeneratePurchaseOrder = () => {
         throw new Error("Selected indent details are missing for update.");
       }
 
-      const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", "");
+      const now = new Date();
+      // Format as YYYY-MM-DD HH:mm:ss (IST)
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
+      const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
       const updates = {
         "Actual2": timestamp,
@@ -493,6 +502,7 @@ const GeneratePurchaseOrder = () => {
         if (dataToSubmit.advanceToBePaid === "yes") {
           updates["To Be Paid Amount"] = parseFloat(dataToSubmit.toBePaidAmount);
           updates["When To Be Paid Amount"] = dataToSubmit.whenToBePaid;
+          updates["Status5"] = "Pending";
         } else {
           updates["To Be Paid Amount"] = null;
           updates["When To Be Paid Amount"] = null;
@@ -674,15 +684,16 @@ const GeneratePurchaseOrder = () => {
   const validatePoForm = () => {
     const newErrors = {};
     if (haveToPO === "yes") {
-      if (!formData.vendorName.trim()) newErrors.vendorName = "Vendor name is required."; // Add this line
-      if (!formData.rate || parseFloat(formData.rate) <= 0) newErrors.rate = "Rate must be a positive number.";
-      if (!formData.leadTimeToLift || parseInt(formData.leadTimeToLift) <= 0) newErrors.leadTimeToLift = "Lead Time must be a positive number.";
-      if (!formData.totalQty || parseFloat(formData.totalQty) <= 0) newErrors.totalQty = "Total Quantity must be a positive number.";
-      if (!formData.alumina || parseFloat(formData.alumina) < 0) newErrors.alumina = "Alumina % is required and must be non-negative.";
-      if (!formData.iron || parseFloat(formData.iron) < 0) newErrors.iron = "Iron % is required and must be non-negative.";
+      if (!formData.vendorName.trim()) newErrors.vendorName = "Vendor name is required.";
+      if (!formData.rate || isNaN(parseFloat(formData.rate)) || parseFloat(formData.rate) <= 0) newErrors.rate = "Rate must be a positive number.";
+      if (!formData.leadTimeToLift || isNaN(parseInt(formData.leadTimeToLift)) || parseInt(formData.leadTimeToLift) <= 0) newErrors.leadTimeToLift = "Lead Time must be a positive number.";
+      if (!formData.totalQty || isNaN(parseFloat(formData.totalQty)) || parseFloat(formData.totalQty) <= 0) newErrors.totalQty = "Total Quantity must be a positive number.";
+      if (!formData.alumina || isNaN(parseFloat(formData.alumina)) || parseFloat(formData.alumina) < 0) newErrors.alumina = "Alumina % is required and must be non-negative.";
+      if (!formData.iron || isNaN(parseFloat(formData.iron)) || parseFloat(formData.iron) < 0) newErrors.iron = "Iron % is required and must be non-negative.";
       if (!formData.advanceToBePaid) newErrors.advanceToBePaid = "Advance option is required.";
+      if (!formData.poFile) newErrors.poFile = "PO Copy is required.";
       if (formData.advanceToBePaid === "yes") {
-        if (!formData.toBePaidAmount || parseFloat(formData.toBePaidAmount) <= 0) newErrors.toBePaidAmount = "Advance amount must be a positive number.";
+        if (!formData.toBePaidAmount || isNaN(parseFloat(formData.toBePaidAmount)) || parseFloat(formData.toBePaidAmount) <= 0) newErrors.toBePaidAmount = "Advance amount must be a positive number.";
         if (!formData.whenToBePaid) newErrors.whenToBePaid = "Payment date is required.";
       }
     }
@@ -839,23 +850,19 @@ const GeneratePurchaseOrder = () => {
       const displayValue = (value === null || value === undefined || value === "") ? <span className="text-gray-400 text-xs">N/A</span> : value;
 
       if (tabKey === "advancePayment" && column.dataKey === "paymentStatus") {
-        const isPaymentComplete = item.paymentStatus === "Paid";
+        const status = (item.paymentStatus || "").toLowerCase();
+        let badgeClass = "bg-gray-100 text-gray-700 border-gray-200"; // Default
+
+        if (status === "paid") {
+          badgeClass = "bg-green-100 text-green-700 border-green-200";
+        } else if (status === "pending") {
+          badgeClass = "bg-yellow-100 text-yellow-700 border-yellow-200";
+        }
+
         return (
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className={`px-2 py-0.5 text-xs ${isPaymentComplete ? "bg-green-100 text-green-700 border-green-200" : "bg-yellow-100 text-yellow-700 border-yellow-200"}`}>
-              {isPaymentComplete ? "Paid" : "Pending"}
-            </Badge>
-            {!isPaymentComplete && (
-              <Button
-                onClick={() => handlePaymentSelect(item)}
-                size="sm"
-                variant="outline"
-                className="h-7 px-2.5 py-1 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200"
-              >
-                Record Payment
-              </Button>
-            )}
-          </div>
+          <Badge variant="outline" className={`px-2 py-0.5 text-xs ${badgeClass}`}>
+            {item.paymentStatus || "N/A"}
+          </Badge>
         );
       }
 
@@ -991,7 +998,7 @@ const GeneratePurchaseOrder = () => {
                 </TableHeader>
                 <TableBody>
                   {data.map((item) => (
-                    <TableRow key={item._id} className="hover:bg-purple-50/50">
+                    <TableRow key={item.id || item.indentId} className="hover:bg-purple-50/50">
                       {visibleCols.map((column) => (
                         <TableCell
                           key={column.dataKey}
@@ -1263,8 +1270,8 @@ const GeneratePurchaseOrder = () => {
                     {poErrors.iron && <p className="text-red-500 text-xs mt-1">{poErrors.iron}</p>}
                   </div>
                   <div className="md:col-span-1">
-                    <Label htmlFor="poFile" className="block text-sm font-medium text-gray-700">Upload PO Copy</Label>
-                    <div className="relative flex items-center justify-center h-10 border border-dashed border-purple-200 rounded-md bg-purple-50 cursor-pointer hover:bg-purple-100 mt-1">
+                    <Label htmlFor="poFile" className="block text-sm font-medium text-gray-700">Upload PO Copy <span className="text-red-500">*</span></Label>
+                    <div className={`relative flex items-center justify-center h-10 border border-dashed rounded-md bg-purple-50 cursor-pointer hover:bg-purple-100 mt-1 ${poErrors.poFile ? "border-red-500" : "border-purple-200"}`}>
                       <Input
                         type="file"
                         id="poFile"
@@ -1278,6 +1285,7 @@ const GeneratePurchaseOrder = () => {
                         {formData.poFile ? formData.poFile.name : "Upload PO Copy"}
                       </span>
                     </div>
+                    {poErrors.poFile && <p className="text-red-500 text-xs mt-1">{poErrors.poFile}</p>}
                   </div>
                   <div>
                     <Label htmlFor="advanceToBePaid" className="block text-sm font-medium text-gray-700">Advance To Be Paid? <span className="text-red-500">*</span></Label>

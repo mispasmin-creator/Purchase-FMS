@@ -8,7 +8,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function VendorPaymentPage() {
   const { user } = useAuth();
-  
+
   // A user has access to all firms ONLY if their firmName is literally 'all'.
   const hasAllAccess = user?.firmName?.toLowerCase() === 'all';
 
@@ -18,7 +18,7 @@ export default function VendorPaymentPage() {
     "rkl": "https://docs.google.com/spreadsheets/d/1QVEUJrh0R-8ibt_Md8wbCA3j0ZN2gBWN_wPdlfVqW08/edit?gid=0#gid=0",
     "purab": "https://docs.google.com/spreadsheets/d/1eMZCScHdVAn3gS2fsMYg7Tig7WVcp9duh5yiyx2Laqo/edit?gid=0#gid=0"
   };
-  
+
   // For display purposes, create a mapping from lowercase to original case.
   const firmDisplayNames = {
     "pmmpl": "PMMPl",

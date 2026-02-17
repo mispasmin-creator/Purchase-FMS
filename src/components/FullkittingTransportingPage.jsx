@@ -1,11 +1,10 @@
-// src/components/FullkittingTransportingPage.jsx
-"use client";
-
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { PackageSearch, PlusCircle, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { useAuth } from "../context/AuthContext";
+import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
+import { toast } from "sonner";
 
 // Shadcn UI components
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -20,10 +19,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 
 // --- Constants ---
-// Google Sheets constants removed
-// Supabase constants handled in fetch logic
-// Using LIFT-ACCOUNTS table with Planned 4 and Actual 4 columns
-
 const KITTING_COLUMNS_META = [
     { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
     { header: "Lift Number", dataKey: "liftNumber", toggleable: true, alwaysVisible: true },
@@ -37,6 +32,7 @@ const KITTING_COLUMNS_META = [
 
 export default function FullkittingTransportingPage() {
     const { user } = useAuth();
+    const { refreshCounts } = useNotification();
     const [kittingData, setKittingData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -89,6 +85,7 @@ export default function FullkittingTransportingPage() {
 
                 return {
                     id: `kitting-${row.id}`,
+                    originalId: row.id,
                     firmName: String(row["Firm Name"] || "").trim(),
                     liftNumber: String(row["Lift No"] || "").trim(),
                     partyName: String(row["Vendor Name"] || "").trim(),
@@ -97,6 +94,22 @@ export default function FullkittingTransportingPage() {
                     kittingLink: null,
                     isPending: !actual4,
                     isHistory: !!actual4,
+                    // Additional fields for Mismatch calculation
+                    indentNo: String(row["Indent no."] || "").trim(),
+                    qty: Number(row["Qty"]) || 0,
+                    rate: Number(row["Rate"]) || 0, // Lift Rate
+                    billNo: String(row["Bill No."] || "").trim(),
+                    areaLifting: String(row["Area lifting"] || "").trim(),
+                    truckNo: String(row["Truck No."] || "").trim(),
+                    billImage: String(row["Bill Image"] || "").trim(),
+                    biltyNo: String(row["Bilty No."] || "").trim(),
+                    typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
+                    truckQty: Number(row["Truck Qty"]) || 0,
+                    biltyImage: String(row["Bilty Image"] || "").trim(),
+                    weightSlip: String(row["Image Of Weight Slip"] || "").trim(),
+                    liftAlumina: Number(row["Alumina Percent Age %"]) || 0,
+                    liftIron: Number(row["Iron Percent Age %"]) || 0,
+                    liftType: String(row["Type"] || "").trim(),
                 };
             }).filter(Boolean);
 
@@ -145,7 +158,7 @@ export default function FullkittingTransportingPage() {
     const { pendingKitting, historyKitting } = useMemo(() => {
         let baseData = kittingData;
 
-        // **FIX:** Apply firm-based filter first
+        // Apply firm-based filter first
         if (!hasAllFirmAccess && user?.firmName) {
             const userFirmNameLower = user.firmName.toLowerCase();
             baseData = baseData.filter(
@@ -153,7 +166,7 @@ export default function FullkittingTransportingPage() {
             );
         }
 
-        // Apply general filters to the already firm-filtered data
+        // Apply general filters
         if (filters.partyName !== "all") {
             baseData = baseData.filter(item => item.partyName === filters.partyName);
         }
@@ -206,17 +219,182 @@ export default function FullkittingTransportingPage() {
         }
     };
 
+
+
+    const handleCreateKitting = async (item) => {
+        try {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+            // 1. Update LIFT-ACCOUNTS Actual 4 (First priority)
+            const { error: liftError } = await supabase
+                .from("LIFT-ACCOUNTS")
+                .update({ "Actual 4": timestamp })
+                .eq("id", item.originalId);
+
+            if (liftError) throw liftError;
+
+            // 2. Fetch PO Data to compare
+            let poData = null;
+            if (item.indentNo) {
+                const { data: poRows, error: poError } = await supabase
+                    .from("INDENT-PO")
+                    .select("*")
+                    .eq('"Indent Id."', item.indentNo)
+                    .single();
+
+                if (!poError && poRows) {
+                    poData = poRows;
+                }
+            }
+
+            // 3. Calculate Differences
+            let rateDiff = 0;
+            let qtyDiff = 0;
+            let aluminaDiff = 0;
+            let ironDiff = 0;
+
+            // PO Values
+            const poRate = poData ? (Number(poData["Rate"]) || 0) : 0;
+            const poQty = poData ? (Number(poData["Quantity"]) || 0) : 0;
+            const poAlumina = poData ? (Number(poData["Alumina %"]) || 0) : 0;
+            const poIron = poData ? (Number(poData["Iron %"]) || 0) : 0;
+
+            // Difference Calculations
+            if (poRate && item.rate) {
+                rateDiff = Number((poRate - item.rate).toFixed(2));
+            }
+            if (poQty && item.qty) {
+                qtyDiff = Number((item.qty - poQty).toFixed(2));
+            }
+            if (poAlumina && item.liftAlumina) {
+                aluminaDiff = Number((poAlumina - item.liftAlumina).toFixed(2));
+            }
+            if (poIron && item.liftIron) {
+                ironDiff = Number((poIron - item.liftIron).toFixed(2));
+            }
+
+            // 4. Always Insert into Mismatch Table (Unconditional)
+            const hasMismatch = Math.abs(Number(rateDiff) || 0) > 0.001 ||
+                Math.abs(Number(qtyDiff) || 0) > 0.001 ||
+                Math.abs(Number(aluminaDiff) || 0) > 0.001 ||
+                Math.abs(Number(ironDiff) || 0) > 0.001;
+            const statusValue = hasMismatch ? "Pending" : "Others";
+
+            const mismatchRecord = {
+                "Timestamp": timestamp,
+                "Lift ID": item.liftNumber,
+                "Indent Number": item.indentNo,
+                "Firm Name": item.firmName,
+                "Party Name": item.partyName,
+                "Product Name": item.productName,
+                "Transporter Name": item.transporterName,
+                "Status": statusValue,
+                "Remarks": "Auto-generated from Fullkitting",
+
+                // Core Fields
+                "Lift Number": item.liftNumber,
+                "Type": item.liftType,
+                "Bill No.": item.billNo,
+                "Qty": item.qty,
+                "Area Lifting": item.areaLifting,
+                "Truck No.": item.truckNo,
+                "Transporter": item.transporterName,
+                "Bill Image": item.billImage,
+                "Bilty No.": item.biltyNo,
+                "Type Of Rate": item.typeOfRate,
+                "Rate": item.rate,
+                "Truck Qty": item.truckQty,
+                "Bilty Image": item.biltyImage,
+                "Weight Slip": item.weightSlip,
+
+                // Calculated Differences
+                "Rate Difference": rateDiff,
+                "Alumina Difference": aluminaDiff,
+                "Iron Difference": ironDiff,
+                "Quantity Difference": qtyDiff,
+
+                "Diff Qty": qtyDiff,
+                "Qty Diff Status": Number(qtyDiff) !== 0 ? "Mismatch" : "Match",
+
+                // PO Reference Values (Excluded from DB insert)
+            };
+
+            let { error: mismatchError } = await supabase
+                .from("Mismatch")
+                .insert([mismatchRecord]);
+
+            if (mismatchError) {
+                console.warn("Full Mismatch insert failed, retrying with basic columns:", mismatchError);
+
+                // Fallback: Basic insert with known columns
+                const basicRecord = {
+                    "Timestamp": timestamp,
+                    "Lift ID": item.liftNumber,
+                    "Indent Number": item.indentNo,
+                    "Firm Name": item.firmName,
+                    "Party Name": item.partyName,
+                    "Product Name": item.productName,
+                    "Transporter Name": item.transporterName,
+                    "Status": statusValue,
+                    "Remarks": "Auto-generated from Fullkitting",
+                    "Lift Number": item.liftNumber,
+                    "Type": item.liftType,
+                    "Bill No.": item.billNo,
+                    "Qty": item.qty,
+                    "Area Lifting": item.areaLifting,
+                    "Truck No.": item.truckNo,
+                    "Transporter": item.transporterName,
+                    "Bill Image": item.billImage,
+                    "Bilty No.": item.biltyNo,
+                    "Type Of Rate": item.typeOfRate,
+                    "Rate": item.rate,
+                    "Truck Qty": item.truckQty,
+                    "Bilty Image": item.biltyImage,
+                    "Weight Slip": item.weightSlip
+                };
+
+                const { error: basicError } = await supabase
+                    .from("Mismatch")
+                    .insert([basicRecord]);
+
+                if (basicError) {
+                    console.error("Basic Mismatch insert failed:", basicError);
+                    toast.error(`Warning: Kitting saved but Mismatch registration failed: ${basicError.message}`);
+                } else {
+                    toast.success("Kitting created. Note: Mismatch details could not be saved due to missing database columns.");
+                }
+            } else {
+                toast.success("Kitting created and recorded in Mismatch table successfully.");
+            }
+
+            // Refresh data
+            fetchData();
+            refreshCounts(); // Refresh sidebar notification counts
+        } catch (err) {
+            console.error("Error creating kitting:", err);
+            setError(`Failed to create kitting: ${err.message}`);
+        }
+    };
+
     const renderCellContent = (item, column, tabKey) => {
         const value = item[column.dataKey];
         if (column.dataKey === 'actionColumn') {
-            const link = item.kittingLink;
             return (
-                <a href={link || '#'} target="_blank" rel="noopener noreferrer" className={!link ? 'pointer-events-none' : ''}>
-                    <Button size="xs" disabled={!link} className="h-7 px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold">
-                        <ExternalLink className="mr-1 h-3 w-3" />
-                        Create Kitting
-                    </Button>
-                </a>
+                <Button
+                    size="xs"
+                    className="h-7 px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+                    onClick={() => handleCreateKitting(item)}
+                >
+                    <ExternalLink className="mr-1 h-3 w-3" />
+                    Create Kitting
+                </Button>
             );
         }
         if (column.isLink) {

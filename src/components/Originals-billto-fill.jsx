@@ -303,12 +303,21 @@ export default function OriginalBillsFiledPage() {
       throw new Error("Cannot update: Entry database ID is missing.");
     }
 
-    const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", "");
+    // Format timestamp in YYYY-MM-DD HH:mm:ss format (IST)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
     const { error: updateError } = await supabase
       .from("INDENT-PO")
       .update({
-        "Actual5": timestamp
+        "Actual5": timestamp,
+        "Status5": "paid"
       })
       .eq('"Indent Id."', entry.dbIndentId);
 
@@ -327,7 +336,9 @@ export default function OriginalBillsFiledPage() {
       return;
     }
 
-    const entriesToProcess = pendingEntries.filter(entry => selectedIds.includes(entry._id));
+    const entriesToProcess = pendingEntries.filter(entry =>
+      selectedIds.includes(entry._id) || selectedIds.includes(String(entry._id))
+    );
 
     setProcessingEntries(prev => {
       const newState = { ...prev };

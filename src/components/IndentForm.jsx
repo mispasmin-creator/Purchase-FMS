@@ -24,6 +24,7 @@ export default function IndentForm() {
     notes: "",
     deliveryOrderNo: "",
     priority: "",
+    typeOfIndent: "",
   })
   const [errors, setErrors] = useState({})
   const [dropdownOptions, setDropdownOptions] = useState({
@@ -31,6 +32,7 @@ export default function IndentForm() {
     vendorName: [],
     firmName: [],
     rawMaterialName: [],
+    indentType: [],
   })
   const [isLoading, setIsLoading] = useState(true)
   const [lastRLNumberNumeric, setLastRLNumberNumeric] = useState(0)
@@ -75,8 +77,9 @@ export default function IndentForm() {
       let options = {
         generatedBy: masterData.generatedByOptions,
         vendorName: masterData.vendorOptions,
-        firmName: masterData.firmNameOptions, // Show ALL firms - no filtering
+        firmName: masterData.firmNameOptions,
         rawMaterialName: masterData.materialOptions,
+        indentType: masterData.indentTypeOptions,
       };
 
       setDropdownOptions(options)
@@ -145,6 +148,7 @@ export default function IndentForm() {
     }
 
     if (!formData.priority) newErrors.priority = "Priority is required."
+    if (!formData.typeOfIndent) newErrors.typeOfIndent = "Type Of Indent is required."
 
     setErrors(newErrors); // Update state for UI error messages
     return newErrors; // Return errors immediately for synchronous check
@@ -187,8 +191,16 @@ export default function IndentForm() {
       const paddedNumber = String(nextNumericPart).padStart(3, "0")
       const rlNumber = `RL-${paddedNumber}`
 
-      const now = new Date()
-      const timestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", "")
+      const now = new Date();
+      // Format as YYYY-MM-DD HH:mm:ss (IST)
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
+      const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
       const { error: insertError } = await supabase
         .from("INDENT-PO")
@@ -202,6 +214,7 @@ export default function IndentForm() {
           "Quantity": parseFloat(formData.quantity),
           "Current Stock As Per factory": parseFloat(formData.currentStock),
           "Priority": formData.priority,
+          "Type Of Indent": formData.typeOfIndent,
           "Delivery Order No.": formData.deliveryOrderNo,
           "Notes": formData.notes
         }])
@@ -225,6 +238,7 @@ export default function IndentForm() {
         notes: "",
         deliveryOrderNo: "",
         priority: "",
+        typeOfIndent: "",
       })
       setErrors({})
     } catch (error) {
@@ -400,6 +414,27 @@ export default function IndentForm() {
                   </SelectContent>
                 </Select>
                 {errors.priority && <p className="text-red-500 text-xs mt-1">{errors.priority}</p>}
+              </div>
+
+              <div>
+                <Label htmlFor="typeOfIndent">Type Of Indent</Label>
+                <Select
+                  name="typeOfIndent"
+                  value={formData.typeOfIndent}
+                  onValueChange={(value) => handleSelectChange("typeOfIndent", value)}
+                >
+                  <SelectTrigger className={`mt-1 ${errors.typeOfIndent ? "border-red-500" : ""}`}>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dropdownOptions.indentType.map((option, index) => (
+                      <SelectItem key={`type-${index}`} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.typeOfIndent && <p className="text-red-500 text-xs mt-1">{errors.typeOfIndent}</p>}
               </div>
 
               <div className="lg:col-span-2">

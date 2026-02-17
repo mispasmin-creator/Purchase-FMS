@@ -665,7 +665,9 @@ export default function LiftMaterial() {
 
   const validateForm = () => {
     const newErrors = {};
-    const requiredFields = [
+    const isCommon = formData.Type === "Common";
+
+    let requiredFields = [
       "billNo",
       "Arealifting",
       "Type",
@@ -678,6 +680,17 @@ export default function LiftMaterial() {
       "truckQty",
     ];
 
+    if (isCommon) {
+      requiredFields = [
+        "billNo",
+        "Arealifting",
+        "Type",
+        "liftingLeadTime",
+        "rate",
+        "truckQty",
+      ];
+    }
+
     requiredFields.forEach((field) => {
       let readableField = field.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
       if (field === "Arealifting") readableField = "Area Lifting";
@@ -689,25 +702,34 @@ export default function LiftMaterial() {
     });
 
     if (formData.rate && isNaN(parseFloat(formData.rate))) newErrors.rate = "Rate must be a valid number.";
-    if (!formData.billImage) {
-      newErrors.billImage = "Bill image is required.";
+
+    // Bill image and other specific validations only for non-Common types or if visible
+    if (!isCommon) {
+      if (!formData.billImage) {
+        newErrors.billImage = "Bill image is required.";
+      }
+      if (formData.transportRate && isNaN(parseFloat(formData.transportRate))) newErrors.transportRate = "Transport Rate must be a valid number.";
+      if (formData.truckQty && isNaN(parseFloat(formData.truckQty)))
+        newErrors.truckQty = "Truck Qty must be a valid number.";
+      if (formData.additionalTruckQty && isNaN(parseFloat(formData.additionalTruckQty))) {
+        newErrors.additionalTruckQty = "Truck Quantity must be a valid number.";
+      }
+
+      // Validate bilty fields if hasBilty is yes
+      if (formData.hasBilty === "yes" && !formData.biltyNo.trim()) {
+        newErrors.biltyNo = "Bilty number is required when has bilty is yes";
+      }
+    } else {
+      // Basic number validation for Common fields
+      if (formData.truckQty && isNaN(parseFloat(formData.truckQty)))
+        newErrors.truckQty = "Qty must be a valid number.";
     }
-    if (formData.transportRate && isNaN(parseFloat(formData.transportRate))) newErrors.transportRate = "Transport Rate must be a valid number.";
-    if (formData.truckQty && isNaN(parseFloat(formData.truckQty)))
-      newErrors.truckQty = "Truck Qty must be a valid number.";
+
     if (
       formData.liftingLeadTime &&
       (isNaN(parseInt(formData.liftingLeadTime)) || parseInt(formData.liftingLeadTime) < 0)
     )
       newErrors.liftingLeadTime = "Lead Time must be a non-negative number.";
-    if (formData.additionalTruckQty && isNaN(parseFloat(formData.additionalTruckQty))) {
-      newErrors.additionalTruckQty = "Truck Quantity must be a valid number.";
-    }
-
-    // Validate bilty fields if hasBilty is yes
-    if (formData.hasBilty === "yes" && !formData.biltyNo.trim()) {
-      newErrors.biltyNo = "Bilty number is required when has bilty is yes";
-    }
 
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -782,10 +804,22 @@ export default function LiftMaterial() {
     try {
       const liftId = await generateLiftId();
       const now = new Date();
-      const timestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", ""); // Indian format for Supabase timestamp
+      // Format as YYYY-MM-DD HH:mm:ss (IST)
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
+      const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
       // Upload bill image (if provided)
-      const billImageUrl = await uploadFileToSupabase(formData.billImage, 'lift-bills');
+      let billImageUrl = "";
+      if (formData.billImage) {
+        billImageUrl = await uploadFileToSupabase(formData.billImage, 'lift-bills');
+      }
+
       // Upload bilty image (if provided and hasBilty is yes)
       let biltyImageUrl = "";
       if (formData.hasBilty === "yes" && formData.biltyImage) {
@@ -1380,6 +1414,7 @@ export default function LiftMaterial() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
                   {[
+
                     { label: "Bill No.", name: "billNo", type: "text", isRequired: true },
                     {
                       label: "Type",
@@ -1433,7 +1468,15 @@ export default function LiftMaterial() {
                       step: "any",
                       isRequired: false,
                     },
-                  ].map((field) => {
+                  ].filter(field => {
+                    const isCommon = formData.Type === "Common";
+                    const commonFields = ["billNo", "Arealifting", "Type", "liftingLeadTime", "rate", "truckQty"];
+
+                    if (isCommon) {
+                      return commonFields.includes(field.name);
+                    }
+                    return true;
+                  }).map((field) => {
                     const placeholderLabel =
                       field.type === "select"
                         ? field.options.find((opt) => opt.value === "")?.label ||
@@ -1472,7 +1515,9 @@ export default function LiftMaterial() {
                             value={formData[field.name]}
                             onChange={handleInputChange}
                             step={field.step}
-                            className={`${formErrors[field.name] ? "border-red-500" : "border-gray-300"}`}
+                            readOnly={field.readOnly}
+                            disabled={field.readOnly}
+                            className={`${formErrors[field.name] ? "border-red-500" : "border-gray-300"} ${field.readOnly ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
                             placeholder={placeholderLabel}
                           />
                         )}
@@ -1484,25 +1529,27 @@ export default function LiftMaterial() {
                   })}
                 </div>
 
-                <div className="col-span-3">
-                  <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="hasBilty">
-                    Has Bilty? <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    name="hasBilty"
-                    value={formData.hasBilty}
-                    onValueChange={(value) => handleFormSelectChange("hasBilty", value)}
-                  >
-                    <SelectTrigger className={`w-full ${formErrors.hasBilty ? "border-red-500" : "border-gray-300"}`}>
-                      <SelectValue placeholder="Select option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="yes">Yes</SelectItem>
-                      <SelectItem value="no">No</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {formErrors.hasBilty && <p className="mt-1 text-xs text-red-600">{formErrors.hasBilty}</p>}
-                </div>
+                {formData.Type !== "Common" && (
+                  <div className="col-span-3">
+                    <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="hasBilty">
+                      Has Bilty? <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      name="hasBilty"
+                      value={formData.hasBilty}
+                      onValueChange={(value) => handleFormSelectChange("hasBilty", value)}
+                    >
+                      <SelectTrigger className={`w-full ${formErrors.hasBilty ? "border-red-500" : "border-gray-300"}`}>
+                        <SelectValue placeholder="Select option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {formErrors.hasBilty && <p className="mt-1 text-xs text-red-600">{formErrors.hasBilty}</p>}
+                  </div>
+                )}
 
                 {formData.hasBilty === "yes" && (
                   <>
@@ -1558,37 +1605,39 @@ export default function LiftMaterial() {
                   </>
                 )}
 
-                <div className="mt-5">
-                  <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="billImage">
-                    Upload Bill Image <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-purple-400 transition-colors">
-                    <div className="space-y-1 text-center">
-                      <Upload className="mx-auto h-10 w-10 text-gray-400" />
-                      <div className="flex text-sm text-gray-600 justify-center">
-                        <Label
-                          htmlFor="billImage"
-                          className="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 px-1"
-                        >
-                          <span>Upload a file</span>
-                          <Input
-                            id="billImage"
-                            name="billImage"
-                            type="file"
-                            className="sr-only"
-                            onChange={handleFileUpload}
-                            accept="image/*,.pdf"
-                          />
-                        </Label>
-                        <p className="pl-1">or drag and drop</p>
+                {formData.Type !== "Common" && (
+                  <div className="mt-5">
+                    <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="billImage">
+                      Upload Bill Image <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-purple-400 transition-colors">
+                      <div className="space-y-1 text-center">
+                        <Upload className="mx-auto h-10 w-10 text-gray-400" />
+                        <div className="flex text-sm text-gray-600 justify-center">
+                          <Label
+                            htmlFor="billImage"
+                            className="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 px-1"
+                          >
+                            <span>Upload a file</span>
+                            <Input
+                              id="billImage"
+                              name="billImage"
+                              type="file"
+                              className="sr-only"
+                              onChange={handleFileUpload}
+                              accept="image/*,.pdf"
+                            />
+                          </Label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {formData.billImage ? formData.billImage.name : "PNG, JPG, PDF up to 10MB"}
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-500">
-                        {formData.billImage ? formData.billImage.name : "PNG, JPG, PDF up to 10MB"}
-                      </p>
                     </div>
+                    {formErrors.billImage && <p className="mt-1 text-xs text-red-600">{formErrors.billImage}</p>}
                   </div>
-                  {formErrors.billImage && <p className="mt-1 text-xs text-red-600">{formErrors.billImage}</p>}
-                </div>
+                )}
 
                 <div className="pt-6 flex justify-end gap-4 border-t border-gray-200 mt-4">
                   <Button type="button" variant="outline" onClick={handleClosePopup}>

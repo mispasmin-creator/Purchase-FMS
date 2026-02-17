@@ -25,6 +25,7 @@ export function NotificationProvider({ children }) {
         "take-entry-tally": 0,
         bilty: 0,
         fullkitting: 0,
+        "debit-note": 0,
     });
     const [loadingNotifications, setLoadingNotifications] = useState(false);
 
@@ -318,17 +319,76 @@ export function NotificationProvider({ children }) {
     }
 
     async function getPendingFullkitting() {
-        // Placeholder based on existing App.jsx logic (which was likely missing or returning 0)
-        return 0;
+        try {
+            const { data, error } = await supabase
+                .from("LIFT-ACCOUNTS")
+                .select("*")
+                .not("Planned 4", "is", null);
+
+            if (error) throw error;
+
+            let filtered = data.filter((row) => {
+                const planned4 = row["Planned 4"];
+                const actual4 = row["Actual 4"];
+                return planned4 !== null && planned4 !== "" && (actual4 === null || actual4 === "");
+            });
+
+            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(
+                    (item) => item["Firm Name"] && String(item["Firm Name"]).toLowerCase() === userFirmNameLower,
+                );
+            }
+
+            return filtered.length;
+        } catch (error) {
+            console.error("Error fetching pending fullkitting:", error);
+            return 0;
+        }
     }
     async function getPendingMismatches() {
         // Placeholder - moved from App.jsx simplified. 
         // Ideally this should call the mismatch logic but for brevity keeping it simple as per original App.jsx likely just called a function
         // If the original function had complex logic, we assume it's moved here.
         // For now, returning 0 or implementing basic mismatch fetch if needed.
+        // For now, returning 0 or implementing basic mismatch fetch if needed.
         // Inspecting App.jsx saw getPendingMismatches called helper functions.
         // We will assume 0 for now unless critical, as migration focused on others.
         return 0;
+    }
+
+    async function getPendingDebitNotes(user) {
+        try {
+            // Fetch potential pending items (Actual is null)
+            const { data, error } = await supabase
+                .from("Mismatch")
+                .select("*")
+                .is("Actual", null);
+
+            if (error) throw error;
+
+            let filtered = data;
+
+            // Filter by Firm Name if applicable
+            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(
+                    (item) => item["Firm Name"] && String(item["Firm Name"]).toLowerCase() === userFirmNameLower,
+                );
+            }
+
+            // Apply specific logic: Planned exists OR Status is Credit Notes
+            filtered = filtered.filter(item => {
+                const hasPlanned = item["Planned"] && item["Planned"] !== null;
+                const statusLower = (item["Status"] || "").toLowerCase();
+                return hasPlanned || statusLower.includes('credit');
+            });
+
+            return filtered.length;
+        } catch (error) {
+            console.error("Error fetching pending debit notes:", error);
+            return 0;
+        }
     }
 
 
@@ -339,7 +399,7 @@ export function NotificationProvider({ children }) {
         try {
             // We run all fetches in parallel
             const [
-                stock, po, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, fullkitting
+                stock, po, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, kitting, debitNotes
             ] = await Promise.all([
                 getPendingStockApprovals(user, allowedSteps),
                 getPendingPOs(user, allowedSteps),
@@ -354,6 +414,7 @@ export function NotificationProvider({ children }) {
                 getPendingTallyEntries2(),
                 getPendingBilties(),
                 getPendingFullkitting(),
+                getPendingDebitNotes(user),
             ]);
 
             setNotificationCounts(prev => ({
@@ -361,7 +422,7 @@ export function NotificationProvider({ children }) {
                 stock, "generate-po": po, "tally-entry": tally, "lift-material": lift,
                 "receipt-check": receipt, "lab-testing": lab, mismatch, "rectify-mistake": rectify,
                 "audit-data": audit, "original-bills": bills, "take-entry-tally": tally2,
-                bilty, fullkitting
+                bilty, fullkitting: kitting, "debit-note": debitNotes
             }));
         } catch (error) {
             console.error("Error fetching notification counts:", error);
@@ -375,7 +436,24 @@ export function NotificationProvider({ children }) {
         if (isAuthenticated) {
             fetchNotificationCounts();
             const interval = setInterval(fetchNotificationCounts, 30000);
-            return () => clearInterval(interval);
+
+            // Real-time subscription for Mismatch updates (affecting Debit Note count)
+            const channel = supabase
+                .channel('mismatch-changes-global')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'Mismatch' },
+                    () => {
+                        console.log('Mismatch table changed, refreshing counts...');
+                        fetchNotificationCounts();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                clearInterval(interval);
+                supabase.removeChannel(channel);
+            };
         }
     }, [isAuthenticated, fetchNotificationCounts]);
 

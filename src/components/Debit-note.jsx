@@ -44,7 +44,6 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
   { header: "Remarks", dataKey: "remarks", toggleable: true },
-  { header: "Planned", dataKey: "planned", toggleable: true },
 ];
 
 // Searchable Select Component
@@ -181,10 +180,12 @@ export default function DebitNote() {
     data.forEach(item => {
       const hasPlanned = isValidTimestamp(item.planned);
       const hasActual = isValidTimestamp(item.actual);
+      const statusLower = (item.status || "").toLowerCase();
 
-      if (hasPlanned && !hasActual) {
+      // Pending: Planned exists OR Status is Credit Notes (and actual is not set)
+      if ((hasPlanned || statusLower.includes('credit')) && !hasActual) {
         pending.push(item);
-      } else if (hasPlanned && hasActual) {
+      } else if (hasActual) {
         history.push(item);
       }
     });
@@ -355,7 +356,15 @@ export default function DebitNote() {
 
       // Generate current timestamp for "Actual" column
       const now = new Date();
-      const actualTimestamp = now.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+      // Format as YYYY-MM-DD HH:mm:ss (IST)
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
+      const actualTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
       // Update in Supabase - match by Lift ID and Indent Number
       const { data: updateData, error: updateError } = await supabase
@@ -520,12 +529,7 @@ export default function DebitNote() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Planned Timestamp</Label>
-                <div className="p-2 bg-gray-50 rounded border text-sm">
-                  {editingItem.planned || "Not set"}
-                </div>
-              </div>
+
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium">

@@ -354,7 +354,16 @@ export default function BiltyPage() {
         biltyImageUrl = await uploadFileToSupabase(formData.biltyImageFile);
       }
 
-      const timestamp = new Date().toLocaleString("en-GB", { hour12: false }).replace(",", ""); // ISO format for Supabase
+      const now = new Date();
+      // Format as YYYY-MM-DD HH:mm:ss (IST)
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
+      const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
       // Update data for Supabase LIFT-ACCOUNTS
       // Using user-specified schema: Planned 3 and Actual 3 logic
