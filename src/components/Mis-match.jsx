@@ -770,8 +770,8 @@ export default function MismatchAnalysis() {
         .from("TL")
         .select("*");
 
-      if (fetchError) throw fetchError;
-
+      if (fetchError) throw fetchError;   
+    
       const formattedData = (data || [])
         .map((row, index) => ({
           _id: `tl-${index}`,
