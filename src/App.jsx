@@ -177,17 +177,6 @@ function App() {
       component: <BiltyPage />
     },
     {
-      id: "fullkitting",
-      label: "Fullkitting",
-      path: "/fullkitting",
-      icon: <PackageSearch size={20} />,
-      stepName: "Fullkitting",
-      showNotification: true,
-      countKey: "fullkitting",
-      countLabel: "Pending",
-      component: <FullkittingTransportingPage />
-    },
-    {
       id: "mismatch",
       label: "Mismatch",
       path: "/mismatch",
@@ -208,6 +197,17 @@ function App() {
       countKey: "debit-note",
       countLabel: "Pending",
       component: <DebitNote />
+    },
+    {
+      id: "fullkitting",
+      label: "Fullkitting",
+      path: "/fullkitting",
+      icon: <PackageSearch size={20} />,
+      stepName: "Fullkitting",
+      showNotification: true,
+      countKey: "fullkitting",
+      countLabel: "Pending",
+      component: <FullkittingTransportingPage />
     },
     {
       id: "audit-data",

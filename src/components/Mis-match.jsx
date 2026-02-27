@@ -38,6 +38,7 @@ const RATE_MISMATCH_COLUMNS_META = [
   // Core mismatch fields
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
 
+  { header: "Stage", dataKey: "stage", toggleable: true, alwaysVisible: true },
   { header: "Lift Number", dataKey: "liftIdDisplay", toggleable: true, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true },
   { header: "Material Rate (Lift)", dataKey: "materialRate", toggleable: true },
@@ -68,7 +69,7 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Status", dataKey: "status", toggleable: true },
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Lead Time", dataKey: "leadTimeToFactory", toggleable: true },
-  { header: "Lifting Qty", dataKey: "liftingQty", toggleable: true },
+  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Date Received", dataKey: "dateOfReceiving", toggleable: true },
   { header: "Bill Qty", dataKey: "totalBillQuantity", toggleable: true },
   { header: "Actual Qty", dataKey: "actualQuantity", toggleable: true },
@@ -113,12 +114,14 @@ const RATE_MISMATCH_COLUMNS_META = [
 // Quantity Mismatch Columns Meta - ALL LIFT-ACCOUNTS + INDENT-PO columns
 const QUANTITY_MISMATCH_COLUMNS_META = [
   // Core mismatch fields
+  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+  { header: "Stage", dataKey: "stage", toggleable: true, alwaysVisible: true },
   { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "Lifted Qty (Column J)", dataKey: "liftedQty", toggleable: true },
+  { header: "Billing Quantity (Column J)", dataKey: "liftedQty", toggleable: true },
   { header: "Actual Quantity (Column Y)", dataKey: "actualQuantityY", toggleable: true },
   { header: "Weight Slip Qty (Column BF)", dataKey: "weightSlipQty", toggleable: true },
   { header: "Quantity Difference", dataKey: "qtyDifference", toggleable: true },
@@ -170,29 +173,36 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Pending Qty (PO)", dataKey: "poPendingQty", toggleable: true },
   { header: "Order Cancel Qty", dataKey: "poOrderCancelQty", toggleable: true },
   { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
-
-  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
 ];
 
 const MATERIAL_MISMATCH_COLUMNS_META = [
   // Core mismatch fields
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+  { header: "Stage", dataKey: "stage", toggleable: true, alwaysVisible: true },
   { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
-  { header: "PO Number", dataKey: "indentNo", toggleable: true },
+  { header: "Product Name", dataKey: "rawMaterialName", toggleable: true, alwaysVisible: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
-  { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
 
-  { header: "PO Alumina %", dataKey: "poAluminaPercent", toggleable: true },
+  // Tolerance (from TL table) vs Lab (from LIFT-ACCOUNTS)
+  { header: "Tolerance Alumina", dataKey: "tlAlumina", toggleable: true },
   { header: "Lab Alumina %", dataKey: "liftAlumina", toggleable: true },
   { header: "Alumina Diff", dataKey: "aluminaDiff", toggleable: true },
-  { header: "PO Iron %", dataKey: "poIronPercent", toggleable: true },
+  { header: "Tolerance Iron", dataKey: "tlIron", toggleable: true },
   { header: "Lab Iron %", dataKey: "liftIron", toggleable: true },
   { header: "Iron Diff", dataKey: "ironDiff", toggleable: true },
+  { header: "Tolerance AP", dataKey: "tlAP", toggleable: true },
+  { header: "Lab AP %", dataKey: "liftAP", toggleable: true },
+  { header: "AP Diff", dataKey: "apDiff", toggleable: true },
+  { header: "Tolerance BD", dataKey: "tlBD", toggleable: true },
+  { header: "Lab BD %", dataKey: "liftBD", toggleable: true },
+  { header: "BD Diff", dataKey: "bdDiff", toggleable: true },
+
+  { header: "Physical Condition", dataKey: "physicalCondition", toggleable: true },
+  { header: "Moisture", dataKey: "moisture", toggleable: true },
 
   // Additional LIFT-ACCOUNTS columns
   { header: "Date", dataKey: "timestamp", toggleable: true },
-
   { header: "Qty", dataKey: "quantity", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
@@ -205,13 +215,6 @@ const MATERIAL_MISMATCH_COLUMNS_META = [
   { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Status", dataKey: "status", toggleable: true },
-
-  // INDENT-PO columns
-  { header: "PO Timestamp", dataKey: "poTimestamp", toggleable: true },
-  { header: "Approved Qty", dataKey: "poApprovedQty", toggleable: true },
-  { header: "Rate (PO)", dataKey: "poRate", toggleable: true },
-  { header: "Total Quantity (PO)", dataKey: "poTotalQuantity", toggleable: true },
-
 ];
 
 const HISTORY_COLUMNS_META = [
@@ -333,7 +336,7 @@ export default function MismatchAnalysis() {
       },
       quantityMismatch: {
         title: "Quantity Mismatch Details",
-        content: `Lift No: ${item.liftNo}\nLifting Qty (Col J): ${item.liftedQty}\nActual Qty (Col Y): ${item.actualQuantityY}\nDifference: ${item.qtyDifference}\nVendor: ${item.vendorName}\nMaterial: ${item.rawMaterialName}`
+        content: `Lift No: ${item.liftNo}\nBilling Quantity (Col J): ${item.liftedQty}\nActual Qty (Col Y): ${item.actualQuantityY}\nDifference: ${item.qtyDifference}\nVendor: ${item.vendorName}\nMaterial: ${item.rawMaterialName}`
       },
       materialMismatch: {
         title: "Material Properties Mismatch Details",
@@ -401,16 +404,16 @@ export default function MismatchAnalysis() {
         "Remarks": formData.remarks || '',
       };
 
-      // Update the existing record in Mismatch table
+      // Update the existing record(s) in Mismatch table for this Lift
       const { error: updateError } = await supabase
         .from("Mismatch")
         .update(updates)
-        .eq('id', recordId);
+        .eq('Lift Number', editingRowData.liftNo);
 
       if (updateError) throw updateError;
 
       // Update UI state
-      setSubmittedRows(prev => new Set([...prev, `mismatch_${editingRow}`]));
+      setSubmittedRows(prev => new Set([...prev, `mismatch_${editingRowData.liftNo}`]));
       setEditingRow(null);
       setEditingRowData(null);
       setFormData({});
@@ -526,7 +529,6 @@ export default function MismatchAnalysis() {
       if (fetchError) throw fetchError;
 
       let formattedData = (data || [])
-        .filter((row) => row["Planned 4"] && row["Actual 4"])
         .map((row) => {
 
           // Format timestamp for display
@@ -578,6 +580,12 @@ export default function MismatchAnalysis() {
             quantity: String(row["Qty"] || "").trim(),
             material: String(row["Raw Material Name"] || "").trim(),
             rawMaterialName: String(row["Raw Material Name"] || "").trim(),
+
+            // Stage tracking: Planned + Actual from LIFT-ACCOUNTS
+            planned1: row["Planned 1"] || null, actual1: row["Actual 1"] || null,
+            planned2: row["Planned 2"] || null, actual2: row["Actual 2"] || null,
+            planned3: row["Planned 3"] || null, actual3: row["Actual 3"] || null,
+            // Note: Full Kitting uses Planned7/Actual7 from Mismatch table directly
 
             // LIFT-ACCOUNTS columns
             billNo: String(row["Bill No."] || "").trim(),
@@ -633,6 +641,7 @@ export default function MismatchAnalysis() {
             liftAlumina: String(row["Alumina Percent Age %"] || "").trim(),
             liftIron: String(row["Iron Percent Age %"] || "").trim(),
             liftAP: String(row["AP Percent Age %"] || "").trim(),
+            liftBD: String(row["BD Percent Age %"] || "").trim(),
             timestamp: timestamp,
           };
         });
@@ -730,6 +739,8 @@ export default function MismatchAnalysis() {
           poPONotes: String(row["PO Notes"] || "").trim(),
           poAluminaPercent: String(row["Alumina %"] || "").trim(),
           poIronPercent: String(row["Iron %"] || "").trim(),
+          poApPercent: String(row["AP Percent Age %"] || "").trim(),
+          poBdPercent: String(row["BD Percent Age %"] || "").trim(),
           poTotalLifted: String(row["Total Lifted"] || "").trim(),
           poPendingQty: String(row["Pending Qty"] || "").trim(),
           poOrderCancelQty: String(row["Order Cancel Qty"] || "").trim(),
@@ -764,12 +775,13 @@ export default function MismatchAnalysis() {
       const formattedData = (data || [])
         .map((row, index) => ({
           _id: `tl-${index}`,
-          rawMaterial: String(row["Raw Material"] || "").trim(),
-          alumina: String(row["Alumina"] || "").trim(),
-          iron: String(row["Iron"] || "").trim(),
-          ap: String(row["AP"] || "").trim(),
+          productName: String(row["Product name"] || "").trim(),
+          aluminaRange: String(row["Alumina Range"] || "").trim(),
+          ironRange: String(row["Iron Range"] || "").trim(),
+          apRange: String(row["Ap Range"] || "").trim(),
+          bdRange: String(row["Bd Range"] || "").trim(),
         }))
-        .filter(item => item.rawMaterial && item.rawMaterial.trim() !== "");
+        .filter(item => item.productName && item.productName !== "");
 
       setTlData(formattedData);
     } catch (err) {
@@ -784,9 +796,26 @@ export default function MismatchAnalysis() {
     fetchLiftAccountsData();
     fetchPurchaseOrdersData();
     fetchTLData();
-    fetchMismatchSheetData(); // Add this line
-
+    fetchMismatchSheetData();
   }, [fetchLiftAccountsData, fetchPurchaseOrdersData, fetchTLData, fetchMismatchSheetData]);
+
+  // Realtime subscription - auto-update Stage column when any module updates LIFT-ACCOUNTS
+  useEffect(() => {
+    const channel = supabase
+      .channel("lift-accounts-stage-watch")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "LIFT-ACCOUNTS" },
+        () => {
+          fetchLiftAccountsData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchLiftAccountsData]);
 
   // Calculate mismatch data (Hybrid: Differences from DB, Details from Source Tables)
   const getHybridRow = useCallback((mismatchItem) => {
@@ -798,6 +827,22 @@ export default function MismatchAnalysis() {
       String(p.indentNo || "").trim() === String(mismatchItem["Indent Number"] || "").trim()
     ) || {};
 
+    // Match TL row by Product Name (from Mismatch table) or Raw Material Name (from LIFT-ACCOUNTS)
+    const productNameForTL = String(mismatchItem["Product Name"] || lift.rawMaterialName || "").trim().toLowerCase();
+    const tlRow = tlData.find(tl => String(tl.productName || "").trim().toLowerCase() === productNameForTL) || {};
+
+    // 4 Stages: Lift → Receipt → Lab → Mismatch
+    let liveStage;
+    if (lift.planned2 && !lift.actual2) {
+      liveStage = "Lab";
+    } else if (lift.planned1 && !lift.actual1) {
+      liveStage = "Receipt";
+    } else if (!lift.planned1) {
+      liveStage = "Lift";
+    } else {
+      liveStage = "Mismatch";
+    }
+
     return {
       ...lift,
       ...po,
@@ -808,39 +853,75 @@ export default function MismatchAnalysis() {
       liftNo: mismatchItem["Lift Number"],
       indentNo: mismatchItem["Indent Number"],
 
-      // Differences from Mismatch Table
+      // Differences from Mismatch Table (TL vs LIFT-ACCOUNTS)
       rateDifference: mismatchItem["Rate Difference"],
       qtyDifference: mismatchItem["Quantity Difference"],
       qtyDifferenceStatus: mismatchItem["Qty Diff Status"],
       differenceQty: mismatchItem["Diff Qty"],
       aluminaDiff: mismatchItem["Alumina Difference"],
       ironDiff: mismatchItem["Iron Difference"],
+      apDiff: mismatchItem["AP Difference"],
+      bdDiff: mismatchItem["BD Difference"],
+
+      // TL table tolerance values (shown instead of PO values in Lab Mismatch)
+      tlAlumina: tlRow.aluminaRange || "N/A",
+      tlIron: tlRow.ironRange || "N/A",
+      tlAP: tlRow.apRange || "N/A",
+      tlBD: tlRow.bdRange || "N/A",
 
       // Fallback/Priority for shared fields
       vendorName: mismatchItem["Party Name"] || lift.vendorName || po.vendorName,
+      rawMaterialName: mismatchItem["Product Name"] || lift.rawMaterialName || lift.material,
       material: mismatchItem["Product Name"] || lift.material || po.materialName,
       firmName: mismatchItem["Firm Name"] || lift.firmName || po.firmName,
-      timestamp: mismatchItem["Timestamp"]
+      timestamp: String(mismatchItem["Timestamp"] || "").replace('T', ' '),
+
+      // Live stage derived from LIFT-ACCOUNTS actual timestamps
+      stage: liveStage,
     };
-  }, [liftAccountsData, purchaseOrdersData]);
+  }, [liftAccountsData, purchaseOrdersData, tlData]);
 
   const rateMismatchData = useMemo(() => {
     return mismatchSheetData
-      .filter(item => Math.abs(parseFloat(item["Rate Difference"] || 0)) > 0.001 && item["Status"] === "Pending")
+      .filter(item => Math.abs(parseFloat(item["Rate Difference"] || 0)) > 0.001 && item["Status"] !== "Credit Notes" && item["Status"] !== "Others")
       .map(getHybridRow);
   }, [mismatchSheetData, getHybridRow]);
 
   const quantityMismatchData = useMemo(() => {
     return mismatchSheetData
-      .filter(item => (Math.abs(parseFloat(item["Quantity Difference"] || 0)) > 0.001 || Math.abs(parseFloat(item["Diff Qty"] || 0) !== 0) || item["Qty Diff Status"] === "Mismatch") && item["Status"] === "Pending")
+      .filter(item => (Math.abs(parseFloat(item["Quantity Difference"] || 0)) > 0.001 || Math.abs(parseFloat(item["Diff Qty"] || 0) !== 0) || item["Qty Diff Status"] === "Mismatch") && item["Status"] !== "Credit Notes" && item["Status"] !== "Others")
       .map(getHybridRow);
   }, [mismatchSheetData, getHybridRow]);
 
   const materialMismatchData = useMemo(() => {
     return mismatchSheetData
-      .filter(item => (Math.abs(parseFloat(item["Alumina Difference"] || 0)) > 0.001 || Math.abs(parseFloat(item["Iron Difference"] || 0)) > 0.001) && item["Status"] === "Pending")
+      .filter(item => {
+        const lift = liftAccountsData.find(l =>
+          String(l.liftNo || "").trim() === String(item["Lift Number"] || "").trim()
+        ) || {};
+
+        // Differences are already calculated against the TL ranges during lab testing.
+        // A non-null, non-zero difference means it fell outside the range.
+        const aluminaDiff = item["Alumina Difference"];
+        const ironDiff = item["Iron Difference"];
+        const apDiff = item["AP Difference"];
+        const bdDiff = item["BD Difference"];
+
+        const hasAluminaMismatch = aluminaDiff !== null && Math.abs(parseFloat(aluminaDiff || 0)) > 0;
+        const hasIronMismatch = ironDiff !== null && Math.abs(parseFloat(ironDiff || 0)) > 0;
+        const hasApMismatch = apDiff !== null && Math.abs(parseFloat(apDiff || 0)) > 0;
+        const hasBdMismatch = bdDiff !== null && Math.abs(parseFloat(bdDiff || 0)) > 0;
+
+        return (
+          hasAluminaMismatch ||
+          hasIronMismatch ||
+          hasApMismatch ||
+          hasBdMismatch ||
+          (lift.physicalCondition === "Bad" && lift.moisture === "Yes")
+        ) && item["Status"] !== "Credit Notes" && item["Status"] !== "Others";
+      })
       .map(getHybridRow);
-  }, [mismatchSheetData, getHybridRow]);
+  }, [mismatchSheetData, liftAccountsData, tlData, getHybridRow]);
   // Filter options (keeping existing logic unchanged)
   const uniqueFilterOptions = useMemo(() => {
     const vendors = new Set();
@@ -867,7 +948,7 @@ export default function MismatchAnalysis() {
 
   // Apply filters (keeping existing logic unchanged)
   const filteredRateMismatchData = useMemo(() => {
-    let filtered = rateMismatchData.filter(item => !submittedRows.has(`mismatch_${item.id}`));
+    let filtered = rateMismatchData.filter(item => !submittedRows.has(`mismatch_${item.liftNo}`));
     if (filters.vendorName !== "all") {
       filtered = filtered.filter((item) => item.vendorName === filters.vendorName);
     }
@@ -979,7 +1060,7 @@ export default function MismatchAnalysis() {
             className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-md hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <Edit className="w-3 h-3 mr-1" />
-            Correct Data
+            Management Approval
           </button>
         </div>
       );
@@ -995,15 +1076,49 @@ export default function MismatchAnalysis() {
         >
           <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
         </a>
-        
+
       ) : (
         <span className="text-gray-400 text-xs">N/A</span>
       );
     }
 
+    // Stage badge rendering
+    if (column.dataKey === "stage") {
+      const stageValue = String(value || "Lift");
+      const stageConfig = {
+        "Lift": {
+          className: "bg-orange-100 text-orange-800 border-orange-200",
+          icon: "🚛",
+        },
+        "Receipt": {
+          className: "bg-blue-100 text-blue-800 border-blue-200",
+          icon: "📦",
+        },
+        "Lab": {
+          className: "bg-green-100 text-green-800 border-green-200",
+          icon: "🧪",
+        },
+        "Mismatch": {
+          className: "bg-red-100 text-red-800 border-red-200",
+          icon: "⚠️",
+        },
+      };
+      const config = stageConfig[stageValue] || stageConfig["Lift"];
+      return (
+        <Badge
+          variant="outline"
+          className={`whitespace-nowrap text-xs font-semibold px-2 py-0.5 ${config.className}`}
+        >
+          <span className="mr-1">{config.icon}</span>
+          {stageValue}
+        </Badge>
+      );
+    }
+
     // Highlight differences with color coding
     if (column.dataKey === "rateDifference" || column.dataKey === "qtyDifference" ||
-      column.dataKey === "aluminaDiff" || column.dataKey === "ironDiff" || column.dataKey === "apDiff") {
+      column.dataKey === "aluminaDiff" || column.dataKey === "ironDiff" ||
+      column.dataKey === "apDiff" || column.dataKey === "bdDiff") {
       const numValue = parseFloat(value) || 0;
       return (
         <span className={numValue < 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
@@ -1218,7 +1333,7 @@ export default function MismatchAnalysis() {
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger value="materialMismatch" className="flex items-center gap-2">
-                  <Beaker className="h-4 w-4" /> Material Mismatches
+                  <Beaker className="h-4 w-4" /> Lab Mismatches
                   <Badge variant="destructive" className="ml-1.5 px-1.5 py-0.5 text-xs">
                     {filteredMaterialMismatchData.length}
                   </Badge>
@@ -1318,8 +1433,8 @@ export default function MismatchAnalysis() {
               <TabsContent value="materialMismatch" className="flex-1 flex flex-col mt-0">
                 {renderTableSection(
                   "materialMismatch",
-                  "Material Properties Mismatches",
-                  "Alumina % and Iron % mismatches between INDENT-PO (PO) and LIFT-ACCOUNTS (Lab/Lift) for the same material.",
+                  "Lab Mismatches (Product Name Wise)",
+                  "Alumina, Iron, AP, BD mismatches between TL tolerance ranges and LIFT-ACCOUNTS lab values, shown product name wise.",
                   filteredMaterialMismatchData,
                   MATERIAL_MISMATCH_COLUMNS_META,
                   visibleMaterialMismatchColumns

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
 import { AuthContext } from '../context/AuthContext';
@@ -45,9 +45,12 @@ const CallTrackerPage = () => {
     biltyImage: true,
     qtyDifferenceStatus: true,
     weightSlip: true,
-    status: true,
+    debitAmount: true,
+    debitNoteUrl: true,
+    status: false,
     actions: true
   });
+  const [liftWeightSlipMap, setLiftWeightSlipMap] = useState({}); // Lift No → Weight Slip Image URL
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('AUDIT'); // Default to Audit tab
 
@@ -87,7 +90,7 @@ const CallTrackerPage = () => {
       description: 'Re-audit after corrections'
     },
     BILL_ENTRY: {
-      name: 'Bill Entry',
+      name: 'Bill Received',
       color: 'bg-indigo-100 text-indigo-800',
       icon: Save,
       description: 'Enter original bills'
@@ -101,7 +104,7 @@ const CallTrackerPage = () => {
   };
 
   // Define tab order according to requirements
-  const TAB_ORDER = ['AUDIT', 'RECTIFY', 'TALLY_ENTRY', 'REAUDIT', 'BILL_ENTRY'];
+  const TAB_ORDER = ['AUDIT', 'RECTIFY', 'REAUDIT', 'TALLY_ENTRY', 'BILL_ENTRY'];
 
   const formatDate = (dateString) => {
     if (!dateString || dateString === '') return '-';
@@ -862,6 +865,27 @@ const CallTrackerPage = () => {
     }
   };
 
+
+  // Fetch LIFT-ACCOUNTS weight slip images once on mount
+  useEffect(() => {
+    const fetchWeightSlips = async () => {
+      try {
+        const { data } = await supabase
+          .from("LIFT-ACCOUNTS")
+          .select('"Lift No", "Image Of Weight Slip"');
+        const map = {};
+        (data || []).forEach(l => {
+          const key = String(l["Lift No"] || "").trim();
+          if (key) map[key] = String(l["Image Of Weight Slip"] || "").trim();
+        });
+        setLiftWeightSlipMap(map);
+      } catch (e) {
+        console.error('Failed to fetch weight slip map:', e);
+      }
+    };
+    fetchWeightSlips();
+  }, []);
+
   // Fetch Audit data from Supabase Mismatch table
   const fetchAuditDataFromSupabase = async () => {
     setLoadingAudit(true);
@@ -880,7 +904,7 @@ const CallTrackerPage = () => {
       // Map Supabase data to match the expected format
       const formattedData = (filteredByActual || []).map((row, index) => ({
         id: `mismatch_${row.id || index}`,
-        timestamp: formatDate(row.Timestamp) || '',
+        timestamp: formatDate(row.Planned2) || '',
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
@@ -898,8 +922,10 @@ const CallTrackerPage = () => {
         biltyImage: row["Bilty Image"] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
-        weightSlip: row["Weight Slip"] || row["Image Of Weight Slip"] || '',
+        weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
+        debitAmount: row["Debit Amount"] || '',
+        debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status2 || row.Status || '',
         remarks: row.Remarks2 || row.Remarks || '',
         currentStage: 'AUDIT',
@@ -949,7 +975,7 @@ const CallTrackerPage = () => {
       // Map Supabase data to match the expected format - include all columns
       const formattedData = (data || []).map((row, index) => ({
         id: `mismatch_tally_${row.id || index}`,
-        timestamp: formatDate(row.Timestamp) || '',
+        timestamp: formatDate(row.Planned4) || '',
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
@@ -967,8 +993,10 @@ const CallTrackerPage = () => {
         biltyImage: row["Bilty Image"] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
-        weightSlip: row["Weight Slip"] || row["Image Of Weight Slip"] || '',
+        weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
+        debitAmount: row["Debit Amount"] || '',
+        debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status4 || '',
         remarks: row.Remarks4 || '',
         currentStage: 'TALLY_ENTRY',
@@ -1024,7 +1052,7 @@ const CallTrackerPage = () => {
       // Map Supabase data to match the expected format - include all columns
       const formattedData = (data || []).map((row, index) => ({
         id: `mismatch_bill_${row.id || index}`,
-        timestamp: formatDate(row.Timestamp) || '',
+        timestamp: formatDate(row.Planned6) || '',
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
@@ -1042,8 +1070,10 @@ const CallTrackerPage = () => {
         biltyImage: row["Bilty Image"] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
-        weightSlip: row["Weight Slip"] || row["Image Of Weight Slip"] || '',
+        weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
+        debitAmount: row["Debit Amount"] || '',
+        debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status6 || '',
         remarks: row.Remarks6 || '',
         currentStage: 'BILL_ENTRY',
@@ -1099,7 +1129,7 @@ const CallTrackerPage = () => {
       // Map Supabase data to match the expected format - include all columns
       const formattedData = (data || []).map((row, index) => ({
         id: `mismatch_rectify_${row.id || index}`,
-        timestamp: formatDate(row.Timestamp) || '',
+        timestamp: formatDate(row.Planned3) || '',
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
@@ -1117,8 +1147,10 @@ const CallTrackerPage = () => {
         biltyImage: row["Bilty Image"] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
-        weightSlip: row["Weight Slip"] || row["Image Of Weight Slip"] || '',
+        weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
+        debitAmount: row["Debit Amount"] || '',
+        debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status3 || '',
         remarks: row.Remarks3 || '',
         currentStage: 'RECTIFY',
@@ -1174,7 +1206,7 @@ const CallTrackerPage = () => {
       // Map Supabase data to match the expected format - include all columns
       const formattedData = (data || []).map((row, index) => ({
         id: `mismatch_reaudit_${row.id || index}`,
-        timestamp: formatDate(row.Timestamp) || '',
+        timestamp: formatDate(row.Planned5) || '',
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
@@ -1192,8 +1224,10 @@ const CallTrackerPage = () => {
         biltyImage: row["Bilty Image"] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
-        weightSlip: row["Weight Slip"] || row["Image Of Weight Slip"] || '',
+        weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
+        debitAmount: row["Debit Amount"] || '',
+        debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status5 || '',
         remarks: row.Remarks5 || '',
         currentStage: 'RE_AUDIT',
@@ -1265,7 +1299,7 @@ const CallTrackerPage = () => {
         const currentStage = determineCurrentStage(row);
         return {
           id: `mismatch_all_${row.id || index}`,
-          timestamp: formatDate(row.Timestamp) || '',
+          timestamp: formatDate(row[`Planned${currentStage === 'AUDIT' ? '2' : currentStage === 'RECTIFY' ? '3' : currentStage === 'TALLY_ENTRY' ? '4' : currentStage === 'REAUDIT' ? '5' : '6'}`]) || '',
           liftNumber: row["Lift ID"] || '',
           type: row["Type"] || '',
           billNo: row["Bill No."] || row["Bill No"] || '',
@@ -1283,7 +1317,7 @@ const CallTrackerPage = () => {
           biltyImage: row["Bilty Image"] || '',
           qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
           differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
-          weightSlip: row["Weight Slip"] || row["Image Of Weight Slip"] || '',
+          weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
           totalFreight: row["Total Freight"] || '',
           status: row[`Status${currentStage === 'AUDIT' ? '2' : currentStage === 'RECTIFY' ? '3' : currentStage === 'TALLY_ENTRY' ? '4' : currentStage === 'REAUDIT' ? '5' : '6'}`] || '',
           remarks: row[`Remarks${currentStage === 'AUDIT' ? '2' : currentStage === 'RECTIFY' ? '3' : currentStage === 'TALLY_ENTRY' ? '4' : currentStage === 'REAUDIT' ? '5' : '6'}`] || '',
@@ -1334,7 +1368,7 @@ const CallTrackerPage = () => {
     fetchRectifyDataFromSupabase();
     fetchReAuditDataFromSupabase();
     fetchAllDataFromSupabase();
-  }, [submittedRows, user]);
+  }, [submittedRows, user, liftWeightSlipMap]);
 
   const toggleColumnVisibility = (columnKey) => {
     setVisibleColumns(prev => ({
@@ -1380,7 +1414,7 @@ const CallTrackerPage = () => {
     const StageIcon = stageInfo.icon;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100]">
         <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
@@ -1445,7 +1479,7 @@ const CallTrackerPage = () => {
               </button>
               <button
                 onClick={submitFormData}
-                disabled={submitting || (['RECTIFY', 'TALLY_ENTRY', 'REAUDIT', 'BILL_ENTRY'].includes(row.currentStage) && formData.status !== 'Done')}
+                disabled={submitting || (['RECTIFY', 'TALLY_ENTRY', 'REAUDIT', 'RE_AUDIT', 'BILL_ENTRY'].includes(row.currentStage) && formData.status !== 'Done')}
                 className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 {submitting ? (
@@ -1596,6 +1630,8 @@ const CallTrackerPage = () => {
                               biltyImage: 'Bilty Image',
                               qtyDifferenceStatus: 'Qty Diff Status',
                               weightSlip: 'Weight Slip',
+                              debitAmount: 'Debit Amount',
+                              debitNoteUrl: 'Debit Image',
                               status: 'Status',
                               actions: 'Actions'
                             }).map(([key, label]) => (
@@ -1722,6 +1758,8 @@ const CallTrackerPage = () => {
                   {visibleColumns.biltyImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty Image</th>}
                   {visibleColumns.qtyDifferenceStatus && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Diff Status</th>}
                   {visibleColumns.weightSlip && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight Slip</th>}
+                  {visibleColumns.debitAmount && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Debit Amount</th>}
+                  {visibleColumns.debitNoteUrl && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Debit Image</th>}
                   {visibleColumns.status && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>}
                 </tr>
               </thead>
@@ -1789,6 +1827,8 @@ const CallTrackerPage = () => {
                         {visibleColumns.biltyImage && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.biltyImage ? (<a href={row.biltyImage} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
                         {visibleColumns.qtyDifferenceStatus && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qtyDifferenceStatus || '-'}</td>}
                         {visibleColumns.weightSlip && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.weightSlip ? (<a href={row.weightSlip} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
+                        {visibleColumns.debitAmount && <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">{row.debitAmount ? `₹${row.debitAmount}` : '-'}</td>}
+                        {visibleColumns.debitNoteUrl && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.debitNoteUrl ? (<a href={row.debitNoteUrl} target='_blank' rel='noopener noreferrer' className="text-purple-600 hover:text-purple-800 hover:underline inline-flex items-center"><ExternalLink className="h-3 w-3 mr-1" /> View Image</a>) : ("-")}</td>}
                         {visibleColumns.status && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.status || '-'}</td>}
                       </tr>
                     );

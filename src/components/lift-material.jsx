@@ -76,13 +76,14 @@ const PO_COLUMNS_META = [
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
+  { header: "Planned Date", dataKey: "planned", toggleable: true },
   { header: "Quantity", dataKey: "quantity", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
   { header: "Alumina %", dataKey: "alumina", toggleable: true },
   { header: "Iron %", dataKey: "iron", toggleable: true },
   { header: "Received Qty", dataKey: "receivedQty", toggleable: true },
   { header: "Pending PO Qty", dataKey: "pendingPOQty", toggleable: true },
-  { header: "Status", dataKey: "status", toggleable: true }, // Added status column
+  { header: "Status", dataKey: "status", toggleable: true },
   { header: "Notes", dataKey: "whatIsToBeDone", toggleable: true },
   {
     header: "Cancel Pending PO",
@@ -98,15 +99,16 @@ const LIFTS_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "material", toggleable: true },
   { header: "PO Qty", dataKey: "quantity", toggleable: true },
-  { header: "Lifted Qty", dataKey: "liftingQty", toggleable: true },
+  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
   { header: "Type", dataKey: "liftType", toggleable: true },
+  { header: "Transportation Total Amount", dataKey: "transportRate", toggleable: true },
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View Bill" },
   { header: "Lifted On", dataKey: "createdAt", toggleable: true },
-  { header: "Qty", dataKey: "additionalTruckQty", toggleable: true },
+  { header: "Total Truck Billing Quantity", dataKey: "additionalTruckQty", toggleable: true },
 ]
 
 export default function LiftMaterial() {
@@ -325,7 +327,7 @@ export default function LiftMaterial() {
         alumina: String(row["Alumina %"] || "").trim(),
         iron: String(row["Iron %"] || "").trim(),
         pendingQty: String(row["Total Quantity"] || "").trim(), // AH
-        planned: row["Planned4"],
+        planned: row["Planned4"] ? String(row["Planned4"]).trim().replace('T', ' ') : "",
         whatIsToBeDone: String(row["PO Notes"] || "").trim(),
         pendingLiftQty: String(row["Total Quantity"] || "").trim(),
         receivedQty: String(row["Actual4"] || "").trim(),
@@ -648,12 +650,32 @@ export default function LiftMaterial() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
+    const updatedForm = { ...formData, [name]: value }
+
+    if ((name === "rate" || name === "truckQty" || name === "rateType") && updatedForm.rateType === "Per MT") {
+      const mRate = parseFloat(updatedForm.rate) || 0
+      const bQty = parseFloat(updatedForm.truckQty) || 0
+      updatedForm.transportRate = (mRate * bQty).toFixed(2)
+    } else if (name === "rateType") {
+      updatedForm.transportRate = ""
+    }
+
+    setFormData(updatedForm)
     if (formErrors[name]) setFormErrors({ ...formErrors, [name]: null })
   }
 
   const handleFormSelectChange = (name, value) => {
-    setFormData({ ...formData, [name]: value })
+    const updatedForm = { ...formData, [name]: value }
+
+    if ((name === "rate" || name === "truckQty" || name === "rateType") && updatedForm.rateType === "Per MT") {
+      const mRate = parseFloat(updatedForm.rate) || 0
+      const bQty = parseFloat(updatedForm.truckQty) || 0
+      updatedForm.transportRate = (mRate * bQty).toFixed(2)
+    } else if (name === "rateType") {
+      updatedForm.transportRate = ""
+    }
+
+    setFormData(updatedForm)
     if (formErrors[name]) setFormErrors({ ...formErrors, [name]: null })
   }
 
@@ -708,16 +730,21 @@ export default function LiftMaterial() {
       if (!formData.billImage) {
         newErrors.billImage = "Bill image is required.";
       }
-      if (formData.transportRate && isNaN(parseFloat(formData.transportRate))) newErrors.transportRate = "Transport Rate must be a valid number.";
+      if (formData.transportRate && isNaN(parseFloat(formData.transportRate))) newErrors.transportRate = "Transportation Total Amount must be a valid number.";
       if (formData.truckQty && isNaN(parseFloat(formData.truckQty)))
-        newErrors.truckQty = "Truck Qty must be a valid number.";
+        newErrors.truckQty = "Billing Quantity must be a valid number.";
       if (formData.additionalTruckQty && isNaN(parseFloat(formData.additionalTruckQty))) {
-        newErrors.additionalTruckQty = "Truck Quantity must be a valid number.";
+        newErrors.additionalTruckQty = "Total Truck Billing Quantity must be a valid number.";
       }
 
       // Validate bilty fields if hasBilty is yes
-      if (formData.hasBilty === "yes" && !formData.biltyNo.trim()) {
-        newErrors.biltyNo = "Bilty number is required when has bilty is yes";
+      if (formData.hasBilty === "yes") {
+        if (!formData.biltyNo.trim()) {
+          newErrors.biltyNo = "Bilty number is required when has bilty is yes";
+        }
+        if (!formData.biltyImage) {
+          newErrors.biltyImage = "Bilty image is required when has bilty is yes";
+        }
       }
     } else {
       // Basic number validation for Common fields
@@ -866,6 +893,58 @@ export default function LiftMaterial() {
       }
 
       console.log("Lift insertion result:", insertedLift);
+
+      // Retrieve original PO values for differences
+      const poRate = parseFloat(selectedPO?.rate) || 0;
+      const liftRate = parseFloat(formData.rate) || 0;
+      const rateDiff = Number((poRate - liftRate).toFixed(2));
+
+      // Do not assign Qty Diff yet, since actual Qty is determined in Receipt Check
+      const qtyDiff = 0;
+
+      const hasMismatch = Math.abs(rateDiff) > 0.001;
+      const statusValue = "Pending";
+      const qtyDiffStatus = "";
+
+      // Insert matching data into Mismatch table
+      const mismatchData = {
+        "Timestamp": liftAccountData["Timestamp"],
+        "Lift ID": liftAccountData["Lift No"],
+        "Lift Number": liftAccountData["Lift No"],
+        "Indent Number": liftAccountData["Indent no."],
+        "Firm Name": liftAccountData["Firm Name"],
+        "Party Name": liftAccountData["Vendor Name"],
+        "Product Name": liftAccountData["Raw Material Name"],
+        "Transporter Name": liftAccountData["Transporter Name"],
+        "Transporter": liftAccountData["Transporter Name"],
+        "Type": liftAccountData["Type"],
+        "Bill No.": liftAccountData["Bill No."],
+        "Qty": liftAccountData["Qty"],
+        "Area Lifting": liftAccountData["Area lifting"],
+        "Truck No.": liftAccountData["Truck No."],
+        "Type Of Rate": liftAccountData["Type Of Transporting Rate"],
+        "Rate": liftAccountData["Rate"],
+        "Truck Qty": liftAccountData["Truck Qty"],
+        "Bill Image": liftAccountData["Bill Image"],
+        "Bilty No.": liftAccountData["Bilty No."],
+        "Bilty Image": liftAccountData["Bilty Image"],
+
+        "Status": statusValue,
+        "Remarks": "Auto-generated from Lifting",
+        "Rate Difference": rateDiff,
+        "Quantity Difference": qtyDiff,
+        "Diff Qty": qtyDiff,
+        "Qty Diff Status": qtyDiffStatus,
+      };
+
+      const { error: mismatchError } = await supabase
+        .from("Mismatch")
+        .insert([mismatchData]);
+
+      if (mismatchError) {
+        console.error("Mismatch insertion failed:", mismatchError);
+        // Proceeding anyway because Lift insertion was successful
+      }
 
       // Update the original PO row - set Actual4 with current timestamp
       const { error: updateError } = await supabase
@@ -1431,7 +1510,7 @@ export default function LiftMaterial() {
                       isRequired: true,
                     },
                     {
-                      label: "Lead Time (days for lifting)",
+                      label: "Lead time (days to transport)",
                       name: "liftingLeadTime",
                       type: "text",
                       isRequired: true,
@@ -1453,16 +1532,16 @@ export default function LiftMaterial() {
                       isRequired: true,
                     },
                     { label: "Material Rate (INR)", name: "rate", type: "text", step: "any", isRequired: true },
-                    { label: "Transport Rate (INR)", name: "transportRate", type: "text", step: "any", isRequired: false },
                     {
-                      label: "Lifted Quantity (Units)",
+                      label: "Billing Quantity",
                       name: "truckQty",
                       type: "text",
                       step: "any",
                       isRequired: true,
                     },
+                    { label: "Transportation Total Amount", name: "transportRate", type: "text", step: "any", isRequired: false },
                     {
-                      label: "Truck Quantity",
+                      label: "Total Truck Billing Quantity",
                       name: "additionalTruckQty",
                       type: "text",
                       step: "any",
@@ -1571,9 +1650,9 @@ export default function LiftMaterial() {
 
                     <div className="col-span-2">
                       <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="biltyImage">
-                        Upload Bilty Image
+                        Upload Bilty Image <span className="text-red-500">*</span>
                       </Label>
-                      <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-purple-400 transition-colors">
+                      <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 ${formErrors.biltyImage ? "border-red-500" : "border-gray-300"} border-dashed rounded-md hover:border-purple-400 transition-colors`}>
                         <div className="space-y-1 text-center">
                           <Upload className="mx-auto h-10 w-10 text-gray-400" />
                           <div className="flex text-sm text-gray-600 justify-center">
@@ -1601,6 +1680,7 @@ export default function LiftMaterial() {
                           </p>
                         </div>
                       </div>
+                      {formErrors.biltyImage && <p className="mt-1 text-xs text-red-600">{formErrors.biltyImage}</p>}
                     </div>
                   </>
                 )}

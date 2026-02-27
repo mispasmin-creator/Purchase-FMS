@@ -70,7 +70,8 @@ const AWAITING_RECEIPT_COLUMNS_META = [
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "PO Qty", dataKey: "qty", toggleable: true },
+  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
+  { header: "Lifting Qty", dataKey: "liftingQty", toggleable: true },
   { header: "Bill Copy", dataKey: "billCopy", toggleable: true, isLink: true, linkText: "View" },
   { header: "Type", dataKey: "type", toggleable: true },
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
@@ -87,6 +88,7 @@ const PROCESSED_RECEIPTS_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "PO Qty", dataKey: "qty", toggleable: true },
+  { header: "Lifting Qty", dataKey: "liftingQty", toggleable: true },
   { header: "Bill Copy", dataKey: "billCopy", toggleable: true, isLink: true, linkText: "View" },
   { header: "Type", dataKey: "type", toggleable: true },
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
@@ -300,6 +302,7 @@ export default function ReceiptCheck() {
             rawMaterialName: String(row["Raw Material Name"] || "").trim(),
             billNo: String(row["Bill No."] || "").trim(),
             qty: String(row["Qty"] || "").trim(),
+            liftingQty: String(row["Lifting Qty"] || "").trim(),
             type: String(row["Type"] || "").trim(),
             billCopy: String(row["Bill Image"] || "").trim(),
             driverNo: String(row["Driver No."] || "").trim(),
@@ -355,6 +358,7 @@ export default function ReceiptCheck() {
       if (lift.rawMaterialName) materials.add(lift.rawMaterialName);
       if (lift.type) types.add(lift.type);
       if (lift.qty) quantities.add(lift.qty);
+      if (lift.liftingQty) quantities.add(lift.liftingQty);
       if (lift.totalBillQuantity_fromSheet) quantities.add(lift.totalBillQuantity_fromSheet);
       if (lift.actualQuantity_fromSheet) quantities.add(lift.actualQuantity_fromSheet);
       if (lift.indentNo) orders.add(lift.indentNo);
@@ -430,12 +434,10 @@ export default function ReceiptCheck() {
   const handleOpenReceiptModal = (lift) => {
     setSelectedLift(lift);
     setFormErrors({});
-    const initialTotal = parseFloat(lift.totalBillQuantity_fromSheet || lift.qty) || 0;
-    const initialActual = parseFloat(lift.actualQuantity_fromSheet || lift.qty) || 0;
+    const initialTotal = parseFloat(lift.liftingQty) || 0;
+    const initialActual = parseFloat(lift.actualQuantity_fromSheet || lift.liftingQty) || 0;
 
     setFormData({
-      liftId: lift.id,
-      dateOfReceiving: lift.dateOfReceiving_fromSheet || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       liftId: lift.id,
       dateOfReceiving: lift.dateOfReceiving_fromSheet || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       totalBillQuantity: initialTotal.toString(),
@@ -535,6 +537,31 @@ export default function ReceiptCheck() {
       if (updateError) {
         console.error("LIFT-ACCOUNTS update failed:", updateError);
         throw new Error(`Failed to update LIFT-ACCOUNTS: ${updateError.message}`);
+      }
+
+      // Calculate quantity difference and update Mismatch table
+      const totalBillQty = parseFloat(formData.totalBillQuantity) || 0;
+      const actualQty = parseFloat(formData.actualQuantity) || 0;
+      const qtyDiff = Number((totalBillQty - actualQty).toFixed(2));
+      const qtyDiffStatus = qtyDiff !== 0 ? "Mismatch" : "Match";
+
+      const isQualityMismatch = formData.physicalCondition === "Bad" && formData.moisture === "Yes";
+
+      const mismatchUpdatePayload = {
+        "Quantity Difference": qtyDiff,
+        "Diff Qty": qtyDiff,
+        "Qty Diff Status": qtyDiffStatus,
+      };
+
+      mismatchUpdatePayload["Status"] = "Pending";
+
+      const { error: mismatchUpdateError } = await supabase
+        .from("Mismatch")
+        .update(mismatchUpdatePayload)
+        .eq('"Lift ID"', selectedLift.id);
+
+      if (mismatchUpdateError) {
+        console.error("Failed to update Mismatch table with qty difference:", mismatchUpdateError);
       }
 
       toast.success("Success!", { id: "receipt-submit", description: `Receipt for Lift ID ${selectedLift.id} recorded successfully.` });
@@ -837,10 +864,10 @@ export default function ReceiptCheck() {
       </Card>
       <ReceiptFormModal isOpen={isModalOpen} onClose={handleModalClose} liftData={selectedLift}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="dateOfReceiving" className="block text-sm font-medium text-gray-700">
-                Date Of Receiving<span className="text-red-500">*</span>
+                Date Of Receiving
               </Label>
               <Input
                 type="date"
@@ -854,7 +881,7 @@ export default function ReceiptCheck() {
             </div>
             <div>
               <Label htmlFor="totalBillQuantity" className="block text-sm font-medium text-gray-700">
-                Total Bill Quantity
+                Billing Quantity
               </Label>
               <Input
                 type="number"

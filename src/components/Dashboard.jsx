@@ -36,6 +36,8 @@ import { Calendar } from "@/components/ui/calendar"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { toast } from "sonner"
 import {
   ResponsiveContainer,
   PieChart as RePieChart,
@@ -168,6 +170,20 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview")
   const [purchaseSubTab, setPurchaseSubTab] = useState("pending-lift")
   const { user, allowedSteps } = useAuth()
+
+  // Add Dropdown state
+  const [isDropdownModalOpen, setIsDropdownModalOpen] = useState(false)
+  const [dropdownFormData, setDropdownFormData] = useState({
+    type: "",
+    vendorName: "",
+    rawMaterialName: "",
+    transporterName: "",
+    aluminaRange: "",
+    ironRange: "",
+    apRange: "",
+    bdRange: "",
+  })
+  const [dropdownSubmitLoading, setDropdownSubmitLoading] = useState(false)
 
   // Filter States
   const [dateRange, setDateRange] = useState(undefined)
@@ -521,6 +537,52 @@ export default function Dashboard() {
     setDateRange(undefined)
   }
 
+  const handleDropdownSubmit = async (e) => {
+    e.preventDefault()
+    setDropdownSubmitLoading(true)
+    try {
+      if (!dropdownFormData.type) {
+        throw new Error("Please select a valid type.")
+      }
+
+      let error = null;
+
+      if (dropdownFormData.type === "Vendor Name" || dropdownFormData.type === "Transporter") {
+        let insertData = {}
+        if (dropdownFormData.type === "Vendor Name") {
+          insertData = { "Vendor Name": dropdownFormData.vendorName.trim() || null }
+        } else if (dropdownFormData.type === "Transporter") {
+          insertData = { "Transporter Name": dropdownFormData.transporterName.trim() || null }
+        }
+
+        const response = await supabase.from("Master").insert([insertData])
+        error = response.error
+      } else if (dropdownFormData.type === "Raw Material") {
+        const insertData = {
+          "Product name": dropdownFormData.rawMaterialName.trim() || null,
+          "Alumina Range": dropdownFormData.aluminaRange?.trim() || null,
+          "Iron Range": dropdownFormData.ironRange?.trim() || null,
+          "Ap Range": dropdownFormData.apRange?.trim() || null,
+          "Bd Range": dropdownFormData.bdRange?.trim() || null,
+        }
+
+        const response = await supabase.from("TL").insert([insertData])
+        error = response.error
+      }
+
+      if (error) {
+        throw error
+      }
+      toast.success("Dropdown Data Added Successfully")
+      setIsDropdownModalOpen(false)
+      setDropdownFormData({ type: "", vendorName: "", rawMaterialName: "", transporterName: "", aluminaRange: "", ironRange: "", apRange: "", bdRange: "" })
+    } catch (err) {
+      toast.error("Error adding dropdown data", { description: err.message })
+    } finally {
+      setDropdownSubmitLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-slate-50 flex items-center justify-center">
@@ -580,14 +642,23 @@ export default function Dashboard() {
                     )}
                   </CardDescription>
                 </div>
-                <Button
-                  onClick={fetchData}
-                  variant="secondary"
-                  className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-lg"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={() => setIsDropdownModalOpen(true)}
+                    variant="outline"
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm shadow-lg"
+                  >
+                    Add Dropdowns
+                  </Button>
+                  <Button
+                    onClick={fetchData}
+                    variant="secondary"
+                    className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-lg"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </CardHeader>
           </Card>
@@ -1048,7 +1119,7 @@ export default function Dashboard() {
                             <TableHead className="font-bold text-gray-700">Firm</TableHead>
                             <TableHead className="font-bold text-gray-700">Vendor</TableHead>
                             <TableHead className="font-bold text-gray-700">Material</TableHead>
-                            <TableHead className="text-right font-bold text-gray-700">Lifted Qty</TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">Billing Quantity</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1097,7 +1168,7 @@ export default function Dashboard() {
                             <TableHead className="font-bold text-gray-700">Vendor</TableHead>
                             <TableHead className="font-bold text-gray-700">Material</TableHead>
                             <TableHead className="font-bold text-gray-700">Notes</TableHead>
-                            <TableHead className="text-right font-bold text-gray-700">Lifted Qty</TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">Billing Quantity</TableHead>
                             <TableHead className="text-right font-bold text-gray-700">Received Qty</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1358,6 +1429,118 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={isDropdownModalOpen} onOpenChange={setIsDropdownModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add Dropdown Data</DialogTitle>
+            <DialogDescription>
+              Add new entries to the Master table for dropdowns across the application.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleDropdownSubmit} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="dropdownType">Type</Label>
+              <Select
+                value={dropdownFormData.type || undefined}
+                onValueChange={(val) => setDropdownFormData(prev => ({ ...prev, type: val }))}
+              >
+                <SelectTrigger id="dropdownType" className="w-full">
+                  <SelectValue placeholder="Select Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Vendor Name">Vendor Name</SelectItem>
+                  <SelectItem value="Transporter">Transporter</SelectItem>
+                  <SelectItem value="Raw Material">Raw Material</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {dropdownFormData.type === "Vendor Name" && (
+              <div className="space-y-2">
+                <Label htmlFor="vendorName">Vendor Name</Label>
+                <Input
+                  id="vendorName"
+                  placeholder="Enter vendor name"
+                  value={dropdownFormData.vendorName}
+                  onChange={(e) => setDropdownFormData(prev => ({ ...prev, vendorName: e.target.value }))}
+                />
+              </div>
+            )}
+
+            {dropdownFormData.type === "Transporter" && (
+              <div className="space-y-2">
+                <Label htmlFor="transporterName">Transporter Name</Label>
+                <Input
+                  id="transporterName"
+                  placeholder="Enter transporter name"
+                  value={dropdownFormData.transporterName}
+                  onChange={(e) => setDropdownFormData(prev => ({ ...prev, transporterName: e.target.value }))}
+                />
+              </div>
+            )}
+
+            {dropdownFormData.type === "Raw Material" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="rawMaterialName">Product Name</Label>
+                  <Input
+                    id="rawMaterialName"
+                    placeholder="Enter product name"
+                    value={dropdownFormData.rawMaterialName}
+                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, rawMaterialName: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="aluminaRange">Alumina Range</Label>
+                  <Input
+                    id="aluminaRange"
+                    placeholder="Enter alumina range"
+                    value={dropdownFormData.aluminaRange}
+                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, aluminaRange: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ironRange">Iron Range</Label>
+                  <Input
+                    id="ironRange"
+                    placeholder="Enter iron range"
+                    value={dropdownFormData.ironRange}
+                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, ironRange: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="apRange">AP Range</Label>
+                  <Input
+                    id="apRange"
+                    placeholder="Enter AP range"
+                    value={dropdownFormData.apRange}
+                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, apRange: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bdRange">BD Range</Label>
+                  <Input
+                    id="bdRange"
+                    placeholder="Enter BD range"
+                    value={dropdownFormData.bdRange}
+                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, bdRange: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsDropdownModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={dropdownSubmitLoading}>
+                {dropdownSubmitLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

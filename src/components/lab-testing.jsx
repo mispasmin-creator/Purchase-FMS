@@ -180,11 +180,21 @@ const ELIGIBLE_TESTS_COLUMNS_META = [
 
 const RECORDED_TESTS_COLUMNS_META = [
   { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
-  { header: "Test Date (AM)", dataKey: "amDateOfTest_formatted_val", toggleable: true },
   { header: "Status (AL)", dataKey: "alStatus_val", toggleable: true, isBadge: true },
+  { header: "Test Date (AM)", dataKey: "amDateOfTest_formatted_val", toggleable: true },
   { header: "Moisture % (AN)", dataKey: "anMoisturePercent_val", toggleable: true },
+  { header: "BD % (AO)", dataKey: "aoBdPercent_val", toggleable: true },
+  { header: "AP % (AP)", dataKey: "apApPercent_val", toggleable: true },
   { header: "Alumina % (AQ)", dataKey: "aqAluminaPercent_val", toggleable: true },
   { header: "Iron % (AR)", dataKey: "arIronPercent_val", toggleable: true },
+  { header: "Sieve Analysis (AS)", dataKey: "asSieveAnalysis_val", toggleable: true },
+  { header: "LOI % (AT)", dataKey: "atLoiPercent_val", toggleable: true },
+  { header: "SiO2 % (AU)", dataKey: "auSio2Percent_val", toggleable: true },
+  { header: "CaO % (AV)", dataKey: "avCaoPercent_val", toggleable: true },
+  { header: "MgO % (AW)", dataKey: "awMgoPercent_val", toggleable: true },
+  { header: "TiO2 % (AX)", dataKey: "axTio2Percent_val", toggleable: true },
+  { header: "K2O+Na2O % (AY)", dataKey: "ayKna2oPercent_val", toggleable: true },
+  { header: "Free Iron % (AZ)", dataKey: "azFreeIronPercent_val", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Test Timestamp (AJ)", dataKey: "ajTimestamp_formatted_val", toggleable: true },
 ]
@@ -294,7 +304,7 @@ export default function LabTesting() {
 
   const initialFormData = {
     liftIdToUpdate: "",
-    alStatus: "passed",
+    alStatus: "",
     amDateOfTest: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
     anMoisturePercent: "",
     aoBdPercent: "",
@@ -369,6 +379,8 @@ export default function LabTesting() {
         poQuantity: indent?.poQuantity || "",
         expectedAlumina: indent?.expectedAlumina || "",
         expectedIron: indent?.expectedIron || "",
+        expectedAp: indent?.expectedAp || "",
+        expectedBd: indent?.expectedBd || "",
       };
     } catch (error) {
       console.error("Error in getExpectedValues:", error);
@@ -383,7 +395,7 @@ export default function LabTesting() {
       try {
         const { data, error } = await supabase
           .from("INDENT-PO")
-          .select('"Indent Id.", "Total Quantity", Quantity, "Alumina %", "Iron %"');
+          .select('"Indent Id.", "Total Quantity", Quantity, "Alumina %", "Iron %", "AP Percent Age %", "BD Percent Age %"');
 
         if (error) throw error;
 
@@ -392,6 +404,8 @@ export default function LabTesting() {
           poQuantity: row["Total Quantity"] ? String(row["Total Quantity"]) : String(row["Quantity"] || ""),
           expectedAlumina: row["Alumina %"] ? String(row["Alumina %"]) : "",
           expectedIron: row["Iron %"] ? String(row["Iron %"]) : "",
+          expectedAp: row["AP Percent Age %"] ? String(row["AP Percent Age %"]) : "",
+          expectedBd: row["BD Percent Age %"] ? String(row["BD Percent Age %"]) : "",
         })).filter(item => item.indentNo && item.indentNo.trim() !== "");
 
         console.log("Total INDENT-PO records loaded from Supabase:", processedData.length);
@@ -505,6 +519,8 @@ export default function LabTesting() {
             billNo: String(row["Bill No."] || "").trim(),
             dateOfReceiving_formatted: formatTimestamp(row["Date Of Receiving"]),
             firmName: String(row["Firm Name"] || "").trim(),
+            physicalCondition: String(row["Physical Condition"] || "").trim(),
+            moisture: String(row["Moisture"] || "").trim(),
             // Filter columns - using Planned 2 and Actual 2
             filterColPlanned2: row["Planned 2"],
             filterColActual2: row["Actual 2"],
@@ -761,9 +777,16 @@ export default function LabTesting() {
     setFormErrors({});
 
     // Set form data
+    let initialStatus = "";
+    if (receipt.alStatus_val) {
+      const valLower = receipt.alStatus_val.toLowerCase();
+      if (valLower === "tested") initialStatus = "Tested";
+      else if (valLower === "not tested") initialStatus = "Not Tested";
+    }
+
     setFormData({
       liftIdToUpdate: receipt.liftNo,
-      alStatus: receipt.alStatus_val || "passed",
+      alStatus: initialStatus,
       amDateOfTest: receipt.amDateOfTest_val || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       anMoisturePercent: receipt.anMoisturePercent_val || "",
       aoBdPercent: receipt.aoBdPercent_val || "",
@@ -871,6 +894,91 @@ export default function LabTesting() {
         throw new Error(`Failed to update LIFT-ACCOUNTS: ${updateError.message}`);
       }
 
+      // Calculate Lab Mismatch (TL table tolerance vs LIFT-ACCOUNTS lab values only)
+      // Fetch TL tolerance values by product/raw material name
+      const labAlumina = parseFloat(formData.aqAluminaPercent) || null;
+      const labIron = parseFloat(formData.arIronPercent) || null;
+      const labAp = parseFloat(formData.apApPercent) || null;
+      const labBd = parseFloat(formData.aoBdPercent) || null;
+
+      // TL range string values
+      let tlAluminaRange = null;
+      let tlIronRange = null;
+      let tlApRange = null;
+      let tlBdRange = null;
+
+      if (selectedReceiptForModal.rawMaterialName) {
+        const materialName = String(selectedReceiptForModal.rawMaterialName).trim();
+        const { data: tlData, error: tlError } = await supabase
+          .from("TL")
+          .select("*")
+          .ilike("Product name", materialName)
+          .maybeSingle();
+
+        if (!tlError && tlData) {
+          tlAluminaRange = tlData["Alumina Range"];
+          tlIronRange = tlData["Iron Range"];
+          tlApRange = tlData["Ap Range"];
+          tlBdRange = tlData["Bd Range"];
+        }
+      }
+
+      // Calculate difference from range: 0 if within range, else value exceeding range
+      const calculateDiffFromRange = (labValue, rangeString) => {
+        if (labValue === null || !rangeString) return null;
+        const str = String(rangeString).trim();
+        if (str.includes('-')) {
+          const parts = str.split('-');
+          const min = parseFloat(parts[0]);
+          const max = parseFloat(parts[1]);
+          if (!isNaN(min) && !isNaN(max)) {
+            if (labValue < min) return labValue - min; // Negative difference (less than min)
+            if (labValue > max) return labValue - max; // Positive difference (more than max)
+            return 0; // Within range
+          }
+        } else {
+          // Fallback if TL table ever has a single number
+          const val = parseFloat(str);
+          if (!isNaN(val)) {
+            if (labValue !== val) return labValue - val;
+            return 0; // Exact match
+          }
+        }
+        return null; // Could not parse
+      };
+
+      const diffAlumina = calculateDiffFromRange(labAlumina, tlAluminaRange);
+      const diffIron = calculateDiffFromRange(labIron, tlIronRange);
+      const diffAp = calculateDiffFromRange(labAp, tlApRange);
+      const diffBd = calculateDiffFromRange(labBd, tlBdRange);
+
+      const hasAluminaMismatch = diffAlumina !== null && diffAlumina !== 0;
+      const hasIronMismatch = diffIron !== null && diffIron !== 0;
+      const hasApMismatch = diffAp !== null && diffAp !== 0;
+      const hasBdMismatch = diffBd !== null && diffBd !== 0;
+
+      const isQualityMismatch = selectedReceiptForModal.physicalCondition === "Bad" && selectedReceiptForModal.moisture === "Yes";
+      const isMismatch = hasAluminaMismatch || hasIronMismatch || hasApMismatch || hasBdMismatch || isQualityMismatch;
+
+      // Only store a difference value if it EXCEEDS the TL table range for that material.
+      // If within range → store null (so it won't appear in Material Mismatch tab).
+      const mismatchUpdatePayload = {
+        "Alumina Difference": hasAluminaMismatch ? Math.round(diffAlumina * 1000) / 1000 : null,
+        "Iron Difference": hasIronMismatch ? Math.round(diffIron * 1000) / 1000 : null,
+        "AP Difference": hasApMismatch ? Math.round(diffAp * 1000) / 1000 : null,
+        "BD Difference": hasBdMismatch ? Math.round(diffBd * 1000) / 1000 : null,
+        "Status": "Pending",
+      };
+
+      const { error: mismatchError } = await supabase
+        .from("Mismatch")
+        .update(mismatchUpdatePayload)
+        .eq('Lift Number', selectedReceiptForModal.liftNo);
+
+      if (mismatchError) {
+        console.error("Failed to update Mismatch table:", mismatchError);
+      }
+
       toast.success("Success!", {
         description: `Lab test for Lift ID ${selectedReceiptForModal.liftNo} recorded.`,
         icon: <CheckCircle className="h-4 w-4" />,
@@ -918,6 +1026,10 @@ export default function LabTesting() {
 
   const getStatusBadgeVariant = (status) => {
     switch (status?.toLowerCase()) {
+      case "tested":
+        return "success"
+      case "not tested":
+        return "warning"
       case "passed":
         return "success"
       case "failed":
@@ -1273,16 +1385,15 @@ export default function LabTesting() {
                 <Label className="text-foreground text-xs" htmlFor="alStatus">
                   AL: Status <span className="text-destructive">*</span>
                 </Label>
-                <Select name="alStatus" value={formData.alStatus} onValueChange={handleSelectChange("alStatus")}>
+                <Select name="alStatus" value={formData.alStatus ? formData.alStatus : undefined} onValueChange={handleSelectChange("alStatus")}>
                   <SelectTrigger
-                    className={`h-9 mt-1 rounded-md text-xs ${formErrors.alStatus ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                    className={`w-full h-9 mt-1 rounded-md text-xs ${formErrors.alStatus ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
                   >
                     <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="passed">Passed</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    <SelectItem value="conditional">Conditional Pass</SelectItem>
+                    <SelectItem value="Tested">Tested</SelectItem>
+                    <SelectItem value="Not Tested">Not Tested</SelectItem>
                   </SelectContent>
                 </Select>
                 {formErrors.alStatus && <p className="mt-1 text-xs text-destructive">{formErrors.alStatus}</p>}
@@ -1323,6 +1434,11 @@ export default function LabTesting() {
               <div>
                 <Label className="text-foreground text-xs" htmlFor="aoBdPercent">
                   BD % <span className="text-destructive">*</span>
+                  {selectedReceiptForModal?.indentNo && (
+                    <span className="ml-1 text-xs text-green-600">
+                      (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedBd || "N/A"})
+                    </span>
+                  )}
                 </Label>
                 <Input
                   type="text"
@@ -1340,6 +1456,11 @@ export default function LabTesting() {
               <div>
                 <Label className="text-foreground text-xs" htmlFor="apApPercent">
                   AP % <span className="text-destructive">*</span>
+                  {selectedReceiptForModal?.indentNo && (
+                    <span className="ml-1 text-xs text-green-600">
+                      (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedAp || "N/A"})
+                    </span>
+                  )}
                 </Label>
                 <Input
                   type="text"

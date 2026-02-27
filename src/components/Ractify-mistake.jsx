@@ -370,7 +370,7 @@ const RectifyMistakeBiltyPage = () => {
                               biltyNo: 'Bilty No',
                               typeOfRate: 'Type of Rate',
                               rate: 'Rate',
-                              truckQty: 'Truck Quantity',
+                              truckQty: 'Total Truck Billing Quantity',
                               biltyImage: 'Bilty Image',
                               qtyDifferenceStatus: 'Qty Difference Status',
                               differenceQty: 'Difference Quantity',
@@ -436,7 +436,7 @@ const RectifyMistakeBiltyPage = () => {
                   {visibleColumns.biltyNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty No</th>}
                   {visibleColumns.typeOfRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type of Rate</th>}
                   {visibleColumns.rate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>}
-                  {visibleColumns.truckQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck Quantity</th>}
+                  {visibleColumns.truckQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Truck Billing Quantity</th>}
                   {visibleColumns.biltyImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty Image</th>}
                   {visibleColumns.qtyDifferenceStatus && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Difference Status</th>}
                   {visibleColumns.differenceQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Difference Quantity</th>}

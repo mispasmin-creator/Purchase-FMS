@@ -17,7 +17,9 @@ import {
   Save,
   X,
   Clock,
-  History
+  History,
+  UploadCloud,
+  ExternalLink
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -43,6 +45,8 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Product Name", dataKey: "productName", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
+  { header: "Debit Amount", dataKey: "debitAmount", toggleable: true },
+  { header: "Debit Image", dataKey: "debitNoteUrl", toggleable: true },
   { header: "Remarks", dataKey: "remarks", toggleable: true },
 ];
 
@@ -131,6 +135,8 @@ export default function DebitNote() {
   const [error, setError] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
   const [remarks, setRemarks] = useState("");
+  const [debitAmount, setDebitAmount] = useState("");
+  const [debitImageFile, setDebitImageFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("pending");
   const [filters, setFilters] = useState({
@@ -216,6 +222,8 @@ export default function DebitNote() {
         productName: String(row["Product Name"] || "").trim(),
         transporterName: String(row["Transporter Name"] || "").trim(),
         status: String(row["Status"] || "").trim(),
+        debitAmount: row["Debit Amount"] !== null ? row["Debit Amount"] : "",
+        debitNoteUrl: row["Debit Note URL"] || "",
         remarks: String(row["Remarks"] || "").trim(),
         planned: row["Planned"] ? formatTimestamp(row["Planned"]) : null,
         actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
@@ -330,29 +338,57 @@ export default function DebitNote() {
   const handleEditClick = (item) => {
     setEditingRow(item.id);
     setRemarks(item.remarks || "");
+    setDebitAmount(item.debitAmount || "");
+    setDebitImageFile(null);
   };
 
   // Handle cancel edit
   const handleCancelEdit = () => {
     setEditingRow(null);
     setRemarks("");
+    setDebitAmount("");
+    setDebitImageFile(null);
   };
 
   // Submit remarks and update actual timestamp in Supabase
   const handleSubmitRemarks = async () => {
-    if (!editingRow || !remarks.trim()) {
-      toast.error("Please enter remarks before submitting");
+    if (!editingRow) return;
+
+    // Find the item being edited
+    const editingItem = mismatchData.find(item => item.id === editingRow);
+    if (!editingItem) {
+      toast.error("Item not found");
+      return;
+    }
+
+    const hasImage = debitImageFile || editingItem.debitNoteUrl;
+
+    if (!remarks.trim() || !debitAmount || !hasImage) {
+      toast.error("Please provide remarks, a Debit Amount, and a Debit Image.");
       return;
     }
 
     setSubmitting(true);
 
     try {
-      // Find the item being edited
-      const editingItem = mismatchData.find(item => item.id === editingRow);
-      if (!editingItem) {
-        throw new Error("Item not found");
+      let publicUrl = editingItem.debitNoteUrl || null;
+
+      if (debitImageFile) {
+        const fileExt = debitImageFile.name.split('.').pop();
+        const fileName = `debit-notes/${editingItem.liftId}_debit_${Date.now()}.${fileExt}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('image')
+          .upload(fileName, debitImageFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('image')
+          .getPublicUrl(fileName);
+
+        publicUrl = publicUrlData.publicUrl;
       }
+
 
       // Generate current timestamp for "Actual" column
       const now = new Date();
@@ -371,6 +407,8 @@ export default function DebitNote() {
         .from("Mismatch")
         .update({
           "Remark": remarks.trim(),
+          "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
+          "Debit Note URL": publicUrl,
           "Actual": actualTimestamp
         })
         .eq("Lift ID", editingItem.liftId)
@@ -385,6 +423,8 @@ export default function DebitNote() {
           ? {
             ...item,
             remarks: remarks.trim(),
+            debitAmount: debitAmount ? parseFloat(debitAmount) : "",
+            debitNoteUrl: publicUrl,
             actual: formatTimestamp(actualTimestamp),
             _rawActual: actualTimestamp
           }
@@ -426,6 +466,25 @@ export default function DebitNote() {
 
     if (column.dataKey === "status") {
       return renderStatusBadge(value);
+    }
+
+    if (column.dataKey === "debitAmount") {
+      return value ? <span className="font-semibold text-red-600">₹{value}</span> : <span className="text-gray-400 text-xs">N/A</span>;
+    }
+
+    if (column.dataKey === "debitNoteUrl") {
+      return value ? (
+        <a
+          href={String(value).startsWith("http") ? value : `https://${value}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-purple-600 hover:text-purple-800 hover:underline inline-flex items-center text-xs whitespace-nowrap"
+        >
+          <ExternalLink className="h-3 w-3 mr-1" /> View Image
+        </a>
+      ) : (
+        <span className="text-gray-400 text-xs">N/A</span>
+      );
     }
 
     if (column.dataKey === "actions") {
@@ -475,7 +534,7 @@ export default function DebitNote() {
           className="h-7 px-2"
         >
           <Edit className="h-3 w-3 mr-1" />
-          Add Remarks
+          Make Debit Note
         </Button>
       );
     }
@@ -529,6 +588,33 @@ export default function DebitNote() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Debit Amount <span className="text-red-500">*</span></Label>
+                  <Input
+                    type="number"
+                    placeholder="Enter Debit Amount (e.g., 5000)"
+                    value={debitAmount}
+                    onChange={(e) => setDebitAmount(e.target.value)}
+                    disabled={submitting}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Debit Image <span className="text-red-500">*</span></Label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setDebitImageFile(e.target.files[0] || null)}
+                    disabled={submitting}
+                    className="cursor-pointer file:cursor-pointer file:bg-purple-50 file:text-purple-700 file:border-0 file:rounded-md file:px-2 file:py-1 file:mr-2 file:text-xs hover:file:bg-purple-100"
+                  />
+                  {editingItem.debitNoteUrl && !debitImageFile && (
+                    <div className="text-xs text-green-600 flex items-center mt-1">
+                      <CheckCircle className="h-3 w-3 mr-1" /> Image uploaded previously
+                    </div>
+                  )}
+                </div>
+              </div>
 
 
               <div className="space-y-2">

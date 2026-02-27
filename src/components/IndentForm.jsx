@@ -150,6 +150,9 @@ export default function IndentForm() {
     if (!formData.priority) newErrors.priority = "Priority is required."
     if (!formData.typeOfIndent) newErrors.typeOfIndent = "Type Of Indent is required."
 
+    // Note: Delivery Order No. is optional for all indent types, including Finished Goods
+    // No validation required for deliveryOrderNo
+
     setErrors(newErrors); // Update state for UI error messages
     return newErrors; // Return errors immediately for synchronous check
   }
@@ -215,7 +218,7 @@ export default function IndentForm() {
           "Current Stock As Per factory": parseFloat(formData.currentStock),
           "Priority": formData.priority,
           "Type Of Indent": formData.typeOfIndent,
-          "Delivery Order No.": formData.deliveryOrderNo,
+          "Delivery Order No.": formData.deliveryOrderNo || null, // Send null if empty
           "Notes": formData.notes
         }])
 
@@ -437,18 +440,21 @@ export default function IndentForm() {
                 {errors.typeOfIndent && <p className="text-red-500 text-xs mt-1">{errors.typeOfIndent}</p>}
               </div>
 
-              <div className="lg:col-span-2">
-                <Label htmlFor="deliveryOrderNo">Delivery Order No.</Label>
-                <Input
-                  id="deliveryOrderNo"
-                  type="text"
-                  name="deliveryOrderNo"
-                  placeholder="Enter delivery order number (optional)"
-                  value={formData.deliveryOrderNo}
-                  onChange={handleChange}
-                  className="mt-1"
-                />
-              </div>
+              {/* Delivery Order No. - Only shown for Finished Goods (optional) */}
+              {formData.typeOfIndent === "Finished Goods" && (
+                <div className="lg:col-span-2">
+                  <Label htmlFor="deliveryOrderNo">Delivery Order No. (Optional)</Label>
+                  <Input
+                    id="deliveryOrderNo"
+                    type="text"
+                    name="deliveryOrderNo"
+                    placeholder="Enter delivery order number"
+                    value={formData.deliveryOrderNo}
+                    onChange={handleChange}
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="lg:col-span-3">

@@ -52,7 +52,7 @@ const PENDING_BILTY_COLUMNS_META = [
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "Planned 2 (AD)", dataKey: "planned2", toggleable: true },
+  { header: "Planned Date", dataKey: "planned3", toggleable: true },
 ];
 
 const BILTY_HISTORY_COLUMNS_META = [
@@ -213,7 +213,7 @@ export default function BiltyPage() {
           filterColActual3: row["Actual 3"],
           isPending: row["Planned 3"] && !row["Actual 3"],
           isHistory: row["Planned 3"] && row["Actual 3"],
-          biltyNumber: String(row["Bilty No. 2"] || "").trim(),
+          biltyNumber: String(row["Bilty No."] || "").trim(),
           biltyImageUrl: String(row["Bilty Image"] || "").trim(),
           timestamp: formatTimestamp(row["Actual 3"]),
         };
@@ -370,7 +370,7 @@ export default function BiltyPage() {
       // We are setting Actual 3 when Bilty is entered
       const updateData = {
         "Actual 3": timestamp,
-        "Bilty No. 2": formData.biltyNumber,
+        "Bilty No.": formData.biltyNumber,
         "Bilty Image": biltyImageUrl,
       };
 

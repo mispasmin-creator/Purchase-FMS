@@ -320,18 +320,16 @@ export function NotificationProvider({ children }) {
 
     async function getPendingFullkitting() {
         try {
+            // Fullkitting pending = Planned7 filled AND Actual7 empty in Mismatch table
             const { data, error } = await supabase
-                .from("LIFT-ACCOUNTS")
-                .select("*")
-                .not("Planned 4", "is", null);
+                .from("Mismatch")
+                .select("id, \"Planned7\", \"Actual7\", \"Firm Name\"")
+                .not("Planned7", "is", null)
+                .is("Actual7", null);
 
             if (error) throw error;
 
-            let filtered = data.filter((row) => {
-                const planned4 = row["Planned 4"];
-                const actual4 = row["Actual 4"];
-                return planned4 !== null && planned4 !== "" && (actual4 === null || actual4 === "");
-            });
+            let filtered = data;
 
             if (user?.firmName && user.firmName.toLowerCase() !== "all") {
                 const userFirmNameLower = user.firmName.toLowerCase();

@@ -101,6 +101,8 @@ const GeneratePurchaseOrder = () => {
     poFile: null,
     alumina: "",
     iron: "",
+    ap: "",
+    bd: "",
   });
 
   // Simple SearchableSelect Component (without Command)
@@ -198,8 +200,10 @@ const GeneratePurchaseOrder = () => {
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
     // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
     { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
+    { header: "Indented Quantity", dataKey: "originalQuantity", toggleable: true },
     { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
     { header: "Type", dataKey: "typeOfIndent", toggleable: true },
+    { header: "Notes", dataKey: "indentNotes", toggleable: true },
     { header: "Planned Date", dataKey: "planned", toggleable: true },
   ]), []);
 
@@ -349,15 +353,15 @@ const GeneratePurchaseOrder = () => {
           rawMaterialName: row["Material"],
           typeOfIndent: row["Priority"],
           approvedQty: row["Approved Qty"],
-          planned: row["Planned2"],
-          poTimestamp: row["Actual2"],
+          planned: String(row["Planned2"] || "").replace('T', ' '),
+          poTimestamp: String(row["Actual2"] || "").replace('T', ' '),
           indentId: row["Indent Id."], // For PO History and Advance Payment
           quantity: row["Total Quantity"] || row["Quantity"], // Use Total Quantity if available
           totalAmount: row["Total Amount"],
           alumina: row["Alumina %"],
           iron: row["Iron %"],
           poFile: row["PO Copy"],
-          createdAt: row["Actual2"],
+          createdAt: String(row["Actual2"] || "").replace('T', ' '),
           haveToPO: row["Have To Make PO"],
           rate: row["Rate"],
           leadTimeToLift: row["Lead Time To Lift (days)"],
@@ -366,6 +370,8 @@ const GeneratePurchaseOrder = () => {
           toBePaidAmount: row["To Be Paid Amount"],
           whenToBePaid: row["When To Be Paid Amount"],
           status5: row["Status5"],
+          originalQuantity: row["Quantity"],
+          indentNotes: row["Notes"],
         };
 
         rowData.paymentStatus = row["Status5"];
@@ -510,6 +516,8 @@ const GeneratePurchaseOrder = () => {
         updates["PO Notes"] = dataToSubmit.notes;
         updates["Alumina %"] = parseFloat(dataToSubmit.alumina);
         updates["Iron %"] = parseFloat(dataToSubmit.iron);
+        updates["AP Percent Age %"] = parseFloat(dataToSubmit.ap);
+        updates["BD Percent Age %"] = parseFloat(dataToSubmit.bd);
       } else {
         updates["Rate"] = null;
         updates["Lead Time To Lift (days)"] = null;
@@ -522,6 +530,8 @@ const GeneratePurchaseOrder = () => {
         updates["PO Notes"] = null;
         updates["Alumina %"] = null;
         updates["Iron %"] = null;
+        updates["AP Percent Age %"] = null;
+        updates["BD Percent Age %"] = null;
       }
 
       const { error: updateError } = await supabase
@@ -557,6 +567,8 @@ const GeneratePurchaseOrder = () => {
         poFile: null,
         alumina: "",
         iron: "",
+        ap: "",
+        bd: "",
       }));
     } else {
       setFormData((prev) => ({
@@ -585,6 +597,8 @@ const GeneratePurchaseOrder = () => {
       poFile: null,
       alumina: "",
       iron: "",
+      ap: "",
+      bd: "",
     });
     setPoErrors({});
     setHaveToPO("yes"); // Default to yes
@@ -611,6 +625,8 @@ const GeneratePurchaseOrder = () => {
       poFile: null,
       alumina: "",
       iron: "",
+      ap: "",
+      bd: "",
     });
   };
 
@@ -690,6 +706,8 @@ const GeneratePurchaseOrder = () => {
       if (!formData.totalQty || isNaN(parseFloat(formData.totalQty)) || parseFloat(formData.totalQty) <= 0) newErrors.totalQty = "Total Quantity must be a positive number.";
       if (!formData.alumina || isNaN(parseFloat(formData.alumina)) || parseFloat(formData.alumina) < 0) newErrors.alumina = "Alumina % is required and must be non-negative.";
       if (!formData.iron || isNaN(parseFloat(formData.iron)) || parseFloat(formData.iron) < 0) newErrors.iron = "Iron % is required and must be non-negative.";
+      if (!formData.ap || isNaN(parseFloat(formData.ap)) || parseFloat(formData.ap) < 0) newErrors.ap = "AP % is required and must be non-negative.";
+      if (!formData.bd || isNaN(parseFloat(formData.bd)) || parseFloat(formData.bd) < 0) newErrors.bd = "BD % is required and must be non-negative.";
       if (!formData.advanceToBePaid) newErrors.advanceToBePaid = "Advance option is required.";
       if (!formData.poFile) newErrors.poFile = "PO Copy is required.";
       if (formData.advanceToBePaid === "yes") {
@@ -1268,6 +1286,34 @@ const GeneratePurchaseOrder = () => {
                       className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.iron ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
                     />
                     {poErrors.iron && <p className="text-red-500 text-xs mt-1">{poErrors.iron}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="ap" className="block text-sm font-medium text-gray-700">AP % <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      step="any"
+                      id="ap"
+                      name="ap"
+                      value={formData.ap}
+                      onChange={handleInputChange}
+                      placeholder="AP %"
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.ap ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                    />
+                    {poErrors.ap && <p className="text-red-500 text-xs mt-1">{poErrors.ap}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="bd" className="block text-sm font-medium text-gray-700">BD % <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      step="any"
+                      id="bd"
+                      name="bd"
+                      value={formData.bd}
+                      onChange={handleInputChange}
+                      placeholder="BD %"
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.bd ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                    />
+                    {poErrors.bd && <p className="text-red-500 text-xs mt-1">{poErrors.bd}</p>}
                   </div>
                   <div className="md:col-span-1">
                     <Label htmlFor="poFile" className="block text-sm font-medium text-gray-700">Upload PO Copy <span className="text-red-500">*</span></Label>
