@@ -65,8 +65,7 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
   { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
-  { header: "Total Freight", dataKey: "totalFreight", toggleable: true },
-  { header: "Status", dataKey: "status", toggleable: true },
+
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Lead Time", dataKey: "leadTimeToFactory", toggleable: true },
   { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
@@ -104,8 +103,7 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "PO Notes", dataKey: "poPONotes", toggleable: true },
   { header: "Alumina % (PO)", dataKey: "poAluminaPercent", toggleable: true },
   { header: "Iron % (PO)", dataKey: "poIronPercent", toggleable: true },
-  { header: "Total Lifted", dataKey: "poTotalLifted", toggleable: true },
-  { header: "Pending Qty", dataKey: "poPendingQty", toggleable: true },
+
   // { header: "Order Cancel Qty", dataKey: "poOrderCancelQty", toggleable: true },
   // { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
 
@@ -123,7 +121,6 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Billing Quantity (Column J)", dataKey: "liftedQty", toggleable: true },
   { header: "Actual Quantity (Column Y)", dataKey: "actualQuantityY", toggleable: true },
-  { header: "Weight Slip Qty (Column BF)", dataKey: "weightSlipQty", toggleable: true },
   { header: "Quantity Difference", dataKey: "qtyDifference", toggleable: true },
 
   // Additional LIFT-ACCOUNTS columns
@@ -144,8 +141,7 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
   { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
-  { header: "Total Freight", dataKey: "totalFreight", toggleable: true },
-  { header: "Status", dataKey: "status", toggleable: true },
+
 
   // INDENT-PO columns
   { header: "PO Timestamp", dataKey: "poTimestamp", toggleable: true },
@@ -169,8 +165,7 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "PO Notes", dataKey: "poPONotes", toggleable: true },
   { header: "Alumina % (PO)", dataKey: "poAluminaPercent", toggleable: true },
   { header: "Iron % (PO)", dataKey: "poIronPercent", toggleable: true },
-  { header: "Total Lifted (PO)", dataKey: "poTotalLifted", toggleable: true },
-  { header: "Pending Qty (PO)", dataKey: "poPendingQty", toggleable: true },
+
   { header: "Order Cancel Qty", dataKey: "poOrderCancelQty", toggleable: true },
   { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
 ];
@@ -770,8 +765,8 @@ export default function MismatchAnalysis() {
         .from("TL")
         .select("*");
 
-      if (fetchError) throw fetchError;   
-    
+      if (fetchError) throw fetchError;
+
       const formattedData = (data || [])
         .map((row, index) => ({
           _id: `tl-${index}`,
