@@ -152,6 +152,7 @@ const columns = [
   { header: "Select", dataKey: "selectAction", toggleable: false, alwaysVisible: true },
   { header: "Action", dataKey: "paymentAction", toggleable: false, alwaysVisible: true },
   { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
+  { header: "Planned", dataKey: "planned", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Delivery Order No.", dataKey: "deliveryOrderNo", toggleable: true },
   { header: "Vendor", dataKey: "vendorName", toggleable: true },
@@ -171,7 +172,6 @@ const columns = [
   },
 
   { header: "Notes", dataKey: "notes", toggleable: true },
-  { header: "Planned", dataKey: "planned", toggleable: true },
   { header: "Paid On", dataKey: "actual", toggleable: true },
 ];
 

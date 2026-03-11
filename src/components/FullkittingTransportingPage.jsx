@@ -22,11 +22,11 @@ import { Input } from "@/components/ui/input";
 const KITTING_COLUMNS_META = [
     { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
     { header: "Lift Number", dataKey: "liftNumber", toggleable: true, alwaysVisible: true },
+    { header: "Planned Date", dataKey: "plannedDate", toggleable: true },
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
     { header: "Party Name", dataKey: "partyName", toggleable: true },
     { header: "Product Name", dataKey: "productName", toggleable: true },
     { header: "Transporter", dataKey: "transporterName", toggleable: true },
-    { header: "Planned Date", dataKey: "plannedDate", toggleable: true },
     { header: "Kitting Link", dataKey: "kittingLink", toggleable: true, isLink: true, linkText: "View Kitting" },
 ];
 
@@ -113,34 +113,45 @@ export default function FullkittingTransportingPage() {
         setLoading(true);
         setError(null);
         try {
-            // Fetch Mismatch table (Planned7 filled) AND LIFT-ACCOUNTS in parallel
-            const [{ data, error: fetchError }, { data: liftData, error: liftError }] = await Promise.all([
+            // Fetch Mismatch table (Planned7 filled) AND LIFT-ACCOUNTS and INDENT-PO in parallel
+            const [{ data, error: fetchError }, { data: liftData, error: liftError }, { data: poData, error: poError }] = await Promise.all([
                 supabase.from("Mismatch").select("*").not("Planned7", "is", null).order("Timestamp", { ascending: false }),
-                supabase.from("LIFT-ACCOUNTS").select("\"Lift No\", \"Bilty No.\", \"Bilty Image\""),
+                supabase.from("LIFT-ACCOUNTS").select("*"),
+                supabase.from("INDENT-PO").select("*"),
             ]);
 
             if (fetchError) throw fetchError;
             if (liftError) throw liftError;
+            if (poError) throw poError;
 
-            // Build a lookup map from LIFT-ACCOUNTS: LiftNo → { biltyNo, biltyImage }
+            // Build a lookup map from LIFT-ACCOUNTS
             const liftLookup = {};
             (liftData || []).forEach(lift => {
                 const key = String(lift["Lift No"] || "").trim();
-                if (key) liftLookup[key] = {
-                    biltyNo: String(lift["Bilty No."] || "").trim(),
-                    biltyImage: String(lift["Bilty Image"] || "").trim(),
-                };
+                if (key) liftLookup[key] = lift;
+            });
+
+            // Build a lookup map from INDENT-PO
+            const poLookup = {};
+            (poData || []).forEach(po => {
+                const key = String(po["Indent Id."] || po["Indent Id"] || "").trim();
+                if (key) poLookup[key] = po;
             });
 
             let parsedData = (data || []).map((row) => {
                 const planned7 = row["Planned7"];
                 const actual7 = row["Actual7"];
                 const liftNum = String(row["Lift Number"] || row["Lift ID"] || "").trim();
+                const indentNum = String(row["Indent Number"] || row["Indent no."] || "").trim();
                 const liftInfo = liftLookup[liftNum] || {};
+                const poInfo = poLookup[indentNum] || {};
 
                 return {
                     id: `kitting-${row.id}`,
                     originalId: row.id,
+                    originalRow: row,
+                    liftRow: liftInfo,
+                    poRow: poInfo,
                     firmName: String(row["Firm Name"] || "").trim(),
                     liftNumber: liftNum,
                     partyName: String(row["Party Name"] || "").trim(),
@@ -150,13 +161,13 @@ export default function FullkittingTransportingPage() {
                     isPending: !actual7,
                     isHistory: !!actual7,
                     plannedDate: planned7 ? String(planned7).trim().replace('T', ' ') : "",
-                    indentNo: String(row["Indent Number"] || "").trim(),
+                    indentNo: indentNum,
                     // Bilty No. and Bilty Image from LIFT-ACCOUNTS via join
-                    biltyNo: liftInfo.biltyNo || String(row["Bilty No."] || "").trim(),
-                    biltyImage: liftInfo.biltyImage || String(row["Bilty Image"] || "").trim(),
-                    typeOfRate: String(row["Type Of Rate"] || "").trim(),
-                    rate: Number(row["Rate"]) || 0,
-                    truckNo: String(row["Truck No."] || "").trim(),
+                    biltyNo: String(liftInfo["Bilty No."] || row["Bilty No."] || "").trim(),
+                    biltyImage: String(liftInfo["Bilty Image"] || row["Bilty Image"] || "").trim(),
+                    typeOfRate: String(liftInfo["Type Of Transporting Rate"] || row["Type Of Rate"] || "").trim(),
+                    rate: Number(row["Rate"]) || Number(liftInfo["Rate"]) || 0,
+                    truckNo: String(liftInfo["Truck No."] || row["Truck No."] || "").trim(),
                 };
             });
 
@@ -167,6 +178,8 @@ export default function FullkittingTransportingPage() {
                     (item) => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower,
                 );
             }
+            // Show only Independent type lifts
+            parsedData = parsedData.filter((item) => String(item.liftRow?.["Type"] || "").toLowerCase() === "independent");
 
             setKittingData(parsedData);
         } catch (err) {
@@ -524,7 +537,80 @@ export default function FullkittingTransportingPage() {
                                         <X className="h-5 w-5" />
                                     </button>
                                 </div>
-                                <div className="p-4 space-y-4 overflow-y-auto max-h-[65vh]">
+                                <div className="p-4 space-y-4 overflow-y-auto max-h-[75vh]">
+
+                                    {/* Mismatch Details Reference (Read-only) */}
+                                    {(() => {
+                                        const detailsToDisplay = [
+                                            { label: "Lift ID", value: selectedKittingItem?.liftNumber },
+                                            { label: "Date", value: selectedKittingItem?.originalRow?.["Timestamp"] || selectedKittingItem?.liftRow?.["Date Of Receiving"] },
+                                            { label: "Firm Name", value: selectedKittingItem?.firmName },
+                                            { label: "Qty", value: selectedKittingItem?.liftRow?.["Qty"] },
+                                            { label: "Billing Quantity", value: selectedKittingItem?.liftRow?.["Lifting Qty"] || selectedKittingItem?.originalRow?.["Lifting Qty"] || selectedKittingItem?.originalRow?.["Billing Quantity"] },
+                                            { label: "Area Lifting", value: selectedKittingItem?.liftRow?.["Area lifting"] },
+                                            { label: "Bill No.", value: selectedKittingItem?.liftRow?.["Bill No."] },
+                                            { label: "Type", value: selectedKittingItem?.liftRow?.["Type"] },
+                                            { label: "Material Rate", value: selectedKittingItem?.originalRow?.["Rate"] || selectedKittingItem?.originalRow?.["Material Rate"] },
+                                            { label: "PO Rate", value: selectedKittingItem?.originalRow?.["PO Rate (Original)"] || selectedKittingItem?.originalRow?.["PO Rate"] || selectedKittingItem?.poRow?.["Rate"] },
+                                            { label: "Truck Qty", value: selectedKittingItem?.liftRow?.["Truck Qty"] },
+                                            { label: "Bill Image", value: selectedKittingItem?.liftRow?.["Bill Image"], isLink: true },
+                                            { label: "Weight Slip", value: selectedKittingItem?.liftRow?.["Image Of Weight Slip"], isLink: true },
+                                            { label: "Qty Diff Status", value: selectedKittingItem?.liftRow?.["Qty Difference Status"] },
+                                            { label: "Driver No.", value: selectedKittingItem?.liftRow?.["Driver No."] },
+                                            { label: "Lead Time", value: selectedKittingItem?.liftRow?.["Lead Time To Reach Factory (days)"] },
+                                            { label: "Date Received", value: selectedKittingItem?.liftRow?.["Date Of Receiving"] },
+                                            { label: "Bill Qty", value: selectedKittingItem?.liftRow?.["Total Bill Quantity"] },
+                                            { label: "Actual Qty", value: selectedKittingItem?.originalRow?.["Actual Quantity"] || selectedKittingItem?.liftRow?.["Actual Quantity"] },
+                                            { label: "Moisture", value: selectedKittingItem?.liftRow?.["Moisture"] },
+                                            { label: "PO Timestamp", value: selectedKittingItem?.poRow?.["Timestamp"] },
+                                            { label: "Firm Name (PO)", value: selectedKittingItem?.poRow?.["Firm Name"] },
+                                            { label: "Generated By", value: selectedKittingItem?.poRow?.["Generated By"] },
+                                            { label: "Quantity (PO)", value: selectedKittingItem?.poRow?.["Quantity"] },
+                                            { label: "Current Stock", value: selectedKittingItem?.poRow?.["Current Stock"] },
+                                            { label: "Priority", value: selectedKittingItem?.poRow?.["Priority"] },
+                                            { label: "Delivery Order No.", value: selectedKittingItem?.poRow?.["Delivery Order No."] },
+                                            { label: "Notes (PO)", value: selectedKittingItem?.poRow?.["Notes"] },
+                                            { label: "Approved Qty", value: selectedKittingItem?.poRow?.["Approved Qty"] },
+                                            { label: "Approval Status", value: selectedKittingItem?.poRow?.["Approval Status"] },
+                                            { label: "Remarks (PO)", value: selectedKittingItem?.poRow?.["Remarks"] },
+                                            { label: "Have To Make PO", value: selectedKittingItem?.poRow?.["Have To Make PO"] },
+                                            { label: "Lead Time (days) (PO)", value: selectedKittingItem?.poRow?.["Lead Time (days)"] },
+                                            { label: "Total Quantity (PO)", value: selectedKittingItem?.poRow?.["Total Quantity"] },
+                                            { label: "Total Amount", value: selectedKittingItem?.poRow?.["Total Amount"] },
+                                            { label: "PO Copy", value: selectedKittingItem?.poRow?.["PO Copy"], isLink: true },
+                                            { label: "Advance To Be Paid", value: selectedKittingItem?.poRow?.["Advance To Be Paid"] },
+                                            { label: "To Be Paid Amount", value: selectedKittingItem?.poRow?.["To Be Paid Amount"] },
+                                            { label: "When To Be Paid", value: selectedKittingItem?.poRow?.["When To Be Paid"] },
+                                            { label: "PO Notes", value: selectedKittingItem?.poRow?.["PO Notes"] },
+                                        ].filter(d => Boolean(d.value) && String(d.value).trim() !== "" && String(d.value).trim() !== "N/A" && String(d.value).trim() !== "NaN");
+
+                                        if (detailsToDisplay.length === 0) return null;
+
+                                        return (
+                                            <div className="p-3 bg-purple-50/50 rounded-lg border border-purple-100 text-sm mb-4">
+                                                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                                                    {detailsToDisplay.map((item, idx) => (
+                                                        <div key={idx} className={item.isLink ? "col-span-2" : ""}>
+                                                            <span className="font-medium text-gray-600">{item.label}:</span>{" "}
+                                                            {item.isLink ? (
+                                                                <a
+                                                                    href={String(item.value).startsWith("http") ? item.value : `https://${item.value}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-blue-600 hover:underline"
+                                                                >
+                                                                    View
+                                                                </a>
+                                                            ) : (
+                                                                <span className="text-gray-900">{item.value}</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
                                     <div className="space-y-2">
                                         <Label htmlFor="indentNo" className="text-sm font-medium text-gray-700">Indent No.</Label>
                                         <Input

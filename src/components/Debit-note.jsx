@@ -204,33 +204,47 @@ export default function DebitNote() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from("Mismatch")
-        .select("*")
-        .order("Timestamp", { ascending: false });
+      // Fetch Mismatch and LIFT-ACCOUNTS in parallel to get Type via join
+      const [{ data, error: fetchError }, { data: liftData, error: liftError }] = await Promise.all([
+        supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
+        supabase.from("LIFT-ACCOUNTS").select('"Lift No", "Type"'),
+      ]);
 
       if (fetchError) throw fetchError;
+      if (liftError) console.warn("Could not fetch LIFT-ACCOUNTS for type filter:", liftError.message);
+
+      // Build lift type lookup map: Lift No -> Type
+      const liftTypeMap = {};
+      (liftData || []).forEach(lift => {
+        const key = String(lift["Lift No"] || "").trim();
+        if (key) liftTypeMap[key] = String(lift["Type"] || "").trim();
+      });
 
       // Map to our data structure
-      const formattedData = (data || []).map((row, index) => ({
-        id: `MISMATCH-${index}`,
-        timestamp: formatTimestamp(row["Timestamp"]),
-        liftId: String(row["Lift ID"] || "").trim(),
-        indentNo: String(row["Indent Number"] || "").trim(),
-        firmName: String(row["Firm Name"] || "").trim(),
-        partyName: String(row["Party Name"] || "").trim(),
-        productName: String(row["Product Name"] || "").trim(),
-        transporterName: String(row["Transporter Name"] || "").trim(),
-        status: String(row["Status"] || "").trim(),
-        debitAmount: row["Debit Amount"] !== null ? row["Debit Amount"] : "",
-        debitNoteUrl: row["Debit Note URL"] || "",
-        remarks: String(row["Remarks"] || "").trim(),
-        planned: row["Planned"] ? formatTimestamp(row["Planned"]) : null,
-        actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
-        // Store raw values for updates
-        _rawPlanned: row["Planned"],
-        _rawActual: row["Actual"],
-      }));
+      const formattedData = (data || []).map((row, index) => {
+        const liftId = String(row["Lift ID"] || "").trim();
+        return {
+          id: `MISMATCH-${index}`,
+          timestamp: formatTimestamp(row["Timestamp"]),
+          liftId,
+          indentNo: String(row["Indent Number"] || "").trim(),
+          firmName: String(row["Firm Name"] || "").trim(),
+          partyName: String(row["Party Name"] || "").trim(),
+          productName: String(row["Product Name"] || "").trim(),
+          transporterName: String(row["Transporter Name"] || "").trim(),
+          status: String(row["Status"] || "").trim(),
+          debitAmount: row["Debit Amount"] !== null ? row["Debit Amount"] : "",
+          debitNoteUrl: row["Debit Note URL"] || "",
+          remarks: String(row["Remarks"] || "").trim(),
+          planned: row["Planned"] ? formatTimestamp(row["Planned"]) : null,
+          actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
+          // Store raw values for updates
+          _rawPlanned: row["Planned"],
+          _rawActual: row["Actual"],
+          // Type from LIFT-ACCOUNTS via join
+          _liftType: liftTypeMap[liftId] || "",
+        };
+      });
 
       // Filter by user's firm if applicable
       let filteredData = formattedData;
@@ -240,6 +254,11 @@ export default function DebitNote() {
           (item) => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower,
         );
       }
+
+      // Show only Independent type lifts (joined from LIFT-ACCOUNTS)
+      filteredData = filteredData.filter(
+        (item) => String(item._liftType || "").toLowerCase() === "independent"
+      );
 
       setMismatchData(filteredData);
     } catch (error) {
@@ -590,13 +609,13 @@ export default function DebitNote() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Debit Amount <span className="text-red-500">*</span></Label>
+                  <Label className="text-sm font-medium">Debit Amount</Label>
                   <Input
                     type="number"
-                    placeholder="Enter Debit Amount (e.g., 5000)"
+                    placeholder="Set from Mismatch module"
                     value={debitAmount}
-                    onChange={(e) => setDebitAmount(e.target.value)}
-                    disabled={submitting}
+                    readOnly
+                    className="bg-gray-50 cursor-not-allowed text-gray-600"
                   />
                 </div>
                 <div className="space-y-2">

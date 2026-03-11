@@ -21,9 +21,10 @@ import OriginalBillsFiledPage from "./components/Originals-billto-fill";
 import TolrancePage from "./components/Tolrance";
 import Mismatch from "./components/Mis-match";
 import DebitNote from "./components/Debit-note";
+import SaleOfRawMaterial from "./components/SaleOfRawMaterial";
 
 import { useAuth } from "./context/AuthContext";
-import { useNotification } from "./context/NotificationContext"; // Import hook
+import { useNotification } from "./context/NotificationContext";// Import hook
 import { supabase } from "./supabase";
 import BiltyPage from "./components/BiltyPage";
 import FullkittingTransportingPage from "./components/FullkittingTransportingPage";
@@ -37,7 +38,7 @@ import {
   LayoutDashboard, FilePlus, PackageCheck, FileText, Calculator,
   Truck, CheckSquare, TestTube, Archive, Menu, X, Receipt, PackageSearch,
   UserCheck, Wallet, Landmark, User, Database,
-  FileEdit, Search, FileCheck, RotateCcw, Save, Edit2, Gauge, Loader2, Scale, AlertTriangle
+  FileEdit, Search, FileCheck, RotateCcw, Save, Edit2, Gauge, Loader2, Scale, AlertTriangle, ShoppingBag
 } from 'lucide-react';
 import { Toaster } from "@/components/ui/sonner";
 
@@ -219,6 +220,15 @@ function App() {
       countKey: "audit-data",
       countLabel: "Pending",
       component: <AuditData />
+    },
+    {
+      id: "sale-of-raw-material",
+      label: "Sale Of Raw Material",
+      path: "/sale-of-raw-material",
+      icon: <ShoppingBag size={20} />,
+      stepName: "Sale Of Raw Material",
+      showNotification: false,
+      component: <SaleOfRawMaterial />
     },
     {
       id: "rectify-mistake",

@@ -49,20 +49,20 @@ const FIRM_NAME_COL = 55; // Column BD for Firm Name
 const PENDING_BILTY_COLUMNS_META = [
   { header: "Actions", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
+  { header: "Planned Date", dataKey: "planned3", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "Planned Date", dataKey: "planned3", toggleable: true },
 ];
 
 const BILTY_HISTORY_COLUMNS_META = [
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
+  { header: "Timestamp (AE)", dataKey: "timestamp", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Bilty Number (AG)", dataKey: "biltyNumber", toggleable: true },
   { header: "Bilty Image (AH)", dataKey: "biltyImageUrl", isLink: true, linkText: "View Bilty" },
-  { header: "Timestamp (AE)", dataKey: "timestamp", toggleable: true },
 ];
 
 // --- Helper Functions ---
@@ -225,6 +225,8 @@ export default function BiltyPage() {
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
         );
       }
+      // Show only Independent type lifts
+      processedRawRows = processedRawRows.filter((lift) => String(lift.liftType || "").toLowerCase() === "independent");
 
       setLiftData(processedRawRows);
 

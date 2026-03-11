@@ -51,6 +51,7 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "material", toggleable: true },
   { header: "Qty", dataKey: "quantity", toggleable: true },
+  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "Transporter", dataKey: "transporterName", toggleable: true },
@@ -68,7 +69,6 @@ const RATE_MISMATCH_COLUMNS_META = [
 
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Lead Time", dataKey: "leadTimeToFactory", toggleable: true },
-  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Date Received", dataKey: "dateOfReceiving", toggleable: true },
   { header: "Bill Qty", dataKey: "totalBillQuantity", toggleable: true },
   { header: "Actual Qty", dataKey: "actualQuantity", toggleable: true },
@@ -119,7 +119,7 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "Billing Quantity (Column J)", dataKey: "liftedQty", toggleable: true },
+  { header: "Billing Quantity (Column X)", dataKey: "totalBillQuantity", toggleable: true },
   { header: "Actual Quantity (Column Y)", dataKey: "actualQuantityY", toggleable: true },
   { header: "Quantity Difference", dataKey: "qtyDifference", toggleable: true },
 
@@ -127,6 +127,7 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Date", dataKey: "timestamp", toggleable: true },
 
   { header: "Qty", dataKey: "quantity", toggleable: true },
+  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "Transporter", dataKey: "transporterName", toggleable: true },
@@ -199,6 +200,7 @@ const MATERIAL_MISMATCH_COLUMNS_META = [
   // Additional LIFT-ACCOUNTS columns
   { header: "Date", dataKey: "timestamp", toggleable: true },
   { header: "Qty", dataKey: "quantity", toggleable: true },
+  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "Transporter", dataKey: "transporterName", toggleable: true },
@@ -209,7 +211,7 @@ const MATERIAL_MISMATCH_COLUMNS_META = [
   { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
   { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Status", dataKey: "status", toggleable: true },
+  { header: "Lab Status", dataKey: "status", toggleable: true },
 ];
 
 const HISTORY_COLUMNS_META = [
@@ -263,6 +265,33 @@ export default function MismatchAnalysis() {
   const [mismatchSheetData, setMismatchSheetData] = useState([]);
   const [formData, setFormData] = useState({});
   const [submittedRows, setSubmittedRows] = useState(new Set());
+  const [activeModalTab, setActiveModalTab] = useState('mismatch');
+  const [approvalSubTab, setApprovalSubTab] = useState('pending'); // 'pending' | 'history'
+  const [approvalRecords, setApprovalRecords] = useState([]);
+  const [loadingApproval, setLoadingApproval] = useState(false);
+  const [historyRecords, setHistoryRecords] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [approvalActionRow, setApprovalActionRow] = useState(null);
+  const [approvalForm, setApprovalForm] = useState({ returnQty: '', photoUrl: '', weighslipUrl: '', photoFile: null, weighslipFile: null });
+  const [submittingApproval, setSubmittingApproval] = useState(false);
+  const [purchaseReturnForm, setPurchaseReturnForm] = useState({
+    purchaseReturnNo: '',
+    poNo: '',
+    actionType: '',
+    partyName: '',
+    productName: '',
+    qty: '',
+    returnReason: '',
+    transport: '',
+    typeOfTransport: '',
+    vehicleNo: '',
+    builtyNo: '',
+    rateType: '',
+    amount: '',
+    orgBillNo: '',
+    billNo: '',
+    billCopy: '',
+  });
 
   const [filters, setFilters] = useState({
     vendorName: "all",
@@ -307,16 +336,56 @@ export default function MismatchAnalysis() {
   }, []);
 
   // Initialize form data
-  const initializeFormData = (rowId) => {
+  const initializeFormData = async (rowId, rowData) => {
+    // Auto-generate PR number
+    let prNo = 'PR-01';
+    try {
+      const { count } = await supabase
+        .from('Purchase Returns')
+        .select('*', { count: 'exact', head: true });
+      const nextSeq = (count || 0) + 1;
+      prNo = `PR-${String(nextSeq).padStart(2, '0')}`;
+    } catch (e) {
+      prNo = 'PR-01';
+    }
     setFormData({
       status: 'Credit Notes',
-      remarks: ''
+      remarks: '',
+      debitAmount: ''
+    });
+    setPurchaseReturnForm({
+      purchaseReturnNo: prNo,
+      poNo: rowData?.indentNo || '',
+      actionType: '',
+      partyName: rowData?.vendorName || '',
+      productName: rowData?.material || rowData?.rawMaterialName || '',
+      qty: rowData?.quantity || '',
+      returnReason: '',
+      transport: '',
+      typeOfTransport: '',
+      vehicleNo: '',
+      builtyNo: '',
+      rateType: '',
+      amount: '',
+      orgBillNo: '',
+      billNo: rowData?.billNo || '',
+      billCopy: rowData?.billImageUrl || '',
     });
   };
+
+
 
   // Handle form changes
   const handleFormChange = (field, value) => {
     setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle purchase return form changes
+  const handlePurchaseReturnChange = (field, value) => {
+    setPurchaseReturnForm(prev => ({
       ...prev,
       [field]: value
     }));
@@ -346,9 +415,133 @@ export default function MismatchAnalysis() {
   };
 
   const handleCorrectData = (item, mismatchType) => {
-    setEditingRow(item.id || item.liftNo);
-    setEditingRowData(item); // Store the full item data
-    initializeFormData(item.id || item.liftNo);
+    setEditingRow(item.liftNo || item.liftIdDisplay || item.id);
+    setEditingRowData(item);
+    setActiveModalTab('mismatch');
+    setApprovalSubTab('pending');
+    setApprovalRecords([]);
+    setHistoryRecords([]);
+    setApprovalActionRow(null);
+    initializeFormData(item.id || item.liftNo, item);
+  };
+
+  // Fetch Pending records: Planned not null AND Actual null
+  const fetchApprovalRecords = async () => {
+    setLoadingApproval(true);
+    try {
+      const { data, error } = await supabase
+        .from('Purchase Returns')
+        .select('*')
+        .not('Planned', 'is', null)
+        .is('Actual', null);
+      if (error) throw error;
+      setApprovalRecords(data || []);
+    } catch (err) {
+      toast.error('Failed to load pending records: ' + err.message);
+      setApprovalRecords([]);
+    } finally {
+      setLoadingApproval(false);
+    }
+  };
+
+  // Fetch History records: Planned not null AND Actual not null
+  const fetchHistoryRecords = async () => {
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('Purchase Returns')
+        .select('*')
+        .not('Planned', 'is', null)
+        .not('Actual', 'is', null);
+      if (error) throw error;
+      setHistoryRecords(data || []);
+    } catch (err) {
+      toast.error('Failed to load history records: ' + err.message);
+      setHistoryRecords([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Submit approval action — upload files on Save, then update DB
+  const submitApprovalAction = async () => {
+    if (!approvalActionRow) return;
+    setSubmittingApproval(true);
+    try {
+      // Upload photo if a new file was selected
+      let photoUrl = approvalForm.photoUrl;
+      if (approvalForm.photoFile) {
+        const fileExt = approvalForm.photoFile.name.split('.').pop();
+        const fileName = `debit-notes/${approvalActionRow['Purchase Return No.']}_photo_${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('image')
+          .upload(fileName, approvalForm.photoFile);
+        if (uploadError) throw uploadError;
+        const { data: publicUrlData } = supabase.storage
+          .from('image')
+          .getPublicUrl(fileName);
+        photoUrl = publicUrlData.publicUrl;
+      }
+
+      // Upload weighslip if a new file was selected
+      let weighslipUrl = approvalForm.weighslipUrl;
+      if (approvalForm.weighslipFile) {
+        const fileExt = approvalForm.weighslipFile.name.split('.').pop();
+        const fileName = `debit-notes/${approvalActionRow['Purchase Return No.']}_weighslip_${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('image')
+          .upload(fileName, approvalForm.weighslipFile);
+        if (uploadError) throw uploadError;
+        const { data: publicUrlData } = supabase.storage
+          .from('image')
+          .getPublicUrl(fileName);
+        weighslipUrl = publicUrlData.publicUrl;
+      }
+
+      // Generate IST timestamp: YYYY-MM-DD HH:mm:ss.SSS
+      const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+      const yyyy = now.getUTCFullYear();
+      const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(now.getUTCDate()).padStart(2, '0');
+      const hh = String(now.getUTCHours()).padStart(2, '0');
+      const min = String(now.getUTCMinutes()).padStart(2, '0');
+      const ss = String(now.getUTCSeconds()).padStart(2, '0');
+      const ms = String(now.getUTCMilliseconds()).padStart(3, '0');
+      const actualTimestamp = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}.${ms}`;
+
+      const { error } = await supabase
+        .from('Purchase Returns')
+        .update({
+          'Return Qty': approvalForm.returnQty ? parseFloat(approvalForm.returnQty) : null,
+          'Photo of Loaded Material': photoUrl || null,
+          'Weighslip of Material': weighslipUrl || null,
+          'Actual': actualTimestamp,
+        })
+        .eq('ID', approvalActionRow['ID']);
+      if (error) throw error;
+      toast.success('✅ Approval details saved successfully!');
+      setApprovalActionRow(null);
+      setApprovalForm({ returnQty: '', photoUrl: '', weighslipUrl: '', photoFile: null, weighslipFile: null });
+      fetchApprovalRecords(); // refresh pending list
+    } catch (err) {
+      toast.error('❌ Failed to save: ' + err.message);
+    } finally {
+      setSubmittingApproval(false);
+    }
+  };
+
+  // Handle photo file select (no upload yet)
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setApprovalForm(prev => ({ ...prev, photoFile: file }));
+  };
+
+  // Handle weighslip file select (no upload yet)
+  const handleWeighslipUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setApprovalForm(prev => ({ ...prev, weighslipFile: file }));
   };
 
   const handleReportIssue = (item, mismatchType) => {
@@ -392,12 +585,26 @@ export default function MismatchAnalysis() {
       if (!recordId) throw new Error("Missing Record ID for update");
 
       const currentDate = new Date();
+      const istOffset = 5.5 * 60 * 60 * 1000;
+      const istDate = new Date(Date.now() + istOffset);
+      const istTimestamp = istDate.toISOString().replace('Z', '+05:30');
 
       // Prepare updates
-      const updates = {
-        "Status": formData.status || 'Credit Notes',
-        "Remarks": formData.remarks || '',
-      };
+      let updates = {};
+      if (activeModalTab === 'purchase-return') {
+        updates = {
+          "Status": "Purchase Return",
+        };
+      } else {
+        updates = {
+          "Status": formData.status || 'Credit Notes',
+          "Remarks": formData.remarks || '',
+        };
+        // If Debit Note is Yes, also save Debit Amount
+        if ((formData.status || 'Credit Notes') === 'Credit Notes' && formData.debitAmount) {
+          updates["Debit Amount"] = parseFloat(formData.debitAmount) || null;
+        }
+      }
 
       // Update the existing record(s) in Mismatch table for this Lift
       const { error: updateError } = await supabase
@@ -407,11 +614,37 @@ export default function MismatchAnalysis() {
 
       if (updateError) throw updateError;
 
-      // Update UI state
+      // If Purchase Return tab was active, also insert into Purchase Returns table
+      if (activeModalTab === 'purchase-return') {
+        const prPayload = {
+          "Time Stamp": istTimestamp,
+          "Purchase Return No.": purchaseReturnForm.purchaseReturnNo,
+          "Po No.": purchaseReturnForm.poNo,
+          "Action Type": purchaseReturnForm.actionType || null,
+          "Party Name": purchaseReturnForm.partyName || null,
+          "Product Name": purchaseReturnForm.productName || null,
+          "Qty": parseInt(purchaseReturnForm.qty) || 0,
+          "Return Reason": purchaseReturnForm.returnReason || null,
+          "Transport": purchaseReturnForm.transport || null,
+          "Type of Transport": purchaseReturnForm.typeOfTransport || null,
+          "Vehicle No": purchaseReturnForm.vehicleNo || null,
+          "Builty No": purchaseReturnForm.builtyNo || null,
+          "Rate Type": purchaseReturnForm.rateType || null,
+          "Amount": purchaseReturnForm.amount ? parseFloat(purchaseReturnForm.amount) : null,
+          "Org. Bill No": purchaseReturnForm.orgBillNo || null,
+          "Lift No": editingRowData.liftNo || null,
+        };
+        const { error: prError } = await supabase
+          .from('Purchase Returns')
+          .insert([prPayload]);
+        if (prError) throw prError;
+      }
+
       setSubmittedRows(prev => new Set([...prev, `mismatch_${editingRowData.liftNo}`]));
       setEditingRow(null);
       setEditingRowData(null);
       setFormData({});
+      setActiveModalTab('mismatch');
 
       const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
       toast.success(`✅ SUCCESS: Mismatch data corrected and resolved for: ${editingRow}\nUpdated at: ${actualDateTime}`);
@@ -419,6 +652,8 @@ export default function MismatchAnalysis() {
       // Refresh data to reflect changes immediately
       setTimeout(() => {
         fetchMismatchSheetData();
+        fetchLiftAccountsData();
+        fetchPurchaseOrdersData();
       }, 500);
 
     } catch (error) {
@@ -435,20 +670,18 @@ export default function MismatchAnalysis() {
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-
         <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold text-gray-900">Submit Mismatch Correction</h3>
-              <button
-                onClick={() => setEditingRow(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={() => setEditingRow(null)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            {/* Mismatch Details */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
               <h4 className="font-medium text-gray-700 mb-2">Mismatch Details</h4>
               <div className="grid grid-cols-1 gap-2 text-sm">
                 <div><span className="text-gray-600">Lift ID:</span> {editingRow}</div>
@@ -459,31 +692,442 @@ export default function MismatchAnalysis() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Debite Note</label>
-                <select
-                  value={formData.status || 'Credit Notes'}
-                  onChange={(e) => handleFormChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
-                >
-                  <option value="Credit Notes">Yes</option>
-                  <option value="Others">No</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
-                <textarea
-                  value={formData.remarks || ''}
-                  onChange={(e) => handleFormChange('remarks', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
-                  placeholder="Enter correction details and notes..."
-                  rows={4}
-                />
-              </div>
+            {/* ── TABS ── */}
+            <div className="flex border-b border-gray-200 mb-5">
+              <button
+                onClick={() => setActiveModalTab('mismatch')}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${activeModalTab === 'mismatch'
+                  ? 'border-blue-600 text-blue-600 bg-blue-50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                Mismatch Correction
+              </button>
+              <button
+                onClick={() => setActiveModalTab('purchase-return')}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${activeModalTab === 'purchase-return'
+                  ? 'border-purple-600 text-purple-600 bg-purple-50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                Purchase Return
+              </button>
+              <button
+                onClick={() => { setActiveModalTab('approval'); fetchApprovalRecords(); }}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${activeModalTab === 'approval'
+                  ? 'border-green-600 text-green-600 bg-green-50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                Approval of Plant Executive
+              </button>
             </div>
 
+            {/* ── TAB: Mismatch Correction ── */}
+            {activeModalTab === 'mismatch' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Debite Note</label>
+                  <select
+                    value={formData.status || 'Credit Notes'}
+                    onChange={(e) => handleFormChange('status', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                  >
+                    <option value="Credit Notes">Yes</option>
+                    <option value="Others">No</option>
+                  </select>
+                </div>
+                {(formData.status || 'Credit Notes') === 'Credit Notes' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Debit Amount</label>
+                    <input
+                      type="number"
+                      value={formData.debitAmount || ''}
+                      onChange={(e) => handleFormChange('debitAmount', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder="Enter debit amount (e.g. 5000)"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+                  <textarea
+                    value={formData.remarks || ''}
+                    onChange={(e) => handleFormChange('remarks', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                    placeholder="Enter correction details and notes..."
+                    rows={4}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ── TAB: Purchase Return ── */}
+            {activeModalTab === 'purchase-return' && (
+              <div className="border border-purple-100 rounded-lg p-4 bg-purple-50 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Purchase Return No. */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Purchase Return No.</label>
+                    <input type="text" value={purchaseReturnForm.purchaseReturnNo} readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
+                  </div>
+                  {/* Po No. */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Po No.</label>
+                    <input type="text" value={purchaseReturnForm.poNo} readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
+                  </div>
+                  {/* Bill No. */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Bill No.</label>
+                    <input type="text" value={purchaseReturnForm.billNo} readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
+                  </div>
+                  {/* Bill Copy */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Bill Copy</label>
+                    {purchaseReturnForm.billCopy && String(purchaseReturnForm.billCopy).startsWith('http') ? (
+                      <a href={purchaseReturnForm.billCopy} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center px-3 py-2 text-xs text-blue-600 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 cursor-pointer">
+                        View Bill Copy
+                      </a>
+                    ) : (
+                      <input type="text" value={purchaseReturnForm.billCopy || 'N/A'} readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
+                    )}
+                  </div>
+                  {/* Action Type */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Action Type</label>
+                    <input type="text" value={purchaseReturnForm.actionType}
+                      onChange={(e) => handlePurchaseReturnChange('actionType', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="e.g. Full Return" />
+                  </div>
+                  {/* Party Name */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Party Name</label>
+                    <input type="text" value={purchaseReturnForm.partyName} readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
+                  </div>
+                  {/* Product Name */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Product Name</label>
+                    <input type="text" value={purchaseReturnForm.productName} readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
+                  </div>
+                  {/* Qty */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Qty</label>
+                    <input type="number" value={purchaseReturnForm.qty} readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                  </div>
+                  {/* Return Reason */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Return Reason</label>
+                    <input type="text" value={purchaseReturnForm.returnReason}
+                      onChange={(e) => handlePurchaseReturnChange('returnReason', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="Reason for return" />
+                  </div>
+                  {/* Transport */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Transport</label>
+                    <input type="text" value={purchaseReturnForm.transport}
+                      onChange={(e) => handlePurchaseReturnChange('transport', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="Transporter name" />
+                  </div>
+                  {/* Type of Transport */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Type of Transport</label>
+                    <select value={purchaseReturnForm.typeOfTransport}
+                      onChange={(e) => handlePurchaseReturnChange('typeOfTransport', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white text-sm">
+                      <option value="">-- Select Type --</option>
+                      <option value="Paid by Us">Paid by Us</option>
+                      <option value="Paid by Party">Paid by Party</option>
+                    </select>
+                  </div>
+                  {/* Vehicle No */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Vehicle No</label>
+                    <input type="text" value={purchaseReturnForm.vehicleNo}
+                      onChange={(e) => handlePurchaseReturnChange('vehicleNo', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="Vehicle number" />
+                  </div>
+                  {/* Builty No */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Builty No</label>
+                    <input type="text" value={purchaseReturnForm.builtyNo}
+                      onChange={(e) => handlePurchaseReturnChange('builtyNo', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="Builty number" />
+                  </div>
+                  {/* Rate Type */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Rate Type</label>
+                    <select value={purchaseReturnForm.rateType}
+                      onChange={(e) => handlePurchaseReturnChange('rateType', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white text-sm">
+                      <option value="">-- Select Rate Type --</option>
+                      <option value="Fixed">Fixed</option>
+                      <option value="Per MT">Per MT</option>
+                    </select>
+                  </div>
+                  {/* Amount */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Amount</label>
+                    <input type="number" value={purchaseReturnForm.amount}
+                      onChange={(e) => handlePurchaseReturnChange('amount', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder="Enter amount" />
+                  </div>
+                  {/* Org. Bill No */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Org. Bill No</label>
+                    <input type="text" value={purchaseReturnForm.orgBillNo}
+                      onChange={(e) => handlePurchaseReturnChange('orgBillNo', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="Original bill number" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── TAB: Approval of Plant Executive ── */}
+            {activeModalTab === 'approval' && (
+              <div>
+                {/* Sub-tabs: Pending / History */}
+                <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => { setApprovalSubTab('pending'); fetchApprovalRecords(); }}
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${approvalSubTab === 'pending'
+                      ? 'bg-white text-orange-600 shadow-sm font-semibold'
+                      : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                  >
+                    Pending
+                  </button>
+                  <button
+                    onClick={() => { setApprovalSubTab('history'); fetchHistoryRecords(); }}
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${approvalSubTab === 'history'
+                      ? 'bg-white text-green-600 shadow-sm font-semibold'
+                      : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                  >
+                    History
+                  </button>
+                </div>
+                {/* Action mini-form overlay */}
+                {approvalActionRow && (
+                  <div className="mb-4 border border-green-200 rounded-lg p-4 bg-green-50">
+                    <h4 className="text-sm font-semibold text-green-800 mb-3">
+                      Plant Executive Approval — {approvalActionRow['Purchase Return No.']}
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Return Qty</label>
+                        <input
+                          type="number"
+                          value={approvalForm.returnQty}
+                          onChange={(e) => setApprovalForm(prev => ({ ...prev, returnQty: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="Enter return qty"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Photo of Loaded Material</label>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={handlePhotoUpload}
+                          disabled={submittingApproval}
+                          className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-green-100 file:text-green-700 hover:file:bg-green-200 cursor-pointer"
+                        />
+                        {approvalForm.photoFile && (
+                          <p className="mt-1 text-xs text-gray-500">📎 {approvalForm.photoFile.name}</p>
+                        )}
+                        {approvalForm.photoUrl && !approvalForm.photoFile && (
+                          <a href={approvalForm.photoUrl} target="_blank" rel="noopener noreferrer"
+                            className="inline-block mt-1 text-xs text-blue-600 underline">View Existing File</a>
+                        )}
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Weighslip of Material</label>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={handleWeighslipUpload}
+                          disabled={submittingApproval}
+                          className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-green-100 file:text-green-700 hover:file:bg-green-200 cursor-pointer"
+                        />
+                        {approvalForm.weighslipFile && (
+                          <p className="mt-1 text-xs text-gray-500">📎 {approvalForm.weighslipFile.name}</p>
+                        )}
+                        {approvalForm.weighslipUrl && !approvalForm.weighslipFile && (
+                          <a href={approvalForm.weighslipUrl} target="_blank" rel="noopener noreferrer"
+                            className="inline-block mt-1 text-xs text-blue-600 underline">View Existing File</a>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => { setApprovalActionRow(null); setApprovalForm({ returnQty: '', photoUrl: '', weighslipUrl: '', photoFile: null, weighslipFile: null }); }}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={submitApprovalAction}
+                        disabled={submittingApproval}
+                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg disabled:opacity-50"
+                      >
+                        {submittingApproval ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                        {submittingApproval ? 'Uploading & Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── PENDING sub-tab ── */}
+                {approvalSubTab === 'pending' && (
+                  <>
+                    {loadingApproval ? (
+                      <div className="flex items-center justify-center py-8">
+                        <RefreshCw className="w-5 h-5 animate-spin text-orange-400 mr-2" />
+                        <span className="text-sm text-gray-500">Loading pending records...</span>
+                      </div>
+                    ) : approvalRecords.length === 0 ? (
+                      <div className="text-center py-8 text-gray-400">
+                        <p className="text-sm">No pending Purchase Return records found.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="w-full text-xs">
+                          <thead className="bg-orange-50">
+                            <tr>
+                              {['Action', 'PR No.', 'Po No.', 'Party Name', 'Product', 'Qty', 'Action Type', 'Return Reason', 'Transport', 'Type', 'Vehicle No', 'Builty No', 'Rate Type', 'Amount', 'Org. Bill No', 'Return Qty', 'Photo', 'Weighslip'].map(h => (
+                                <th key={h} className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap border-b border-gray-200">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {approvalRecords.map((rec, i) => (
+                              <tr key={rec.id || i} className="hover:bg-orange-50 border-b border-gray-100">
+                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                  <button
+                                    onClick={() => {
+                                      setApprovalActionRow(rec);
+                                      setApprovalForm({
+                                        returnQty: rec['Return Qty'] != null ? String(rec['Return Qty']) : '',
+                                        photoUrl: rec['Photo of Loaded Material'] || '',
+                                        weighslipUrl: rec['Weighslip of Material'] || '',
+                                      });
+                                    }}
+                                    className="px-2 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-md whitespace-nowrap"
+                                  >
+                                    Fill Details
+                                  </button>
+                                </td>
+                                <td className="px-2 py-1.5 font-medium text-orange-700 whitespace-nowrap">{rec['Purchase Return No.'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Po No.'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Party Name'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Product Name'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Qty'] ?? '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Action Type'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Reason'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Transport'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Type of Transport'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Vehicle No'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Builty No'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Rate Type'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Amount'] != null ? `₹${rec['Amount']}` : '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Org. Bill No'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Qty'] ?? '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                  {rec['Photo of Loaded Material'] ? (
+                                    <a href={rec['Photo of Loaded Material']} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-xs">View</a>
+                                  ) : '—'}
+                                </td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                  {rec['Weighslip of Material'] ? (
+                                    <a href={rec['Weighslip of Material']} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-xs">View</a>
+                                  ) : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* ── HISTORY sub-tab ── */}
+                {approvalSubTab === 'history' && (
+                  <>
+                    {loadingHistory ? (
+                      <div className="flex items-center justify-center py-8">
+                        <RefreshCw className="w-5 h-5 animate-spin text-green-500 mr-2" />
+                        <span className="text-sm text-gray-500">Loading history records...</span>
+                      </div>
+                    ) : historyRecords.length === 0 ? (
+                      <div className="text-center py-8 text-gray-400">
+                        <p className="text-sm">No history records found.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="w-full text-xs">
+                          <thead className="bg-green-50">
+                            <tr>
+                              {['PR No.', 'Po No.', 'Party Name', 'Product', 'Qty', 'Action Type', 'Return Reason', 'Transport', 'Type', 'Vehicle No', 'Builty No', 'Rate Type', 'Amount', 'Org. Bill No', 'Return Qty', 'Photo', 'Weighslip'].map(h => (
+                                <th key={h} className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap border-b border-gray-200">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {historyRecords.map((rec, i) => (
+                              <tr key={rec.id || i} className="hover:bg-green-50 border-b border-gray-100">
+                                <td className="px-2 py-1.5 font-medium text-green-700 whitespace-nowrap">{rec['Purchase Return No.'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Po No.'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Party Name'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Product Name'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Qty'] ?? '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Action Type'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Reason'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Transport'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Type of Transport'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Vehicle No'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Builty No'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Rate Type'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Amount'] != null ? `₹${rec['Amount']}` : '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Org. Bill No'] || '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Qty'] ?? '—'}</td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                  {rec['Photo of Loaded Material'] ? (
+                                    <a href={rec['Photo of Loaded Material']} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-xs">View</a>
+                                  ) : '—'}
+                                </td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                  {rec['Weighslip of Material'] ? (
+                                    <a href={rec['Weighslip of Material']} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-xs">View</a>
+                                  ) : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Footer */}
             <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
               <button
                 onClick={() => setEditingRow(null)}
@@ -492,18 +1136,23 @@ export default function MismatchAnalysis() {
               >
                 Cancel
               </button>
-              <button
-                onClick={submitFormData}
-                disabled={submitting}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                {submitting ? (
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                {submitting ? 'Submitting...' : 'Submit to Mismatch Sheet'}
-              </button>
+              {activeModalTab !== 'approval' && (
+                <button
+                  onClick={submitFormData}
+                  disabled={submitting}
+                  className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md ${activeModalTab === 'purchase-return'
+                    ? 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 focus:ring-purple-500'
+                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-green-500'
+                    }`}
+                >
+                  {submitting ? (
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  {submitting ? 'Submitting...' : activeModalTab === 'purchase-return' ? 'Submit Purchase Return' : 'Submit to Mismatch Sheet'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -648,6 +1297,8 @@ export default function MismatchAnalysis() {
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
         );
       }
+      // Show only Independent type lifts
+      formattedData = formattedData.filter((lift) => String(lift.liftType || "").toLowerCase() === "independent");
 
       setLiftAccountsData(formattedData);
     } catch (err) {
@@ -770,11 +1421,15 @@ export default function MismatchAnalysis() {
       const formattedData = (data || [])
         .map((row, index) => ({
           _id: `tl-${index}`,
-          productName: String(row["Product name"] || "").trim(),
-          aluminaRange: String(row["Alumina Range"] || "").trim(),
-          ironRange: String(row["Iron Range"] || "").trim(),
-          apRange: String(row["Ap Range"] || "").trim(),
-          bdRange: String(row["Bd Range"] || "").trim(),
+          productName: String(row["NAME"] || "").trim(),
+          aluminaRange: row["TL Alumina"] !== null && row["TL Alumina"] !== undefined ? String(row["TL Alumina"]) : "",
+          ironRange: row["TL Iron"] !== null && row["TL Iron"] !== undefined ? String(row["TL Iron"]) : "",
+          apRange: row["AP%"] !== null && row["AP%"] !== undefined ? String(row["AP%"]) : "",
+          bdRange: row["BD%"] !== null && row["BD%"] !== undefined ? String(row["BD%"]) : "",
+          tlAluminaMin: row["TL Alumina"],
+          tlIronMax: row["TL Iron"],
+          tlApMax: row["AP%"],
+          tlBdMin: row["BD%"],
         }))
         .filter(item => item.productName && item.productName !== "");
 
@@ -878,13 +1533,13 @@ export default function MismatchAnalysis() {
 
   const rateMismatchData = useMemo(() => {
     return mismatchSheetData
-      .filter(item => Math.abs(parseFloat(item["Rate Difference"] || 0)) > 0.001 && item["Status"] !== "Credit Notes" && item["Status"] !== "Others")
+      .filter(item => Math.abs(parseFloat(item["Rate Difference"] || 0)) > 0.001 && item["Status"] !== "Credit Notes" && item["Status"] !== "Others" && item["Status"] !== "Purchase Return")
       .map(getHybridRow);
   }, [mismatchSheetData, getHybridRow]);
 
   const quantityMismatchData = useMemo(() => {
     return mismatchSheetData
-      .filter(item => (Math.abs(parseFloat(item["Quantity Difference"] || 0)) > 0.001 || Math.abs(parseFloat(item["Diff Qty"] || 0) !== 0) || item["Qty Diff Status"] === "Mismatch") && item["Status"] !== "Credit Notes" && item["Status"] !== "Others")
+      .filter(item => (Math.abs(parseFloat(item["Quantity Difference"] || 0)) > 0.001 || Math.abs(parseFloat(item["Diff Qty"] || 0) !== 0) || item["Qty Diff Status"] === "Mismatch") && item["Status"] !== "Credit Notes" && item["Status"] !== "Others" && item["Status"] !== "Purchase Return")
       .map(getHybridRow);
   }, [mismatchSheetData, getHybridRow]);
 
@@ -906,14 +1561,16 @@ export default function MismatchAnalysis() {
         const hasIronMismatch = ironDiff !== null && Math.abs(parseFloat(ironDiff || 0)) > 0;
         const hasApMismatch = apDiff !== null && Math.abs(parseFloat(apDiff || 0)) > 0;
         const hasBdMismatch = bdDiff !== null && Math.abs(parseFloat(bdDiff || 0)) > 0;
+        const isRejected = lift.status?.toLowerCase() === "rejected";
 
         return (
           hasAluminaMismatch ||
           hasIronMismatch ||
           hasApMismatch ||
           hasBdMismatch ||
+          isRejected ||
           (lift.physicalCondition === "Bad" && lift.moisture === "Yes")
-        ) && item["Status"] !== "Credit Notes" && item["Status"] !== "Others";
+        ) && item["Status"] !== "Credit Notes" && item["Status"] !== "Others" && item["Status"] !== "Purchase Return";
       })
       .map(getHybridRow);
   }, [mismatchSheetData, liftAccountsData, tlData, getHybridRow]);

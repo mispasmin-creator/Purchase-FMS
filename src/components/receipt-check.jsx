@@ -65,41 +65,42 @@ const FIRM_NAME_COL = 55; // Column BD for Firm Name
 const AWAITING_RECEIPT_COLUMNS_META = [
   { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
   { header: "Lift Number", dataKey: "id", toggleable: true, alwaysVisible: true },
+  { header: "Planned", dataKey: "plannedDate_formatted", toggleable: true },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
-  { header: "Lifting Qty", dataKey: "liftingQty", toggleable: true },
   { header: "Bill Copy", dataKey: "billCopy", toggleable: true, isLink: true, linkText: "View" },
   { header: "Type", dataKey: "type", toggleable: true },
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
-  { header: "Planned", dataKey: "plannedDate_formatted", toggleable: true },
+  { header: "Cancel PO Qty", dataKey: "orderCancelQty", toggleable: true },
 ];
 
 const PROCESSED_RECEIPTS_COLUMNS_META = [
   { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
+  { header: "Planned", dataKey: "plannedDate_formatted", toggleable: true },
+  { header: "Actual Receipt Date", dataKey: "dateOfReceiving_formatted", toggleable: true },
+  { header: "Receipt Timestamp (Col U)", dataKey: "actual1Timestamp", toggleable: true },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "PO Qty", dataKey: "qty", toggleable: true },
-  { header: "Lifting Qty", dataKey: "liftingQty", toggleable: true },
+  { header: "Billing Qty", dataKey: "liftingQty", toggleable: true },
   { header: "Bill Copy", dataKey: "billCopy", toggleable: true, isLink: true, linkText: "View" },
   { header: "Type", dataKey: "type", toggleable: true },
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
-  { header: "Planned", dataKey: "plannedDate_formatted", toggleable: true },
-  { header: "Actual Receipt Date", dataKey: "dateOfReceiving_formatted", toggleable: true },
   { header: "Weight Slip Qty", dataKey: "weightSlipQty_fromSheet", toggleable: true },
   { header: "Physical Image", dataKey: "physicalImageUrl_fromSheet", toggleable: true, isLink: true, linkText: "View Image" },
   { header: "Weight Slip", dataKey: "weightSlipImageUrl_fromSheet", toggleable: true, isLink: true, linkText: "View Image" },
-  { header: "Receipt Timestamp (Col U)", dataKey: "actual1Timestamp", toggleable: true },
+  { header: "Cancel PO Qty", dataKey: "orderCancelQty", toggleable: true },
 ];
 
 // Helper to parse Google Sheet gviz JSON response
@@ -261,13 +262,21 @@ export default function ReceiptCheck() {
       setLoadingData(true);
       setErrorData(null);
       try {
-        // Fetch from Supabase LIFT-ACCOUNTS table
-        const { data, error: fetchError } = await supabase
-          .from("LIFT-ACCOUNTS")
-          .select("*")
-          .order("Timestamp", { ascending: false });
+        // Fetch LIFT-ACCOUNTS and INDENT-PO Order Cancel Qty in parallel
+        const [{ data, error: fetchError }, { data: poData, error: poFetchError }] = await Promise.all([
+          supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
+          supabase.from("INDENT-PO").select('"Indent Id.", "Order Cancel Qty"'),
+        ]);
 
         if (fetchError) throw fetchError;
+        if (poFetchError) throw poFetchError;
+
+        // Build map: indentNo -> Order Cancel Qty
+        const cancelQtyMap = {};
+        (poData || []).forEach((row) => {
+          const indent = String(row["Indent Id."] || "").trim();
+          if (indent) cancelQtyMap[indent] = String(row["Order Cancel Qty"] || "").trim();
+        });
 
         // Helper to format date for display
         const formatTimestamp = (dateValue) => {
@@ -323,6 +332,7 @@ export default function ReceiptCheck() {
             weightSlipImageUrl_fromSheet: String(row["Image Of Weight Slip"] || "").trim(),
             weightSlipQty_fromSheet: String(row["Weight Slip Qty"] || "").trim(),
             firmName: String(row["Firm Name"] || "").trim(),
+            orderCancelQty: cancelQtyMap[String(row["Indent no."] || "").trim()] || "",
             // Helper property to check if quantities match
             _quantitiesMatch: checkQuantitiesMatch(
               row["Total Bill Quantity"],
@@ -337,6 +347,8 @@ export default function ReceiptCheck() {
           const userFirmNameLower = user.firmName.toLowerCase();
           processedData = processedData.filter((lift) => lift && lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower);
         }
+        // Show only Independent type lifts
+        processedData = processedData.filter((lift) => lift && String(lift.type || "").toLowerCase() === "independent");
         setAllLiftsData(processedData);
       } catch (err) {
         setErrorData(`Failed to load data: ${err.message}.`);
@@ -414,7 +426,7 @@ export default function ReceiptCheck() {
         if (name === "actualQuantity" || name === "totalBillQuantity") {
           const billQty = parseFloat(name === "totalBillQuantity" ? value : prev.totalBillQuantity) || 0;
           const actualQty = parseFloat(name === "actualQuantity" ? value : prev.actualQuantity) || 0;
-          updated.qtyDifference = (billQty - actualQty).toFixed(2);
+          updated.qtyDifference = (actualQty - billQty).toFixed(2);
         }
         return updated;
       });
@@ -442,7 +454,7 @@ export default function ReceiptCheck() {
       dateOfReceiving: lift.dateOfReceiving_fromSheet || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       totalBillQuantity: initialTotal.toString(),
       actualQuantity: initialActual.toString(),
-      qtyDifference: (initialTotal - initialActual).toFixed(2),
+      qtyDifference: (initialActual - initialTotal).toFixed(2),
 
       physicalCondition: lift.physicalCondition_fromSheet || "Good",
       moisture: lift.moisture_fromSheet || "",
@@ -542,7 +554,7 @@ export default function ReceiptCheck() {
       // Calculate quantity difference and update Mismatch table
       const totalBillQty = parseFloat(formData.totalBillQuantity) || 0;
       const actualQty = parseFloat(formData.actualQuantity) || 0;
-      const qtyDiff = Number((totalBillQty - actualQty).toFixed(2));
+      const qtyDiff = Number((actualQty - totalBillQty).toFixed(2));
       const qtyDiffStatus = qtyDiff !== 0 ? "Mismatch" : "Match";
 
       const isQualityMismatch = formData.physicalCondition === "Bad" && formData.moisture === "Yes";

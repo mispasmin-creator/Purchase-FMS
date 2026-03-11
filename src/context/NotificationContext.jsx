@@ -123,7 +123,7 @@ export function NotificationProvider({ children }) {
         }
     }
 
-    async function getPendingLifts() {
+    async function getPendingLifts(user, allowedSteps) {
         try {
             const { data, error } = await supabase
                 .from("INDENT-PO")
@@ -132,7 +132,7 @@ export function NotificationProvider({ children }) {
 
             if (error) throw error;
 
-            const filtered = data.filter((row) => {
+            let filtered = data.filter((row) => {
                 const status = String(row["Status"] || "").trim().toLowerCase();
                 const planned4 = row["Planned4"];
                 const actual4 = row["Actual4"];
@@ -141,6 +141,11 @@ export function NotificationProvider({ children }) {
                     planned4 !== null && planned4 !== "" &&
                     (actual4 === null || actual4 === "");
             });
+            
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
+            }
             return filtered.length;
         } catch (error) {
             console.error("Error fetching pending lifts:", error);
@@ -148,7 +153,7 @@ export function NotificationProvider({ children }) {
         }
     }
 
-    async function getPendingReceipts() {
+    async function getPendingReceipts(user, allowedSteps) {
         try {
             const { data, error } = await supabase
                 .from("LIFT-ACCOUNTS")
@@ -157,11 +162,18 @@ export function NotificationProvider({ children }) {
 
             if (error) throw error;
 
-            const filtered = data.filter((row) => {
+            let filtered = data.filter((row) => {
                 const planned1 = row["Planned 1"];
                 const actual1 = row["Actual 1"];
                 return planned1 !== null && planned1 !== "" && (actual1 === null || actual1 === "");
             });
+            
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
+            }
+            filtered = filtered.filter(row => String(row["Type"] || "").toLowerCase() === "independent");
+            
             return filtered.length;
         } catch (error) {
             console.error("Error fetching pending receipts:", error);
@@ -169,7 +181,7 @@ export function NotificationProvider({ children }) {
         }
     }
 
-    async function getPendingLabTests() {
+    async function getPendingLabTests(user, allowedSteps) {
         try {
             const { data, error } = await supabase
                 .from("LIFT-ACCOUNTS")
@@ -178,11 +190,18 @@ export function NotificationProvider({ children }) {
 
             if (error) throw error;
 
-            const filtered = data.filter((row) => {
+            let filtered = data.filter((row) => {
                 const planned2 = row["Planned 2"];
                 const actual2 = row["Actual 2"];
                 return planned2 !== null && planned2 !== "" && (actual2 === null || actual2 === "");
             });
+            
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
+            }
+            filtered = filtered.filter(row => String(row["Type"] || "").toLowerCase() === "independent");
+            
             return filtered.length;
         } catch (error) {
             console.error("Error fetching pending lab tests:", error);
@@ -297,7 +316,7 @@ export function NotificationProvider({ children }) {
         } catch { return 0; }
     }
 
-    async function getPendingBilties() {
+    async function getPendingBilties(user, allowedSteps) {
         try {
             const { data, error } = await supabase
                 .from("LIFT-ACCOUNTS")
@@ -306,11 +325,18 @@ export function NotificationProvider({ children }) {
 
             if (error) throw error;
 
-            const filtered = data.filter((row) => {
+            let filtered = data.filter((row) => {
                 const planned3 = row["Planned 3"];
                 const actual3 = row["Actual 3"];
                 return planned3 !== null && planned3 !== "" && (actual3 === null || actual3 === "");
             });
+            
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
+            }
+            filtered = filtered.filter(row => String(row["Type"] || "").toLowerCase() === "independent");
+            
             return filtered.length;
         } catch (error) {
             console.error("Error fetching pending bilties:", error);
@@ -402,15 +428,15 @@ export function NotificationProvider({ children }) {
                 getPendingStockApprovals(user, allowedSteps),
                 getPendingPOs(user, allowedSteps),
                 getPendingTallyEntries(user, allowedSteps),
-                getPendingLifts(),
-                getPendingReceipts(),
-                getPendingLabTests(),
+                getPendingLifts(user, allowedSteps),
+                getPendingReceipts(user, allowedSteps),
+                getPendingLabTests(user, allowedSteps),
                 getPendingMismatches(),
                 getPendingRectifications(),
                 getPendingAudits(),
                 getPendingOriginalBills(user, allowedSteps),
                 getPendingTallyEntries2(),
-                getPendingBilties(),
+                getPendingBilties(user, allowedSteps),
                 getPendingFullkitting(),
                 getPendingDebitNotes(user),
             ]);

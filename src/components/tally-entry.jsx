@@ -151,6 +151,7 @@ const formatSheetDateString = (dateValue) => {
 // Column Definitions
 const baseColumns = [
   { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
+  { header: "Planned", dataKey: "planned", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Delivery Order No.", dataKey: "deliveryOrderNo", toggleable: true },
   { header: "Vendor", dataKey: "vendorName", toggleable: true },
@@ -158,12 +159,11 @@ const baseColumns = [
   { header: "PO Qty", dataKey: "approvedQty", toggleable: true },
   { header: "Alumina %", dataKey: "alumina", toggleable: true },
   { header: "Iron %", dataKey: "iron", toggleable: true },
-  { header: "Advance Amount", dataKey: "advanceAmount", toggleable: true }, // ADD THIS LINE
+  { header: "Advance Amount", dataKey: "advanceAmount", toggleable: true },
   { header: "Total Amount", dataKey: "totalAmount", toggleable: true },
   { header: "Indent Type", dataKey: "typeOfIndent", toggleable: true },
   { header: "PO Copy", dataKey: "poCopyLink", toggleable: true, isLink: true, linkText: "View PO" },
   { header: "Notes", dataKey: "notes", toggleable: true },
-  { header: "Planned", dataKey: "planned", toggleable: true },
 ];
 
 const approveColumns = [

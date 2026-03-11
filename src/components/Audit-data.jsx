@@ -51,6 +51,7 @@ const CallTrackerPage = () => {
     actions: true
   });
   const [liftWeightSlipMap, setLiftWeightSlipMap] = useState({}); // Lift No → Weight Slip Image URL
+  const [liftTypeMap, setLiftTypeMap] = useState({}); // Lift No → Type (Independent/Common)
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('AUDIT'); // Default to Audit tab
 
@@ -866,24 +867,29 @@ const CallTrackerPage = () => {
   };
 
 
-  // Fetch LIFT-ACCOUNTS weight slip images once on mount
+  // Fetch LIFT-ACCOUNTS weight slip images and type map once on mount
   useEffect(() => {
-    const fetchWeightSlips = async () => {
+    const fetchLiftAccountsMeta = async () => {
       try {
         const { data } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No", "Image Of Weight Slip"');
-        const map = {};
+          .select('"Lift No", "Image Of Weight Slip", "Type"');
+        const weightSlipMap = {};
+        const typeMap = {};
         (data || []).forEach(l => {
           const key = String(l["Lift No"] || "").trim();
-          if (key) map[key] = String(l["Image Of Weight Slip"] || "").trim();
+          if (key) {
+            weightSlipMap[key] = String(l["Image Of Weight Slip"] || "").trim();
+            typeMap[key] = String(l["Type"] || "").trim();
+          }
         });
-        setLiftWeightSlipMap(map);
+        setLiftWeightSlipMap(weightSlipMap);
+        setLiftTypeMap(typeMap);
       } catch (e) {
-        console.error('Failed to fetch weight slip map:', e);
+        console.error('Failed to fetch LIFT-ACCOUNTS meta:', e);
       }
     };
-    fetchWeightSlips();
+    fetchLiftAccountsMeta();
   }, []);
 
   // Fetch Audit data from Supabase Mismatch table
@@ -940,16 +946,19 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      setAuditMismatchData(filteredData);
-
       // Filter by Firm Name
+      let finalAuditData = filteredData;
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
-        filteredData = filteredData.filter(
+        finalAuditData = finalAuditData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      setAuditMismatchData(filteredData);
+      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
+      finalAuditData = finalAuditData.filter((entry) =>
+        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
+      );
+      setAuditMismatchData(finalAuditData);
 
     } catch (err) {
       console.error('Error fetching audit data from Supabase:', err);
@@ -1020,13 +1029,18 @@ const CallTrackerPage = () => {
       });
 
       // Filter by Firm Name
+      let finalTallyData = filteredData;
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
-        filteredData = filteredData.filter(
+        finalTallyData = finalTallyData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      setTallyEntryMismatchData(filteredData);
+      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
+      finalTallyData = finalTallyData.filter((entry) =>
+        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
+      );
+      setTallyEntryMismatchData(finalTallyData);
 
     } catch (err) {
       console.error('Error fetching tally entry data from Supabase:', err);
@@ -1097,13 +1111,18 @@ const CallTrackerPage = () => {
       });
 
       // Filter by Firm Name
+      let finalBillData = filteredData;
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
-        filteredData = filteredData.filter(
+        finalBillData = finalBillData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      setBillEntryMismatchData(filteredData);
+      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
+      finalBillData = finalBillData.filter((entry) =>
+        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
+      );
+      setBillEntryMismatchData(finalBillData);
 
     } catch (err) {
       console.error('Error fetching bill entry data from Supabase:', err);
@@ -1174,13 +1193,18 @@ const CallTrackerPage = () => {
       });
 
       // Filter by Firm Name
+      let finalRectifyData = filteredData;
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
-        filteredData = filteredData.filter(
+        finalRectifyData = finalRectifyData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      setRectifyMismatchData(filteredData);
+      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
+      finalRectifyData = finalRectifyData.filter((entry) =>
+        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
+      );
+      setRectifyMismatchData(finalRectifyData);
 
     } catch (err) {
       console.error('Error fetching rectify data from Supabase:', err);
@@ -1251,13 +1275,18 @@ const CallTrackerPage = () => {
       });
 
       // Filter by Firm Name
+      let finalReAuditData = filteredData;
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
-        filteredData = filteredData.filter(
+        finalReAuditData = finalReAuditData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      setReAuditMismatchData(filteredData);
+      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
+      finalReAuditData = finalReAuditData.filter((entry) =>
+        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
+      );
+      setReAuditMismatchData(finalReAuditData);
 
     } catch (err) {
       console.error('Error fetching re-audit data from Supabase:', err);
@@ -1337,7 +1366,7 @@ const CallTrackerPage = () => {
       });
 
       // Filter out COMPLETED rows and submitted rows
-      const filteredData = formattedData.filter(item => {
+      let filteredData = formattedData.filter(item => {
         if (item.currentStage === 'COMPLETED') return false;
         const submittedKey = `ALL_${item.id}`;
         return !submittedRows.has(submittedKey);

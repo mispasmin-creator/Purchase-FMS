@@ -169,19 +169,20 @@ const formatDateString = (dateValue) => {
 const ELIGIBLE_TESTS_COLUMNS_META = [
   { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
   { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
+  { header: "Date of Receiving (AI)", dataKey: "aiCondition_val_formatted", toggleable: true },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "PO Quantity", dataKey: "poQuantity", toggleable: true }, // ADD THIS LINE
+  { header: "PO Quantity", dataKey: "poQuantity", toggleable: true },
   { header: "Actual Qty Rcvd", dataKey: "actualQty_fromReceipt", toggleable: true },
-  { header: "Date of Receiving (AI)", dataKey: "aiCondition_val_formatted", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
 ]
 
 const RECORDED_TESTS_COLUMNS_META = [
   { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
-  { header: "Status (AL)", dataKey: "alStatus_val", toggleable: true, isBadge: true },
   { header: "Test Date (AM)", dataKey: "amDateOfTest_formatted_val", toggleable: true },
+  { header: "Test Timestamp (AJ)", dataKey: "ajTimestamp_formatted_val", toggleable: true },
+  { header: "Status (AL)", dataKey: "alStatus_val", toggleable: true, isBadge: true },
   { header: "Moisture % (AN)", dataKey: "anMoisturePercent_val", toggleable: true },
   { header: "BD % (AO)", dataKey: "aoBdPercent_val", toggleable: true },
   { header: "AP % (AP)", dataKey: "apApPercent_val", toggleable: true },
@@ -195,8 +196,8 @@ const RECORDED_TESTS_COLUMNS_META = [
   { header: "TiO2 % (AX)", dataKey: "axTio2Percent_val", toggleable: true },
   { header: "K2O+Na2O % (AY)", dataKey: "ayKna2oPercent_val", toggleable: true },
   { header: "Free Iron % (AZ)", dataKey: "azFreeIronPercent_val", toggleable: true },
+  { header: "Reason", dataKey: "baReason_val", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
-  { header: "Test Timestamp (AJ)", dataKey: "ajTimestamp_formatted_val", toggleable: true },
 ]
 
 // Simple SearchableSelect Component (without Command)
@@ -319,6 +320,7 @@ export default function LabTesting() {
     axTio2Percent: "",
     ayKna2oPercent: "",
     azFreeIronPercent: "",
+    baReason: "",
   }
 
   const [formData, setFormData] = useState(initialFormData)
@@ -545,6 +547,7 @@ export default function LabTesting() {
             axTio2Percent_val: String(row["TiO2 %"] || "").trim(),
             ayKna2oPercent_val: String(row["K2O + Na2O %"] || "").trim(),
             azFreeIronPercent_val: String(row["Free Iron %"] || "").trim(),
+            baReason_val: String(row["Reason"] || "").trim(),
             // PO Quantity from matching
             poQuantity: expectedValues.poQuantity,
             expectedAlumina: expectedValues.expectedAlumina,
@@ -560,6 +563,8 @@ export default function LabTesting() {
             (lift) => lift && lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
           );
         }
+        // Show only Independent type lifts
+        processedData = processedData.filter((lift) => lift && String(lift.type || "").toLowerCase() === "independent");
 
         setAllLiftsData(processedData);
 
@@ -780,8 +785,8 @@ export default function LabTesting() {
     let initialStatus = "";
     if (receipt.alStatus_val) {
       const valLower = receipt.alStatus_val.toLowerCase();
-      if (valLower === "tested") initialStatus = "Tested";
-      else if (valLower === "not tested") initialStatus = "Not Tested";
+      if (valLower === "accepted" || valLower === "tested") initialStatus = "Accepted";
+      else if (valLower === "rejected" || valLower === "not tested") initialStatus = "Rejected";
     }
 
     setFormData({
@@ -801,6 +806,7 @@ export default function LabTesting() {
       axTio2Percent: receipt.axTio2Percent_val || "",
       ayKna2oPercent: receipt.ayKna2oPercent_val || "",
       azFreeIronPercent: receipt.azFreeIronPercent_val || "",
+      baReason: receipt.baReason_val || "",
     });
 
     // Set the receipt
@@ -879,6 +885,7 @@ export default function LabTesting() {
         "TiO2 %": parseFloat(formData.axTio2Percent) || null,
         "K2O + Na2O %": parseFloat(formData.ayKna2oPercent) || null,
         "Free Iron %": parseFloat(formData.azFreeIronPercent) || null,
+        "Reason": formData.baReason || null,
       };
 
       console.log("Updating LIFT-ACCOUNTS record:", selectedReceiptForModal._dbId, updateData);
@@ -911,46 +918,48 @@ export default function LabTesting() {
         const materialName = String(selectedReceiptForModal.rawMaterialName).trim();
         const { data: tlData, error: tlError } = await supabase
           .from("TL")
-          .select("*")
-          .ilike("Product name", materialName)
+          .select('"TL Alumina", "TL Iron", "BD%", "AP%"')
+          .ilike("NAME", materialName)
           .maybeSingle();
 
         if (!tlError && tlData) {
-          tlAluminaRange = tlData["Alumina Range"];
-          tlIronRange = tlData["Iron Range"];
-          tlApRange = tlData["Ap Range"];
-          tlBdRange = tlData["Bd Range"];
+          tlAluminaRange = tlData["TL Alumina"];
+          tlIronRange = tlData["TL Iron"];
+          tlApRange = tlData["AP%"];
+          tlBdRange = tlData["BD%"];
         }
       }
 
-      // Calculate difference from range: 0 if within range, else value exceeding range
-      const calculateDiffFromRange = (labValue, rangeString) => {
-        if (labValue === null || !rangeString) return null;
-        const str = String(rangeString).trim();
-        if (str.includes('-')) {
-          const parts = str.split('-');
-          const min = parseFloat(parts[0]);
-          const max = parseFloat(parts[1]);
-          if (!isNaN(min) && !isNaN(max)) {
-            if (labValue < min) return labValue - min; // Negative difference (less than min)
-            if (labValue > max) return labValue - max; // Positive difference (more than max)
-            return 0; // Within range
-          }
-        } else {
-          // Fallback if TL table ever has a single number
-          const val = parseFloat(str);
-          if (!isNaN(val)) {
-            if (labValue !== val) return labValue - val;
-            return 0; // Exact match
-          }
-        }
-        return null; // Could not parse
-      };
+      // New directional comparison logic:
+      // Alumina: TL_Alumina is MINIMUM → mismatch if labAlumina < TL_Alumina
+      // Iron:    TL_Iron is MAXIMUM    → mismatch if labIron > TL_Iron
+      // BD:      BD_Percent is MINIMUM → mismatch if labBd < BD_Percent
+      // AP:      AP_Percent is MAXIMUM → mismatch if labAp > AP_Percent
 
-      const diffAlumina = calculateDiffFromRange(labAlumina, tlAluminaRange);
-      const diffIron = calculateDiffFromRange(labIron, tlIronRange);
-      const diffAp = calculateDiffFromRange(labAp, tlApRange);
-      const diffBd = calculateDiffFromRange(labBd, tlBdRange);
+      const tlAluminaMin = tlAluminaRange !== null ? parseFloat(tlAluminaRange) : null;
+      const tlIronMax = tlIronRange !== null ? parseFloat(tlIronRange) : null;
+      const tlBdMin = tlBdRange !== null ? parseFloat(tlBdRange) : null;
+      const tlApMax = tlApRange !== null ? parseFloat(tlApRange) : null;
+
+      // diffAlumina: negative means lab is below minimum (mismatch)
+      const diffAlumina = (labAlumina !== null && tlAluminaMin !== null && !isNaN(tlAluminaMin))
+        ? (labAlumina < tlAluminaMin ? Math.round((labAlumina - tlAluminaMin) * 1000) / 1000 : 0)
+        : null;
+
+      // diffIron: positive means lab exceeds maximum (mismatch)
+      const diffIron = (labIron !== null && tlIronMax !== null && !isNaN(tlIronMax))
+        ? (labIron > tlIronMax ? Math.round((labIron - tlIronMax) * 1000) / 1000 : 0)
+        : null;
+
+      // diffBd: negative means lab is below minimum (mismatch)
+      const diffBd = (labBd !== null && tlBdMin !== null && !isNaN(tlBdMin))
+        ? (labBd < tlBdMin ? Math.round((labBd - tlBdMin) * 1000) / 1000 : 0)
+        : null;
+
+      // diffAp: positive means lab exceeds maximum (mismatch)
+      const diffAp = (labAp !== null && tlApMax !== null && !isNaN(tlApMax))
+        ? (labAp > tlApMax ? Math.round((labAp - tlApMax) * 1000) / 1000 : 0)
+        : null;
 
       const hasAluminaMismatch = diffAlumina !== null && diffAlumina !== 0;
       const hasIronMismatch = diffIron !== null && diffIron !== 0;
@@ -1027,9 +1036,12 @@ export default function LabTesting() {
   const getStatusBadgeVariant = (status) => {
     switch (status?.toLowerCase()) {
       case "tested":
+      case "accepted":
         return "success"
       case "not tested":
         return "warning"
+      case "rejected":
+        return "destructive"
       case "passed":
         return "success"
       case "failed":
@@ -1385,15 +1397,15 @@ export default function LabTesting() {
                 <Label className="text-foreground text-xs" htmlFor="alStatus">
                   AL: Status <span className="text-destructive">*</span>
                 </Label>
-                <Select name="alStatus" value={formData.alStatus ? formData.alStatus : undefined} onValueChange={handleSelectChange("alStatus")}>
+                <Select name="alStatus" value={formData.alStatus || undefined} onValueChange={handleSelectChange("alStatus")}>
                   <SelectTrigger
-                    className={`w-full h-9 mt-1 rounded-md text-xs ${formErrors.alStatus ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                    className={`w-full h-9 mt-1 rounded-md text-xs ${!formData.alStatus ? "text-muted-foreground" : ""} ${formErrors.alStatus ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
                   >
-                    <SelectValue placeholder="Select Status" />
+                    <SelectValue placeholder="Select Accepted / Rejected" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Tested">Tested</SelectItem>
-                    <SelectItem value="Not Tested">Not Tested</SelectItem>
+                    <SelectItem value="Accepted">Accepted</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
                   </SelectContent>
                 </Select>
                 {formErrors.alStatus && <p className="mt-1 text-xs text-destructive">{formErrors.alStatus}</p>}
@@ -1652,6 +1664,23 @@ export default function LabTesting() {
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.azFreeIronPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
                 />
                 {formErrors.azFreeIronPercent && <p className="mt-1 text-xs text-destructive">{formErrors.azFreeIronPercent}</p>}
+              </div>
+
+              {/* Reason Field */}
+              <div className="sm:col-span-2 md:col-span-3 lg:col-span-4">
+                <Label className="text-foreground text-xs" htmlFor="baReason">
+                  Reason
+                </Label>
+                <Input
+                  type="text"
+                  id="baReason"
+                  name="baReason"
+                  value={formData.baReason}
+                  onChange={handleInputChange}
+                  placeholder="Enter reason if any..."
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.baReason ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                />
+                {formErrors.baReason && <p className="mt-1 text-xs text-destructive">{formErrors.baReason}</p>}
               </div>
             </div>
 

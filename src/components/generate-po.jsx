@@ -197,6 +197,7 @@ const GeneratePurchaseOrder = () => {
   const allIndentColumnsMeta = useMemo(() => ([
     { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
     { header: "Indent ID", dataKey: "id", toggleable: true, alwaysVisible: true },
+    { header: "Planned Date", dataKey: "planned", toggleable: true },
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
     // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
     { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
@@ -204,11 +205,11 @@ const GeneratePurchaseOrder = () => {
     { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
     { header: "Type", dataKey: "typeOfIndent", toggleable: true },
     { header: "Notes", dataKey: "indentNotes", toggleable: true },
-    { header: "Planned Date", dataKey: "planned", toggleable: true },
   ]), []);
 
   const allPoColumnsMeta = useMemo(() => ([
     { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
+    { header: "Created At", dataKey: "createdAt", toggleable: true },
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
     // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
     { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
@@ -217,16 +218,15 @@ const GeneratePurchaseOrder = () => {
     { header: "Alumina %", dataKey: "alumina", toggleable: true },
     { header: "Iron %", dataKey: "iron", toggleable: true },
     { header: "PO File", dataKey: "poFile", toggleable: true, isLink: true, linkText: "View PDF" },
-    { header: "Created At", dataKey: "createdAt", toggleable: true },
   ]), []);
 
   const ADVANCE_PAYMENT_COLUMNS_META = useMemo(() => ([
     { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
+    { header: "Payment Date", dataKey: "whenToBePaid", toggleable: true },
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
     // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
     { header: "Status", dataKey: "paymentStatus", toggleable: true },
-    { header: "Amount to Pay", dataKey: "toBePaidAmount", toggleable: true }, // Data from COL_TO_BE_PAID_AMOUNT
-    { header: "Payment Date", dataKey: "whenToBePaid", toggleable: true }, // Data from COL_WHEN_TO_BE_PAID
+    { header: "Amount to Pay", dataKey: "toBePaidAmount", toggleable: true },
   ]), []);
 
   // Helper function to parse gviz date string
@@ -1190,21 +1190,14 @@ const GeneratePurchaseOrder = () => {
                   </div>
                   <div>
                     <Label htmlFor="vendorName" className="block text-sm font-medium text-gray-700">Vendor Name <span className="text-red-500">*</span></Label>
-                    <Select
-                      onValueChange={(value) => handleInputChange({ target: { name: "vendorName", value } })}
+                    <Input
+                      type="text"
+                      id="vendorName"
+                      name="vendorName"
                       value={formData.vendorName}
-                    >
-                      <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${poErrors.vendorName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
-                        <SelectValue placeholder="Select vendor name" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vendorOptions.map((vendor, index) => (
-                          <SelectItem key={`vendor-${index}`} value={vendor}>
-                            {vendor}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      readOnly
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm"
+                    />
                     {poErrors.vendorName && <p className="text-red-500 text-xs mt-1">{poErrors.vendorName}</p>}
                   </div>
                   <div>
@@ -1217,7 +1210,7 @@ const GeneratePurchaseOrder = () => {
                       value={formData.totalQty}
                       onChange={handleInputChange}
                       placeholder="PO Total Quantity"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.totalQty ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${poErrors.totalQty ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
                     />
                     {poErrors.totalQty && <p className="text-red-500 text-xs mt-1">{poErrors.totalQty}</p>}
                   </div>

@@ -94,6 +94,13 @@ export default function TolerancePage() {
 
   // Filter data based on search term and column filter
   const filteredData = toleranceData.filter((record) => {
+    // Stage 1: Filter by user's firmName if not "all"
+    if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+      const userFirmNameLower = user.firmName.toLowerCase();
+      const recordFirmName = String(record["Firm Name"] || "").toLowerCase().trim();
+      if (recordFirmName !== userFirmNameLower) return false;
+    }
+
     if (!searchTerm && filterColumn === "all") return true
     
     const searchLower = searchTerm.toLowerCase()

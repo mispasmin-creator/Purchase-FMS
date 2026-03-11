@@ -73,10 +73,10 @@ const DATA_START_ROW = 7; // Corrected the start row
 const PO_COLUMNS_META = [
   { header: "Actions", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true, alwaysVisible: true },
+  { header: "Planned Date", dataKey: "planned", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "Planned Date", dataKey: "planned", toggleable: true },
   { header: "Quantity", dataKey: "quantity", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
   { header: "Alumina %", dataKey: "alumina", toggleable: true },
@@ -94,6 +94,7 @@ const PO_COLUMNS_META = [
 ]
 const LIFTS_COLUMNS_META = [
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
+  { header: "Lifted On", dataKey: "createdAt", toggleable: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
@@ -107,8 +108,8 @@ const LIFTS_COLUMNS_META = [
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View Bill" },
-  { header: "Lifted On", dataKey: "createdAt", toggleable: true },
   { header: "Total Truck Billing Quantity", dataKey: "additionalTruckQty", toggleable: true },
+  { header: "Cancel PO Qty", dataKey: "orderCancelQty", toggleable: true },
 ]
 
 export default function LiftMaterial() {
@@ -286,55 +287,73 @@ export default function LiftMaterial() {
     setLoadingPOs(true)
     setError(null)
     try {
-      const { data, error: fetchError } = await supabase
-        .from("INDENT-PO")
-        .select("*")
-        .not("Planned4", "is", null);
+      // Fetch POs and already-lifted entries in parallel
+      const [{ data, error: fetchError }, { data: liftData, error: liftFetchError }] = await Promise.all([
+        supabase.from("INDENT-PO").select("*").not("Planned4", "is", null),
+        supabase.from("LIFT-ACCOUNTS").select('"Indent no.", "Lifting Qty"'),
+      ]);
 
       if (fetchError) throw fetchError;
+      if (liftFetchError) throw liftFetchError;
 
-      // Filter based on user request: 
-      // Status (Column AJ / index 35) is "Pending" or empty.
-      // Planned4 (Column AK / index 36) is not null.
-      // Actual4 (Column AL / index 37) is null.
-      // Filter based on user request: 
-      // Status is empty OR null OR "pending"
-      // Planned4 is not null
-      // Actual4 is null (the lift hasn't been recorded yet)
+      // Build a map: indentNo -> total lifted billing qty so far
+      const liftedQtyMap = {};
+      (liftData || []).forEach((row) => {
+        const indent = String(row["Indent no."] || "").trim();
+        const qty = parseFloat(row["Lifting Qty"]) || 0;
+        if (indent) liftedQtyMap[indent] = (liftedQtyMap[indent] || 0) + qty;
+      });
+
+      // Filter: Status pending/empty, Planned4 not null.
+      // Actual4 check removed – PO stays visible until pending reaches 0.
       const filteredRows = data.filter((row) => {
         const status = String(row["Status"] || "").trim().toLowerCase();
         const planned4 = row["Planned4"];
-        const actual4 = row["Actual4"];
+        const indentNo = String(row["Indent Id."] || "").trim();
+        const totalQty = parseFloat(row["Total Quantity"] || row["Quantity"] || 0);
+        const liftedSoFar = liftedQtyMap[indentNo] || 0;
+        const pendingPending = totalQty - liftedSoFar;
 
-        return (status === "" || status === "pending") &&
+        return (
+          (status === "" || status === "pending") &&
           planned4 !== null && planned4 !== "" &&
-          (actual4 === null || actual4 === "");
+          pendingPending > 0
+        );
       });
 
       // Update global notification count with the count of pending lifts
       updateCount("lift-material", filteredRows.length);
 
-      let formattedData = filteredRows.map((row) => ({
-        id: `PO-${row.id || Math.random().toString(36).substring(7)}`,
-        indentNo: String(row["Indent Id."] || "").trim(),
-        firmName: String(row["Firm Name"] || "").trim(),
-        vendorName: String(row["Vendor name"] || row["Vendor"] || "").trim(),
-        rawMaterialName: String(row["Material"] || "").trim(),
-        quantity: String(row["Total Quantity"] || row["Quantity"] || "").trim(),
-        _rowIndex: row.id, // Using Supabase ID as row index for updates
-        dbIndentId: row["Indent Id."],
-        rate: String(row["Rate"] || "").trim(),
-        alumina: String(row["Alumina %"] || "").trim(),
-        iron: String(row["Iron %"] || "").trim(),
-        pendingQty: String(row["Total Quantity"] || "").trim(), // AH
-        planned: row["Planned4"] ? String(row["Planned4"]).trim().replace('T', ' ') : "",
-        whatIsToBeDone: String(row["PO Notes"] || "").trim(),
-        pendingLiftQty: String(row["Total Quantity"] || "").trim(),
-        receivedQty: String(row["Actual4"] || "").trim(),
-        pendingPOQty: String(row["Total Quantity"] || "").trim(),
-        orderCancelQty: String(row["Order Cancel Qty"] || "").trim(),
-        status: row["Status"] || "Pending",
-      }))
+      let formattedData = filteredRows.map((row) => {
+        const indentNo = String(row["Indent Id."] || "").trim();
+        const totalQty = parseFloat(row["Total Quantity"] || row["Quantity"] || 0);
+        const liftedSoFar = liftedQtyMap[indentNo] || 0;
+        const pendingPOQty = Math.max(0, totalQty - liftedSoFar);
+
+        return {
+          id: `PO-${row.id || Math.random().toString(36).substring(7)}`,
+          indentNo,
+          firmName: String(row["Firm Name"] || "").trim(),
+          vendorName: String(row["Vendor name"] || row["Vendor"] || "").trim(),
+          rawMaterialName: String(row["Material"] || "").trim(),
+          quantity: String(totalQty || ""),
+          _rowIndex: row.id,
+          dbIndentId: row["Indent Id."],
+          rate: String(row["Rate"] || "").trim(),
+          alumina: String(row["Alumina %"] || "").trim(),
+          iron: String(row["Iron %"] || "").trim(),
+          pendingQty: String(pendingPOQty),
+          planned: row["Planned4"] ? String(row["Planned4"]).trim().replace('T', ' ') : "",
+          whatIsToBeDone: String(row["PO Notes"] || "").trim(),
+          pendingLiftQty: String(pendingPOQty),
+          receivedQty: String(liftedSoFar),
+          pendingPOQty: String(pendingPOQty),
+          orderCancelQty: String(row["Order Cancel Qty"] || "").trim(),
+          status: row["Status"] || "Pending",
+          _totalQty: totalQty,
+          _liftedSoFar: liftedSoFar,
+        };
+      });
 
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase()
@@ -356,13 +375,21 @@ export default function LiftMaterial() {
     setLoadingLifts(true)
     setError(null)
     try {
-      // Fetch from Supabase LIFT-ACCOUNTS table
-      const { data, error: fetchError } = await supabase
-        .from("LIFT-ACCOUNTS")
-        .select("*")
-        .order("Timestamp", { ascending: false });
+      // Fetch LIFT-ACCOUNTS and INDENT-PO Order Cancel Qty in parallel
+      const [{ data, error: fetchError }, { data: poData, error: poFetchError }] = await Promise.all([
+        supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
+        supabase.from("INDENT-PO").select('"Indent Id.", "Order Cancel Qty"'),
+      ]);
 
       if (fetchError) throw fetchError;
+      if (poFetchError) throw poFetchError;
+
+      // Build map: indentNo -> Order Cancel Qty
+      const cancelQtyMap = {};
+      (poData || []).forEach((row) => {
+        const indent = String(row["Indent Id."] || "").trim();
+        if (indent) cancelQtyMap[indent] = String(row["Order Cancel Qty"] || "").trim();
+      });
 
       let formattedData = (data || []).map((row) => {
         // Format timestamp for display
@@ -410,6 +437,7 @@ export default function LiftMaterial() {
           createdAt: createdAt,
           firmName: String(row["Firm Name"] || "").trim(),
           transportRate: String(row["Transporter Rate"] || "").trim(),
+          orderCancelQty: cancelQtyMap[String(row["Indent no."] || "").trim()] || "",
         };
       });
 
@@ -481,27 +509,42 @@ export default function LiftMaterial() {
         throw new Error("PO not found");
       }
 
-      const currentCancelQty = parseFloat(poToUpdate.orderCancelQty) || 0;
-      const newCancelQty = currentCancelQty + parseFloat(cancelPendingPO.cancelQuantity);
+      const cancelQty = parseFloat(cancelPendingPO.cancelQuantity);
+      const currentTotalQty = parseFloat(poToUpdate._totalQty) || parseFloat(poToUpdate.quantity) || 0;
+      const liftedSoFar = parseFloat(poToUpdate._liftedSoFar) || 0;
 
-      // Subtract 1 to fix row offset
-      const correctedRow = poToUpdate._rowIndex - 1;
+      // Subtract cancelled qty from Total Quantity
+      const newTotalQty = Math.max(0, currentTotalQty - cancelQty);
+      const newPending = newTotalQty - liftedSoFar;
 
       console.log("Submitting cancel quantity:", {
         indentNo: cancelPendingPO.indentNo,
-        currentQty: currentCancelQty,
-        cancelQty: cancelPendingPO.cancelQuantity,
-        newQty: newCancelQty,
-        originalRow: poToUpdate._rowIndex,
-        correctedRow: correctedRow,
-        column: 35
+        cancelQty,
+        currentTotalQty,
+        newTotalQty,
+        liftedSoFar,
+        newPending,
       });
+
+      // Also accumulate Order Cancel Qty (running total for record-keeping)
+      const currentCancelQty = parseFloat(poToUpdate.orderCancelQty) || 0;
+      const newCancelQty = currentCancelQty + cancelQty;
+
+      const updatePayload = {
+        "Total Quantity": newTotalQty.toString(),
+        "Order Cancel Qty": newCancelQty.toString(),
+      };
+
+      // If pending becomes 0 or less after cancel, close the PO
+      if (newPending <= 0) {
+        const now = new Date();
+        const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        updatePayload["Actual4"] = timestamp;
+      }
 
       const { error: updateError } = await supabase
         .from("INDENT-PO")
-        .update({
-          "Order Cancel Qty": newCancelQty.toString()
-        })
+        .update(updatePayload)
         .eq('"Indent Id."', poToUpdate.dbIndentId);
 
       if (updateError) throw updateError;
@@ -946,15 +989,23 @@ export default function LiftMaterial() {
         // Proceeding anyway because Lift insertion was successful
       }
 
-      // Update the original PO row - set Actual4 with current timestamp
-      const { error: updateError } = await supabase
-        .from("INDENT-PO")
-        .update({ "Actual4": timestamp })
-        .eq('"Indent Id."', selectedPO.dbIndentId);
+      // Calculate pending after this lift
+      const totalQtyPO = parseFloat(selectedPO._totalQty) || parseFloat(selectedPO.quantity) || 0;
+      const liftedSoFarPO = parseFloat(selectedPO._liftedSoFar) || 0;
+      const thisLiftQty = parseFloat(formData.truckQty) || 0;
+      const newPending = totalQtyPO - liftedSoFarPO - thisLiftQty;
 
-      if (updateError) {
-        console.error("INDENT-PO update failed:", updateError);
-        throw new Error(`Failed to update INDENT-PO: ${updateError.message}`);
+      // Only set Actual4 when all quantity has been lifted (pending <= 0)
+      if (newPending <= 0) {
+        const { error: updateError } = await supabase
+          .from("INDENT-PO")
+          .update({ "Actual4": timestamp })
+          .eq('"Indent Id."', selectedPO.dbIndentId);
+
+        if (updateError) {
+          console.error("INDENT-PO update failed:", updateError);
+          throw new Error(`Failed to update INDENT-PO: ${updateError.message}`);
+        }
       }
 
       toast.success(`Lift ${liftId} recorded successfully!`);

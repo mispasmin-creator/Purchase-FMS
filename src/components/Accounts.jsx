@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { Search, X, Settings, Eye, Download, RefreshCw } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const Accounts = () => {
+  const { user } = useContext(AuthContext);
   // State management
   const [accountsData, setAccountsData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -164,7 +166,8 @@ const formatDate = (dateString) => {
           qtyDifferenceStatus: getCellValue(row, 16) || '',
           differenceQty: getCellValue(row, 17) || '',
           weightSlip: getCellValue(row, 18) || '',
-          totalFreight: getCellValue(row, 19) || ''
+          totalFreight: getCellValue(row, 19) || '',
+          firmName: getCellValue(row, 20) || ''
         };
         
         const hasData = Object.values(rowData).some(value => 
@@ -194,7 +197,16 @@ const formatDate = (dateString) => {
   };
 
   const filteredData = useMemo(() => {
-    return accountsData.filter(item => {
+    let baseData = accountsData;
+    
+    if (user?.firmName && user.firmName.toLowerCase() !== 'all') {
+      const userFirmNameLower = user.firmName.toLowerCase();
+      baseData = baseData.filter(item => 
+        item.firmName && String(item.firmName).toLowerCase().trim() === userFirmNameLower
+      );
+    }
+
+    return baseData.filter(item => {
       const matchesSearch = Object.values(item).some(value => 
         value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
       );

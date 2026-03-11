@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Filter, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabase';
+import { AuthContext } from '../context/AuthContext';
 import { toast } from 'sonner';
 
 // Define all columns based on schemas provided
 const COLUMN_DEFINITIONS = [
   { key: 'timestamp', label: 'Timestamp' },
+  { key: 'planned2', label: 'Planned Date' },
   { key: 'liftId', label: 'Lift ID' },
   { key: 'indentNumber', label: 'Indent Number' },
   { key: 'firmName', label: 'Firm Name' },
@@ -14,7 +16,6 @@ const COLUMN_DEFINITIONS = [
   { key: 'transporterName', label: 'Transporter Name' },
   { key: 'status', label: 'Status' },
   { key: 'remarks', label: 'Remarks' },
-  { key: 'planned2', label: 'Planned Date' },
 
   // Extended Columns from Mismatch Schema
   { key: 'liftNumber', label: 'Lift Number' },
@@ -51,6 +52,7 @@ const COLUMN_DEFINITIONS = [
 ];
 
 const AccountsAudit = () => {
+  const { user } = useContext(AuthContext);
   const [auditData, setAuditData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -187,7 +189,7 @@ const AccountsAudit = () => {
 
           // Mismatch specific extended
           liftNumber: row["Lift Number"] || '',
-          type: row["Type"] || '',
+          type: liftRecord["Type"] || row["Type"] || '',
           billNo: row["Bill No."] || '',
           qty: row["Qty"] || '',
           areaLifting: row["Area Lifting"] || '',
@@ -227,10 +229,21 @@ const AccountsAudit = () => {
       });
 
       // Filter out submitted rows
-      const filteredData = formattedData.filter(item => {
+      let filteredData = formattedData.filter(item => {
         const submittedKey = `audit_${item.id}`;
         return !submittedRows.has(submittedKey);
       });
+
+      // Show only Independent type lifts
+      filteredData = filteredData.filter((item) => String(item.type || "").toLowerCase() === "independent");
+
+      // Filter by Firm Name
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+        const userFirmNameLower = user.firmName.toLowerCase();
+        filteredData = filteredData.filter(
+          (item) => item.firmName && String(item.firmName).toLowerCase().trim() === userFirmNameLower
+        );
+      }
 
       setAuditData(filteredData);
 
