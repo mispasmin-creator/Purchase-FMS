@@ -8,11 +8,29 @@ import { supabase } from "../supabase";
  */
 export async function fetchMasterData() {
     try {
-        const { data, error } = await supabase
-            .from("Master")
-            .select("*");
+        let data = [];
+        let from = 0;
+        let hasMore = true;
 
-        if (error) throw error;
+        while (hasMore) {
+            const { data: chunk, error } = await supabase
+                .from("Master")
+                .select("*")
+                .range(from, from + 999);
+
+            if (error) throw error;
+
+            if (chunk && chunk.length > 0) {
+                data = [...data, ...chunk];
+                if (chunk.length < 1000) {
+                    hasMore = false;
+                } else {
+                    from += 1000;
+                }
+            } else {
+                hasMore = false;
+            }
+        }
 
         if (!data || data.length === 0) {
             console.warn("Master table is empty");
