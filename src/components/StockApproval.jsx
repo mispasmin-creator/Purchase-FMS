@@ -73,7 +73,7 @@ const SearchableSelect = ({
           </div>
           <div className="py-1">
             <div
-              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
               onClick={() => {
                 onValueChange("all")
                 setOpen(false)
@@ -85,7 +85,7 @@ const SearchableSelect = ({
             {filteredOptions.map((option, index) => (
               <div
                 key={`${option}-${index}`}
-                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-green-50" : ""}`}
                 onClick={() => {
                   onValueChange(option)
                   setOpen(false)
@@ -547,14 +547,14 @@ export default function StockApproval() {
     <Card className="w-full max-w-full 2xl:max-w-screen-2xl mx-auto relative bg-white shadow-md rounded-lg border border-gray-200">
       <CardHeader className="p-4 border-b border-gray-200">
         <CardTitle className="flex items-center gap-2 text-gray-800 text-lg">
-          <Shield className="h-5 w-5 text-purple-600" />
+          <Shield className="h-5 w-5 text-[#7da23a]" />
           Stock Approval Management
         </CardTitle>
         <CardDescription className="text-gray-500 text-sm">
           Review and manage raw material indent approvals.
         </CardDescription>
         {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-          <p className="text-purple-600 text-xs mt-1">
+          <p className="text-[#7da23a] text-xs mt-1">
             Showing data for: <span className="font-semibold">{user.firmName}</span>
           </p>
         )}
@@ -670,8 +670,8 @@ export default function StockApproval() {
               <div className="p-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-full">
-                      <CheckCircle2 className="h-4 w-4 text-purple-600" />
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <CheckCircle2 className="h-4 w-4 text-[#7da23a]" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-base text-gray-800">Pending Stock Approval</h3>
@@ -682,7 +682,7 @@ export default function StockApproval() {
                     <Button
                       onClick={handleSubmitSelected}
                       disabled={Object.values(selectedRows).filter(Boolean).length === 0 || isSubmitting}
-                      className="px-3 py-1 h-8 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50 text-sm"
+                      className="px-3 py-1 h-8 bg-[#7da23a] text-white font-semibold rounded-md hover:bg-[#6b8e2f] transition-colors disabled:opacity-50 text-sm"
                     >
                       {isSubmitting ? (
                         <>
@@ -700,7 +700,7 @@ export default function StockApproval() {
               <div className="p-4">
                 {loading ? (
                   <div className="flex justify-center items-center h-40">
-                    <Loader2 className="h-8 w-8 text-purple-500 animate-spin mr-3" />
+                    <Loader2 className="h-8 w-8 text-green-500 animate-spin mr-3" />
                     <p className="text-gray-700">Loading pending indents...</p>
                   </div>
                 ) : error ? (
@@ -789,7 +789,7 @@ export default function StockApproval() {
 
                     {pendingIndents.length === 0 ? (
                       <div className="text-center py-10">
-                        <Info className="h-12 w-12 text-purple-500 mx-auto mb-3" />
+                        <Info className="h-12 w-12 text-green-500 mx-auto mb-3" />
                         <p className="text-gray-600">No indents currently pending approval.</p>
                       </div>
                     ) : (
@@ -811,7 +811,7 @@ export default function StockApproval() {
                             {pendingIndents.map((indent) => (
                               <TableRow
                                 key={indent.id}
-                                className={`transition duration-150 ${selectedRows[indent.id] ? "bg-purple-100" : "hover:bg-gray-50"
+                                className={`transition duration-150 ${selectedRows[indent.id] ? "bg-green-100" : "hover:bg-gray-50"
                                   }`}
                               >
                                 {getApproveTableColumns.map((col) => {
@@ -835,7 +835,7 @@ export default function StockApproval() {
                                           value={approvedQtys[indent.id] || ""}
                                           onChange={(e) => handleApprovedQtyChange(indent.id, e.target.value)}
                                           disabled={!selectedRows[indent.id]}
-                                          className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 text-sm"
+                                          className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:ring-[#6b8e2f] focus:border-[#6b8e2f] disabled:bg-gray-100 text-sm"
                                         />
                                       </TableCell>
                                     )
@@ -847,7 +847,7 @@ export default function StockApproval() {
                                           value={approvalStatuses[indent.id] || "Select"}
                                           onChange={(e) => handleApprovalStatusChange(indent.id, e.target.value)}
                                           disabled={!selectedRows[indent.id]}
-                                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 text-sm"
+                                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-[#6b8e2f] focus:border-[#6b8e2f] disabled:bg-gray-100 text-sm"
                                         >
                                           <option value="Select" disabled>
                                             Select...
@@ -867,7 +867,7 @@ export default function StockApproval() {
                                           value={remarks[indent.id] || ""}
                                           onChange={(e) => handleRemarkChange(indent.id, e.target.value)}
                                           disabled={!selectedRows[indent.id]}
-                                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 text-sm"
+                                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-[#6b8e2f] focus:border-[#6b8e2f] disabled:bg-gray-100 text-sm"
                                         />
                                       </TableCell>
                                     )
@@ -897,8 +897,8 @@ export default function StockApproval() {
             <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200">
               <div className="p-4 border-b border-gray-200">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-full">
-                    <History className="h-4 w-4 text-purple-600" />
+                  <div className="p-2 bg-green-100 rounded-full">
+                    <History className="h-4 w-4 text-[#7da23a]" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-base text-gray-800">Approval History</h3>
@@ -910,7 +910,7 @@ export default function StockApproval() {
               <div className="p-4">
                 {loading ? (
                   <div className="flex justify-center items-center h-40">
-                    <Loader2 className="h-8 w-8 text-purple-500 animate-spin mr-3" />
+                    <Loader2 className="h-8 w-8 text-green-500 animate-spin mr-3" />
                     <p className="text-gray-700">Loading approval history...</p>
                   </div>
                 ) : error ? (
@@ -999,7 +999,7 @@ export default function StockApproval() {
 
                     {processedIndents.length === 0 ? (
                       <div className="text-center py-10">
-                        <Info className="h-12 w-12 text-purple-500 mx-auto mb-3" />
+                        <Info className="h-12 w-12 text-green-500 mx-auto mb-3" />
                         <p className="text-gray-600">No approval history available.</p>
                       </div>
                     ) : (

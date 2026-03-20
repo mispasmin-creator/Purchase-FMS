@@ -267,7 +267,7 @@ const AgainAuditingPage = () => {
               <button
                 onClick={submitFormData}
                 disabled={submitting}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 {submitting ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -328,7 +328,7 @@ const AgainAuditingPage = () => {
                 <h1 className="text-2xl font-bold text-gray-900">Again For Auditing</h1>
                 <p className="text-sm text-gray-600 mt-1">Secondary audit review and verification</p>
                 {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                  <span className="text-sm text-purple-600 font-medium">Filtered by: {user.firmName}</span>
+                  <span className="text-sm text-[#7da23a] font-medium">Filtered by: {user.firmName}</span>
                 )}
               </div>
               <div className="flex items-center space-x-3">
@@ -385,7 +385,7 @@ const AgainAuditingPage = () => {
                                   type="checkbox"
                                   checked={visibleColumns[key]}
                                   onChange={() => toggleColumnVisibility(key)}
-                                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                  className="w-4 h-4 text-[#7da23a] bg-gray-100 border-gray-300 rounded focus:ring-[#6b8e2f] focus:ring-2"
                                 />
                                 <span className="text-gray-700">{label}</span>
                               </label>

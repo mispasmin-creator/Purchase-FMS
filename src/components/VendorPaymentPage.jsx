@@ -36,7 +36,7 @@ export default function VendorPaymentPage() {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <Landmark className="h-5 w-5 text-purple-600" />
+            <Landmark className="h-5 w-5 text-[#7da23a]" />
             Vendor Payment
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
@@ -49,7 +49,7 @@ export default function VendorPaymentPage() {
               // If user has 'all' access, show a button for each firm.
               Object.entries(firmDisplayNames).map(([key, displayName]) => (
                 <a key={key} href={firmLinks[key]} target="_blank" rel="noopener noreferrer">
-                  <Button size="lg" className="inline-flex items-center justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 transform hover:scale-105">
+                  <Button size="lg" className="inline-flex items-center justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white bg-[#7da23a] hover:bg-[#6b8e2f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b8e2f] transition-all duration-200 transform hover:scale-105">
                     <PlusCircle className="mr-2 h-5 w-5" />
                     Create Payment for {displayName}
                   </Button>
@@ -59,15 +59,15 @@ export default function VendorPaymentPage() {
               // Otherwise, show a single button for the user's specific firm, if a URL is found.
               firmUrl ? (
                 <a href={firmUrl} target="_blank" rel="noopener noreferrer">
-                  <Button size="lg" className="inline-flex items-center justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 transform hover:scale-105">
+                  <Button size="lg" className="inline-flex items-center justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white bg-[#7da23a] hover:bg-[#6b8e2f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b8e2f] transition-all duration-200 transform hover:scale-105">
                     <PlusCircle className="mr-2 h-5 w-5" />
                     Create Payment for {firmDisplayName}
                   </Button>
                 </a>
               ) : (
                 // Message when no specific link is configured for the user's firm.
-                <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-auto my-4 text-center max-w-sm">
-                  <Info className="h-12 w-12 text-purple-500 mb-3" />
+                <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-auto my-4 text-center max-w-sm">
+                  <Info className="h-12 w-12 text-green-500 mb-3" />
                   <p className="font-medium text-foreground">No Payment Link Configured</p>
                   <p className="text-sm text-muted-foreground">
                     No direct payment link is currently configured for your firm. Please contact support.

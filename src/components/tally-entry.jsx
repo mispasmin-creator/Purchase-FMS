@@ -77,7 +77,7 @@ const SearchableSelect = ({
           </div>
           <div className="py-1">
             <div
-              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
               onClick={() => {
                 onValueChange("all");
                 setOpen(false);
@@ -89,7 +89,7 @@ const SearchableSelect = ({
             {filteredOptions.map((option, index) => (
               <div
                 key={`${option}-${index}`}
-                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-green-50" : ""}`}
                 onClick={() => {
                   onValueChange(option);
                   setOpen(false);
@@ -368,7 +368,7 @@ export default function TallyEntry() {
       if (link && link !== "-") {
         const fullLink = link.startsWith("http") ? link : `https://${link}`;
         return (
-          <a href={fullLink} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline inline-flex items-center gap-1">
+          <a href={fullLink} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:underline inline-flex items-center gap-1">
             <LinkIcon className="h-3.5 w-3.5" />
             {linkText || "View"}
           </a>
@@ -454,7 +454,7 @@ export default function TallyEntry() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="flex items-center text-base">
-                <Icon className="h-5 w-5 text-purple-600 mr-2" /> {title} ({entries.length})
+                <Icon className="h-5 w-5 text-[#7da23a] mr-2" /> {title} ({entries.length})
               </CardTitle>
               <CardDescription className="mt-1 text-xs">{desc}</CardDescription>
             </div>
@@ -464,7 +464,7 @@ export default function TallyEntry() {
         <CardContent className="p-0 flex-1 overflow-hidden">
           {loading && entries.length === 0 ? (
             <div className="flex flex-1 items-center justify-center gap-2">
-              <Loader2 className="h-6 w-6 animate-spin text-purple-600" /> Loading...
+              <Loader2 className="h-6 w-6 animate-spin text-[#7da23a]" /> Loading...
             </div>
           ) : error && entries.length === 0 ? (
             <div className="m-4 p-6 flex flex-1 flex-col items-center justify-center text-center bg-destructive/10 border border-dashed border-destructive rounded-lg">
@@ -474,7 +474,7 @@ export default function TallyEntry() {
             </div>
           ) : entries.length === 0 ? (
             <div className="m-4 p-6 flex flex-1 flex-col items-center justify-center text-center bg-secondary/50 border border-dashed rounded-lg">
-              <Info className="h-10 w-10 text-purple-600 mb-3" />
+              <Info className="h-10 w-10 text-[#7da23a] mb-3" />
               <p className="font-semibold">{type === "approve" ? "No Pending Entries" : "No Completed Entries"}</p>
               <p className="text-sm text-muted-foreground mt-1">
                 {type === "approve" ? "All eligible entries have been processed." : "Completed entries will appear here."}
@@ -503,7 +503,7 @@ export default function TallyEntry() {
                           {col.dataKey === "actionColumn" ? (
                             <div className="flex justify-center items-center">
                               {processingEntries[entry._id] ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                                <Loader2 className="h-4 w-4 animate-spin text-[#7da23a]" />
                               ) : (
                                 <Checkbox
                                   onCheckedChange={(checked) => {
@@ -535,13 +535,13 @@ export default function TallyEntry() {
       <Card className="shadow-md border border-gray-200 flex-1 flex flex-col bg-white">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
-            <Calculator className="h-6 w-6 text-purple-600" />
+            <Calculator className="h-6 w-6 text-[#7da23a]" />
             Step 4: Purchase Order Entry In Tally
           </CardTitle>
           <CardDescription className="text-gray-500 mt-1 text-sm">
             Mark purchase orders as entered in the Tally accounting system.
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>
+              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
             )}
           </CardDescription>
         </CardHeader>
@@ -555,7 +555,7 @@ export default function TallyEntry() {
                 <History className="h-4 w-4" /> History <Badge variant="secondary" className="ml-2">{completedEntries.length}</Badge>
               </TabsTrigger>
             </TabsList>
-            <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+            <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Filter className="h-4 w-4 text-gray-500" />
                 <Label className="text-sm font-medium">Filters</Label>

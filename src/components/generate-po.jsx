@@ -147,7 +147,7 @@ const GeneratePurchaseOrder = () => {
             </div>
             <div className="py-1">
               <div
-                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
                 onClick={() => {
                   onValueChange("all");
                   setOpen(false);
@@ -159,7 +159,7 @@ const GeneratePurchaseOrder = () => {
               {filteredOptions.map((option, index) => (
                 <div
                   key={`${option}-${index}`}
-                  className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                  className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-green-50" : ""}`}
                   onClick={() => {
                     onValueChange(option);
                     setOpen(false);
@@ -364,7 +364,7 @@ const GeneratePurchaseOrder = () => {
           createdAt: String(row["Actual2"] || "").replace('T', ' '),
           haveToPO: row["Have To Make PO"],
           rate: row["Rate"],
-          leadTimeToLift: row["Lead Time To Lift (days)"],
+          leadTimeToLift: row["Lead Time To Lift (days)"] ? String(row["Lead Time To Lift (days)"]).split('T')[0] : "",
           notes: row["PO Notes"],
           advanceToBePaid: row["Advance To Be Paid"],
           toBePaidAmount: row["To Be Paid Amount"],
@@ -498,7 +498,7 @@ const GeneratePurchaseOrder = () => {
       if (currentHaveToPO === "yes") {
         updates["Vendor name"] = dataToSubmit.vendorName;
         updates["Rate"] = parseFloat(dataToSubmit.rate);
-        updates["Lead Time To Lift (days)"] = parseInt(dataToSubmit.leadTimeToLift);
+        updates["Lead Time To Lift (days)"] = dataToSubmit.leadTimeToLift ? `${dataToSubmit.leadTimeToLift} ${hours}:${minutes}:${seconds}` : null;
         updates["Total Quantity"] = parseFloat(dataToSubmit.totalQty);
         updates["Total Amount"] = parseFloat(dataToSubmit.totalAmount);
         if (dataToSubmit.poFileUrl) {
@@ -507,7 +507,7 @@ const GeneratePurchaseOrder = () => {
         updates["Advance To Be Paid"] = dataToSubmit.advanceToBePaid === "yes" ? "Yes" : dataToSubmit.advanceToBePaid;
         if (dataToSubmit.advanceToBePaid === "yes") {
           updates["To Be Paid Amount"] = parseFloat(dataToSubmit.toBePaidAmount);
-          updates["When To Be Paid Amount"] = dataToSubmit.whenToBePaid;
+          updates["When To Be Paid Amount"] = dataToSubmit.whenToBePaid ? `${dataToSubmit.whenToBePaid} ${hours}:${minutes}:${seconds}` : null;
           updates["Status5"] = "Pending";
         } else {
           updates["To Be Paid Amount"] = null;
@@ -702,7 +702,7 @@ const GeneratePurchaseOrder = () => {
     if (haveToPO === "yes") {
       if (!formData.vendorName.trim()) newErrors.vendorName = "Vendor name is required.";
       if (!formData.rate || isNaN(parseFloat(formData.rate)) || parseFloat(formData.rate) <= 0) newErrors.rate = "Rate must be a positive number.";
-      if (!formData.leadTimeToLift || isNaN(parseInt(formData.leadTimeToLift)) || parseInt(formData.leadTimeToLift) <= 0) newErrors.leadTimeToLift = "Lead Time must be a positive number.";
+      if (!formData.leadTimeToLift) newErrors.leadTimeToLift = "Lead Time date is required.";
       if (!formData.totalQty || isNaN(parseFloat(formData.totalQty)) || parseFloat(formData.totalQty) <= 0) newErrors.totalQty = "Total Quantity must be a positive number.";
       if (!formData.alumina || isNaN(parseFloat(formData.alumina)) || parseFloat(formData.alumina) < 0) newErrors.alumina = "Alumina % is required and must be non-negative.";
       if (!formData.iron || isNaN(parseFloat(formData.iron)) || parseFloat(formData.iron) < 0) newErrors.iron = "Iron % is required and must be non-negative.";
@@ -710,6 +710,7 @@ const GeneratePurchaseOrder = () => {
       if (!formData.bd || isNaN(parseFloat(formData.bd)) || parseFloat(formData.bd) < 0) newErrors.bd = "BD % is required and must be non-negative.";
       if (!formData.advanceToBePaid) newErrors.advanceToBePaid = "Advance option is required.";
       if (!formData.poFile) newErrors.poFile = "PO Copy is required.";
+      if (!formData.notes || !formData.notes.trim()) newErrors.notes = "PO Notes/Remarks are required.";
       if (formData.advanceToBePaid === "yes") {
         if (!formData.toBePaidAmount || isNaN(parseFloat(formData.toBePaidAmount)) || parseFloat(formData.toBePaidAmount) <= 0) newErrors.toBePaidAmount = "Advance amount must be a positive number.";
         if (!formData.whenToBePaid) newErrors.whenToBePaid = "Payment date is required.";
@@ -800,11 +801,16 @@ const GeneratePurchaseOrder = () => {
     setIsSubmittingPayment(true);
     toast.loading("Recording payment...", { id: "payment-submit" });
     try {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
       const { error: updateError } = await supabase
         .from("INDENT-PO")
         .update({
           "To Be Paid Amount": parseFloat(paymentFormData.amount),
-          "When To Be Paid Amount": paymentFormData.paymentDate
+          "When To Be Paid Amount": paymentFormData.paymentDate ? `${paymentFormData.paymentDate} ${hours}:${minutes}:${seconds}` : null
         })
         .eq('"Indent Id."', selectedPaymentIndent.indentId);
 
@@ -872,7 +878,7 @@ const GeneratePurchaseOrder = () => {
         let badgeClass = "bg-gray-100 text-gray-700 border-gray-200"; // Default
 
         if (status === "paid") {
-          badgeClass = "bg-green-100 text-green-700 border-green-200";
+          badgeClass = "bg-green-100 text-[#6b8e2f] border-green-200";
         } else if (status === "pending") {
           badgeClass = "bg-yellow-100 text-yellow-700 border-yellow-200";
         }
@@ -886,7 +892,7 @@ const GeneratePurchaseOrder = () => {
 
       if (column.dataKey === "actionColumn") {
         if (tabKey === "approve") {
-          return <Button onClick={() => handleIndentSelect(item)} size="sm" className="h-7 px-2.5 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold">Generate PO</Button>;
+          return <Button onClick={() => handleIndentSelect(item)} size="sm" className="h-7 px-2.5 py-1 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white font-semibold">Generate PO</Button>;
         }
         return null;
       }
@@ -896,7 +902,7 @@ const GeneratePurchaseOrder = () => {
       }
       if (column.isLink) {
         return value ? (
-          <a href={value} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline inline-flex items-center text-xs">
+          <a href={value} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:underline inline-flex items-center text-xs">
             <LinkIcon className="h-3 w-3 mr-1" /> {column.linkText || "View"}
           </a>
         ) : (
@@ -904,7 +910,7 @@ const GeneratePurchaseOrder = () => {
         );
       }
       if (column.dataKey === 'id' || column.dataKey === 'indentId') {
-        return <span className="font-semibold text-purple-600">{displayValue}</span>;
+        return <span className="font-semibold text-[#7da23a]">{displayValue}</span>;
       }
       return displayValue;
     };
@@ -915,9 +921,9 @@ const GeneratePurchaseOrder = () => {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="flex items-center text-md font-semibold text-foreground">
-                {tabKey === "approve" && <File className="h-5 w-5 text-purple-600 mr-2" />}
-                {tabKey === "history" && <History className="h-5 w-5 text-purple-600 mr-2" />}
-                {tabKey === "advancePayment" && <Wallet className="h-5 w-5 text-purple-600 mr-2" />}
+                {tabKey === "approve" && <File className="h-5 w-5 text-[#7da23a] mr-2" />}
+                {tabKey === "history" && <History className="h-5 w-5 text-[#7da23a] mr-2" />}
+                {tabKey === "advancePayment" && <Wallet className="h-5 w-5 text-[#7da23a] mr-2" />}
                 {title} ({data.length})
               </CardTitle>
               <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
@@ -980,7 +986,7 @@ const GeneratePurchaseOrder = () => {
         <CardContent className="p-0 flex-1 flex flex-col">
           {isLoading ? (
             <div className="flex flex-col justify-center items-center py-10 flex-1">
-              <Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" />
+              <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
               <p className="text-muted-foreground ml-2">Loading...</p>
             </div>
           ) : hasError ? (
@@ -990,8 +996,8 @@ const GeneratePurchaseOrder = () => {
               <p className="text-sm text-muted-foreground max-w-md">{errorMessage}</p>
             </div>
           ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-              <Info className="h-12 w-12 text-purple-500 mb-3" />
+            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
+              <Info className="h-12 w-12 text-green-500 mb-3" />
               <p className="font-medium text-foreground">No Data Found</p>
               <p className="text-sm text-muted-foreground text-center">
                 {tabKey === "approve" && "No approved indents found for PO generation."}
@@ -1016,7 +1022,7 @@ const GeneratePurchaseOrder = () => {
                 </TableHeader>
                 <TableBody>
                   {data.map((item) => (
-                    <TableRow key={item.id || item.indentId} className="hover:bg-purple-50/50">
+                    <TableRow key={item.id || item.indentId} className="hover:bg-green-50/50">
                       {visibleCols.map((column) => (
                         <TableCell
                           key={column.dataKey}
@@ -1041,12 +1047,12 @@ const GeneratePurchaseOrder = () => {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <FileCheck className="h-5 w-5 text-purple-600" /> Purchase Management
+            <FileCheck className="h-5 w-5 text-[#7da23a]" /> Purchase Management
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Manage approved indents, generate purchase orders, and record advance payments.
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>
+              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
             )}
           </CardDescription>
         </CardHeader>
@@ -1072,7 +1078,7 @@ const GeneratePurchaseOrder = () => {
                 </Badge>
               </TabsTrigger>
             </TabsList>
-            <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+            <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Filter className="h-4 w-4 text-gray-500" />
                 <Label className="text-sm font-medium">Filters</Label>
@@ -1167,8 +1173,8 @@ const GeneratePurchaseOrder = () => {
           <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader className="border-b pb-4 mb-4">
               <DialogTitle className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-                <FileCheck className="h-6 w-6 text-purple-600 mr-3" /> Generate PO for Indent ID:{" "}
-                <span className="font-bold text-purple-600 ml-1">{selectedIndent?.id}</span>
+                <FileCheck className="h-6 w-6 text-[#7da23a] mr-3" /> Generate PO for Indent ID:{" "}
+                <span className="font-bold text-[#7da23a] ml-1">{selectedIndent?.id}</span>
               </DialogTitle>
               <DialogDescription className="mt-1 text-sm text-gray-500">
                 Vendor: {selectedIndent?.vendorName || "N/A"} | Material: {selectedIndent?.rawMaterialName || "N/A"}
@@ -1201,7 +1207,7 @@ const GeneratePurchaseOrder = () => {
                     {poErrors.vendorName && <p className="text-red-500 text-xs mt-1">{poErrors.vendorName}</p>}
                   </div>
                   <div>
-                    <Label htmlFor="totalQty" className="block text-sm font-medium text-gray-700">PO Total Quantity</Label>
+                    <Label htmlFor="totalQty" className="block text-sm font-medium text-gray-700">PO Total Quantity <span className="text-red-500">*</span></Label>
                     <Input
                       type="number"
                       step="any"
@@ -1210,7 +1216,7 @@ const GeneratePurchaseOrder = () => {
                       value={formData.totalQty}
                       onChange={handleInputChange}
                       placeholder="PO Total Quantity"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${poErrors.totalQty ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${poErrors.totalQty ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                     />
                     {poErrors.totalQty && <p className="text-red-500 text-xs mt-1">{poErrors.totalQty}</p>}
                   </div>
@@ -1224,7 +1230,7 @@ const GeneratePurchaseOrder = () => {
                       value={formData.rate}
                       onChange={handleInputChange}
                       placeholder="Rate"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.rate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.rate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                     />
                     {poErrors.rate && <p className="text-red-500 text-xs mt-1">{poErrors.rate}</p>}
                   </div>
@@ -1240,15 +1246,14 @@ const GeneratePurchaseOrder = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="leadTimeToLift" className="block text-sm font-medium text-gray-700">Lead Time (Days) <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="leadTimeToLift" className="block text-sm font-medium text-gray-700">Lead Time Date <span className="text-red-500">*</span></Label>
                     <Input
-                      type="text"
+                      type="date"
                       id="leadTimeToLift"
                       name="leadTimeToLift"
                       value={formData.leadTimeToLift}
                       onChange={handleInputChange}
-                      placeholder="Lead Time To Lift"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.leadTimeToLift ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.leadTimeToLift ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                     />
                     {poErrors.leadTimeToLift && <p className="text-red-500 text-xs mt-1">{poErrors.leadTimeToLift}</p>}
                   </div>
@@ -1262,7 +1267,7 @@ const GeneratePurchaseOrder = () => {
                       value={formData.alumina}
                       onChange={handleInputChange}
                       placeholder="Alumina %"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.alumina ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.alumina ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                     />
                     {poErrors.alumina && <p className="text-red-500 text-xs mt-1">{poErrors.alumina}</p>}
                   </div>
@@ -1276,7 +1281,7 @@ const GeneratePurchaseOrder = () => {
                       value={formData.iron}
                       onChange={handleInputChange}
                       placeholder="Iron %"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.iron ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.iron ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                     />
                     {poErrors.iron && <p className="text-red-500 text-xs mt-1">{poErrors.iron}</p>}
                   </div>
@@ -1290,7 +1295,7 @@ const GeneratePurchaseOrder = () => {
                       value={formData.ap}
                       onChange={handleInputChange}
                       placeholder="AP %"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.ap ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.ap ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                     />
                     {poErrors.ap && <p className="text-red-500 text-xs mt-1">{poErrors.ap}</p>}
                   </div>
@@ -1304,13 +1309,13 @@ const GeneratePurchaseOrder = () => {
                       value={formData.bd}
                       onChange={handleInputChange}
                       placeholder="BD %"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.bd ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.bd ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                     />
                     {poErrors.bd && <p className="text-red-500 text-xs mt-1">{poErrors.bd}</p>}
                   </div>
                   <div className="md:col-span-1">
                     <Label htmlFor="poFile" className="block text-sm font-medium text-gray-700">Upload PO Copy <span className="text-red-500">*</span></Label>
-                    <div className={`relative flex items-center justify-center h-10 border border-dashed rounded-md bg-purple-50 cursor-pointer hover:bg-purple-100 mt-1 ${poErrors.poFile ? "border-red-500" : "border-purple-200"}`}>
+                    <div className={`relative flex items-center justify-center h-10 border border-dashed rounded-md bg-green-50 cursor-pointer hover:bg-green-100 mt-1 ${poErrors.poFile ? "border-red-500" : "border-green-200"}`}>
                       <Input
                         type="file"
                         id="poFile"
@@ -1319,8 +1324,8 @@ const GeneratePurchaseOrder = () => {
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                       />
-                      <Upload className="h-4 w-4 text-purple-500 mr-2" />
-                      <span className="text-xs text-purple-600 truncate max-w-[calc(100%-30px)]">
+                      <Upload className="h-4 w-4 text-green-500 mr-2" />
+                      <span className="text-xs text-[#7da23a] truncate max-w-[calc(100%-30px)]">
                         {formData.poFile ? formData.poFile.name : "Upload PO Copy"}
                       </span>
                     </div>
@@ -1336,7 +1341,7 @@ const GeneratePurchaseOrder = () => {
                       }
                       value={formData.advanceToBePaid}
                     >
-                      <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${poErrors.advanceToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
+                      <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${poErrors.advanceToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}>
                         <SelectValue placeholder="-- Select --" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1360,7 +1365,7 @@ const GeneratePurchaseOrder = () => {
                           value={formData.toBePaidAmount}
                           onChange={handleInputChange}
                           placeholder="To Be Paid Amount"
-                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.toBePaidAmount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.toBePaidAmount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                         />
                         {poErrors.toBePaidAmount && (
                           <p className="text-red-500 text-xs mt-1">{poErrors.toBePaidAmount}</p>
@@ -1375,7 +1380,7 @@ const GeneratePurchaseOrder = () => {
                           value={formData.whenToBePaid}
                           onChange={handleInputChange}
                           placeholder="Payment Date"
-                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.whenToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.whenToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                         />
                         {poErrors.whenToBePaid && (
                           <p className="text-red-500 text-xs mt-1">{poErrors.whenToBePaid}</p>
@@ -1385,7 +1390,7 @@ const GeneratePurchaseOrder = () => {
                   )}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="notes" className="block text-sm font-medium text-gray-700">PO Notes/Remarks</Label>
+                  <Label htmlFor="notes" className="block text-sm font-medium text-gray-700">PO Notes/Remarks <span className="text-red-500">*</span></Label>
                   <Textarea
                     id="notes"
                     name="notes"
@@ -1393,14 +1398,15 @@ const GeneratePurchaseOrder = () => {
                     value={formData.notes}
                     onChange={handleInputChange}
                     placeholder="Notes"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm focus:border-purple-500 focus:ring-purple-500"
+                    className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.notes ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
                   />
+                  {poErrors.notes && <p className="text-red-500 text-xs mt-1">{poErrors.notes}</p>}
                 </div>
                 <DialogFooter className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmitting ? "bg-purple-400 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"}`}
+                    className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmitting ? "bg-green-400 cursor-not-allowed" : "bg-[#7da23a] hover:bg-[#6b8e2f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b8e2f]"}`}
                   >
                     {isSubmitting ? (
                       <>
@@ -1429,10 +1435,10 @@ const GeneratePurchaseOrder = () => {
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4 mb-4">
             <DialogTitle className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-              <Wallet className="h-6 w-6 text-purple-600 mr-3" /> Record Advance Payment
+              <Wallet className="h-6 w-6 text-[#7da23a] mr-3" /> Record Advance Payment
             </DialogTitle>
             <DialogDescription className="mt-1 text-sm text-gray-500">
-              For Indent ID: <span className="font-bold text-purple-600">{selectedPaymentIndent?.indentId || "N/A"}</span> | Vendor: <span className="font-bold text-purple-600">{selectedPaymentIndent?.vendorName || "N/A"}</span>
+              For Indent ID: <span className="font-bold text-[#7da23a]">{selectedPaymentIndent?.indentId || "N/A"}</span> | Vendor: <span className="font-bold text-[#7da23a]">{selectedPaymentIndent?.vendorName || "N/A"}</span>
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePaymentSubmit} className="space-y-4 py-2 px-0">
@@ -1445,7 +1451,7 @@ const GeneratePurchaseOrder = () => {
                 step="any"
                 value={paymentFormData.amount}
                 onChange={handlePaymentInputChange}
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${paymentFormErrors.amount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${paymentFormErrors.amount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
               {paymentFormErrors.amount && <p className="text-red-500 text-xs mt-1">{paymentFormErrors.amount}</p>}
             </div>
@@ -1457,12 +1463,12 @@ const GeneratePurchaseOrder = () => {
                 type="date"
                 value={paymentFormData.paymentDate}
                 onChange={handlePaymentInputChange}
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${paymentFormErrors.paymentDate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${paymentFormErrors.paymentDate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
               {paymentFormErrors.paymentDate && <p className="text-red-500 text-xs mt-1">{paymentFormErrors.paymentDate}</p>}
             </div>
             <DialogFooter className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
-              <Button type="submit" disabled={isSubmittingPayment} className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmittingPayment ? "bg-purple-400 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"}`}>
+              <Button type="submit" disabled={isSubmittingPayment} className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmittingPayment ? "bg-green-400 cursor-not-allowed" : "bg-[#7da23a] hover:bg-[#6b8e2f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b8e2f]"}`}>
                 {isSubmittingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" />Processing...</> : "Submit Payment"}
               </Button>
               <Button type="button" variant="outline" onClick={handleClosePaymentPopup} className="w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 sm:mr-3">Cancel</Button>

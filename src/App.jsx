@@ -353,7 +353,7 @@ function App() {
 
   const renderSidebarContent = (isMobile = false) => (
     <>
-      <ScrollArea className={`${isMobile ? 'h-[calc(100vh-4rem)]' : 'h-[calc(100vh-4rem)]'} flex-1`}>
+      <ScrollArea className={`h-full flex-1 w-full`}>
         <nav className="space-y-1 p-2 pr-3 pb-20">
           {accessibleTabs.map((tab) => {
             const isActive = location.pathname === tab.path || (tab.path === '/dashboard' && location.pathname === '/');
@@ -364,8 +364,8 @@ function App() {
                 className={`w-full flex items-center h-12 relative group rounded-lg transition-all duration-200 ease-in-out text-sm font-medium no-underline
                         ${isMobile ? 'px-4' : (isSidebarOpen ? 'pl-4' : 'justify-center')}
                         ${isActive
-                    ? "bg-purple-600 text-white shadow-md"
-                    : "bg-white text-gray-700 hover:bg-purple-50 hover:text-gray-900"
+                    ? "bg-[#7da23a] text-white shadow-md"
+                    : "bg-white text-gray-700 hover:bg-green-50 hover:text-gray-900"
                   }`}
                 onClick={() => {
                   if (isMobile) setIsMobileSidebarOpen(false);
@@ -385,7 +385,7 @@ function App() {
                 )}
 
                 {!isMobile && !isSidebarOpen && isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-purple-600 rounded-r-full"></span>
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-[#7da23a] rounded-r-full"></span>
                 )}
 
                 {!isMobile && !isSidebarOpen && tab.showNotification && notificationCounts[tab.countKey] > 0 && (
@@ -404,7 +404,7 @@ function App() {
       {!isMobile && isSidebarOpen && (
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 text-center bg-white">
           <p className="text-sm text-gray-500 font-semibold">Powered By</p>
-          <a className="text-base font-bold bg-gradient-to-r from-purple-500 to-indigo-500 bg-clip-text text-transparent" href="https://www.botivate.in/">Botivate</a>
+          <a className="text-base font-bold bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] bg-clip-text text-transparent" href="https://www.botivate.in/">Botivate</a>
         </div>
       )}
     </>
@@ -419,21 +419,43 @@ function App() {
       >
         {/* Header */}
         <div
-          className={`h-16 flex items-center border-b border-gray-200 flex-shrink-0 z-10 bg-white ${isSidebarOpen ? "px-4 justify-start" : "px-0 justify-center"
+          className={`py-8 flex flex-col gap-8 border-b border-gray-200 flex-shrink-0 z-10 bg-white ${isSidebarOpen ? "px-6" : "px-0 items-center justify-center"
             }`}
         >
           {isSidebarOpen ? (
-            <span className="font-bold text-xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-              Purchase Management
-            </span>
+            <>
+              <div className="flex items-center gap-5">
+                <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center justify-center shrink-0 w-[5rem] h-[4rem]">
+                  <img src="/passary.jpeg" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-extrabold text-[1.4rem] leading-tight text-[#7da23a] tracking-tight">Purchase<br />FMS</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-4 pl-1">
+                <div className="text-slate-600">
+                  <User size={26} strokeWidth={1.5} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-base font-medium text-[#7da23a] leading-tight">{user?.username || "user"}</span>
+                  <span className="text-[13px] text-slate-500 leading-tight mt-0.5">all - khem</span>
+                </div>
+              </div>
+            </>
           ) : (
-            <span className="font-bold text-xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-              P
-            </span>
+            <>
+              <div className="bg-slate-50 rounded-xl p-2 border border-slate-100 shadow-sm flex items-center justify-center w-12 h-10 mb-6 mt-4">
+                <img src="/passary.jpeg" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
+              </div>
+              <div className="text-slate-500">
+                <User size={24} strokeWidth={1.5} />
+              </div>
+            </>
           )}
         </div>
         {/* Sidebar Content */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative overflow-hidden min-h-0 flex flex-col">
           {renderSidebarContent(false)}
         </div>
       </aside>
@@ -481,13 +503,28 @@ function App() {
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
         <SheetContent side="left" className="p-0 flex flex-col w-60 relative">
           {/* Mobile Header */}
-          <div className="h-16 flex items-center border-b border-gray-200 px-4 justify-start flex-shrink-0 bg-white z-10">
-            <span className="font-bold text-xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-              Purchase Management
-            </span>
+          <div className="py-6 flex flex-col gap-8 border-b border-gray-200 bg-white z-10 px-6 shrink-0">
+            <div className="flex items-center gap-5">
+              <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center justify-center shrink-0 w-[5rem] h-[4rem]">
+                <img src="/passary.jpeg" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-extrabold text-[1.4rem] leading-tight text-[#7da23a] tracking-tight">Purchase<br />FMS</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4 pl-1">
+              <div className="text-slate-600">
+                <User size={26} strokeWidth={1.5} />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-base font-medium text-[#7da23a] leading-tight">{user?.username || "user"}</span>
+                <span className="text-[13px] text-slate-500 leading-tight mt-0.5">all - khem</span>
+              </div>
+            </div>
           </div>
           {/* Mobile Sidebar Content */}
-          <div className="flex-1">
+          <div className="flex-1 relative overflow-hidden min-h-0 flex flex-col">
             {renderSidebarContent(true)}
           </div>
         </SheetContent>

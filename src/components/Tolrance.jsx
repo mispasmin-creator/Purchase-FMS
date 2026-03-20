@@ -124,19 +124,19 @@ export default function TolerancePage() {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <Scale className="h-5 w-5 text-purple-600" /> 
+            <Scale className="h-5 w-5 text-[#7da23a]" /> 
             Tolerance Data
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Material tolerance specifications and parameters.
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-purple-600 font-medium">• User: {user.firmName}</span>
+              <span className="ml-2 text-[#7da23a] font-medium">• User: {user.firmName}</span>
             )}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
           {/* Filters Section */}
-          <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+          <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
             <div className="flex items-center gap-2 mb-3">
               <Filter className="h-4 w-4 text-gray-500" />
               <Label className="text-sm font-medium">Filters</Label>
@@ -186,7 +186,7 @@ export default function TolerancePage() {
               <div className="flex justify-between items-center">
                 <div>
                   <CardTitle className="flex items-center text-sm font-semibold text-foreground">
-                    <FileText className="h-4 w-4 text-purple-600 mr-2" />
+                    <FileText className="h-4 w-4 text-[#7da23a] mr-2" />
                     Tolerance Specifications ({filteredData.length})
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-0.5">
@@ -211,7 +211,7 @@ export default function TolerancePage() {
             <CardContent className="p-0">
               {loading ? (
                 <div className="flex flex-col justify-center items-center py-8">
-                  <Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" />
+                  <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
                   <p className="text-muted-foreground">Loading tolerance data...</p>
                 </div>
               ) : error ? (
@@ -221,8 +221,8 @@ export default function TolerancePage() {
                   <p className="text-sm text-muted-foreground max-w-md">{error}</p>
                 </div>
               ) : filteredData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-4 my-4 text-center">
-                  <Scale className="h-12 w-12 text-purple-500 mb-3" />
+                <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center">
+                  <Scale className="h-12 w-12 text-green-500 mb-3" />
                   <p className="font-medium text-foreground">No Data Found</p>
                   <p className="text-sm text-muted-foreground text-center">
                     {searchTerm || filterColumn !== "all" 
@@ -250,7 +250,7 @@ export default function TolerancePage() {
                       {filteredData.map((record) => (
                         <TableRow 
                           key={record.id} 
-                          className="hover:bg-purple-50/50"
+                          className="hover:bg-green-50/50"
                         >
                           {columns.map((column) => (
                             <TableCell 

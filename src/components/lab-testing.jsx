@@ -169,7 +169,7 @@ const formatDateString = (dateValue) => {
 const ELIGIBLE_TESTS_COLUMNS_META = [
   { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
   { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
-  { header: "Date of Receiving (AI)", dataKey: "aiCondition_val_formatted", toggleable: true },
+  { header: "Planned Date", dataKey: "aiCondition_val_formatted", toggleable: true },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
@@ -242,7 +242,7 @@ const SearchableSelect = ({
           </div>
           <div className="py-1">
             <div
-              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
               onClick={() => {
                 onValueChange("all")
                 setOpen(false)
@@ -254,7 +254,7 @@ const SearchableSelect = ({
             {filteredOptions.map((option, index) => (
               <div
                 key={`${option}-${index}`}
-                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-green-50" : ""}`}
                 onClick={() => {
                   onValueChange(option)
                   setOpen(false)
@@ -1069,7 +1069,7 @@ export default function LabTesting() {
       // Check if we have an indent number
       if (item.indentNo && item.indentNo.trim() !== "") {
         if (value && value.trim() !== "") {
-          return <span className="font-medium text-blue-600">{value}</span>;
+          return <span className="font-medium text-[#7da23a]">{value}</span>;
         } else {
           // Show loading state or "Not found" with tooltip
           return (
@@ -1195,8 +1195,8 @@ export default function LabTesting() {
               <p className="text-sm text-muted-foreground max-w-md">{errorData}</p>
             </div>
           ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-blue-200/50 bg-blue-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-              <Info className="h-12 w-12 text-blue-500 mb-3" />
+            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
+              <Info className="h-12 w-12 text-green-500 mb-3" />
               <p className="font-medium text-foreground">No Data Found</p>
               <p className="text-sm text-muted-foreground text-center">
                 {tabKey === "eligibleForTest"
@@ -1221,7 +1221,7 @@ export default function LabTesting() {
                 </TableHeader>
                 <TableBody>
                   {data.map((item) => (
-                    <TableRow key={item._id} className="hover:bg-purple-50/50">
+                    <TableRow key={item._id} className="hover:bg-green-50/50">
                       {visibleCols.map((column) => (
                         <TableCell
                           key={column.dataKey}
@@ -1232,7 +1232,7 @@ export default function LabTesting() {
                               variant="outline"
                               size="xs"
                               onClick={() => handleOpenLabTestModal(item)}
-                              className="h-7 px-2.5 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200"
+                              className="h-7 px-2.5 py-1 text-xs bg-green-100 text-[#6b8e2f] hover:bg-green-200"
                             >
                               Record Lab Test
                             </Button>
@@ -1255,15 +1255,15 @@ export default function LabTesting() {
   return (
     <div className="space-y-6 p-4 md:p-6 bg-slate-50 min-h-screen">
       <Card className="shadow-md border-none">
-        <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-t-lg">
+        <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-lg">
           <CardTitle className="flex items-center gap-2 text-gray-700">
-            <Beaker className="h-6 w-6 text-purple-600" />
+            <Beaker className="h-6 w-6 text-[#7da23a]" />
             Step 7: Lab Testing - Is The Quality Good?
           </CardTitle>
           <CardDescription className="text-gray-600">
             Record lab test results for received materials by updating LIFT-ACCOUNTS.
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-blue-600 font-medium">• Filtered by: {user.firmName}</span>
+              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
             )}
           </CardDescription>
         </CardHeader>
@@ -1286,7 +1286,7 @@ export default function LabTesting() {
             </TabsList>
 
             {/* Filter Section - START */}
-            <div className="mb-6 p-4 bg-purple-50/50 rounded-lg border border-purple-200">
+            <div className="mb-6 p-4 bg-green-50/50 rounded-lg border border-green-200">
               <div className="flex items-center gap-2 mb-4">
                 <Filter className="h-4 w-4 text-gray-500" />
                 <Label className="text-sm font-medium text-gray-700">Filters</Label>
@@ -1357,7 +1357,7 @@ export default function LabTesting() {
               {renderTableSection(
                 "eligibleForTest",
                 "Material Receipts Eligible for Lab Testing",
-                "Filtered by: Column AI (Date of Receiving) is NOT empty AND Column AJ (Lab Test Timestamp) IS empty.",
+                "Filtered by: Column AI (Planned Date) is NOT empty AND Column AJ (Lab Test Timestamp) IS empty.",
                 receiptsAwaitingLabTest,
                 ELIGIBLE_TESTS_COLUMNS_META,
                 visibleEligibleTestColumns,
@@ -1381,7 +1381,7 @@ export default function LabTesting() {
         <DialogContent className="sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4 mb-4">
             <DialogTitle className="text-lg md:text-xl text-foreground flex items-center gap-2">
-              <Beaker className="h-6 w-6 text-purple-600" />
+              <Beaker className="h-6 w-6 text-[#7da23a]" />
               Record Lab Test for Lift ID:{" "}
               <span className="font-bold text-primary ml-1">{selectedReceiptForModal?.liftNo}</span>
             </DialogTitle>
@@ -1399,7 +1399,7 @@ export default function LabTesting() {
                 </Label>
                 <Select name="alStatus" value={formData.alStatus || undefined} onValueChange={handleSelectChange("alStatus")}>
                   <SelectTrigger
-                    className={`w-full h-9 mt-1 rounded-md text-xs ${!formData.alStatus ? "text-muted-foreground" : ""} ${formErrors.alStatus ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                    className={`w-full h-9 mt-1 rounded-md text-xs ${!formData.alStatus ? "text-muted-foreground" : ""} ${formErrors.alStatus ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                   >
                     <SelectValue placeholder="Select Accepted / Rejected" />
                   </SelectTrigger>
@@ -1420,7 +1420,7 @@ export default function LabTesting() {
                   name="amDateOfTest"
                   value={formData.amDateOfTest}
                   onChange={handleInputChange}
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.amDateOfTest ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.amDateOfTest ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.amDateOfTest && <p className="mt-1 text-xs text-destructive">{formErrors.amDateOfTest}</p>}
               </div>
@@ -1437,7 +1437,7 @@ export default function LabTesting() {
                   value={formData.anMoisturePercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.anMoisturePercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.anMoisturePercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.anMoisturePercent && <p className="mt-1 text-xs text-destructive">{formErrors.anMoisturePercent}</p>}
               </div>
@@ -1447,7 +1447,7 @@ export default function LabTesting() {
                 <Label className="text-foreground text-xs" htmlFor="aoBdPercent">
                   BD % <span className="text-destructive">*</span>
                   {selectedReceiptForModal?.indentNo && (
-                    <span className="ml-1 text-xs text-green-600">
+                    <span className="ml-1 text-xs text-[#7da23a]">
                       (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedBd || "N/A"})
                     </span>
                   )}
@@ -1459,7 +1459,7 @@ export default function LabTesting() {
                   value={formData.aoBdPercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.aoBdPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.aoBdPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.aoBdPercent && <p className="mt-1 text-xs text-destructive">{formErrors.aoBdPercent}</p>}
               </div>
@@ -1469,7 +1469,7 @@ export default function LabTesting() {
                 <Label className="text-foreground text-xs" htmlFor="apApPercent">
                   AP % <span className="text-destructive">*</span>
                   {selectedReceiptForModal?.indentNo && (
-                    <span className="ml-1 text-xs text-green-600">
+                    <span className="ml-1 text-xs text-[#7da23a]">
                       (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedAp || "N/A"})
                     </span>
                   )}
@@ -1481,7 +1481,7 @@ export default function LabTesting() {
                   value={formData.apApPercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.apApPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.apApPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.apApPercent && <p className="mt-1 text-xs text-destructive">{formErrors.apApPercent}</p>}
               </div>
@@ -1491,7 +1491,7 @@ export default function LabTesting() {
                 <Label className="text-foreground text-xs" htmlFor="aqAluminaPercent">
                   Alumina % <span className="text-destructive">*</span>
                   {selectedReceiptForModal?.indentNo && (
-                    <span className="ml-1 text-xs text-green-600">
+                    <span className="ml-1 text-xs text-[#7da23a]">
                       (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedAlumina || "N/A"})
                     </span>
                   )}
@@ -1503,7 +1503,7 @@ export default function LabTesting() {
                   value={formData.aqAluminaPercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.aqAluminaPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.aqAluminaPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.aqAluminaPercent && <p className="mt-1 text-xs text-destructive">{formErrors.aqAluminaPercent}</p>}
               </div>
@@ -1513,7 +1513,7 @@ export default function LabTesting() {
                 <Label className="text-foreground text-xs" htmlFor="arIronPercent">
                   Iron % <span className="text-destructive">*</span>
                   {selectedReceiptForModal?.indentNo && (
-                    <span className="ml-1 text-xs text-green-600">
+                    <span className="ml-1 text-xs text-[#7da23a]">
                       (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedIron || "N/A"})
                     </span>
                   )}
@@ -1525,7 +1525,7 @@ export default function LabTesting() {
                   value={formData.arIronPercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.arIronPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.arIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.arIronPercent && <p className="mt-1 text-xs text-destructive">{formErrors.arIronPercent}</p>}
               </div>
@@ -1542,7 +1542,7 @@ export default function LabTesting() {
                   value={formData.asSieveAnalysis}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.asSieveAnalysis ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.asSieveAnalysis ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.asSieveAnalysis && <p className="mt-1 text-xs text-destructive">{formErrors.asSieveAnalysis}</p>}
               </div>
@@ -1559,7 +1559,7 @@ export default function LabTesting() {
                   value={formData.atLoiPercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.atLoiPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.atLoiPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.atLoiPercent && <p className="mt-1 text-xs text-destructive">{formErrors.atLoiPercent}</p>}
               </div>
@@ -1576,7 +1576,7 @@ export default function LabTesting() {
                   value={formData.auSio2Percent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.auSio2Percent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.auSio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.auSio2Percent && <p className="mt-1 text-xs text-destructive">{formErrors.auSio2Percent}</p>}
               </div>
@@ -1593,7 +1593,7 @@ export default function LabTesting() {
                   value={formData.avCaoPercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.avCaoPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.avCaoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.avCaoPercent && <p className="mt-1 text-xs text-destructive">{formErrors.avCaoPercent}</p>}
               </div>
@@ -1610,7 +1610,7 @@ export default function LabTesting() {
                   value={formData.awMgoPercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.awMgoPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.awMgoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.awMgoPercent && <p className="mt-1 text-xs text-destructive">{formErrors.awMgoPercent}</p>}
               </div>
@@ -1627,7 +1627,7 @@ export default function LabTesting() {
                   value={formData.axTio2Percent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.axTio2Percent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.axTio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.axTio2Percent && <p className="mt-1 text-xs text-destructive">{formErrors.axTio2Percent}</p>}
               </div>
@@ -1644,7 +1644,7 @@ export default function LabTesting() {
                   value={formData.ayKna2oPercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.ayKna2oPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.ayKna2oPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.ayKna2oPercent && <p className="mt-1 text-xs text-destructive">{formErrors.ayKna2oPercent}</p>}
               </div>
@@ -1661,7 +1661,7 @@ export default function LabTesting() {
                   value={formData.azFreeIronPercent}
                   onChange={handleInputChange}
                   placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.azFreeIronPercent ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.azFreeIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.azFreeIronPercent && <p className="mt-1 text-xs text-destructive">{formErrors.azFreeIronPercent}</p>}
               </div>
@@ -1678,7 +1678,7 @@ export default function LabTesting() {
                   value={formData.baReason}
                   onChange={handleInputChange}
                   placeholder="Enter reason if any..."
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.baReason ? "border-destructive" : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"}`}
+                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.baReason ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
                 {formErrors.baReason && <p className="mt-1 text-xs text-destructive">{formErrors.baReason}</p>}
               </div>
@@ -1691,7 +1691,7 @@ export default function LabTesting() {
               <Button
                 type="submit"
                 disabled={isSubmitting || !selectedReceiptForModal}
-                className={`bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold shadow-md hover:opacity-90 transition-opacity flex items-center justify-center min-w-[100px] ${isSubmitting || !selectedReceiptForModal ? "opacity-70 cursor-not-allowed" : ""}`}
+                className={`bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] text-white font-semibold shadow-md hover:opacity-90 transition-opacity flex items-center justify-center min-w-[100px] ${isSubmitting || !selectedReceiptForModal ? "opacity-70 cursor-not-allowed" : ""}`}
               >
                 {isSubmitting ? (
                   <>

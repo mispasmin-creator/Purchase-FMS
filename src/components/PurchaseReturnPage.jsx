@@ -214,7 +214,7 @@ export default function PurchaseReturnPage() {
                     </Button>
                     <Button
                         size="sm"
-                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                        className="bg-[#7da23a] hover:bg-[#6b8e2f] text-white"
                         onClick={handleOpenForm}
                     >
                         <Plus className="w-4 h-4 mr-2" />
@@ -224,15 +224,15 @@ export default function PurchaseReturnPage() {
             </div>
 
             {/* Summary card */}
-            <Card className="border border-purple-100 bg-purple-50">
+            <Card className="border border-green-100 bg-green-50">
                 <CardContent className="pt-4 pb-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-3 bg-purple-100 rounded-lg">
-                            <RotateCcw className="w-5 h-5 text-purple-600" />
+                        <div className="p-3 bg-green-100 rounded-lg">
+                            <RotateCcw className="w-5 h-5 text-[#7da23a]" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-purple-700">{records.length}</p>
-                            <p className="text-sm text-purple-600">Total Purchase Returns</p>
+                            <p className="text-2xl font-bold text-[#6b8e2f]">{records.length}</p>
+                            <p className="text-sm text-[#7da23a]">Total Purchase Returns</p>
                         </div>
                     </div>
                 </CardContent>
@@ -242,14 +242,14 @@ export default function PurchaseReturnPage() {
             <Card>
                 <CardHeader className="pb-3">
                     <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-purple-600" />
+                        <FileText className="w-4 h-4 text-[#7da23a]" />
                         Purchase Return List
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
-                            <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                            <Loader2 className="w-8 h-8 animate-spin text-green-500" />
                             <span className="ml-3 text-gray-500">Loading records...</span>
                         </div>
                     ) : records.length === 0 ? (
@@ -281,10 +281,10 @@ export default function PurchaseReturnPage() {
                                     {records.map((rec, idx) => (
                                         <TableRow
                                             key={rec.id || idx}
-                                            className="hover:bg-purple-50 transition-colors"
+                                            className="hover:bg-green-50 transition-colors"
                                         >
                                             <TableCell className="text-gray-500 text-sm">{idx + 1}</TableCell>
-                                            <TableCell className="font-medium text-purple-700 whitespace-nowrap">
+                                            <TableCell className="font-medium text-[#6b8e2f] whitespace-nowrap">
                                                 {rec["Purchase Return No."] || "—"}
                                             </TableCell>
                                             <TableCell className="whitespace-nowrap">
@@ -312,7 +312,7 @@ export default function PurchaseReturnPage() {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="text-purple-600 hover:text-purple-800 hover:bg-purple-50"
+                                                    className="text-[#7da23a] hover:text-green-800 hover:bg-green-50"
                                                     onClick={() => setViewRecord(rec)}
                                                 >
                                                     <Eye className="w-4 h-4 mr-1" />
@@ -347,7 +347,7 @@ export default function PurchaseReturnPage() {
                             </div>
 
                             {/* Form Fields — exactly same as Mismatch */}
-                            <div className="border border-blue-100 rounded-lg p-4 bg-blue-50 space-y-3">
+                            <div className="border border-green-100 rounded-lg p-4 bg-green-50 space-y-3">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
                                     {/* 1. Purchase Return No. — readOnly auto */}
@@ -373,7 +373,7 @@ export default function PurchaseReturnPage() {
                                             value={form.poNo}
                                             onChange={(e) => handleChange("poNo", e.target.value)}
                                             onBlur={(e) => handlePoNoBlur(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm"
                                             placeholder="Enter PO / Indent number"
                                         />
                                     </div>
@@ -401,7 +401,7 @@ export default function PurchaseReturnPage() {
                                                 href={form.billCopy}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="inline-flex items-center px-3 py-2 text-xs text-blue-600 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 cursor-pointer"
+                                                className="inline-flex items-center px-3 py-2 text-xs text-[#7da23a] border border-green-200 rounded-lg bg-green-50 hover:bg-green-100 cursor-pointer"
                                             >
                                                 View Bill Copy
                                             </a>
@@ -424,7 +424,7 @@ export default function PurchaseReturnPage() {
                                             type="text"
                                             value={form.actionType}
                                             onChange={(e) => handleChange("actionType", e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm"
                                             placeholder="e.g. Full Return"
                                         />
                                     </div>
@@ -477,7 +477,7 @@ export default function PurchaseReturnPage() {
                                             type="text"
                                             value={form.returnReason}
                                             onChange={(e) => handleChange("returnReason", e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm"
                                             placeholder="Reason for return"
                                         />
                                     </div>
@@ -491,7 +491,7 @@ export default function PurchaseReturnPage() {
                                             type="text"
                                             value={form.transport}
                                             onChange={(e) => handleChange("transport", e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm"
                                             placeholder="Transporter name"
                                         />
                                     </div>
@@ -504,7 +504,7 @@ export default function PurchaseReturnPage() {
                                         <select
                                             value={form.typeOfTransport}
                                             onChange={(e) => handleChange("typeOfTransport", e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
                                         >
                                             <option value="">-- Select Type --</option>
                                             <option value="Logistics">Logistics</option>
@@ -522,7 +522,7 @@ export default function PurchaseReturnPage() {
                                             type="text"
                                             value={form.vehicleNo}
                                             onChange={(e) => handleChange("vehicleNo", e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm"
                                             placeholder="Vehicle number"
                                         />
                                     </div>
@@ -536,7 +536,7 @@ export default function PurchaseReturnPage() {
                                             type="text"
                                             value={form.builtyNo}
                                             onChange={(e) => handleChange("builtyNo", e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm"
                                             placeholder="Builty number"
                                         />
                                     </div>
@@ -550,7 +550,7 @@ export default function PurchaseReturnPage() {
                                             type="text"
                                             value={form.rateType}
                                             onChange={(e) => handleChange("rateType", e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm"
                                             placeholder="e.g. Per MT"
                                         />
                                     </div>
@@ -564,7 +564,7 @@ export default function PurchaseReturnPage() {
                                             type="number"
                                             value={form.amount}
                                             onChange={(e) => handleChange("amount", e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm"
                                             placeholder="Enter amount"
                                         />
                                     </div>
@@ -578,7 +578,7 @@ export default function PurchaseReturnPage() {
                                             type="text"
                                             value={form.orgBillNo}
                                             onChange={(e) => handleChange("orgBillNo", e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm"
                                             placeholder="Original bill number"
                                         />
                                     </div>
@@ -598,7 +598,7 @@ export default function PurchaseReturnPage() {
                                 <button
                                     onClick={handleSubmit}
                                     disabled={submitting}
-                                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
                                 >
                                     {submitting ? (
                                         <RefreshCw className="w-4 h-4 mr-2 animate-spin" />

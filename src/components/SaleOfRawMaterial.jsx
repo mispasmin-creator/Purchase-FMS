@@ -50,7 +50,6 @@ const formatDisplayDate = (val) => {
 // ─── Tab config ────────────────────────────────────────────────────────
 const TABS = [
   { id: 'receive-order',      label: 'Receive Order Of Raw Material', icon: <ClipboardList size={16}/> },
-  { id: 'arrange-logistics',  label: 'Arrange Logistics',              icon: <Truck size={16}/> },
   { id: 'make-invoice',       label: 'Make Invoice',                   icon: <FileText size={16}/> },
   { id: 'make-payment',       label: 'Make Payment',                   icon: <CreditCard size={16}/> },
 ];
@@ -67,12 +66,61 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
     typeOfTransporting: '',
     dateOfDispatch: '',
     poCopyFile: null,
+    transporterName: '',
+    truckNo: '',
+    biltyNo: '',
+    actualTruckQty: '',
+    typeOfRate: '',
+    weightmentSlipFile: null,
   };
 
   const [form, setForm]           = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [nextOrderNo, setNextOrderNo] = useState('');
   const [loadingOrderNo, setLoadingOrderNo] = useState(true);
+  const [transporters, setTransporters] = useState([]);
+  const [loadingTransporters, setLoadingTransporters] = useState(true);
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  const fetchTransporters = useCallback(async () => {
+    try {
+      setLoadingTransporters(true);
+      const { data, error } = await supabase
+        .from('Master')
+        .select('"Transporter Name"')
+        .not('"Transporter Name"', 'is', null);
+      if (error) throw error;
+      const uniqueTransporters = Array.from(new Set(data.map(item => item['Transporter Name'])));
+      setTransporters(uniqueTransporters.filter(Boolean));
+    } catch (err) {
+      console.error('Error fetching transporters:', err);
+    } finally {
+      setLoadingTransporters(false);
+    }
+  }, []);
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      setLoadingProducts(true);
+      const { data, error } = await supabase
+        .from('Master')
+        .select('"Raw Material Name"')
+        .not('"Raw Material Name"', 'is', null);
+      if (error) throw error;
+      const uniqueProducts = Array.from(new Set(data.map(item => item['Raw Material Name'])));
+      setProducts(uniqueProducts.filter(Boolean).sort());
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    } finally {
+      setLoadingProducts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTransporters();
+    fetchProducts();
+  }, [fetchTransporters, fetchProducts]);
 
   // Generate next order number like od1, od2 …
   const fetchNextOrderNo = useCallback(async () => {
@@ -109,8 +157,22 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.partyName || !form.productName || !form.qty || !form.rate || !form.poCopyFile) {
-      toast.error('Please fill all required fields, including PO Copy.');
+      toast.error('Please fill all required fields.');
       return;
+    }
+
+    if (form.typeOfTransporting === 'Ex factory') {
+      if (!form.truckNo || !form.actualTruckQty) {
+        toast.error('For Ex Factory, please fill Truck No and Actual Truck Qty.');
+        return;
+      }
+    }
+
+    if (form.typeOfTransporting === 'FOR') {
+       if (!form.transporterName || !form.truckNo || !form.biltyNo || !form.actualTruckQty || !form.typeOfRate || !form.weightmentSlipFile) {
+         toast.error('For FOR transport, please fill all logistics fields, including Weightment Slip.');
+         return;
+       }
     }
     setSubmitting(true);
 
@@ -138,6 +200,18 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
         poCopyUrl = publicUrlData.publicUrl;
       }
 
+      // 2. Upload Weightment Slip if present
+      let weightmentSlipUrl = null;
+      if (form.weightmentSlipFile) {
+        toast.info('Uploading Weightment Slip...');
+        const fileExt = form.weightmentSlipFile.name.split('.').pop();
+        const fileName = `${Date.now()}_weight_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `sales of raw material/${fileName}`;
+        const { error: weightError } = await supabase.storage.from('image').upload(filePath, form.weightmentSlipFile);
+        if (weightError) throw weightError;
+        weightmentSlipUrl = supabase.storage.from('image').getPublicUrl(filePath).data.publicUrl;
+      }
+
       const insertPayload = {
         'Time Stamp': getIndianTimeForActuals(),
         'Order No.': nextOrderNo,
@@ -148,6 +222,12 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
         'Type Of Transporting': form.typeOfTransporting || null,
         'Date Of Dispatch': form.dateOfDispatch || null,
         'PO Copy': poCopyUrl,
+        'Transporter Name': form.transporterName,
+        'Truck No.': form.truckNo,
+        'Bilty No.': form.biltyNo,
+        'Actual Truck Qty': parseFloat(form.actualTruckQty) || null,
+        'Type Of Rate': form.typeOfRate,
+        'weightment slip': weightmentSlipUrl,
       };
 
       const { error } = await supabase.from(TABLE_NAME).insert([insertPayload]);
@@ -168,14 +248,14 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 w-full">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5">
+        <div className="bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] px-6 py-5">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Package size={20}/> Receive Order Of Raw Material
           </h2>
-          <p className="text-purple-200 text-sm mt-1">Fill in the order details below</p>
+          <p className="text-green-200 text-sm mt-1">Fill in the order details below</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
@@ -204,7 +284,7 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
                 onChange={e => handleChange('partyName', e.target.value)}
                 placeholder="Enter party name"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition"
               />
             </div>
 
@@ -212,14 +292,17 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Product Name <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 value={form.productName}
                 onChange={e => handleChange('productName', e.target.value)}
-                placeholder="Enter product name"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition"
-              />
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition bg-white"
+              >
+                <option value="">{loadingProducts ? 'Loading products...' : 'Select Product Name...'}</option>
+                {products.map((p, i) => (
+                  <option key={i} value={p}>{p}</option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -234,7 +317,7 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
                 required
                 min="0"
                 step="any"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
 
@@ -250,7 +333,7 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
                 required
                 min="0"
                 step="any"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
 
@@ -261,7 +344,7 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
               <select
                 value={form.typeOfTransporting}
                 onChange={e => handleChange('typeOfTransporting', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition bg-white"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition bg-white"
               >
                 <option value="">Select Transport Type...</option>
                 <option value="Ex factory">Ex factory</option>
@@ -277,9 +360,122 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
                 type="date"
                 value={form.dateOfDispatch}
                 onChange={e => handleChange('dateOfDispatch', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition"
               />
             </div>
+
+            {/* FOR - Show all details */}
+            {form.typeOfTransporting === 'FOR' && (
+              <>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Transporter Name <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.transporterName}
+                    onChange={e => handleChange('transporterName', e.target.value)}
+                    disabled={loadingTransporters}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition bg-white"
+                  >
+                    <option value="">{loadingTransporters ? 'Loading transporters...' : 'Select Transporter Name...'}</option>
+                    {transporters.map((t, i) => (
+                      <option key={i} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Truck No. <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.truckNo}
+                    onChange={e => handleChange('truckNo', e.target.value)}
+                    placeholder="Enter truck number"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Bilty No. <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.biltyNo}
+                    onChange={e => handleChange('biltyNo', e.target.value)}
+                    placeholder="Enter bilty number"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Actual Truck Qty <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={form.actualTruckQty}
+                    onChange={e => handleChange('actualTruckQty', e.target.value)}
+                    placeholder="Enter actual truck qty"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Type Of Rate <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.typeOfRate}
+                    onChange={e => handleChange('typeOfRate', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition bg-white"
+                  >
+                    <option value="">Select Rate Type...</option>
+                    <option value="Per MT">Per MT</option>
+                    <option value="Fixed">Fixed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Weightment Slip <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={e => setForm(prev => ({ ...prev, weightmentSlipFile: e.target.files[0] }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 cursor-pointer"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Ex Factory - Show only 2 inputs */}
+            {form.typeOfTransporting === 'Ex factory' && (
+              <>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Truck No. <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.truckNo}
+                    onChange={e => handleChange('truckNo', e.target.value)}
+                    placeholder="Enter truck number"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Actual Truck Qty <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={form.actualTruckQty}
+                    onChange={e => handleChange('actualTruckQty', e.target.value)}
+                    placeholder="Enter actual truck qty"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <div>
@@ -292,7 +488,7 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
               accept="image/*,application/pdf"
               required
               onChange={e => setForm(prev => ({ ...prev, poCopyFile: e.target.files[0] }))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"
+              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 cursor-pointer"
             />
           </div>
 
@@ -300,182 +496,13 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
             <button
               type="submit"
               disabled={submitting || loadingOrderNo}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] hover:from-green-700 hover:to-emerald-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {submitting ? <RefreshCw size={16} className="animate-spin"/> : <CheckCircle size={16}/>}
               {submitting ? 'Submitting…' : 'Submit Order'}
             </button>
           </div>
         </form>
-      </div>
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════════════════════════════════════
-// Logistics modal form
-// ═══════════════════════════════════════════════════════════════════════
-const LogisticsModal = ({ row, onClose, onSaved }) => {
-  const [form, setForm] = useState({
-    transporterName: '',
-    truckNo: '',
-    biltyNo: '',
-    actualTruckQty: '',
-    typeOfRate: '',
-  });
-  const [saving, setSaving] = useState(false);
-  const [transporters, setTransporters] = useState([]);
-  const [loadingTransporters, setLoadingTransporters] = useState(true);
-
-  const fetchTransporters = useCallback(async () => {
-    try {
-      setLoadingTransporters(true);
-      const { data, error } = await supabase
-        .from('Master')
-        .select('"Transporter Name"')
-        .not('"Transporter Name"', 'is', null);
-      if (error) throw error;
-      const uniqueTransporters = Array.from(new Set(data.map(item => item['Transporter Name'])));
-      setTransporters(uniqueTransporters.filter(Boolean));
-    } catch (err) {
-      console.error('Error fetching transporters:', err);
-    } finally {
-      setLoadingTransporters(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchTransporters();
-  }, [fetchTransporters]);
-
-  const handleChange = (field, value) =>
-    setForm(prev => ({ ...prev, [field]: value }));
-
-  const handleSave = async () => {
-    const isExFactory = row['Type Of Transporting'] === 'Ex factory';
-    
-    if (isExFactory) {
-      if (!form.transporterName || !form.truckNo) {
-        toast.error('Please fill all required logistics fields.');
-        return;
-      }
-    } else {
-      if (!form.transporterName || !form.truckNo || !form.biltyNo || !form.actualTruckQty || !form.typeOfRate) {
-        toast.error('Please fill all required logistics fields.');
-        return;
-      }
-    }
-    
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from(TABLE_NAME)
-        .update({
-          'Transporter Name': form.transporterName,
-          'Truck No.': form.truckNo,
-          'Bilty No.': form.biltyNo,
-          'Actual Truck Qty': parseFloat(form.actualTruckQty) || null,
-          'Type Of Rate': form.typeOfRate,
-          'Actual 1': getIndianTimeForActuals(),
-        })
-        .eq('ID', row['ID']);
-
-      if (error) throw error;
-      toast.success(`✅ Logistics saved for Order ${row['Order No.']}`);
-      onSaved();
-      onClose();
-    } catch (err) {
-      console.error('Save error:', err);
-      toast.error(`❌ Failed: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[200]">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        {/* Modal header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">Arrange Logistics</h3>
-            <p className="text-sm text-gray-500">Order: <span className="font-semibold text-purple-600">{row['Order No.']}</span></p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
-            <X size={22}/>
-          </button>
-        </div>
-
-        {/* Order summary */}
-        <div className="mx-6 mt-4 p-4 bg-purple-50 rounded-xl text-sm grid grid-cols-2 gap-2">
-          <div><span className="text-gray-500">Party:</span> <span className="font-medium">{row['Party Name'] || '-'}</span></div>
-          <div><span className="text-gray-500">Product:</span> <span className="font-medium">{row['Product Name'] || '-'}</span></div>
-          <div><span className="text-gray-500">Qty:</span> <span className="font-medium">{row['Qty'] ?? '-'}</span></div>
-          <div><span className="text-gray-500">Rate:</span> <span className="font-medium">{row['Rate'] ?? '-'}</span></div>
-          <div><span className="text-gray-500">Transport Type:</span> <span className="font-medium">{row['Type Of Transporting'] || '-'}</span></div>
-          <div><span className="text-gray-500">Dispatch Date:</span> <span className="font-medium">{row['Date Of Dispatch'] || '-'}</span></div>
-        </div>
-
-        {/* Form */}
-        <div className="px-6 py-4 space-y-4">
-          {[
-            { field: 'transporterName', label: 'Transporter Name', type: 'select', placeholder: 'Select transporter name' },
-            { field: 'truckNo',         label: 'Truck No.',         type: 'text', placeholder: 'Enter truck number' },
-            { field: 'biltyNo',         label: 'Bilty No.',         type: 'text', placeholder: 'Enter bilty number' },
-            { field: 'actualTruckQty',  label: 'Actual Truck Qty',  type: 'number', placeholder: 'Enter actual truck qty' },
-            { field: 'typeOfRate',      label: 'Type Of Rate',      type: 'text', placeholder: 'e.g. Fixed, Variable' },
-          ].filter(f => {
-            if (row['Type Of Transporting'] === 'Ex factory') {
-              return f.field === 'transporterName' || f.field === 'truckNo';
-            }
-            return true;
-          }).map(f => (
-            <div key={f.field}>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                {f.label} <span className="text-red-500">*</span>
-              </label>
-              {f.type === 'select' ? (
-                <select
-                  value={form[f.field]}
-                  onChange={e => handleChange(f.field, e.target.value)}
-                  disabled={loadingTransporters}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition bg-white"
-                >
-                  <option value="">{loadingTransporters ? 'Loading transporters...' : 'Select Transporter Name...'}</option>
-                  {transporters.map((t, i) => (
-                    <option key={i} value={t}>{t}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type={f.type}
-                  value={form[f.field]}
-                  onChange={e => handleChange(f.field, e.target.value)}
-                  placeholder={f.placeholder}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
-          <button
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-sm font-semibold rounded-xl shadow transition disabled:opacity-60"
-          >
-            {saving ? <RefreshCw size={14} className="animate-spin"/> : <CheckCircle size={14}/>}
-            {saving ? 'Saving…' : 'Save Logistics'}
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -522,189 +549,7 @@ const DataTable = ({ columns, data, emptyText }) => (
   </div>
 );
 
-// ═══════════════════════════════════════════════════════════════════════
-// TAB 2 – Arrange Logistics
-// ═══════════════════════════════════════════════════════════════════════
-const ArrangeLogisticsTab = () => {
-  const [subTab,   setSubTab]   = useState('pending');
-  const [pending,  setPending]  = useState([]);
-  const [history,  setHistory]  = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [modalRow, setModalRow] = useState(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Pending: Planned1 not null AND Actual1 is null
-      const { data: pData, error: pErr } = await supabase
-        .from(TABLE_NAME)
-        .select('*')
-        .not('Planned 1', 'is', null)
-        .is('Actual 1', null)
-        .order('ID', { ascending: false });
-
-      if (pErr) throw pErr;
-      setPending(pData || []);
-
-      // History: both Planned1 and Actual1 not null
-      const { data: hData, error: hErr } = await supabase
-        .from(TABLE_NAME)
-        .select('*')
-        .not('Planned 1', 'is', null)
-        .not('Actual 1', 'is', null)
-        .order('ID', { ascending: false });
-
-      if (hErr) throw hErr;
-      setHistory(hData || []);
-    } catch (err) {
-      console.error('Fetch logistics error:', err);
-      toast.error(`Failed to load: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const baseColumns = [
-    { key: 'action_col', label: 'Action', render: (row) => (
-      <button
-        onClick={() => setModalRow(row)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition"
-      >
-        <Truck size={12}/> Action
-      </button>
-    )},
-    { key: 'Order No.',          label: 'Order No.' },
-    { key: 'Planned 1',          label: 'Planned 1',        render: r => formatDisplayDate(r['Planned 1']) },
-    { key: 'Party Name',         label: 'Party Name' },
-    { key: 'Product Name',       label: 'Product Name' },
-    { key: 'Qty',                label: 'Qty' },
-    { key: 'Rate',               label: 'Rate' },
-    { key: 'Type Of Transporting', label: 'Type Of Transporting' },
-    { key: 'Date Of Dispatch',   label: 'Date Of Dispatch' },
-    { key: 'PO Copy',            label: 'PO Copy', render: r => {
-      const url = r['PO Copy'];
-      if (!url) return '-';
-      return (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 underline text-xs font-medium">
-          {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
-            <img src={url} alt="PO Copy" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
-          ) : (
-            'View File'
-          )}
-        </a>
-      );
-    } },
-  ];
-
-  const historyColumns = [
-    { key: 'Order No.',          label: 'Order No.' },
-    { key: 'Planned 1',          label: 'Planned 1',        render: r => formatDisplayDate(r['Planned 1']) },
-    { key: 'Party Name',         label: 'Party Name' },
-    { key: 'Product Name',       label: 'Product Name' },
-    { key: 'Qty',                label: 'Qty' },
-    { key: 'Rate',               label: 'Rate' },
-    { key: 'Type Of Transporting', label: 'Type Of Transporting' },
-    { key: 'Date Of Dispatch',   label: 'Date Of Dispatch' },
-    { key: 'PO Copy',            label: 'PO Copy', render: r => {
-      const url = r['PO Copy'];
-      if (!url) return '-';
-      return (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 underline text-xs font-medium">
-          {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
-            <img src={url} alt="PO Copy" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
-          ) : (
-            'View File'
-          )}
-        </a>
-      );
-    } },
-    { key: 'Actual 1',           label: 'Actual 1',         render: r => formatDisplayDate(r['Actual 1']) },
-    { key: 'Transporter Name',   label: 'Transporter Name' },
-    { key: 'Truck No.',          label: 'Truck No.' },
-    { key: 'Bilty No.',          label: 'Bilty No.' },
-    { key: 'Actual Truck Qty',   label: 'Actual Truck Qty' },
-    { key: 'Type Of Rate',       label: 'Type Of Rate' },
-  ];
-
-  return (
-    <div className="p-6">
-      {modalRow && (
-        <LogisticsModal
-          row={modalRow}
-          onClose={() => setModalRow(null)}
-          onSaved={fetchData}
-        />
-      )}
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Truck size={20}/> Arrange Logistics
-            </h2>
-            <p className="text-purple-200 text-sm mt-1">Manage transportation for pending orders</p>
-          </div>
-          <button
-            onClick={fetchData}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium rounded-xl transition"
-          >
-            <RefreshCw size={14}/> Refresh
-          </button>
-        </div>
-
-        {/* Sub-tabs */}
-        <div className="flex border-b border-gray-200 px-6 pt-4 gap-1">
-          {[
-            { id: 'pending', label: 'Pending', icon: <Clock size={14}/>, count: pending.length },
-            { id: 'history', label: 'History', icon: <History size={14}/>, count: history.length },
-          ].map(t => (
-            <button
-              key={t.id}
-              onClick={() => setSubTab(t.id)}
-              className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-all duration-150 ${
-                subTab === t.id
-                  ? 'border-purple-600 text-purple-700 bg-purple-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {t.icon} {t.label}
-              <span className={`inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full text-xs font-bold ${
-                subTab === t.id ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-600'
-              }`}>{t.count}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-gray-400">
-              <RefreshCw size={28} className="animate-spin mr-3"/> Loading…
-            </div>
-          ) : (
-            <>
-              {subTab === 'pending' && (
-                <DataTable
-                  columns={baseColumns}
-                  data={pending}
-                  emptyText="No pending logistics items"
-                />
-              )}
-              {subTab === 'history' && (
-                <DataTable
-                  columns={historyColumns}
-                  data={history}
-                  emptyText="No history records yet"
-                />
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ═══════════════════════════════════════════════════════════════════════
 // Invoice modal form
@@ -764,7 +609,7 @@ const InvoiceModal = ({ row, onClose, onSaved }) => {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div>
             <h3 className="text-lg font-bold text-gray-900">Attach Bill</h3>
-            <p className="text-sm text-gray-500">Order: <span className="font-semibold text-purple-600">{row['Order No.']}</span></p>
+            <p className="text-sm text-gray-500">Order: <span className="font-semibold text-[#7da23a]">{row['Order No.']}</span></p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
             <X size={22}/>
@@ -778,7 +623,7 @@ const InvoiceModal = ({ row, onClose, onSaved }) => {
             type="file"
             accept="image/*,application/pdf"
             onChange={e => setBillFile(e.target.files[0])}
-            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"
+            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm transition bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 cursor-pointer"
           />
         </div>
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
@@ -792,7 +637,7 @@ const InvoiceModal = ({ row, onClose, onSaved }) => {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-sm font-semibold rounded-xl shadow transition disabled:opacity-60"
+            className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] hover:from-green-700 hover:to-emerald-700 text-white text-sm font-semibold rounded-xl shadow transition disabled:opacity-60"
           >
             {saving ? <RefreshCw size={14} className="animate-spin"/> : <CheckCircle size={14}/>}
             {saving ? 'Submitting…' : 'Submit'}
@@ -851,7 +696,7 @@ const MakeInvoiceTab = () => {
     { key: 'action_col', label: 'Action', render: (row) => (
       <button
         onClick={() => setModalRow(row)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] hover:from-green-700 hover:to-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition"
       >
         <FileText size={12}/> Attach Bill
       </button>
@@ -862,11 +707,35 @@ const MakeInvoiceTab = () => {
     { key: 'Product Name',     label: 'Product Name' },
     { key: 'Qty',              label: 'Qty' },
     { key: 'Rate',             label: 'Rate' },
+    { key: 'Type Of Transporting', label: 'Transport Type' },
+    { key: 'Date Of Dispatch',   label: 'Dispatch Date' },
     { key: 'Transporter Name', label: 'Transporter Name' },
     { key: 'Truck No.',        label: 'Truck No.' },
     { key: 'Bilty No.',        label: 'Bilty No.' },
     { key: 'Actual Truck Qty', label: 'Actual Truck Qty' },
     { key: 'Type Of Rate',     label: 'Type Of Rate' },
+    { key: 'PO Copy',            label: 'PO Copy', render: r => {
+      const url = r['PO Copy'];
+      if (!url) return '-';
+      return (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 underline text-xs font-medium">
+          {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+            <img src={url} alt="PO" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
+          ) : 'View PO'}
+        </a>
+      );
+    } },
+    { key: 'weightment slip',    label: 'Weight Slip', render: r => {
+      const url = r['weightment slip'];
+      if (!url) return '-';
+      return (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 underline text-xs font-medium">
+          {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+            <img src={url} alt="WS" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
+          ) : 'View WS'}
+        </a>
+      );
+    } },
   ];
 
   const historyColumns = [
@@ -876,16 +745,40 @@ const MakeInvoiceTab = () => {
     { key: 'Product Name',     label: 'Product Name' },
     { key: 'Qty',              label: 'Qty' },
     { key: 'Rate',             label: 'Rate' },
+    { key: 'Type Of Transporting', label: 'Transport Type' },
+    { key: 'Date Of Dispatch',   label: 'Dispatch Date' },
     { key: 'Transporter Name', label: 'Transporter Name' },
     { key: 'Truck No.',        label: 'Truck No.' },
     { key: 'Bilty No.',        label: 'Bilty No.' },
     { key: 'Actual Truck Qty', label: 'Actual Truck Qty' },
     { key: 'Type Of Rate',     label: 'Type Of Rate' },
+    { key: 'PO Copy',            label: 'PO Copy', render: r => {
+      const url = r['PO Copy'];
+      if (!url) return '-';
+      return (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 underline text-xs font-medium">
+          {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+            <img src={url} alt="PO" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
+          ) : 'View PO'}
+        </a>
+      );
+    } },
+    { key: 'weightment slip',    label: 'Weight Slip', render: r => {
+      const url = r['weightment slip'];
+      if (!url) return '-';
+      return (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 underline text-xs font-medium">
+          {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+            <img src={url} alt="WS" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
+          ) : 'View WS'}
+        </a>
+      );
+    } },
     { key: 'Invoice Copy',     label: 'Invoice Copy', render: r => {
       const url = r['Invoice Copy'];
       if (!url) return '-';
       return (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 underline text-xs font-medium">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 underline text-xs font-medium">
           {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
             <img src={url} alt="Bill" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
           ) : (
@@ -907,12 +800,12 @@ const MakeInvoiceTab = () => {
         />
       )}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] px-6 py-5 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <FileText size={20}/> Make Invoice
             </h2>
-            <p className="text-purple-200 text-sm mt-1">Mark invoices for completed logistics</p>
+            <p className="text-green-200 text-sm mt-1">Mark invoices for completed logistics</p>
           </div>
           <button
             onClick={fetchData}
@@ -933,13 +826,13 @@ const MakeInvoiceTab = () => {
               onClick={() => setSubTab(t.id)}
               className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-all duration-150 ${
                 subTab === t.id
-                  ? 'border-purple-600 text-purple-700 bg-purple-50'
+                  ? 'border-green-600 text-[#6b8e2f] bg-green-50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
               {t.icon} {t.label}
               <span className={`inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full text-xs font-bold ${
-                subTab === t.id ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-600'
+                subTab === t.id ? 'bg-[#7da23a] text-white' : 'bg-gray-200 text-gray-600'
               }`}>{t.count}</span>
             </button>
           ))}
@@ -1043,11 +936,47 @@ const MakePaymentTab = () => {
     { key: 'Product Name',     label: 'Product Name' },
     { key: 'Qty',              label: 'Qty' },
     { key: 'Rate',             label: 'Rate' },
+    { key: 'Type Of Transporting', label: 'Transport Type' },
+    { key: 'Date Of Dispatch',   label: 'Dispatch Date' },
     { key: 'Transporter Name', label: 'Transporter Name' },
     { key: 'Truck No.',        label: 'Truck No.' },
     { key: 'Bilty No.',        label: 'Bilty No.' },
     { key: 'Actual Truck Qty', label: 'Actual Truck Qty' },
     { key: 'Type Of Rate',     label: 'Type Of Rate' },
+    { key: 'PO Copy',            label: 'PO Copy', render: r => {
+      const url = r['PO Copy'];
+      if (!url) return '-';
+      return (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 underline text-xs font-medium">
+          {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+            <img src={url} alt="PO" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
+          ) : 'View PO'}
+        </a>
+      );
+    } },
+    { key: 'weightment slip',    label: 'Weight Slip', render: r => {
+      const url = r['weightment slip'];
+      if (!url) return '-';
+      return (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 underline text-xs font-medium">
+          {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+            <img src={url} alt="WS" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
+          ) : 'View WS'}
+        </a>
+      );
+    } },
+    { key: 'Invoice Copy',     label: 'Invoice Copy', render: r => {
+      const url = r['Invoice Copy'];
+      if (!url) return '-';
+      return (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 underline text-xs font-medium">
+          {url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+            <img src={url} alt="Invoice" className="h-10 w-10 object-cover rounded shadow-sm border border-gray-200" />
+          ) : 'View Invoice'}
+        </a>
+      );
+    } },
+    { key: 'Actual 2',         label: 'Invoice Date',          render: r => formatDisplayDate(r['Actual 2']) },
   ];
 
   const pendingColumns = [
@@ -1061,8 +990,8 @@ const MakePaymentTab = () => {
             disabled={checking[row['ID']]}
             className="sr-only peer"
           />
-          <div className="w-5 h-5 border-2 border-purple-400 rounded peer-checked:bg-purple-600 peer-checked:border-purple-600 transition flex items-center justify-center hover:border-purple-600 cursor-pointer">
-            {checking[row['ID']] && <RefreshCw size={10} className="animate-spin text-purple-600"/>}
+          <div className="w-5 h-5 border-2 border-green-400 rounded peer-checked:bg-[#7da23a] peer-checked:border-green-600 transition flex items-center justify-center hover:border-green-600 cursor-pointer">
+            {checking[row['ID']] && <RefreshCw size={10} className="animate-spin text-[#7da23a]"/>}
           </div>
         </div>
         <span className="text-xs text-gray-500">Done</span>
@@ -1072,7 +1001,7 @@ const MakePaymentTab = () => {
       const link = r['Payment Link'];
       if (!link) return '-';
       return (
-        <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 underline text-xs font-semibold">
+        <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[#7da23a] hover:text-green-800 underline text-xs font-semibold">
           <CreditCard size={12}/> Open Form
         </a>
       );
@@ -1088,12 +1017,12 @@ const MakePaymentTab = () => {
   return (
     <div className="p-6">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] px-6 py-5 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <CreditCard size={20}/> Make Payment
             </h2>
-            <p className="text-purple-200 text-sm mt-1">Mark payments done</p>
+            <p className="text-green-200 text-sm mt-1">Mark payments done</p>
           </div>
           <button
             onClick={fetchData}
@@ -1114,13 +1043,13 @@ const MakePaymentTab = () => {
               onClick={() => setSubTab(t.id)}
               className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-all duration-150 ${
                 subTab === t.id
-                  ? 'border-purple-600 text-purple-700 bg-purple-50'
+                  ? 'border-green-600 text-[#6b8e2f] bg-green-50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
               {t.icon} {t.label}
               <span className={`inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full text-xs font-bold ${
-                subTab === t.id ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-600'
+                subTab === t.id ? 'bg-[#7da23a] text-white' : 'bg-gray-200 text-gray-600'
               }`}>{t.count}</span>
             </button>
           ))}
@@ -1162,7 +1091,7 @@ const SaleOfRawMaterial = () => {
   const [activeTab, setActiveTab] = useState('receive-order');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-green-50/30">
       {/* Page header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <h1 className="text-2xl font-bold text-gray-900">Sale Of Raw Material</h1>
@@ -1178,7 +1107,7 @@ const SaleOfRawMaterial = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-5 py-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-all duration-150 ${
                 activeTab === tab.id
-                  ? 'border-purple-600 text-purple-700 bg-purple-50/50'
+                  ? 'border-green-600 text-[#6b8e2f] bg-green-50/50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -1192,7 +1121,6 @@ const SaleOfRawMaterial = () => {
       {/* Tab content */}
       <div className="min-h-[calc(100vh-10rem)]">
         {activeTab === 'receive-order'     && <ReceiveOrderTab onOrderSubmitted={() => {}}/>}
-        {activeTab === 'arrange-logistics' && <ArrangeLogisticsTab/>}
         {activeTab === 'make-invoice'      && <MakeInvoiceTab/>}
         {activeTab === 'make-payment'      && <MakePaymentTab/>}
       </div>

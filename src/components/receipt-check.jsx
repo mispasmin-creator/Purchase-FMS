@@ -179,8 +179,8 @@ function ReceiptFormModal({ isOpen, onClose, liftData, children }) {
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="dialog-description">
         <DialogHeader className="border-b pb-4 mb-4">
           <DialogTitle className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-            <FileUp className="h-6 w-6 text-purple-600 mr-3" /> Record Receipt for Lift ID:{" "}
-            <span className="font-bold text-purple-600 ml-1">{liftData?.id}</span>
+            <FileUp className="h-6 w-6 text-[#7da23a] mr-3" /> Record Receipt for Lift ID:{" "}
+            <span className="font-bold text-[#7da23a] ml-1">{liftData?.id}</span>
           </DialogTitle>
           <DialogDescription id="dialog-description" className="mt-1 text-sm text-gray-500">
             Update LIFT-ACCOUNTS with receipt details.
@@ -469,6 +469,10 @@ export default function ReceiptCheck() {
   const validateForm = () => {
     const newErrors = {};
     if (!formData.dateOfReceiving) newErrors.dateOfReceiving = "Date of Receiving is required.";
+    if (!formData.totalBillQuantity || isNaN(parseFloat(formData.totalBillQuantity))) newErrors.totalBillQuantity = "Valid Billing Quantity is required.";
+    if (!formData.actualQuantity || isNaN(parseFloat(formData.actualQuantity))) newErrors.actualQuantity = "Valid Actual Quantity is required.";
+    if (!formData.physicalCondition) newErrors.physicalCondition = "Physical Condition selection is required.";
+    if (!formData.moisture) newErrors.moisture = "Moisture selection is required.";
 
     // Mandatory Image Fields
     if (!formData.physicalImageUrl && !formData.physicalImageFile) {
@@ -634,7 +638,7 @@ export default function ReceiptCheck() {
     const value = item[column.dataKey];
     if (column.isLink) {
       return value && String(value).startsWith("http") ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 hover:underline inline-flex items-center text-xs">
+        <a href={value} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-xs">
           <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
         </a>
       ) : (
@@ -654,7 +658,7 @@ export default function ReceiptCheck() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="flex items-center text-md font-semibold text-foreground">
-                {tabKey === "awaitingReceipt" ? <PackageOpen className="h-5 w-5 text-purple-600 mr-2" /> : <PackageCheck className="h-5 w-5 text-purple-600 mr-2" />}
+                {tabKey === "awaitingReceipt" ? <PackageOpen className="h-5 w-5 text-[#7da23a] mr-2" /> : <PackageCheck className="h-5 w-5 text-[#7da23a] mr-2" />}
                 {title} ({data.length})
               </CardTitle>
               <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
@@ -700,7 +704,7 @@ export default function ReceiptCheck() {
         <CardContent className="p-0 flex-1 flex-col">
           {isLoading ? (
             <div className="flex flex-col justify-center items-center py-10 flex-1">
-              <Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" />
+              <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
               <p className="text-muted-foreground ml-2">Loading...</p>
             </div>
           ) : hasError ? (
@@ -710,8 +714,8 @@ export default function ReceiptCheck() {
               <p className="text-sm text-muted-foreground max-w-md">{errorData}</p>
             </div>
           ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-              <Info className="h-12 w-12 text-purple-500 mb-3" />
+            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
+              <Info className="h-12 w-12 text-green-500 mb-3" />
               <p className="font-medium text-foreground">No Data Found</p>
               <p className="text-sm text-muted-foreground text-center">
                 {tabKey === "awaitingReceipt" ? "No lifts are currently awaiting receipt." : "No processed lifts match the criteria."}
@@ -734,7 +738,7 @@ export default function ReceiptCheck() {
                   {data.map((item) => (
                     <TableRow
                       key={item._id}
-                      className={`hover:bg-purple-50/50 ${tabKey === "processedReceipts" && !item._quantitiesMatch
+                      className={`hover:bg-green-50/50 ${tabKey === "processedReceipts" && !item._quantitiesMatch
                         ? "bg-red-100 hover:bg-red-200/70 border-l-4 border-l-red-500"
                         : ""
                         }`}
@@ -766,11 +770,11 @@ export default function ReceiptCheck() {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <PackageOpen className="h-5 w-5 text-purple-600" /> Step 6: Receipt Of Material / Physical Quality Check
+            <PackageOpen className="h-5 w-5 text-[#7da23a]" /> Step 6: Receipt Of Material / Physical Quality Check
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Record receipt details and perform quality checks for incoming materials.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>}
+            {user?.firmName && user.firmName.toLowerCase() !== "all" && <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
@@ -789,7 +793,7 @@ export default function ReceiptCheck() {
                 </Badge>
               </TabsTrigger>
             </TabsList>
-            <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+            <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Filter className="h-4 w-4 text-gray-500" />
                 <Label className="text-sm font-medium">Filters</Label>
@@ -879,7 +883,7 @@ export default function ReceiptCheck() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="dateOfReceiving" className="block text-sm font-medium text-gray-700">
-                Date Of Receiving
+                Date Of Receiving <span className="text-red-500">*</span>
               </Label>
               <Input
                 type="date"
@@ -887,13 +891,13 @@ export default function ReceiptCheck() {
                 name="dateOfReceiving"
                 value={formData.dateOfReceiving}
                 onChange={handleInputChange}
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${formErrors.dateOfReceiving ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${formErrors.dateOfReceiving ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
               {formErrors.dateOfReceiving && <p className="text-red-500 text-xs mt-1">{formErrors.dateOfReceiving}</p>}
             </div>
             <div>
               <Label htmlFor="totalBillQuantity" className="block text-sm font-medium text-gray-700">
-                Billing Quantity
+                Billing Quantity <span className="text-red-500">*</span>
               </Label>
               <Input
                 type="number"
@@ -902,12 +906,12 @@ export default function ReceiptCheck() {
                 name="totalBillQuantity"
                 value={formData.totalBillQuantity}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b8e2f] focus:ring-[#6b8e2f] sm:text-sm"
               />
             </div>
             <div>
               <Label htmlFor="actualQuantity" className="block text-sm font-medium text-gray-700">
-                Actual Quantity
+                Actual Quantity <span className="text-red-500">*</span>
               </Label>
               <Input
                 type="number"
@@ -916,7 +920,7 @@ export default function ReceiptCheck() {
                 name="actualQuantity"
                 value={formData.actualQuantity}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b8e2f] focus:ring-[#6b8e2f] sm:text-sm"
               />
             </div>
 
@@ -935,10 +939,10 @@ export default function ReceiptCheck() {
             </div>
             <div>
               <Label htmlFor="physicalCondition" className="block text-sm font-medium text-gray-700">
-                Physical Condition
+                Physical Condition <span className="text-red-500">*</span>
               </Label>
               <Select value={formData.physicalCondition} onValueChange={(value) => handleFormSelectChange("physicalCondition", value)}>
-                <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.physicalCondition ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
+                <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.physicalCondition ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}>
                   <SelectValue placeholder="Select condition" />
                 </SelectTrigger>
                 <SelectContent>
@@ -950,10 +954,10 @@ export default function ReceiptCheck() {
             </div>
             <div>
               <Label htmlFor="moisture" className="block text-sm font-medium text-gray-700">
-                Moisture
+                Moisture <span className="text-red-500">*</span>
               </Label>
               <Select value={formData.moisture} onValueChange={(value) => handleFormSelectChange("moisture", value)}>
-                <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.moisture ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}>
+                <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.moisture ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}>
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -973,12 +977,12 @@ export default function ReceiptCheck() {
                 name="physicalImageFile"
                 onChange={handleInputChange}
                 accept="image/*,.pdf"
-                className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 ${formErrors.physicalImageFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
+                className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 ${formErrors.physicalImageFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
               />
               {formData.physicalImageFile && <p className="text-xs text-gray-500 mt-1">Selected: {formData.physicalImageFile.name}</p>}
               {formData.physicalImageUrl && !formData.physicalImageFile && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Existing: <a href={formData.physicalImageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View</a>
+                  Existing: <a href={formData.physicalImageUrl} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:underline">View</a>
                 </p>
               )}
               {formErrors.physicalImageFile && <p className="text-red-500 text-xs mt-1">{formErrors.physicalImageFile}</p>}
@@ -993,12 +997,12 @@ export default function ReceiptCheck() {
                 name="weightSlipFile"
                 onChange={handleInputChange}
                 accept="image/*,.pdf"
-                className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 ${formErrors.weightSlipFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
+                className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 ${formErrors.weightSlipFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
               />
               {formData.weightSlipFile && <p className="text-xs text-gray-500 mt-1">Selected: {formData.weightSlipFile.name}</p>}
               {formData.weightSlipImageUrl && !formData.weightSlipFile && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Existing: <a href={formData.weightSlipImageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View</a>
+                  Existing: <a href={formData.weightSlipImageUrl} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:underline">View</a>
                 </p>
               )}
               {formErrors.weightSlipFile && <p className="text-red-500 text-xs mt-1">{formErrors.weightSlipFile}</p>}
@@ -1012,7 +1016,7 @@ export default function ReceiptCheck() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmitting ? "bg-purple-400 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"}`}
+              className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmitting ? "bg-green-400 cursor-not-allowed" : "bg-[#7da23a] hover:bg-[#6b8e2f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b8e2f]"}`}
             >
               {isSubmitting ? (
                 <>

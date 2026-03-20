@@ -83,10 +83,12 @@ const PO_COLUMNS_META = [
   { header: "Iron %", dataKey: "iron", toggleable: true },
   { header: "Received Qty", dataKey: "receivedQty", toggleable: true },
   { header: "Pending PO Qty", dataKey: "pendingPOQty", toggleable: true },
+  { header: "Order Cancel Qty", dataKey: "orderCancelQty", toggleable: true, alwaysVisible: true },
+  { header: "Cancel Reason", dataKey: "cancelReason", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
   { header: "Notes", dataKey: "whatIsToBeDone", toggleable: true },
   {
-    header: "Cancel Pending PO",
+    header: "Cancel PO",
     dataKey: "cancelAction",
     toggleable: false,
     alwaysVisible: true,
@@ -109,7 +111,8 @@ const LIFTS_COLUMNS_META = [
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View Bill" },
   { header: "Total Truck Billing Quantity", dataKey: "additionalTruckQty", toggleable: true },
-  { header: "Cancel PO Qty", dataKey: "orderCancelQty", toggleable: true },
+  { header: "Order Cancel Qty", dataKey: "orderCancelQty", toggleable: true },
+  { header: "Cancel Reason", dataKey: "cancelReason", toggleable: true },
 ]
 
 export default function LiftMaterial() {
@@ -147,6 +150,7 @@ export default function LiftMaterial() {
     billImage: null,
     additionalTruckQty: "",
     transportRate: "",
+    transportingRate: "",
     hasBilty: "no",
     biltyImage: null,
   })
@@ -160,6 +164,7 @@ export default function LiftMaterial() {
     poId: null,
     indentNo: "",
     cancelQuantity: "",
+    reason: "",
     loading: false,
   })
   const [filters, setFilters] = useState({
@@ -247,7 +252,7 @@ export default function LiftMaterial() {
             </div>
             <div className="py-1">
               <div
-                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
                 onClick={() => {
                   onValueChange("all");
                   setOpen(false);
@@ -259,7 +264,7 @@ export default function LiftMaterial() {
               {filteredOptions.map((option, index) => (
                 <div
                   key={`${option}-${index}`}
-                  className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                  className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-green-50" : ""}`}
                   onClick={() => {
                     onValueChange(option);
                     setOpen(false);
@@ -312,7 +317,10 @@ export default function LiftMaterial() {
         const indentNo = String(row["Indent Id."] || "").trim();
         const totalQty = parseFloat(row["Total Quantity"] || row["Quantity"] || 0);
         const liftedSoFar = liftedQtyMap[indentNo] || 0;
-        const pendingPending = totalQty - liftedSoFar;
+        
+        // Use Pending PO Qty from DB if it exists, else calculate it
+        const dbPendingPOQty = parseFloat(row["Pending PO Qty"]);
+        const pendingPending = isNaN(dbPendingPOQty) ? (totalQty - liftedSoFar) : dbPendingPOQty;
 
         return (
           (status === "" || status === "pending") &&
@@ -328,7 +336,7 @@ export default function LiftMaterial() {
         const indentNo = String(row["Indent Id."] || "").trim();
         const totalQty = parseFloat(row["Total Quantity"] || row["Quantity"] || 0);
         const liftedSoFar = liftedQtyMap[indentNo] || 0;
-        const pendingPOQty = Math.max(0, totalQty - liftedSoFar);
+        const dbPendingPOQty = parseFloat(row["Pending PO Qty"]);
 
         return {
           id: `PO-${row.id || Math.random().toString(36).substring(7)}`,
@@ -342,13 +350,15 @@ export default function LiftMaterial() {
           rate: String(row["Rate"] || "").trim(),
           alumina: String(row["Alumina %"] || "").trim(),
           iron: String(row["Iron %"] || "").trim(),
-          pendingQty: String(pendingPOQty),
+          pendingQty: String(isNaN(dbPendingPOQty) ? (totalQty - liftedSoFar) : dbPendingPOQty),
           planned: row["Planned4"] ? String(row["Planned4"]).trim().replace('T', ' ') : "",
           whatIsToBeDone: String(row["PO Notes"] || "").trim(),
-          pendingLiftQty: String(pendingPOQty),
+          pendingLiftQty: String(isNaN(dbPendingPOQty) ? (totalQty - liftedSoFar) : dbPendingPOQty),
           receivedQty: String(liftedSoFar),
-          pendingPOQty: String(pendingPOQty),
-          orderCancelQty: String(row["Order Cancel Qty"] || "").trim(),
+          pendingPOQty: String(isNaN(dbPendingPOQty) ? (totalQty - liftedSoFar) : dbPendingPOQty),
+          pendingPOQty_DB: row["Pending PO Qty"], // Store DB value for logic
+          orderCancelQty: String(row["Order Cancel Qty"] || "0"),
+          cancelReason: String(row["Reason Of Cancel Qty"] || "").trim(),
           status: row["Status"] || "Pending",
           _totalQty: totalQty,
           _liftedSoFar: liftedSoFar,
@@ -378,17 +388,21 @@ export default function LiftMaterial() {
       // Fetch LIFT-ACCOUNTS and INDENT-PO Order Cancel Qty in parallel
       const [{ data, error: fetchError }, { data: poData, error: poFetchError }] = await Promise.all([
         supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
-        supabase.from("INDENT-PO").select('"Indent Id.", "Order Cancel Qty"'),
+        supabase.from("INDENT-PO").select('"Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty"'),
       ]);
 
       if (fetchError) throw fetchError;
       if (poFetchError) throw poFetchError;
 
-      // Build map: indentNo -> Order Cancel Qty
+      // Build maps: indentNo -> Cancel Data
       const cancelQtyMap = {};
+      const cancelReasonMap = {};
       (poData || []).forEach((row) => {
         const indent = String(row["Indent Id."] || "").trim();
-        if (indent) cancelQtyMap[indent] = String(row["Order Cancel Qty"] || "").trim();
+        if (indent) {
+          cancelQtyMap[indent] = String(row["Order Cancel Qty"] || "").trim();
+          cancelReasonMap[indent] = String(row["Reason Of Cancel Qty"] || "").trim();
+        }
       });
 
       let formattedData = (data || []).map((row) => {
@@ -437,7 +451,8 @@ export default function LiftMaterial() {
           createdAt: createdAt,
           firmName: String(row["Firm Name"] || "").trim(),
           transportRate: String(row["Transporter Rate"] || "").trim(),
-          orderCancelQty: cancelQtyMap[String(row["Indent no."] || "").trim()] || "",
+          orderCancelQty: cancelQtyMap[String(row["Indent no."] || "").trim()] || "0",
+          cancelReason: cancelReasonMap[String(row["Indent no."] || "").trim()] || "",
         };
       });
 
@@ -472,6 +487,7 @@ export default function LiftMaterial() {
       poId: po.id,
       indentNo: po.indentNo,
       cancelQuantity: "",
+      reason: "",
       loading: false,
     })
   }
@@ -510,33 +526,33 @@ export default function LiftMaterial() {
       }
 
       const cancelQty = parseFloat(cancelPendingPO.cancelQuantity);
-      const currentTotalQty = parseFloat(poToUpdate._totalQty) || parseFloat(poToUpdate.quantity) || 0;
-      const liftedSoFar = parseFloat(poToUpdate._liftedSoFar) || 0;
+      
+      // Use Pending PO Qty from DB column if available, else use calculated value
+      const dbPendingPOQty = parseFloat(poToUpdate.pendingPOQty_DB);
+      const calculatedPending = parseFloat(poToUpdate.pendingPOQty) || 0;
+      const startingPending = !isNaN(dbPendingPOQty) ? dbPendingPOQty : calculatedPending;
 
-      // Subtract cancelled qty from Total Quantity
-      const newTotalQty = Math.max(0, currentTotalQty - cancelQty);
-      const newPending = newTotalQty - liftedSoFar;
+      const newPendingPOQty = Math.max(0, startingPending - cancelQty);
 
       console.log("Submitting cancel quantity:", {
         indentNo: cancelPendingPO.indentNo,
         cancelQty,
-        currentTotalQty,
-        newTotalQty,
-        liftedSoFar,
-        newPending,
+        startingPending,
+        newPendingPOQty,
+        reason: cancelPendingPO.reason
       });
 
-      // Also accumulate Order Cancel Qty (running total for record-keeping)
       const currentCancelQty = parseFloat(poToUpdate.orderCancelQty) || 0;
       const newCancelQty = currentCancelQty + cancelQty;
 
       const updatePayload = {
-        "Total Quantity": newTotalQty.toString(),
+        "Pending PO Qty": newPendingPOQty.toString(), // Subtract from Pending PO Qty instead of Total Quantity
         "Order Cancel Qty": newCancelQty.toString(),
+        "Reason Of Cancel Qty": cancelPendingPO.reason, // Store reason
       };
 
-      // If pending becomes 0 or less after cancel, close the PO
-      if (newPending <= 0) {
+      // If pending goes to 0, close the PO
+      if (newPendingPOQty <= 0) {
         const now = new Date();
         const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
         updatePayload["Actual4"] = timestamp;
@@ -656,6 +672,7 @@ export default function LiftMaterial() {
       billImage: null,
       additionalTruckQty: "",
       transportRate: "",
+      transportingRate: "",
       hasBilty: "no",
       biltyImage: null,
     })
@@ -685,6 +702,7 @@ export default function LiftMaterial() {
       billImage: null,
       additionalTruckQty: "",
       transportRate: "",
+      transportingRate: "",
       hasBilty: "no",
       biltyImage: null,
     })
@@ -695,12 +713,15 @@ export default function LiftMaterial() {
     const { name, value } = e.target
     const updatedForm = { ...formData, [name]: value }
 
-    if ((name === "rate" || name === "truckQty" || name === "rateType") && updatedForm.rateType === "Per MT") {
-      const mRate = parseFloat(updatedForm.rate) || 0
+    if ((name === "transportingRate" || name === "truckQty" || name === "rateType") && updatedForm.rateType === "Per MT") {
+      const tRate = parseFloat(updatedForm.transportingRate) || 0
       const bQty = parseFloat(updatedForm.truckQty) || 0
-      updatedForm.transportRate = (mRate * bQty).toFixed(2)
+      updatedForm.transportRate = (tRate * bQty).toFixed(2)
     } else if (name === "rateType") {
       updatedForm.transportRate = ""
+      if (value !== "Per MT") {
+        updatedForm.transportingRate = ""
+      }
     }
 
     setFormData(updatedForm)
@@ -710,12 +731,15 @@ export default function LiftMaterial() {
   const handleFormSelectChange = (name, value) => {
     const updatedForm = { ...formData, [name]: value }
 
-    if ((name === "rate" || name === "truckQty" || name === "rateType") && updatedForm.rateType === "Per MT") {
-      const mRate = parseFloat(updatedForm.rate) || 0
+    if ((name === "transportingRate" || name === "truckQty" || name === "rateType") && updatedForm.rateType === "Per MT") {
+      const tRate = parseFloat(updatedForm.transportingRate) || 0
       const bQty = parseFloat(updatedForm.truckQty) || 0
-      updatedForm.transportRate = (mRate * bQty).toFixed(2)
+      updatedForm.transportRate = (tRate * bQty).toFixed(2)
     } else if (name === "rateType") {
       updatedForm.transportRate = ""
+      if (value !== "Per MT") {
+        updatedForm.transportingRate = ""
+      }
     }
 
     setFormData(updatedForm)
@@ -743,7 +767,13 @@ export default function LiftMaterial() {
       "rateType",
       "rate",
       "truckQty",
+      "transportRate",
+      "additionalTruckQty",
     ];
+
+    if (formData.rateType === "Per MT" && !isCommon) {
+      requiredFields.push("transportingRate");
+    }
 
     if (isCommon) {
       requiredFields = [
@@ -773,6 +803,9 @@ export default function LiftMaterial() {
       if (!formData.billImage) {
         newErrors.billImage = "Bill image is required.";
       }
+      if (!formData.hasBilty) {
+        newErrors.hasBilty = "Selection for 'Has Bilty?' is required.";
+      }
       if (formData.transportRate && isNaN(parseFloat(formData.transportRate))) newErrors.transportRate = "Transportation Total Amount must be a valid number.";
       if (formData.truckQty && isNaN(parseFloat(formData.truckQty)))
         newErrors.truckQty = "Billing Quantity must be a valid number.";
@@ -795,11 +828,9 @@ export default function LiftMaterial() {
         newErrors.truckQty = "Qty must be a valid number.";
     }
 
-    if (
-      formData.liftingLeadTime &&
-      (isNaN(parseInt(formData.liftingLeadTime)) || parseInt(formData.liftingLeadTime) < 0)
-    )
-      newErrors.liftingLeadTime = "Lead Time must be a non-negative number.";
+    if (formData.liftingLeadTime && isNaN(Date.parse(formData.liftingLeadTime))) {
+      newErrors.liftingLeadTime = "Lead Time must be a valid date.";
+    }
 
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -906,7 +937,7 @@ export default function LiftMaterial() {
         "Raw Material Name": formData.material,
         "Bill No.": formData.billNo,
         "Area lifting": formData.Arealifting,
-        "Lead Time To Reach Factory (days)": parseInt(formData.liftingLeadTime) || null,
+        "Lead Time To Reach Factory (days)": formData.liftingLeadTime ? `${formData.liftingLeadTime} ${hours}:${minutes}:${seconds}` : null,
         "Lifting Qty": parseFloat(formData.truckQty) || null,
         "Type": formData.Type,
         "Transporter Name": formData.TransporterName,
@@ -920,6 +951,7 @@ export default function LiftMaterial() {
         "Bilty Image": biltyImageUrl || null,
         "Firm Name": selectedPO?.firmName || null,
         "Transporter Rate": parseFloat(formData.transportRate) || null,
+        "Transporting Rate": parseFloat(formData.transportingRate) || null,
       };
 
       console.log("Submitting lift data to Supabase LIFT-ACCOUNTS:", liftAccountData);
@@ -990,22 +1022,31 @@ export default function LiftMaterial() {
       }
 
       // Calculate pending after this lift
-      const totalQtyPO = parseFloat(selectedPO._totalQty) || parseFloat(selectedPO.quantity) || 0;
-      const liftedSoFarPO = parseFloat(selectedPO._liftedSoFar) || 0;
+      // Calculate new Pending PO Qty after this lift
+      const dbPendingPOQty = parseFloat(selectedPO.pendingPOQty_DB);
+      const calculatedPending = parseFloat(selectedPO.pendingPOQty) || 0;
+      const startingPending = !isNaN(dbPendingPOQty) ? dbPendingPOQty : calculatedPending;
+      
       const thisLiftQty = parseFloat(formData.truckQty) || 0;
-      const newPending = totalQtyPO - liftedSoFarPO - thisLiftQty;
+      const newPending = Math.max(0, startingPending - thisLiftQty);
+
+      const updatePayloadPO = { 
+        "Pending PO Qty": newPending.toString() 
+      };
 
       // Only set Actual4 when all quantity has been lifted (pending <= 0)
       if (newPending <= 0) {
-        const { error: updateError } = await supabase
-          .from("INDENT-PO")
-          .update({ "Actual4": timestamp })
-          .eq('"Indent Id."', selectedPO.dbIndentId);
+        updatePayloadPO["Actual4"] = timestamp;
+      }
 
-        if (updateError) {
-          console.error("INDENT-PO update failed:", updateError);
-          throw new Error(`Failed to update INDENT-PO: ${updateError.message}`);
-        }
+      const { error: updateError } = await supabase
+        .from("INDENT-PO")
+        .update(updatePayloadPO)
+        .eq('"Indent Id."', selectedPO.dbIndentId);
+
+      if (updateError) {
+        console.error("INDENT-PO update failed:", updateError);
+        throw new Error(`Failed to update INDENT-PO: ${updateError.message}`);
       }
 
       toast.success(`Lift ${liftId} recorded successfully!`);
@@ -1059,7 +1100,7 @@ export default function LiftMaterial() {
           href={String(value).startsWith("http") ? value : `https://${value}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-purple-600 hover:text-purple-800 hover:underline font-medium text-xs"
+          className="text-[#7da23a] hover:text-green-800 hover:underline font-medium text-xs"
         >
           {column.linkText || "View"}
         </a>
@@ -1101,22 +1142,22 @@ export default function LiftMaterial() {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <Truck className="h-5 w-5 text-purple-600" /> Step 5: Lift The Material
+            <Truck className="h-5 w-5 text-[#7da23a]" /> Step 5: Lift The Material
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Record material lifting details for purchase orders.
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>
+              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
             )}
           </CardDescription>
           {masterDataLoading && (
-            <div className="flex items-center gap-2 text-sm text-blue-600">
+            <div className="flex items-center gap-2 text-sm text-[#7da23a]">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading dropdown options from Master sheet...
             </div>
           )}
           {!masterDataLoading && (areaOptions.length > 0 || typeOptions.length > 0) && (
-            <div className="text-sm text-green-600">
+            <div className="text-sm text-[#7da23a]">
               ✅ Dropdown options loaded: {areaOptions.length} areas, {typeOptions.length} types,{" "}
               {transporterOptions.length} transporters, {rateTypeOptions.length} rate types
             </div>
@@ -1139,7 +1180,7 @@ export default function LiftMaterial() {
               </TabsTrigger>
             </TabsList>
 
-            <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+            <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Filter className="h-4 w-4 text-gray-500" />
                 <Label className="text-sm font-medium">Filters</Label>
@@ -1211,7 +1252,7 @@ export default function LiftMaterial() {
                   <div className="flex justify-between items-center">
                     <div>
                       <CardTitle className="flex items-center text-sm font-semibold text-foreground">
-                        <FileCheck className="h-4 w-4 text-purple-600 mr-2" /> Available Purchase Orders (
+                        <FileCheck className="h-4 w-4 text-[#7da23a] mr-2" /> Available Purchase Orders (
                         {filteredPurchaseOrders.length})
                       </CardTitle>
                       <CardDescription className="text-xs text-muted-foreground mt-0.5">
@@ -1275,7 +1316,7 @@ export default function LiftMaterial() {
                 <CardContent className="p-0 flex-1 flex-col">
                   {loadingPOs ? (
                     <div className="flex flex-col justify-center items-center py-8 flex-1">
-                      <Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" />
+                      <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
                       <p className="text-muted-foreground ml-2">Loading Purchase Orders...</p>
                     </div>
                   ) : error && filteredPurchaseOrders.length === 0 ? (
@@ -1285,8 +1326,8 @@ export default function LiftMaterial() {
                       <p className="text-sm text-muted-foreground max-w-md">{error}</p>
                     </div>
                   ) : filteredPurchaseOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-                      <FileText className="h-12 w-12 text-purple-500 mb-3" />
+                    <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
+                      <FileText className="h-12 w-12 text-green-500 mb-3" />
                       <p className="font-medium text-foreground">No Eligible POs Found</p>
                       <p className="text-sm text-muted-foreground text-center">
                         Ensure POs have Status = "Pending" and Lifted On Timestamp empty.
@@ -1300,7 +1341,7 @@ export default function LiftMaterial() {
                       <Table>
                         <TableHeader className="bg-muted/50 sticky top-0 z-10">
                           <TableRow>
-                            {PO_COLUMNS_META.filter((col) => visiblePoColumns[col.dataKey]).map((col) => (
+                            {PO_COLUMNS_META.filter((col) => col.alwaysVisible || visiblePoColumns[col.dataKey] !== false).map((col) => (
                               <TableHead key={col.dataKey} className="whitespace-nowrap text-xs px-3 py-2">
                                 {col.header}
                               </TableHead>
@@ -1311,9 +1352,9 @@ export default function LiftMaterial() {
                           {filteredPurchaseOrders.map((po) => (
                             <TableRow
                               key={po.id}
-                              className={`hover:bg-purple-50/50 ${selectedPO?.id === po.id ? "bg-purple-100 ring-1 ring-purple-300" : ""}`}
+                              className={`hover:bg-green-50/50 ${selectedPO?.id === po.id ? "bg-green-100 ring-1 ring-green-300" : ""}`}
                             >
-                              {PO_COLUMNS_META.filter((col) => visiblePoColumns[col.dataKey]).map((column) => (
+                              {PO_COLUMNS_META.filter((col) => col.alwaysVisible || visiblePoColumns[col.dataKey] !== false).map((column) => (
                                 <TableCell
                                   key={column.dataKey}
                                   className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "indentNo" ? "font-medium text-primary" : "text-gray-700"
@@ -1371,7 +1412,7 @@ export default function LiftMaterial() {
                   <div className="flex justify-between items-center">
                     <div>
                       <CardTitle className="flex items-center text-sm font-semibold text-foreground">
-                        <History className="h-4 w-4 text-purple-600 mr-2" /> All Material Lifts (
+                        <History className="h-4 w-4 text-[#7da23a] mr-2" /> All Material Lifts (
                         {filteredMaterialLifts.length})
                       </CardTitle>
                       <CardDescription className="text-xs text-muted-foreground mt-0.5">
@@ -1435,7 +1476,7 @@ export default function LiftMaterial() {
                 <CardContent className="p-0 flex-1 flex-col">
                   {loadingLifts ? (
                     <div className="flex flex-col justify-center items-center py-8 flex-1">
-                      <Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" />
+                      <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
                       <p className="text-muted-foreground ml-2">Loading Material Lifts...</p>
                     </div>
                   ) : error && filteredMaterialLifts.length === 0 ? (
@@ -1447,8 +1488,8 @@ export default function LiftMaterial() {
                       </p>
                     </div>
                   ) : filteredMaterialLifts.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-                      <Truck className="h-12 w-12 text-purple-500 mb-3" />
+                    <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
+                      <Truck className="h-12 w-12 text-green-500 mb-3" />
                       <p className="font-medium text-foreground">No Material Lifts Recorded</p>
                       <p className="text-sm text-muted-foreground text-center">
                         Create lifts from the 'Available POs' tab.
@@ -1473,7 +1514,7 @@ export default function LiftMaterial() {
                           {filteredMaterialLifts.map((lift) => (
                             <TableRow
                               key={lift.id}
-                              className="hover:bg-purple-50/50"
+                              className="hover:bg-green-50/50"
                             >
                               {LIFTS_COLUMNS_META.filter((col) => visibleLiftsColumns[col.dataKey]).map((column) => (
                                 <TableCell
@@ -1507,7 +1548,7 @@ export default function LiftMaterial() {
           <Card className="w-full max-w-3xl max-h-[95vh] flex flex-col shadow-2xl">
             <CardHeader className="px-7 py-5 bg-gray-50 border-b border-gray-200 flex justify-between items-center rounded-t-xl">
               <CardTitle className="font-semibold text-lg text-gray-800">
-                Record Lift for <span className="text-purple-600">{formData.indentNo}</span>
+                Record Lift for <span className="text-[#7da23a]">{formData.indentNo}</span>
               </CardTitle>
               <Button
                 variant="ghost"
@@ -1521,7 +1562,7 @@ export default function LiftMaterial() {
             <CardContent className="p-7 space-y-6 overflow-y-auto scrollbar-hide">
               <form onSubmit={handleSubmit}>
                 <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Selected Purchase Order Details </h4>
+                  <h4 className="text-sm font-semibold text-[#6b8e2f] mb-2">Selected Purchase Order Details </h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-xs">
                     <div>
                       <Label className="text-slate-500">Indent No.</Label>
@@ -1561,9 +1602,9 @@ export default function LiftMaterial() {
                       isRequired: true,
                     },
                     {
-                      label: "Lead time (days to transport)",
+                      label: "Lead Time Date",
                       name: "liftingLeadTime",
-                      type: "text",
+                      type: "date",
                       isRequired: true,
                     },
                     { label: "Truck No.", name: "truckNo", type: "text", isRequired: true },
@@ -1583,6 +1624,9 @@ export default function LiftMaterial() {
                       isRequired: true,
                     },
                     { label: "Material Rate (INR)", name: "rate", type: "text", step: "any", isRequired: true },
+                    ...(formData.rateType === "Per MT" ? [
+                      { label: "Transporting Per MT Rate", name: "transportingRate", type: "text", step: "any", isRequired: true }
+                    ] : []),
                     {
                       label: "Billing Quantity",
                       name: "truckQty",
@@ -1590,17 +1634,24 @@ export default function LiftMaterial() {
                       step: "any",
                       isRequired: true,
                     },
-                    { label: "Transportation Total Amount", name: "transportRate", type: "text", step: "any", isRequired: false },
+                    {
+                      label: "Transportation Total Amount",
+                      name: "transportRate",
+                      type: "text",
+                      step: "any",
+                      isRequired: true,
+                      readOnly: formData.rateType === "Per MT"
+                    },
                     {
                       label: "Total Truck Billing Quantity",
                       name: "additionalTruckQty",
                       type: "text",
                       step: "any",
-                      isRequired: false,
+                      isRequired: true,
                     },
                   ].filter(field => {
                     const isCommon = formData.Type === "Common";
-                    const commonFields = ["billNo", "Arealifting", "Type", "liftingLeadTime", "rate", "truckQty"];
+                    const commonFields = ["billNo", "Arealifting", "Type", "liftingLeadTime", "rate", "truckQty", "transportingRate"];
 
                     if (isCommon) {
                       return commonFields.includes(field.name);
@@ -1703,13 +1754,13 @@ export default function LiftMaterial() {
                       <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="biltyImage">
                         Upload Bilty Image <span className="text-red-500">*</span>
                       </Label>
-                      <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 ${formErrors.biltyImage ? "border-red-500" : "border-gray-300"} border-dashed rounded-md hover:border-purple-400 transition-colors`}>
+                      <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 ${formErrors.biltyImage ? "border-red-500" : "border-gray-300"} border-dashed rounded-md hover:border-green-400 transition-colors`}>
                         <div className="space-y-1 text-center">
                           <Upload className="mx-auto h-10 w-10 text-gray-400" />
                           <div className="flex text-sm text-gray-600 justify-center">
                             <Label
                               htmlFor="biltyImage"
-                              className="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 px-1"
+                              className="relative cursor-pointer bg-white rounded-md font-medium text-[#7da23a] hover:text-green-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-[#6b8e2f] px-1"
                             >
                               <span>Upload bilty image</span>
                               <Input
@@ -1741,13 +1792,13 @@ export default function LiftMaterial() {
                     <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="billImage">
                       Upload Bill Image <span className="text-red-500">*</span>
                     </Label>
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-purple-400 transition-colors">
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-green-400 transition-colors">
                       <div className="space-y-1 text-center">
                         <Upload className="mx-auto h-10 w-10 text-gray-400" />
                         <div className="flex text-sm text-gray-600 justify-center">
                           <Label
                             htmlFor="billImage"
-                            className="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 px-1"
+                            className="relative cursor-pointer bg-white rounded-md font-medium text-[#7da23a] hover:text-green-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-[#6b8e2f] px-1"
                           >
                             <span>Upload a file</span>
                             <Input
@@ -1833,6 +1884,16 @@ export default function LiftMaterial() {
                     value={cancelPendingPO.cancelQuantity}
                     onChange={handleCancelQuantityChange}
                     placeholder="Enter quantity"
+                  />
+                </div>
+
+                <div>
+                  <Label>Reason of Cancel *</Label>
+                  <Input
+                    type="text"
+                    value={cancelPendingPO.reason}
+                    onChange={(e) => setCancelPendingPO(prev => ({ ...prev, reason: e.target.value }))}
+                    placeholder="Enter reason for cancellation"
                   />
                 </div>
 

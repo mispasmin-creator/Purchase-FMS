@@ -388,7 +388,7 @@ export default function FullkittingTransportingPage() {
             return (
                 <Button
                     size="xs"
-                    className="h-7 px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+                    className="h-7 px-2 py-1 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white font-semibold"
                     onClick={() => openKittingModal(item)}
                 >
                     <ExternalLink className="mr-1 h-3 w-3" />
@@ -398,7 +398,7 @@ export default function FullkittingTransportingPage() {
         }
         if (column.isLink) {
             return value ? (
-                <a href={String(value).startsWith("http") ? value : `https://${value}`} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 hover:underline inline-flex items-center text-xs">
+                <a href={String(value).startsWith("http") ? value : `https://${value}`} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-xs">
                     <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
                 </a>
             ) : <span className="text-gray-400 text-xs">N/A</span>;
@@ -421,7 +421,7 @@ export default function FullkittingTransportingPage() {
                     <div className="flex justify-between items-center">
                         <div>
                             <CardTitle className="flex items-center text-md font-semibold text-foreground">
-                                {tabKey === 'pending' ? <FileCheck className="h-5 w-5 text-purple-600 mr-2" /> : <History className="h-5 w-5 text-purple-600 mr-2" />}
+                                {tabKey === 'pending' ? <FileCheck className="h-5 w-5 text-[#7da23a] mr-2" /> : <History className="h-5 w-5 text-[#7da23a] mr-2" />}
                                 {title} ({data.length})
                             </CardTitle>
                             <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
@@ -462,14 +462,14 @@ export default function FullkittingTransportingPage() {
                 </CardHeader>
                 <CardContent className="p-0 flex-1 flex flex-col">
                     {isLocalLoading ? (
-                        <div className="flex flex-col justify-center items-center py-10 flex-1"><Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" /><p className="text-muted-foreground ml-2">Loading...</p></div>
+                        <div className="flex flex-col justify-center items-center py-10 flex-1"><Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" /><p className="text-muted-foreground ml-2">Loading...</p></div>
                     ) : hasLocalError ? (
                         <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1">
                             <AlertTriangle className="h-10 w-10 text-destructive mb-3" /><p className="font-medium text-destructive">Error Loading Data</p><p className="text-sm text-muted-foreground max-w-md">{error}</p>
                         </div>
                     ) : data.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-                            <Info className="h-12 w-12 text-purple-500 mb-3" />
+                        <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
+                            <Info className="h-12 w-12 text-green-500 mb-3" />
                             <p className="font-medium text-foreground">No Data Found</p>
                             <p className="text-sm text-muted-foreground text-center">
                                 {emptyMessage}
@@ -490,7 +490,7 @@ export default function FullkittingTransportingPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {data.map(item => (
-                                        <TableRow key={item.id} className="hover:bg-purple-50/50">
+                                        <TableRow key={item.id} className="hover:bg-green-50/50">
                                             {visibleCols.map(column => (
                                                 <TableCell key={column.dataKey} className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === 'liftNumber' ? 'font-medium text-primary' : 'text-gray-700'}`}>
                                                     {renderCellContent(item, column, tabKey)}
@@ -516,13 +516,13 @@ export default function FullkittingTransportingPage() {
             <Card className="shadow-md border-none">
                 <CardHeader className="p-4 border-b border-gray-200">
                     <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-                        <PackageSearch className="h-5 w-5 text-purple-600" />
+                        <PackageSearch className="h-5 w-5 text-[#7da23a]" />
                         Full Kitting & Transporting
                     </CardTitle>
                     <CardDescription className="text-gray-500 text-sm">
                         View the status of transport kitting entries.
                         {!hasAllFirmAccess && user?.firmName && (
-                            <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>
+                            <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
                         )}
                     </CardDescription>
                 </CardHeader>
@@ -587,7 +587,7 @@ export default function FullkittingTransportingPage() {
                                         if (detailsToDisplay.length === 0) return null;
 
                                         return (
-                                            <div className="p-3 bg-purple-50/50 rounded-lg border border-purple-100 text-sm mb-4">
+                                            <div className="p-3 bg-green-50/50 rounded-lg border border-green-100 text-sm mb-4">
                                                 <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                                                     {detailsToDisplay.map((item, idx) => (
                                                         <div key={idx} className={item.isLink ? "col-span-2" : ""}>
@@ -597,7 +597,7 @@ export default function FullkittingTransportingPage() {
                                                                     href={String(item.value).startsWith("http") ? item.value : `https://${item.value}`}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="text-blue-600 hover:underline"
+                                                                    className="text-[#7da23a] hover:underline"
                                                                 >
                                                                     View
                                                                 </a>
@@ -692,7 +692,7 @@ export default function FullkittingTransportingPage() {
                                                         href={kittingFormData.biltyImage}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                                                        className="inline-flex items-center gap-1 text-sm text-[#7da23a] hover:text-green-800 hover:underline"
                                                     >
                                                         <ExternalLink className="h-3.5 w-3.5" /> View Bilty Image
                                                     </a>
@@ -731,7 +731,7 @@ export default function FullkittingTransportingPage() {
                         </TabsList>
 
                         {/* Filter Section */}
-                        <div className="mb-4 p-4 bg-purple-50/50 rounded-lg border border-purple-200">
+                        <div className="mb-4 p-4 bg-green-50/50 rounded-lg border border-green-200">
                             <div className="flex items-center gap-2 mb-3">
                                 <Filter className="h-4 w-4 text-gray-500" />
                                 <Label className="text-sm font-medium text-gray-700">Filters</Label>

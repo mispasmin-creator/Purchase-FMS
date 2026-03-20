@@ -52,6 +52,8 @@ const CallTrackerPage = () => {
   });
   const [liftWeightSlipMap, setLiftWeightSlipMap] = useState({}); // Lift No → Weight Slip Image URL
   const [liftTypeMap, setLiftTypeMap] = useState({}); // Lift No → Type (Independent/Common)
+  const [liftBiltyNoMap, setLiftBiltyNoMap] = useState({}); // Lift No → Bilty No.
+  const [liftBiltyImageMap, setLiftBiltyImageMap] = useState({}); // Lift No → Bilty Image URL
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('AUDIT'); // Default to Audit tab
 
@@ -68,7 +70,7 @@ const CallTrackerPage = () => {
     },
     RECTIFY: {
       name: 'Rectify',
-      color: 'bg-blue-100 text-blue-800',
+      color: 'bg-green-100 text-green-800',
       icon: AlertCircle,
       description: 'Correct mistakes and add bilty'
     },
@@ -80,7 +82,7 @@ const CallTrackerPage = () => {
     },
     TALLY_ENTRY: {
       name: 'Tally Entry',
-      color: 'bg-purple-100 text-purple-800',
+      color: 'bg-green-100 text-green-800',
       icon: Clock,
       description: 'Enter data into tally system'
     },
@@ -92,7 +94,7 @@ const CallTrackerPage = () => {
     },
     BILL_ENTRY: {
       name: 'Bill Received',
-      color: 'bg-indigo-100 text-indigo-800',
+      color: 'bg-emerald-100 text-emerald-800',
       icon: Save,
       description: 'Enter original bills'
     },
@@ -873,18 +875,24 @@ const CallTrackerPage = () => {
       try {
         const { data } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No", "Image Of Weight Slip", "Type"');
+          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image"');
         const weightSlipMap = {};
         const typeMap = {};
+        const biltyNoMap = {};
+        const biltyImageMap = {};
         (data || []).forEach(l => {
           const key = String(l["Lift No"] || "").trim();
           if (key) {
             weightSlipMap[key] = String(l["Image Of Weight Slip"] || "").trim();
             typeMap[key] = String(l["Type"] || "").trim();
+            biltyNoMap[key] = String(l["Bilty No."] || "").trim();
+            biltyImageMap[key] = String(l["Bilty Image"] || "").trim();
           }
         });
         setLiftWeightSlipMap(weightSlipMap);
         setLiftTypeMap(typeMap);
+        setLiftBiltyNoMap(biltyNoMap);
+        setLiftBiltyImageMap(biltyImageMap);
       } catch (e) {
         console.error('Failed to fetch LIFT-ACCOUNTS meta:', e);
       }
@@ -921,11 +929,11 @@ const CallTrackerPage = () => {
         truckNo: row["Truck No."] || row["Truck No"] || '',
         transporterName: row["Transporter Name"] || '',
         billImage: row["Bill Image"] || '',
-        biltyNo: row["Bilty No."] || row["Bilty No"] || '',
+        biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
-        biltyImage: row["Bilty Image"] || '',
+        biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
@@ -995,11 +1003,11 @@ const CallTrackerPage = () => {
         truckNo: row["Truck No."] || row["Truck No"] || '',
         transporterName: row["Transporter Name"] || '',
         billImage: row["Bill Image"] || '',
-        biltyNo: row["Bilty No."] || row["Bilty No"] || '',
+        biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
-        biltyImage: row["Bilty Image"] || '',
+        biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
@@ -1077,11 +1085,11 @@ const CallTrackerPage = () => {
         truckNo: row["Truck No."] || row["Truck No"] || '',
         transporterName: row["Transporter Name"] || '',
         billImage: row["Bill Image"] || '',
-        biltyNo: row["Bilty No."] || row["Bilty No"] || '',
+        biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
-        biltyImage: row["Bilty Image"] || '',
+        biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
@@ -1159,11 +1167,11 @@ const CallTrackerPage = () => {
         truckNo: row["Truck No."] || row["Truck No"] || '',
         transporterName: row["Transporter Name"] || '',
         billImage: row["Bill Image"] || '',
-        biltyNo: row["Bilty No."] || row["Bilty No"] || '',
+        biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
-        biltyImage: row["Bilty Image"] || '',
+        biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
@@ -1241,11 +1249,11 @@ const CallTrackerPage = () => {
         truckNo: row["Truck No."] || row["Truck No"] || '',
         transporterName: row["Transporter Name"] || '',
         billImage: row["Bill Image"] || '',
-        biltyNo: row["Bilty No."] || row["Bilty No"] || '',
+        biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
-        biltyImage: row["Bilty Image"] || '',
+        biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
@@ -1339,11 +1347,11 @@ const CallTrackerPage = () => {
           truckNo: row["Truck No."] || row["Truck No"] || '',
           transporterName: row["Transporter Name"] || '',
           billImage: row["Bill Image"] || '',
-          biltyNo: row["Bilty No."] || row["Bilty No"] || '',
+          biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
           typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
           rate: row["Rate"] || '',
           truckQty: row["Truck Qty"] || '',
-          biltyImage: row["Bilty Image"] || '',
+          biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
           qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
           differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
           weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
@@ -1479,7 +1487,7 @@ const CallTrackerPage = () => {
                 <select
                   value={formData.status || 'Not Done'}
                   onChange={(e) => handleFormChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
                 >
                   <option value="Done">Done</option>
                   <option value="Not Done">Not Done</option>
@@ -1491,7 +1499,7 @@ const CallTrackerPage = () => {
                 <textarea
                   value={formData.remarks || ''}
                   onChange={(e) => handleFormChange('remarks', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm resize-none"
                   placeholder="Enter your remarks..."
                   rows={4}
                 />
@@ -1509,7 +1517,7 @@ const CallTrackerPage = () => {
               <button
                 onClick={submitFormData}
                 disabled={submitting || (['RECTIFY', 'TALLY_ENTRY', 'REAUDIT', 'RE_AUDIT', 'BILL_ENTRY'].includes(row.currentStage) && formData.status !== 'Done')}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 {submitting ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -1578,7 +1586,7 @@ const CallTrackerPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+          <RefreshCw className="w-12 h-12 animate-spin text-green-500 mx-auto mb-4" />
           <p className="text-xl text-gray-600">Loading call tracker data...</p>
         </div>
       </div>
@@ -1669,7 +1677,7 @@ const CallTrackerPage = () => {
                                   type="checkbox"
                                   checked={visibleColumns[key]}
                                   onChange={() => toggleColumnVisibility(key)}
-                                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                  className="w-4 h-4 text-[#7da23a] bg-gray-100 border-gray-300 rounded focus:ring-[#6b8e2f] focus:ring-2"
                                 />
                                 <span className="text-gray-700">{label}</span>
                               </label>
@@ -1699,13 +1707,13 @@ const CallTrackerPage = () => {
                 <button
                   onClick={() => setActiveTab('ALL')}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 whitespace-nowrap ${activeTab === 'ALL'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    ? 'bg-green-50 text-[#6b8e2f] border border-green-200'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                   <div className="flex items-center space-x-2">
                     <span>All Stages</span>
-                    <span className={`px-2 py-0.5 text-xs rounded-full ${activeTab === 'ALL' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${activeTab === 'ALL' ? 'bg-green-100 text-[#6b8e2f]' : 'bg-gray-100 text-gray-700'
                       }`}>
                       {getStageCount('ALL')}
                     </span>
@@ -1823,7 +1831,7 @@ const CallTrackerPage = () => {
                                 setEditingRow(row.id);
                                 initializeFormData(row.currentStage);
                               }}
-                              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
+                              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
                             >
                               <Edit2 className="w-4 h-4 mr-2" />
                               Add Entry
@@ -1857,7 +1865,7 @@ const CallTrackerPage = () => {
                         {visibleColumns.qtyDifferenceStatus && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qtyDifferenceStatus || '-'}</td>}
                         {visibleColumns.weightSlip && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.weightSlip ? (<a href={row.weightSlip} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
                         {visibleColumns.debitAmount && <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">{row.debitAmount ? `₹${row.debitAmount}` : '-'}</td>}
-                        {visibleColumns.debitNoteUrl && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.debitNoteUrl ? (<a href={row.debitNoteUrl} target='_blank' rel='noopener noreferrer' className="text-purple-600 hover:text-purple-800 hover:underline inline-flex items-center"><ExternalLink className="h-3 w-3 mr-1" /> View Image</a>) : ("-")}</td>}
+                        {visibleColumns.debitNoteUrl && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.debitNoteUrl ? (<a href={row.debitNoteUrl} target='_blank' rel='noopener noreferrer' className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center"><ExternalLink className="h-3 w-3 mr-1" /> View Image</a>) : ("-")}</td>}
                         {visibleColumns.status && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.status || '-'}</td>}
                       </tr>
                     );

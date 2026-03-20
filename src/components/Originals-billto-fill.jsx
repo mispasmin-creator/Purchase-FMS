@@ -77,7 +77,7 @@ const SearchableSelect = ({
           </div>
           <div className="py-1">
             <div
-              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
               onClick={() => {
                 onValueChange("all");
                 setOpen(false);
@@ -89,7 +89,7 @@ const SearchableSelect = ({
             {filteredOptions.map((option, index) => (
               <div
                 key={`${option}-${index}`}
-                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-green-50" : ""}`}
                 onClick={() => {
                   onValueChange(option);
                   setOpen(false);
@@ -417,7 +417,7 @@ export default function OriginalBillsFiledPage() {
       if (link && link !== "-") {
         const fullLink = link.startsWith("http") ? link : `https://${link}`;
         return (
-          <a href={fullLink} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline inline-flex items-center gap-1">
+          <a href={fullLink} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:underline inline-flex items-center gap-1">
             <LinkIcon className="h-3.5 w-3.5" />
             {linkText || "View"}
           </a>
@@ -526,7 +526,7 @@ export default function OriginalBillsFiledPage() {
                         {!isHistory ? (
                           <>
                             {processingEntries[entry._id] ? (
-                              <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                              <Loader2 className="h-4 w-4 animate-spin text-[#7da23a]" />
                             ) : (
                               <Checkbox
                                 checked={!!selectedEntries[entry._id]}
@@ -543,7 +543,7 @@ export default function OriginalBillsFiledPage() {
                         {entry.paymentLink && entry.paymentLink.trim() !== "" && entry.paymentLink !== "-" ? (
                           <Button
                             size="sm"
-                            className={`text-xs h-7 ${isHistory ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                            className={`text-xs h-7 ${isHistory ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-[#7da23a] hover:bg-[#6b8e2f] text-white"}`}
                             variant={isHistory ? "ghost" : "default"}
                             onClick={() => {
                               const link = entry.paymentLink.startsWith("http")
@@ -578,13 +578,13 @@ export default function OriginalBillsFiledPage() {
       <Card className="shadow-md border border-gray-200 flex-1 flex flex-col bg-white">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
-            <Calculator className="h-6 w-6 text-purple-600" />
+            <Calculator className="h-6 w-6 text-[#7da23a]" />
             Advance Payment Management
           </CardTitle>
           <CardDescription className="text-gray-500 mt-1 text-sm">
             Manage advance payments for purchase orders (Stage 5).
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>
+              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
             )}
           </CardDescription>
         </CardHeader>
@@ -603,7 +603,7 @@ export default function OriginalBillsFiledPage() {
               </TabsTrigger>
             </TabsList>
 
-            <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+            <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Filter className="h-4 w-4 text-gray-500" />
                 <Label className="text-sm font-medium">Filters</Label>
@@ -687,7 +687,7 @@ export default function OriginalBillsFiledPage() {
                         <Button
                           onClick={handleSubmitSelected}
                           disabled={Object.values(processingEntries).some(v => v)}
-                          className="bg-green-600 hover:bg-green-700"
+                          className="bg-[#7da23a] hover:bg-[#6b8e2f]"
                         >
                           {Object.values(processingEntries).some(v => v) ? (
                             <>
@@ -709,7 +709,7 @@ export default function OriginalBillsFiledPage() {
                 <CardContent className="p-0 flex-1 overflow-hidden h-full">
                   {loading && pendingEntries.length === 0 ? (
                     <div className="flex h-40 items-center justify-center gap-2">
-                      <Loader2 className="h-6 w-6 animate-spin text-purple-600" /> Loading...
+                      <Loader2 className="h-6 w-6 animate-spin text-[#7da23a]" /> Loading...
                     </div>
                   ) : (
                     renderTable(pendingEntries, false)
@@ -738,7 +738,7 @@ export default function OriginalBillsFiledPage() {
                 <CardContent className="p-0 flex-1 overflow-hidden h-full">
                   {loading && historyEntries.length === 0 ? (
                     <div className="flex h-40 items-center justify-center gap-2">
-                      <Loader2 className="h-6 w-6 animate-spin text-purple-600" /> Loading...
+                      <Loader2 className="h-6 w-6 animate-spin text-[#7da23a]" /> Loading...
                     </div>
                   ) : (
                     renderTable(historyEntries, true)

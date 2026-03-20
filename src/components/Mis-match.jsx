@@ -359,7 +359,7 @@ export default function MismatchAnalysis() {
       actionType: '',
       partyName: rowData?.vendorName || '',
       productName: rowData?.material || rowData?.rawMaterialName || '',
-      qty: rowData?.quantity || '',
+      qty: '',
       returnReason: '',
       transport: '',
       typeOfTransport: '',
@@ -616,6 +616,7 @@ export default function MismatchAnalysis() {
 
       // If Purchase Return tab was active, also insert into Purchase Returns table
       if (activeModalTab === 'purchase-return') {
+        const isPaidByUs = purchaseReturnForm.typeOfTransport === 'Paid by Us';
         const prPayload = {
           "Time Stamp": istTimestamp,
           "Purchase Return No.": purchaseReturnForm.purchaseReturnNo,
@@ -625,12 +626,12 @@ export default function MismatchAnalysis() {
           "Product Name": purchaseReturnForm.productName || null,
           "Qty": parseInt(purchaseReturnForm.qty) || 0,
           "Return Reason": purchaseReturnForm.returnReason || null,
-          "Transport": purchaseReturnForm.transport || null,
+          "Transport": isPaidByUs ? (purchaseReturnForm.transport || null) : null,
           "Type of Transport": purchaseReturnForm.typeOfTransport || null,
           "Vehicle No": purchaseReturnForm.vehicleNo || null,
           "Builty No": purchaseReturnForm.builtyNo || null,
-          "Rate Type": purchaseReturnForm.rateType || null,
-          "Amount": purchaseReturnForm.amount ? parseFloat(purchaseReturnForm.amount) : null,
+          "Rate Type": isPaidByUs ? (purchaseReturnForm.rateType || null) : null,
+          "Amount": isPaidByUs && purchaseReturnForm.amount ? parseFloat(purchaseReturnForm.amount) : null,
           "Org. Bill No": purchaseReturnForm.orgBillNo || null,
           "Lift No": editingRowData.liftNo || null,
         };
@@ -697,7 +698,7 @@ export default function MismatchAnalysis() {
               <button
                 onClick={() => setActiveModalTab('mismatch')}
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${activeModalTab === 'mismatch'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50'
+                  ? 'border-green-600 text-[#7da23a] bg-green-50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
@@ -706,7 +707,7 @@ export default function MismatchAnalysis() {
               <button
                 onClick={() => setActiveModalTab('purchase-return')}
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${activeModalTab === 'purchase-return'
-                  ? 'border-purple-600 text-purple-600 bg-purple-50'
+                  ? 'border-green-600 text-[#7da23a] bg-green-50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
@@ -715,7 +716,7 @@ export default function MismatchAnalysis() {
               <button
                 onClick={() => { setActiveModalTab('approval'); fetchApprovalRecords(); }}
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${activeModalTab === 'approval'
-                  ? 'border-green-600 text-green-600 bg-green-50'
+                  ? 'border-green-600 text-[#7da23a] bg-green-50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
@@ -731,7 +732,7 @@ export default function MismatchAnalysis() {
                   <select
                     value={formData.status || 'Credit Notes'}
                     onChange={(e) => handleFormChange('status', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
                   >
                     <option value="Credit Notes">Yes</option>
                     <option value="Others">No</option>
@@ -744,7 +745,7 @@ export default function MismatchAnalysis() {
                       type="number"
                       value={formData.debitAmount || ''}
                       onChange={(e) => handleFormChange('debitAmount', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="Enter debit amount (e.g. 5000)"
                     />
                   </div>
@@ -754,7 +755,7 @@ export default function MismatchAnalysis() {
                   <textarea
                     value={formData.remarks || ''}
                     onChange={(e) => handleFormChange('remarks', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm resize-none"
                     placeholder="Enter correction details and notes..."
                     rows={4}
                   />
@@ -764,7 +765,7 @@ export default function MismatchAnalysis() {
 
             {/* ── TAB: Purchase Return ── */}
             {activeModalTab === 'purchase-return' && (
-              <div className="border border-purple-100 rounded-lg p-4 bg-purple-50 space-y-3">
+              <div className="border border-green-100 rounded-lg p-4 bg-green-50 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Purchase Return No. */}
                   <div>
@@ -789,7 +790,7 @@ export default function MismatchAnalysis() {
                     <label className="block text-xs font-medium text-gray-700 mb-1">Bill Copy</label>
                     {purchaseReturnForm.billCopy && String(purchaseReturnForm.billCopy).startsWith('http') ? (
                       <a href={purchaseReturnForm.billCopy} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center px-3 py-2 text-xs text-blue-600 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 cursor-pointer">
+                        className="inline-flex items-center px-3 py-2 text-xs text-[#7da23a] border border-green-200 rounded-lg bg-green-50 hover:bg-green-100 cursor-pointer">
                         View Bill Copy
                       </a>
                     ) : (
@@ -797,12 +798,23 @@ export default function MismatchAnalysis() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
                     )}
                   </div>
+                  {/* Type of Transport */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Type of Transport</label>
+                    <select value={purchaseReturnForm.typeOfTransport}
+                      onChange={(e) => handlePurchaseReturnChange('typeOfTransport', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] bg-white text-sm">
+                      <option value="">-- Select Type --</option>
+                      <option value="Paid by Us">Paid by Us</option>
+                      <option value="Paid by Party">Paid by Party</option>
+                    </select>
+                  </div>
                   {/* Action Type */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Action Type</label>
                     <input type="text" value={purchaseReturnForm.actionType}
                       onChange={(e) => handlePurchaseReturnChange('actionType', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
                       placeholder="e.g. Full Return" />
                   </div>
                   {/* Party Name */}
@@ -817,45 +829,38 @@ export default function MismatchAnalysis() {
                     <input type="text" value={purchaseReturnForm.productName} readOnly
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
                   </div>
-                  {/* Qty */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Qty</label>
-                    <input type="number" value={purchaseReturnForm.qty} readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                    <input type="number" value={purchaseReturnForm.qty}
+                      onChange={(e) => handlePurchaseReturnChange('qty', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder="Enter return qty" />
                   </div>
                   {/* Return Reason */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Return Reason</label>
                     <input type="text" value={purchaseReturnForm.returnReason}
                       onChange={(e) => handlePurchaseReturnChange('returnReason', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
                       placeholder="Reason for return" />
                   </div>
                   {/* Transport */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Transport</label>
-                    <input type="text" value={purchaseReturnForm.transport}
-                      onChange={(e) => handlePurchaseReturnChange('transport', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
-                      placeholder="Transporter name" />
-                  </div>
-                  {/* Type of Transport */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Type of Transport</label>
-                    <select value={purchaseReturnForm.typeOfTransport}
-                      onChange={(e) => handlePurchaseReturnChange('typeOfTransport', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white text-sm">
-                      <option value="">-- Select Type --</option>
-                      <option value="Paid by Us">Paid by Us</option>
-                      <option value="Paid by Party">Paid by Party</option>
-                    </select>
-                  </div>
+                  {purchaseReturnForm.typeOfTransport === 'Paid by Us' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Transport</label>
+                      <input type="text" value={purchaseReturnForm.transport}
+                        onChange={(e) => handlePurchaseReturnChange('transport', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
+                        placeholder="Transporter name" />
+                    </div>
+                  )}
+
                   {/* Vehicle No */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Vehicle No</label>
                     <input type="text" value={purchaseReturnForm.vehicleNo}
                       onChange={(e) => handlePurchaseReturnChange('vehicleNo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
                       placeholder="Vehicle number" />
                   </div>
                   {/* Builty No */}
@@ -863,34 +868,38 @@ export default function MismatchAnalysis() {
                     <label className="block text-xs font-medium text-gray-700 mb-1">Builty No</label>
                     <input type="text" value={purchaseReturnForm.builtyNo}
                       onChange={(e) => handlePurchaseReturnChange('builtyNo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
                       placeholder="Builty number" />
                   </div>
                   {/* Rate Type */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Rate Type</label>
-                    <select value={purchaseReturnForm.rateType}
-                      onChange={(e) => handlePurchaseReturnChange('rateType', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white text-sm">
-                      <option value="">-- Select Rate Type --</option>
-                      <option value="Fixed">Fixed</option>
-                      <option value="Per MT">Per MT</option>
-                    </select>
-                  </div>
+                  {purchaseReturnForm.typeOfTransport === 'Paid by Us' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Rate Type</label>
+                      <select value={purchaseReturnForm.rateType}
+                        onChange={(e) => handlePurchaseReturnChange('rateType', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] bg-white text-sm">
+                        <option value="">-- Select Rate Type --</option>
+                        <option value="Fixed">Fixed</option>
+                        <option value="Per MT">Per MT</option>
+                      </select>
+                    </div>
+                  )}
                   {/* Amount */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Amount</label>
-                    <input type="number" value={purchaseReturnForm.amount}
-                      onChange={(e) => handlePurchaseReturnChange('amount', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      placeholder="Enter amount" />
-                  </div>
+                  {purchaseReturnForm.typeOfTransport === 'Paid by Us' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Amount</label>
+                      <input type="number" value={purchaseReturnForm.amount}
+                        onChange={(e) => handlePurchaseReturnChange('amount', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        placeholder="Enter amount" />
+                    </div>
+                  )}
                   {/* Org. Bill No */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Org. Bill No</label>
                     <input type="text" value={purchaseReturnForm.orgBillNo}
                       onChange={(e) => handlePurchaseReturnChange('orgBillNo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
                       placeholder="Original bill number" />
                   </div>
                 </div>
@@ -914,7 +923,7 @@ export default function MismatchAnalysis() {
                   <button
                     onClick={() => { setApprovalSubTab('history'); fetchHistoryRecords(); }}
                     className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${approvalSubTab === 'history'
-                      ? 'bg-white text-green-600 shadow-sm font-semibold'
+                      ? 'bg-white text-[#7da23a] shadow-sm font-semibold'
                       : 'text-gray-500 hover:text-gray-700'
                       }`}
                   >
@@ -934,7 +943,7 @@ export default function MismatchAnalysis() {
                           type="number"
                           value={approvalForm.returnQty}
                           onChange={(e) => setApprovalForm(prev => ({ ...prev, returnQty: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           placeholder="Enter return qty"
                         />
                       </div>
@@ -945,14 +954,14 @@ export default function MismatchAnalysis() {
                           accept="image/*,application/pdf"
                           onChange={handlePhotoUpload}
                           disabled={submittingApproval}
-                          className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-green-100 file:text-green-700 hover:file:bg-green-200 cursor-pointer"
+                          className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-green-100 file:text-[#6b8e2f] hover:file:bg-green-200 cursor-pointer"
                         />
                         {approvalForm.photoFile && (
                           <p className="mt-1 text-xs text-gray-500">📎 {approvalForm.photoFile.name}</p>
                         )}
                         {approvalForm.photoUrl && !approvalForm.photoFile && (
                           <a href={approvalForm.photoUrl} target="_blank" rel="noopener noreferrer"
-                            className="inline-block mt-1 text-xs text-blue-600 underline">View Existing File</a>
+                            className="inline-block mt-1 text-xs text-[#7da23a] underline">View Existing File</a>
                         )}
                       </div>
                       <div className="sm:col-span-2">
@@ -962,14 +971,14 @@ export default function MismatchAnalysis() {
                           accept="image/*,application/pdf"
                           onChange={handleWeighslipUpload}
                           disabled={submittingApproval}
-                          className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-green-100 file:text-green-700 hover:file:bg-green-200 cursor-pointer"
+                          className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-green-100 file:text-[#6b8e2f] hover:file:bg-green-200 cursor-pointer"
                         />
                         {approvalForm.weighslipFile && (
                           <p className="mt-1 text-xs text-gray-500">📎 {approvalForm.weighslipFile.name}</p>
                         )}
                         {approvalForm.weighslipUrl && !approvalForm.weighslipFile && (
                           <a href={approvalForm.weighslipUrl} target="_blank" rel="noopener noreferrer"
-                            className="inline-block mt-1 text-xs text-blue-600 underline">View Existing File</a>
+                            className="inline-block mt-1 text-xs text-[#7da23a] underline">View Existing File</a>
                         )}
                       </div>
                     </div>
@@ -1027,7 +1036,7 @@ export default function MismatchAnalysis() {
                                         weighslipUrl: rec['Weighslip of Material'] || '',
                                       });
                                     }}
-                                    className="px-2 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-md whitespace-nowrap"
+                                    className="px-2 py-1 text-xs font-medium text-white bg-[#7da23a] hover:bg-[#6b8e2f] rounded-md whitespace-nowrap"
                                   >
                                     Fill Details
                                   </button>
@@ -1049,12 +1058,12 @@ export default function MismatchAnalysis() {
                                 <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Qty'] ?? '—'}</td>
                                 <td className="px-2 py-1.5 whitespace-nowrap">
                                   {rec['Photo of Loaded Material'] ? (
-                                    <a href={rec['Photo of Loaded Material']} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-xs">View</a>
+                                    <a href={rec['Photo of Loaded Material']} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] underline text-xs">View</a>
                                   ) : '—'}
                                 </td>
                                 <td className="px-2 py-1.5 whitespace-nowrap">
                                   {rec['Weighslip of Material'] ? (
-                                    <a href={rec['Weighslip of Material']} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-xs">View</a>
+                                    <a href={rec['Weighslip of Material']} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] underline text-xs">View</a>
                                   ) : '—'}
                                 </td>
                               </tr>
@@ -1091,7 +1100,7 @@ export default function MismatchAnalysis() {
                           <tbody>
                             {historyRecords.map((rec, i) => (
                               <tr key={rec.id || i} className="hover:bg-green-50 border-b border-gray-100">
-                                <td className="px-2 py-1.5 font-medium text-green-700 whitespace-nowrap">{rec['Purchase Return No.'] || '—'}</td>
+                                <td className="px-2 py-1.5 font-medium text-[#6b8e2f] whitespace-nowrap">{rec['Purchase Return No.'] || '—'}</td>
                                 <td className="px-2 py-1.5 whitespace-nowrap">{rec['Po No.'] || '—'}</td>
                                 <td className="px-2 py-1.5 whitespace-nowrap">{rec['Party Name'] || '—'}</td>
                                 <td className="px-2 py-1.5 whitespace-nowrap">{rec['Product Name'] || '—'}</td>
@@ -1108,12 +1117,12 @@ export default function MismatchAnalysis() {
                                 <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Qty'] ?? '—'}</td>
                                 <td className="px-2 py-1.5 whitespace-nowrap">
                                   {rec['Photo of Loaded Material'] ? (
-                                    <a href={rec['Photo of Loaded Material']} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-xs">View</a>
+                                    <a href={rec['Photo of Loaded Material']} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] underline text-xs">View</a>
                                   ) : '—'}
                                 </td>
                                 <td className="px-2 py-1.5 whitespace-nowrap">
                                   {rec['Weighslip of Material'] ? (
-                                    <a href={rec['Weighslip of Material']} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-xs">View</a>
+                                    <a href={rec['Weighslip of Material']} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] underline text-xs">View</a>
                                   ) : '—'}
                                 </td>
                               </tr>
@@ -1141,8 +1150,8 @@ export default function MismatchAnalysis() {
                   onClick={submitFormData}
                   disabled={submitting}
                   className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md ${activeModalTab === 'purchase-return'
-                    ? 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 focus:ring-purple-500'
-                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-green-500'
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-[#6b8e2f]'
+                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-[#6b8e2f]'
                     }`}
                 >
                   {submitting ? (
@@ -1702,14 +1711,14 @@ export default function MismatchAnalysis() {
       if (activeTab === "materialMismatch") mismatchType = "materialMismatch";
 
       if (activeTab === "history") {
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Submitted</Badge>;
+        return <Badge variant="outline" className="bg-green-50 text-[#6b8e2f] border-green-200">Submitted</Badge>;
       }
 
       return (
         <div className="flex gap-2 whitespace-nowrap">
           <button
             onClick={() => handleCorrectData(item, mismatchType)}
-            className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-md hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-green-500 to-green-600 rounded-md hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <Edit className="w-3 h-3 mr-1" />
             Management Approval
@@ -1724,7 +1733,7 @@ export default function MismatchAnalysis() {
           href={String(value).startsWith("http") ? value : `https://${value}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-purple-600 hover:text-purple-800 hover:underline inline-flex items-center text-xs"
+          className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-xs"
         >
           <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
         </a>
@@ -1743,7 +1752,7 @@ export default function MismatchAnalysis() {
           icon: "🚛",
         },
         "Receipt": {
-          className: "bg-blue-100 text-blue-800 border-blue-200",
+          className: "bg-green-100 text-green-800 border-green-200",
           icon: "📦",
         },
         "Lab": {
@@ -1773,7 +1782,7 @@ export default function MismatchAnalysis() {
       column.dataKey === "apDiff" || column.dataKey === "bdDiff") {
       const numValue = parseFloat(value) || 0;
       return (
-        <span className={numValue < 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
+        <span className={numValue < 0 ? "text-red-600 font-semibold" : "text-[#7da23a] font-semibold"}>
           {numValue > 0 ? `+${value}` : value}
         </span>
       );

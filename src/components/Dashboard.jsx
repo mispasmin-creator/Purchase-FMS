@@ -71,8 +71,8 @@ const THEME_COLORS = {
   warning: "#F59E0B",
   danger: "#EF4444",
   info: "#06B6D4",
-  purple: "#8B5CF6",
-  indigo: "#6366F1",
+  green: "#8B5CF6",
+  emerald: "#6366F1",
   pink: "#EC4899",
 }
 
@@ -108,7 +108,7 @@ const parseDateFromSheet = (dateValue) => {
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-2xl border border-purple-200">
+      <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-2xl border border-green-200">
         <p className="font-bold text-gray-900 mb-2">{label}</p>
         {payload.map((entry, index) => (
           <p key={index} className="text-sm font-medium" style={{ color: entry.color }}>
@@ -122,14 +122,14 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 // Stat Card Component
-const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = "purple", description }) => {
+const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = "green", description }) => {
   const colorClasses = {
-    purple: "from-purple-500 to-purple-600",
-    blue: "from-blue-500 to-blue-600",
+    green: "from-green-500 to-green-600",
+    blue: "from-green-500 to-green-600",
     green: "from-green-500 to-green-600",
     amber: "from-amber-500 to-amber-600",
     red: "from-red-500 to-red-600",
-    indigo: "from-indigo-500 to-indigo-600",
+    emerald: "from-emerald-500 to-emerald-600",
   }
 
   return (
@@ -146,7 +146,7 @@ const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = "purple
                 {trend === 'up' && <ArrowUpRight className="h-4 w-4 text-green-500" />}
                 {trend === 'down' && <ArrowDownRight className="h-4 w-4 text-red-500" />}
                 {trend === 'neutral' && <Minus className="h-4 w-4 text-gray-400" />}
-                <span className={`text-sm font-semibold ${trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-500'}`}>
+                <span className={`text-sm font-semibold ${trend === 'up' ? 'text-[#7da23a]' : trend === 'down' ? 'text-red-600' : 'text-gray-500'}`}>
                   {trendValue}
                 </span>
               </div>
@@ -585,11 +585,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-slate-50 flex items-center justify-center">
         <div className="text-center space-y-6">
           <div className="relative">
-            <Loader2 className="w-16 h-16 text-purple-600 animate-spin mx-auto" />
-            <div className="absolute inset-0 w-16 h-16 border-4 border-purple-200 rounded-full animate-ping mx-auto"></div>
+            <Loader2 className="w-16 h-16 text-[#7da23a] animate-spin mx-auto" />
+            <div className="absolute inset-0 w-16 h-16 border-4 border-green-200 rounded-full animate-ping mx-auto"></div>
           </div>
           <div>
             <h3 className="text-2xl font-bold text-gray-800 mb-2">Loading Dashboard</h3>
@@ -621,11 +621,11 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-slate-50">
       <div className="container mx-auto p-4 sm:p-6 max-w-full">
         {/* Header */}
         <div className="mb-8">
-          <Card className="border-0 shadow-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+          <Card className="border-0 shadow-xl bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] text-white">
             <CardHeader className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -635,7 +635,7 @@ export default function Dashboard() {
                     </div>
                     Purchase Management Dashboard
                   </CardTitle>
-                  <CardDescription className="text-purple-100 text-base">
+                  <CardDescription className="text-green-100 text-base">
                     Real-time insights into your purchase operations and material logistics
                     {user?.firmName && user.firmName.toLowerCase() !== "all" && (
                       <span className="ml-2 text-white font-semibold">• Filtered by: {user.firmName}</span>
@@ -668,7 +668,7 @@ export default function Dashboard() {
         {/* <Card className="mb-8 border-0 shadow-lg">
           <CardHeader className="p-6 border-b border-gray-100">
             <CardTitle className="text-xl flex items-center gap-2">
-              <Filter className="h-5 w-5 text-purple-600" />
+              <Filter className="h-5 w-5 text-[#7da23a]" />
               Advanced Filters
             </CardTitle>
           </CardHeader>
@@ -680,9 +680,9 @@ export default function Dashboard() {
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-start text-left font-normal h-10 border-gray-200 hover:border-purple-300"
+                      className="w-full justify-start text-left font-normal h-10 border-gray-200 hover:border-green-300"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4 text-purple-600" />
+                      <CalendarIcon className="mr-2 h-4 w-4 text-[#7da23a]" />
                       {dateRange?.from ? (
                         dateRange.to ? (
                           <>
@@ -712,7 +712,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-gray-700">Firm Name</Label>
                 <Select value={filters.firmName} onValueChange={(v) => handleFilterChange("firmName", v)}>
-                  <SelectTrigger className="h-10 border-gray-200 hover:border-purple-300">
+                  <SelectTrigger className="h-10 border-gray-200 hover:border-green-300">
                     <SelectValue placeholder="All Firms" />
                   </SelectTrigger>
                   <SelectContent>
@@ -727,7 +727,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-gray-700">Vendor</Label>
                 <Select value={filters.vendorName} onValueChange={(v) => handleFilterChange("vendorName", v)}>
-                  <SelectTrigger className="h-10 border-gray-200 hover:border-purple-300">
+                  <SelectTrigger className="h-10 border-gray-200 hover:border-green-300">
                     <SelectValue placeholder="All Vendors" />
                   </SelectTrigger>
                   <SelectContent>
@@ -742,7 +742,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-gray-700">Material</Label>
                 <Select value={filters.material} onValueChange={(v) => handleFilterChange("material", v)}>
-                  <SelectTrigger className="h-10 border-gray-200 hover:border-purple-300">
+                  <SelectTrigger className="h-10 border-gray-200 hover:border-green-300">
                     <SelectValue placeholder="All Materials" />
                   </SelectTrigger>
                   <SelectContent>
@@ -757,7 +757,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-gray-700">Status</Label>
                 <Select value={filters.status} onValueChange={(v) => handleFilterChange("status", v)}>
-                  <SelectTrigger className="h-10 border-gray-200 hover:border-purple-300">
+                  <SelectTrigger className="h-10 border-gray-200 hover:border-green-300">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
@@ -774,7 +774,7 @@ export default function Dashboard() {
                   placeholder="Search..."
                   value={filters.rlNo}
                   onChange={(e) => handleFilterChange("rlNo", e.target.value)}
-                  className="h-10 border-gray-200 hover:border-purple-300"
+                  className="h-10 border-gray-200 hover:border-green-300"
                 />
               </div>
 
@@ -782,7 +782,7 @@ export default function Dashboard() {
                 <Button 
                   onClick={clearFilters} 
                   variant="outline" 
-                  className="flex-1 h-10 border-gray-200 hover:border-purple-300"
+                  className="flex-1 h-10 border-gray-200 hover:border-green-300"
                 >
                   <X className="h-4 w-4 mr-1" />
                   Clear
@@ -797,21 +797,21 @@ export default function Dashboard() {
           <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto mb-8 bg-white border-0 shadow-lg rounded-2xl p-2 h-auto">
             <TabsTrigger
               value="overview"
-              className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
+              className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
             >
               <TrendingUp className="h-5 w-5" />
               Overview
             </TabsTrigger>
             <TabsTrigger
               value="purchase"
-              className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
+              className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
             >
               <List className="h-5 w-5" />
               Purchase Data
             </TabsTrigger>
             <TabsTrigger
               value="pending"
-              className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
+              className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
             >
               <AlertTriangle className="h-5 w-5" />
               Workflow
@@ -826,7 +826,7 @@ export default function Dashboard() {
                 title="Total Purchase Orders"
                 value={overviewData.kpis.totalPOs}
                 icon={FileText}
-                color="purple"
+                color="green"
                 description="Unique purchase orders"
               />
               <StatCard
@@ -850,10 +850,10 @@ export default function Dashboard() {
               <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg">
+                    <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg">
                       <Package className="h-6 w-6 text-white" />
                     </div>
-                    <Badge className="bg-purple-100 text-purple-700 font-semibold">Total</Badge>
+                    <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">Total</Badge>
                   </div>
                   <p className="text-sm font-semibold text-gray-600 mb-1">Total PO Quantity</p>
                   <p className="text-3xl font-bold text-gray-900">{overviewData.kpis.totalPoQuantity.toLocaleString()}</p>
@@ -879,7 +879,7 @@ export default function Dashboard() {
                     <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg">
                       <CheckCircle2 className="h-6 w-6 text-white" />
                     </div>
-                    <Badge className="bg-green-100 text-green-700 font-semibold">Received</Badge>
+                    <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">Received</Badge>
                   </div>
                   <p className="text-sm font-semibold text-gray-600 mb-1">Received Quantity</p>
                   <p className="text-3xl font-bold text-gray-900">{overviewData.kpis.totalReceivedQuantity.toLocaleString()}</p>
@@ -893,7 +893,7 @@ export default function Dashboard() {
               <Card className="border-0 shadow-lg">
                 <CardHeader className="p-6 border-b border-gray-100">
                   <CardTitle className="text-xl flex items-center gap-2">
-                    <PieChart className="h-6 w-6 text-purple-600" />
+                    <PieChart className="h-6 w-6 text-[#7da23a]" />
                     Material Lift Status Distribution
                   </CardTitle>
                   <CardDescription>PO quantity breakdown by completion status</CardDescription>
@@ -935,7 +935,7 @@ export default function Dashboard() {
               <Card className="border-0 shadow-lg">
                 <CardHeader className="p-6 border-b border-gray-100">
                   <CardTitle className="text-xl flex items-center gap-2">
-                    <BarChart3 className="h-6 w-6 text-purple-600" />
+                    <BarChart3 className="h-6 w-6 text-[#7da23a]" />
                     Top 10 Vendors by Quantity
                   </CardTitle>
                   <CardDescription>Vendors ranked by total order quantity</CardDescription>
@@ -980,7 +980,7 @@ export default function Dashboard() {
             <Card className="border-0 shadow-lg">
               <CardHeader className="p-6 border-b border-gray-100">
                 <CardTitle className="text-xl flex items-center gap-2">
-                  <Activity className="h-6 w-6 text-purple-600" />
+                  <Activity className="h-6 w-6 text-[#7da23a]" />
                   Top 10 Materials by Quantity
                 </CardTitle>
                 <CardDescription>Most ordered materials ranked by quantity</CardDescription>
@@ -1031,7 +1031,7 @@ export default function Dashboard() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="in-transit"
-                  className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
+                  className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
                 >
                   <Truck className="h-5 w-5" />
                   In-Transit
@@ -1072,7 +1072,7 @@ export default function Dashboard() {
                           {purchaseTabTables.pendingLift.length > 0 ? (
                             purchaseTabTables.pendingLift.map((po) => (
                               <TableRow key={po.id} className="hover:bg-amber-50/50 border-b border-gray-100">
-                                <TableCell className="font-semibold text-purple-600">{po.rlNo}</TableCell>
+                                <TableCell className="font-semibold text-[#7da23a]">{po.rlNo}</TableCell>
                                 <TableCell className="text-gray-700">{po.date ? format(po.date, "dd-MMM-yyyy") : "N/A"}</TableCell>
                                 <TableCell className="text-gray-700">{po.firmName || "N/A"}</TableCell>
                                 <TableCell className="text-gray-700">{po.vendorName}</TableCell>
@@ -1102,11 +1102,11 @@ export default function Dashboard() {
 
               <TabsContent value="in-transit">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                  <CardHeader className="p-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
                     <CardTitle className="text-xl flex items-center gap-2">
-                      <Truck className="h-6 w-6 text-blue-600" />
+                      <Truck className="h-6 w-6 text-[#7da23a]" />
                       Materials In-Transit
-                      <Badge className="ml-2 bg-blue-500 text-white">{purchaseTabTables.inTransit.length}</Badge>
+                      <Badge className="ml-2 bg-green-500 text-white">{purchaseTabTables.inTransit.length}</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -1125,8 +1125,8 @@ export default function Dashboard() {
                         <TableBody>
                           {purchaseTabTables.inTransit.length > 0 ? (
                             purchaseTabTables.inTransit.map((lift) => (
-                              <TableRow key={lift.id} className="hover:bg-blue-50/50 border-b border-gray-100">
-                                <TableCell className="font-semibold text-purple-600">{lift.rlNo}</TableCell>
+                              <TableRow key={lift.id} className="hover:bg-green-50/50 border-b border-gray-100">
+                                <TableCell className="font-semibold text-[#7da23a]">{lift.rlNo}</TableCell>
                                 <TableCell className="text-gray-700">{lift.deliveryOrderNo || "N/A"}</TableCell>
                                 <TableCell className="text-gray-700">{lift.firmName || "N/A"}</TableCell>
                                 <TableCell className="text-gray-700">{lift.vendorName}</TableCell>
@@ -1153,7 +1153,7 @@ export default function Dashboard() {
                 <Card className="border-0 shadow-lg">
                   <CardHeader className="p-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
                     <CardTitle className="text-xl flex items-center gap-2">
-                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                      <CheckCircle2 className="h-6 w-6 text-[#7da23a]" />
                       Received Materials
                       <Badge className="ml-2 bg-green-500 text-white">{purchaseTabTables.received.length}</Badge>
                     </CardTitle>
@@ -1176,14 +1176,14 @@ export default function Dashboard() {
                           {purchaseTabTables.received.length > 0 ? (
                             purchaseTabTables.received.map((lift) => (
                               <TableRow key={lift.id} className="hover:bg-green-50/50 border-b border-gray-100">
-                                <TableCell className="font-semibold text-purple-600">{lift.rlNo}</TableCell>
+                                <TableCell className="font-semibold text-[#7da23a]">{lift.rlNo}</TableCell>
                                 <TableCell className="text-gray-700">{lift.firmName || "N/A"}</TableCell>
                                 <TableCell className="text-gray-700">{lift.vendorName}</TableCell>
                                 <TableCell className="max-w-xs truncate text-gray-700">{lift.material}</TableCell>
                                 <TableCell className="max-w-xs truncate text-gray-700">{lift.notes || "N/A"}</TableCell>
                                 <TableCell className="text-right font-semibold text-gray-900">{lift.liftedQty.toLocaleString()}</TableCell>
                                 <TableCell className="text-right">
-                                  <Badge className="bg-green-100 text-green-700 font-semibold">
+                                  <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">
                                     {lift.receivedQty.toLocaleString()}
                                   </Badge>
                                 </TableCell>
@@ -1214,7 +1214,7 @@ export default function Dashboard() {
                 title="INDENT-PO Pending"
                 value={pendingStagesData.slice(0, 4).reduce((sum, stage) => sum + stage.pendingCount, 0)}
                 icon={FileText}
-                color="purple"
+                color="green"
                 description="4 workflow stages"
               />
               <StatCard
@@ -1237,7 +1237,7 @@ export default function Dashboard() {
             <Card className="border-0 shadow-lg">
               <CardHeader className="p-6 border-b border-gray-100">
                 <CardTitle className="text-xl flex items-center gap-2">
-                  <Activity className="h-6 w-6 text-purple-600" />
+                  <Activity className="h-6 w-6 text-[#7da23a]" />
                   Workflow Stage Analysis
                 </CardTitle>
                 <CardDescription>Visual breakdown of pending items across all workflow stages</CardDescription>
@@ -1304,10 +1304,10 @@ export default function Dashboard() {
                           <TableCell>
                             <Badge
                               className={`font-semibold ${stage.category === 'INDENT-PO'
-                                ? 'bg-purple-100 text-purple-700'
+                                ? 'bg-green-100 text-[#6b8e2f]'
                                 : stage.category === 'LIFT-ACCOUNTS'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-green-100 text-green-700'
+                                  ? 'bg-green-100 text-[#6b8e2f]'
+                                  : 'bg-green-100 text-[#6b8e2f]'
                                 }`}
                             >
                               {stage.category}
@@ -1320,7 +1320,7 @@ export default function Dashboard() {
                           <TableCell className="text-right">
                             <Badge
                               className={`font-semibold ${stage.pendingCount === 0
-                                ? 'bg-green-100 text-green-700'
+                                ? 'bg-green-100 text-[#6b8e2f]'
                                 : stage.pendingCount < 10
                                   ? 'bg-yellow-100 text-yellow-700'
                                   : 'bg-red-100 text-red-700'
@@ -1341,8 +1341,8 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* INDENT-PO */}
               <Card className="border-0 shadow-lg">
-                <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50">
-                  <CardTitle className="text-lg font-bold text-purple-700">INDENT-PO Stages</CardTitle>
+                <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+                  <CardTitle className="text-lg font-bold text-[#6b8e2f]">INDENT-PO Stages</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="h-64">
@@ -1370,8 +1370,8 @@ export default function Dashboard() {
 
               {/* LIFT-ACCOUNTS */}
               <Card className="border-0 shadow-lg">
-                <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-cyan-50">
-                  <CardTitle className="text-lg font-bold text-blue-700">LIFT-ACCOUNTS Stages</CardTitle>
+                <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-cyan-50">
+                  <CardTitle className="text-lg font-bold text-[#6b8e2f]">LIFT-ACCOUNTS Stages</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="h-64">
@@ -1400,7 +1400,7 @@ export default function Dashboard() {
               {/* ACCOUNTS */}
               <Card className="border-0 shadow-lg">
                 <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
-                  <CardTitle className="text-lg font-bold text-green-700">ACCOUNTS Stages</CardTitle>
+                  <CardTitle className="text-lg font-bold text-[#6b8e2f]">ACCOUNTS Stages</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="h-64">

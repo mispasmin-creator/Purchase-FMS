@@ -48,14 +48,14 @@
   --card-foreground: oklch(0.145 0.01 240);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0.01 240);
-  --primary: oklch(0.64 0.19 283); /* Vibrant Purple */
+  --primary: oklch(0.50 0.10 145); /* Vibrant Green */
   --primary-foreground: oklch(0.99 0.005 240);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.96 0.005 240); /* Light Gray for Tab List BG */
   --muted-foreground: oklch(0.5 0.01 240);
-  --accent: oklch(0.97 0.02 283); /* Very Light Lavender for Icon BG */
-  --accent-foreground: oklch(0.64 0.19 283);
+  --accent: oklch(0.97 0.01 145); /* Very Light Lavender for Icon BG */
+  --accent-foreground: oklch(0.50 0.10 145);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.93 0.005 240);
   --input: oklch(0.93 0.005 240);
@@ -67,12 +67,12 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.12 0.02 255); /* Dark Sidebar BG */
   --sidebar-foreground: oklch(0.9 0.01 255);
-  --sidebar-primary: oklch(0.64 0.19 283);
+  --sidebar-primary: oklch(0.50 0.10 145);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.2 0.02 255);
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.2 0.02 255);
-  --sidebar-ring: oklch(0.64 0.19 283);
+  --sidebar-ring: oklch(0.50 0.10 145);
 }
 
 .dark {

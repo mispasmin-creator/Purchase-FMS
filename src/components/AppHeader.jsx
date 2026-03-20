@@ -31,7 +31,7 @@ export default function AppHeader({ toggleDesktopSidebar, isSidebarOpen, setIsMo
           size="icon"
           onClick={toggleDesktopSidebar}
           aria-label={isSidebarOpen ? "Close desktop sidebar" : "Open desktop sidebar"}
-          className="text-gray-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg hidden md:inline-flex" // Hidden on mobile
+          className="text-gray-600 hover:bg-green-50 hover:text-[#6b8e2f] rounded-lg hidden md:inline-flex" // Hidden on mobile
         >
           <Menu size={24} />
         </Button>
@@ -42,7 +42,7 @@ export default function AppHeader({ toggleDesktopSidebar, isSidebarOpen, setIsMo
           size="icon"
           onClick={() => setIsMobileSidebarOpen(true)} // Open mobile sheet
           aria-label="Open mobile sidebar"
-          className="text-gray-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg md:hidden mr-4" // Visible on mobile
+          className="text-gray-600 hover:bg-green-50 hover:text-[#6b8e2f] rounded-lg md:hidden mr-4" // Visible on mobile
         >
           <Menu size={24} />
         </Button>
@@ -55,19 +55,19 @@ export default function AppHeader({ toggleDesktopSidebar, isSidebarOpen, setIsMo
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+            className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-opacity-50"
           >
-            <UserCircle size={24} className="text-blue-600" />
+            <UserCircle size={24} className="text-[#7da23a]" />
             <div className="text-left hidden md:block">
               <p className="text-xs text-gray-500">Logged in as</p>
-              <p className="text-sm font-medium text-blue-700">{user?.username || "User"}</p>
+              <p className="text-sm font-medium text-[#6b8e2f]">{user?.username || "User"}</p>
             </div>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-48 shadow-lg" align="end">
           <DropdownMenuLabel className="md:hidden">
             <p className="text-xs text-gray-500">Logged in as</p>
-            <p className="text-sm font-semibold text-blue-700 truncate">{user?.username || "User"}</p>
+            <p className="text-sm font-semibold text-[#6b8e2f] truncate">{user?.username || "User"}</p>
           </DropdownMenuLabel>
           <DropdownMenuSeparator className="md:hidden" />
 

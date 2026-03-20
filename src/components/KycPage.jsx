@@ -150,7 +150,7 @@ export default function KycPage() {
     <Card className="shadow-sm border border-border mt-6">
       <CardHeader className="py-3 px-4 bg-muted/30">
         <CardTitle className="flex items-center text-md font-semibold text-foreground">
-          <Briefcase className="h-5 w-5 text-purple-600 mr-2" /> Add New Product
+          <Briefcase className="h-5 w-5 text-[#7da23a] mr-2" /> Add New Product
         </CardTitle>
       </CardHeader>
       <CardContent className="p-4">
@@ -163,12 +163,12 @@ export default function KycPage() {
               value={productFormData.productName}
               onChange={handleFormChange(setProductFormData)}
               placeholder="Enter new product name"
-              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.productName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.productName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
             />
             {errors.productName && <p className="text-red-500 text-xs mt-1">{errors.productName}</p>}
           </div>
           <div className="pt-4 flex justify-end">
-            <Button type="submit" disabled={isSubmitting} className="bg-purple-600 hover:bg-purple-700">
+            <Button type="submit" disabled={isSubmitting} className="bg-[#7da23a] hover:bg-[#6b8e2f]">
               {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : "Submit Product"}
             </Button>
           </div>
@@ -181,7 +181,7 @@ export default function KycPage() {
     <Card className="shadow-sm border border-border mt-6">
       <CardHeader className="py-3 px-4 bg-muted/30">
         <CardTitle className="flex items-center text-md font-semibold text-foreground">
-          <Truck className="h-5 w-5 text-purple-600 mr-2" /> Add New Transporter
+          <Truck className="h-5 w-5 text-[#7da23a] mr-2" /> Add New Transporter
         </CardTitle>
       </CardHeader>
       <CardContent className="p-4">
@@ -194,12 +194,12 @@ export default function KycPage() {
               value={transportationFormData.transporterName}
               onChange={handleFormChange(setTransportationFormData)}
               placeholder="Enter new transporter name"
-              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.transporterName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.transporterName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
             />
             {errors.transporterName && <p className="text-red-500 text-xs mt-1">{errors.transporterName}</p>}
           </div>
           <div className="pt-4 flex justify-end">
-            <Button type="submit" disabled={isSubmitting} className="bg-purple-600 hover:bg-purple-700">
+            <Button type="submit" disabled={isSubmitting} className="bg-[#7da23a] hover:bg-[#6b8e2f]">
               {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : "Submit Transporter"}
             </Button>
           </div>
@@ -212,7 +212,7 @@ export default function KycPage() {
     <Card className="shadow-sm border border-border mt-6">
       <CardHeader className="py-3 px-4 bg-muted/30">
         <CardTitle className="flex items-center text-md font-semibold text-foreground">
-          <Store className="h-5 w-5 text-purple-600 mr-2" /> Add New Vendor
+          <Store className="h-5 w-5 text-[#7da23a] mr-2" /> Add New Vendor
         </CardTitle>
       </CardHeader>
       <CardContent className="p-4">
@@ -226,7 +226,7 @@ export default function KycPage() {
                 value={vendorFormData.vendorName}
                 onChange={handleFormChange(setVendorFormData)}
                 placeholder="Enter vendor name"
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.vendorName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.vendorName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
               {errors.vendorName && <p className="text-red-500 text-xs mt-1">{errors.vendorName}</p>}
             </div>
@@ -238,7 +238,7 @@ export default function KycPage() {
                 value={vendorFormData.gstNumber}
                 onChange={handleFormChange(setVendorFormData)}
                 placeholder="e.g. 29ABCDE1234F1Z5"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm focus:border-purple-500 focus:ring-purple-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"
               />
             </div>
             <div>
@@ -249,7 +249,7 @@ export default function KycPage() {
                 value={vendorFormData.bankAcNo}
                 onChange={handleFormChange(setVendorFormData)}
                 placeholder="Enter bank account number"
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.bankAcNo ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.bankAcNo ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
               {errors.bankAcNo && <p className="text-red-500 text-xs mt-1">{errors.bankAcNo}</p>}
             </div>
@@ -261,7 +261,7 @@ export default function KycPage() {
                 value={vendorFormData.ifscCode}
                 onChange={handleFormChange(setVendorFormData)}
                 placeholder="e.g. SBIN0123456"
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.ifscCode ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.ifscCode ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
               {errors.ifscCode && <p className="text-red-500 text-xs mt-1">{errors.ifscCode}</p>}
             </div>
@@ -274,7 +274,7 @@ export default function KycPage() {
                 value={vendorFormData.phoneNumber}
                 onChange={handleFormChange(setVendorFormData)}
                 placeholder="Enter phone number"
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.phoneNumber ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.phoneNumber ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
               {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber}</p>}
             </div>
@@ -287,13 +287,13 @@ export default function KycPage() {
                 value={vendorFormData.email}
                 onChange={handleFormChange(setVendorFormData)}
                 placeholder="company@example.com"
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.email ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-purple-500 focus:ring-purple-500"}`}
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.email ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
             </div>
           </div>
           <div className="pt-4 flex justify-end">
-            <Button type="submit" disabled={isSubmitting} className="bg-purple-600 hover:bg-purple-700">
+            <Button type="submit" disabled={isSubmitting} className="bg-[#7da23a] hover:bg-[#6b8e2f]">
               {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : "Submit Vendor"}
             </Button>
           </div>
@@ -307,7 +307,7 @@ export default function KycPage() {
       <Card className="w-full max-w-4xl mx-auto shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <UserCheck className="h-5 w-5 text-purple-600" />
+            <UserCheck className="h-5 w-5 text-[#7da23a]" />
             KYC & Master Data Entry
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
@@ -336,8 +336,8 @@ export default function KycPage() {
           {activeForm === 'transportation' && renderTransportationForm()}
 
           {activeForm === '' && (
-            <div className="p-8 text-center text-muted-foreground border-2 border-dashed border-purple-200/50 bg-purple-50/50 rounded-lg mx-auto my-4 max-w-sm">
-              <Info className="mx-auto h-12 w-12 text-purple-500 mb-3" />
+            <div className="p-8 text-center text-muted-foreground border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-auto my-4 max-w-sm">
+              <Info className="mx-auto h-12 w-12 text-green-500 mb-3" />
               <p className="font-medium text-foreground">Select a Category</p>
               <p className="text-sm text-muted-foreground">Please choose a category above to add new master data entries.</p>
             </div>

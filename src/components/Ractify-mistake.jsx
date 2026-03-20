@@ -237,7 +237,7 @@ const RectifyMistakeBiltyPage = () => {
                 <select
                   value={formData.status || 'Not Done'}
                   onChange={(e) => handleFormChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
                 >
                   <option value="Done">Done</option>
                   <option value="Not Done">Not Done</option>
@@ -249,7 +249,7 @@ const RectifyMistakeBiltyPage = () => {
                 <textarea
                   value={formData.remarks || ''}
                   onChange={(e) => handleFormChange('remarks', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm resize-none"
                   placeholder="Enter your remarks..."
                   rows={4}
                 />
@@ -267,7 +267,7 @@ const RectifyMistakeBiltyPage = () => {
               <button
                 onClick={submitFormData}
                 disabled={submitting}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 {submitting ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -287,7 +287,7 @@ const RectifyMistakeBiltyPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+          <RefreshCw className="w-12 h-12 animate-spin text-green-500 mx-auto mb-4" />
           <p className="text-xl text-gray-600">Loading data...</p>
         </div>
       </div>
@@ -328,7 +328,7 @@ const RectifyMistakeBiltyPage = () => {
                 <h1 className="text-2xl font-bold text-gray-900">Rectify The Mistake & Bilty Add</h1>
                 <p className="text-sm text-gray-600 mt-1">Manage and update billing corrections</p>
                 {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                  <span className="text-sm text-purple-600 font-medium">Filtered by: {user.firmName}</span>
+                  <span className="text-sm text-[#7da23a] font-medium">Filtered by: {user.firmName}</span>
                 )}
               </div>
               <div className="flex items-center space-x-3">
@@ -385,7 +385,7 @@ const RectifyMistakeBiltyPage = () => {
                                   type="checkbox"
                                   checked={visibleColumns[key]}
                                   onChange={() => toggleColumnVisibility(key)}
-                                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                  className="w-4 h-4 text-[#7da23a] bg-gray-100 border-gray-300 rounded focus:ring-[#6b8e2f] focus:ring-2"
                                 />
                                 <span className="text-gray-700">{label}</span>
                               </label>
@@ -466,7 +466,7 @@ const RectifyMistakeBiltyPage = () => {
                               setEditingRow(row.id);
                               initializeFormData(row.id);
                             }}
-                            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
+                            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
                           >
                             <Edit2 className="w-4 h-4 mr-2" />
                             Add Entry

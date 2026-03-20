@@ -38,7 +38,7 @@ const Toast = ({ message, description, type, onClose }) => {
   const typeClasses = {
     success: { bg: "bg-green-500", icon: <CheckCircle className="h-5 w-5 text-white" /> },
     error: { bg: "bg-red-500", icon: <AlertTriangle className="h-5 w-5 text-white" /> },
-    info: { bg: "bg-blue-500", icon: <Info className="h-5 w-5 text-white" /> },
+    info: { bg: "bg-green-500", icon: <Info className="h-5 w-5 text-white" /> },
   }
   const currentType = typeClasses[type] || typeClasses.info
 
@@ -414,7 +414,7 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
               {showCheckbox && (
                 <TableCell className="text-center">
                   {processingUpdate[entry.id] ? (
-                    <Loader2 className="h-4 w-4 text-purple-500 animate-spin mx-auto" />
+                    <Loader2 className="h-4 w-4 text-green-500 animate-spin mx-auto" />
                   ) : (
                     <Checkbox
                       id={`final-tally-${entry.id}`}
@@ -447,13 +447,13 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <FileText className="h-5 w-5 text-purple-600" />
+            <FileText className="h-5 w-5 text-[#7da23a]" />
             Step 8: Final Tally Entry
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Mark purchase orders as entered in Tally accounting system after final checks.
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>
+              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
             )}
           </CardDescription>
         </CardHeader>
@@ -461,7 +461,7 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
         <CardContent className="p-4">
           {loading ? (
             <div className="flex flex-col justify-center items-center h-60">
-              <Loader2 className="h-10 w-10 text-purple-500 animate-spin mb-3" />
+              <Loader2 className="h-10 w-10 text-green-500 animate-spin mb-3" />
               <p className="text-muted-foreground">Loading Data from Sheet "{SHEET_NAME}"...</p>
             </div>
           ) : error ? (
@@ -472,7 +472,7 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
             </div>
           ) : entries.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-60 text-center">
-              <Info className="h-10 w-10 text-purple-500 mb-3" />
+              <Info className="h-10 w-10 text-green-500 mb-3" />
               <h3 className="text-lg font-medium text-foreground">No Data Entries Found</h3>
               <p className="text-sm text-muted-foreground">
                 Sheet "{SHEET_NAME}" might be empty after row {DATA_START_ROW - 1}, or no entries have a LIFT-ID.
@@ -498,7 +498,7 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
               </TabsList>
 
               {/* Filters Section */}
-              <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+              <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <Label className="text-sm font-medium">Filters</Label>
@@ -570,7 +570,7 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
                 <Card>
                   <CardHeader className="py-3 px-4">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <ClipboardList className="h-5 w-5 text-purple-600" />
+                      <ClipboardList className="h-5 w-5 text-[#7da23a]" />
                       Pending Tally Entries ({pendingEntries.length})
                     </CardTitle>
                     <CardDescription className="text-xs">
@@ -595,7 +595,7 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
                 <Card>
                   <CardHeader className="py-3 px-4">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <History className="h-5 w-5 text-purple-600" />
+                      <History className="h-5 w-5 text-[#7da23a]" />
                       Completed Tally Entries ({completedEntries.length})
                     </CardTitle>
                     <CardDescription className="text-xs">
@@ -605,7 +605,7 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
                   <CardContent className="p-0">
                     {completedEntries.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <Info className="h-12 w-12 text-purple-500 mb-3" />
+                        <Info className="h-12 w-12 text-green-500 mb-3" />
                         <h3 className="text-lg font-medium text-foreground">No Completed Entries</h3>
                         <p className="text-sm text-muted-foreground">No entries have been completed yet.</p>
                       </div>

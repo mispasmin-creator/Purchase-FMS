@@ -92,7 +92,7 @@ const SearchableSelect = ({
           </div>
           <div className="py-1">
             <div
-              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-blue-50" : ""}`}
+              className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
               onClick={() => {
                 onValueChange("all");
                 setOpen(false);
@@ -104,7 +104,7 @@ const SearchableSelect = ({
             {filteredOptions.map((option, index) => (
               <div
                 key={`${option}-${index}`}
-                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-blue-50" : ""}`}
+                className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-green-50" : ""}`}
                 onClick={() => {
                   onValueChange(option);
                   setOpen(false);
@@ -469,7 +469,7 @@ export default function DebitNote() {
     const statusLower = (status || "").toLowerCase();
 
     if (statusLower.includes("credit") || statusLower.includes("note")) {
-      return <Badge className="bg-purple-100 text-purple-800 border-purple-200">Credit Note</Badge>;
+      return <Badge className="bg-green-100 text-green-800 border-green-200">Credit Note</Badge>;
     } else if (statusLower.includes("pending")) {
       return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>;
     } else if (statusLower.includes("done") || statusLower.includes("completed")) {
@@ -497,7 +497,7 @@ export default function DebitNote() {
           href={String(value).startsWith("http") ? value : `https://${value}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-purple-600 hover:text-purple-800 hover:underline inline-flex items-center text-xs whitespace-nowrap"
+          className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-xs whitespace-nowrap"
         >
           <ExternalLink className="h-3 w-3 mr-1" /> View Image
         </a>
@@ -622,13 +622,13 @@ export default function DebitNote() {
                   <Label className="text-sm font-medium">Debit Image <span className="text-red-500">*</span></Label>
                   <Input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf,.pdf"
                     onChange={(e) => setDebitImageFile(e.target.files[0] || null)}
                     disabled={submitting}
-                    className="cursor-pointer file:cursor-pointer file:bg-purple-50 file:text-purple-700 file:border-0 file:rounded-md file:px-2 file:py-1 file:mr-2 file:text-xs hover:file:bg-purple-100"
+                    className="cursor-pointer file:cursor-pointer file:bg-green-50 file:text-[#6b8e2f] file:border-0 file:rounded-md file:px-2 file:py-1 file:mr-2 file:text-xs hover:file:bg-green-100"
                   />
                   {editingItem.debitNoteUrl && !debitImageFile && (
-                    <div className="text-xs text-green-600 flex items-center mt-1">
+                    <div className="text-xs text-[#7da23a] flex items-center mt-1">
                       <CheckCircle className="h-3 w-3 mr-1" /> Image uploaded previously
                     </div>
                   )}
@@ -692,12 +692,12 @@ export default function DebitNote() {
         <Card className="shadow-md border-none">
           <CardHeader className="p-4 border-b border-gray-200">
             <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-              <FileText className="h-5 w-5 text-purple-600" /> Debit Note Management
+              <FileText className="h-5 w-5 text-[#7da23a]" /> Debit Note Management
             </CardTitle>
             <CardDescription className="text-gray-500 text-sm">
               Manage and update remarks for mismatch entries. Add remarks to track debit note status.
               {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                <span className="ml-2 text-purple-600 font-medium">• Filtered by: {user.firmName}</span>
+                <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
               )}
             </CardDescription>
           </CardHeader>
@@ -725,7 +725,7 @@ export default function DebitNote() {
               {/* Filters Section - Only for pending tab */}
               {activeTab === "pending" && (
                 <TabsContent value="pending" className="space-y-4">
-                  <div className="mb-4 p-4 bg-purple-50/50 rounded-lg">
+                  <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
                     <div className="flex items-center gap-2 mb-3">
                       <Filter className="h-4 w-4 text-gray-500" />
                       <Label className="text-sm font-medium">Filters</Label>
@@ -820,7 +820,7 @@ export default function DebitNote() {
                     <CardContent className="p-0">
                       {loading ? (
                         <div className="flex flex-col justify-center items-center py-10">
-                          <Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" />
+                          <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
                           <p className="text-muted-foreground">Loading debit note data...</p>
                         </div>
                       ) : error && filteredData.length === 0 ? (
@@ -890,7 +890,7 @@ export default function DebitNote() {
                     <div className="flex justify-between items-center">
                       <div>
                         <CardTitle className="flex items-center text-sm font-semibold text-foreground">
-                          <History className="h-4 w-4 text-green-600 mr-2" />
+                          <History className="h-4 w-4 text-[#7da23a] mr-2" />
                           History Entries ({history.length})
                         </CardTitle>
                         <CardDescription className="text-xs text-muted-foreground mt-0.5">
@@ -912,7 +912,7 @@ export default function DebitNote() {
                   <CardContent className="p-0">
                     {loading ? (
                       <div className="flex flex-col justify-center items-center py-10">
-                        <Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" />
+                        <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
                         <p className="text-muted-foreground">Loading history data...</p>
                       </div>
                     ) : error && history.length === 0 ? (

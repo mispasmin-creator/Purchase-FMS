@@ -292,7 +292,7 @@ const formatDate = (dateString) => {
     return (
       <div className="p-6 bg-gray-50 min-h-screen">
         <div className="flex items-center justify-center h-64">
-          <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+          <RefreshCw className="w-8 h-8 animate-spin text-green-500" />
           <span className="ml-2 text-lg text-gray-600">Loading accounts data...</span>
         </div>
       </div>
@@ -361,7 +361,7 @@ const formatDate = (dateString) => {
               placeholder="Search across all fields..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"
             />
             {searchTerm && (
               <button
@@ -379,7 +379,7 @@ const formatDate = (dateString) => {
               <select
                 value={filters.type}
                 onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"
               >
                 {getUniqueValues('type').map(value => (
                   <option key={value} value={value}>{value}</option>
@@ -391,7 +391,7 @@ const formatDate = (dateString) => {
               <select
                 value={filters.partyName}
                 onChange={(e) => handleFilterChange('partyName', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"
               >
                 {getUniqueValues('partyName').map(value => (
                   <option key={value} value={value}>{value}</option>
@@ -403,7 +403,7 @@ const formatDate = (dateString) => {
               <select
                 value={filters.transporterName}
                 onChange={(e) => handleFilterChange('transporterName', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"
               >
                 {getUniqueValues('transporterName').map(value => (
                   <option key={value} value={value}>{value}</option>
@@ -415,7 +415,7 @@ const formatDate = (dateString) => {
               <select
                 value={filters.typeOfRate}
                 onChange={(e) => handleFilterChange('typeOfRate', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"
               >
                 {getUniqueValues('typeOfRate').map(value => (
                   <option key={value} value={value}>{value}</option>
@@ -434,7 +434,7 @@ const formatDate = (dateString) => {
                       type="checkbox"
                       checked={visibleColumns[column.key]}
                       onChange={() => toggleColumn(column.key)}
-                      className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-3 h-3 text-[#7da23a] border-gray-300 rounded focus:ring-[#6b8e2f]"
                     />
                     <span className="text-xs text-gray-700">{column.label}</span>
                   </label>
@@ -453,7 +453,7 @@ const formatDate = (dateString) => {
             </button>
             <button
               onClick={handleExport}
-              className="flex items-center px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="flex items-center px-4 py-1.5 text-sm bg-[#7da23a] text-white rounded-md hover:bg-[#6b8e2f]"
             >
               <Download className="w-4 h-4 mr-1" />
               Export Data
@@ -508,7 +508,7 @@ const formatDate = (dateString) => {
                           row[column.key] ? (
                             <button 
                               onClick={() => handleViewImage(row[column.key])}
-                              className="flex items-center text-blue-600 hover:text-blue-800"
+                              className="flex items-center text-[#7da23a] hover:text-green-800"
                             >
                               <Eye className="w-4 h-4 mr-1" />
                               View
