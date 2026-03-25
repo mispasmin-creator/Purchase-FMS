@@ -155,6 +155,9 @@ const GeneratePurchaseOrder = () => {
     iron: "",
     ap: "",
     bd: "",
+    sio2: "",
+    cao: "",
+    fineness: "",
     // New PO metadata fields
     poNumber: "",
     poDate: new Date().toISOString().split("T")[0],
@@ -529,6 +532,12 @@ const GeneratePurchaseOrder = () => {
           totalAmount: row["Total Amount"],
           alumina: row["Alumina %"],
           iron: row["Iron %"],
+          ap: row["AP Percent Age %"],
+          bd: row["BD Percent Age %"],
+          sio2: row["SiO2 %"],
+          cao: row["CaO %"],
+          fineness: row["Fineness"],
+          packaging: row["Packaging"],
           poFile: row["PO Copy"],
           createdAt: String(row["Actual2"] || "").replace("T", " "),
           haveToPO: row["Have To Make PO"],
@@ -705,10 +714,14 @@ const GeneratePurchaseOrder = () => {
           updates["When To Be Paid Amount"] = null;
         }
         updates["PO Notes"] = dataToSubmit.notes;
-        updates["Alumina %"] = parseFloat(dataToSubmit.alumina);
-        updates["Iron %"] = parseFloat(dataToSubmit.iron);
-        updates["AP Percent Age %"] = parseFloat(dataToSubmit.ap);
-        updates["BD Percent Age %"] = parseFloat(dataToSubmit.bd);
+        updates["Alumina %"] = dataToSubmit.alumina;
+        updates["Iron %"] = dataToSubmit.iron;
+        updates["AP Percent Age %"] = dataToSubmit.ap;
+        updates["BD Percent Age %"] = dataToSubmit.bd;
+        updates["SiO2 %"] = dataToSubmit.sio2;
+        updates["CaO %"] = dataToSubmit.cao;
+        updates["Fineness"] = dataToSubmit.fineness;
+        updates["Packaging"] = dataToSubmit.packaging;
       } else {
         updates["Rate"] = null;
         updates["Lead Time To Lift (days)"] = null;
@@ -723,6 +736,10 @@ const GeneratePurchaseOrder = () => {
         updates["Iron %"] = null;
         updates["AP Percent Age %"] = null;
         updates["BD Percent Age %"] = null;
+        updates["SiO2 %"] = null;
+        updates["CaO %"] = null;
+        updates["Fineness"] = null;
+        updates["Packaging"] = null;
       }
 
       const { error: updateError } = await supabase
@@ -765,6 +782,10 @@ const GeneratePurchaseOrder = () => {
         iron: "",
         ap: "",
         bd: "",
+        sio2: "",
+        cao: "",
+        fineness: "",
+        packaging: "",
       }));
     } else {
       setFormData((prev) => ({
@@ -795,8 +816,12 @@ const GeneratePurchaseOrder = () => {
       poFile: null,
       alumina: indent.alumina || "",
       iron: indent.iron || "",
-      ap: "",
-      bd: "",
+      ap: indent.ap || "",
+      bd: indent.bd || "",
+      sio2: indent.sio2 || "",
+      cao: indent.cao || "",
+      fineness: indent.fineness || "",
+      packaging: indent.packaging || "",
       // Initialize PO fields
       poNumber: nextPoNumber,
       poDate: new Date().toISOString().split("T")[0],
@@ -843,6 +868,10 @@ const GeneratePurchaseOrder = () => {
       iron: "",
       ap: "",
       bd: "",
+      sio2: "",
+      cao: "",
+      fineness: "",
+      packaging: "",
     });
   };
 
@@ -1007,6 +1036,24 @@ const GeneratePurchaseOrder = () => {
         parseFloat(formData.bd) < 0
       )
         newErrors.bd = "BD % is required and must be non-negative.";
+      if (
+        !formData.sio2 ||
+        isNaN(parseFloat(formData.sio2)) ||
+        parseFloat(formData.sio2) < 0
+      )
+        newErrors.sio2 = "SiO2 % is required and must be non-negative.";
+      if (
+        !formData.cao ||
+        isNaN(parseFloat(formData.cao)) ||
+        parseFloat(formData.cao) < 0
+      )
+        newErrors.cao = "CaO % is required and must be non-negative.";
+      if (
+        !formData.fineness ||
+        isNaN(parseFloat(formData.fineness)) ||
+        parseFloat(formData.fineness) < 0
+      )
+        newErrors.fineness = "Fineness is required and must be non-negative.";
 
       if (
         formData.gstPercent !== "" &&
@@ -1978,7 +2025,8 @@ const GeneratePurchaseOrder = () => {
                       name="alumina"
                       value={formData.alumina}
                       onChange={handleInputChange}
-                      className="h-8 mt-1 text-xs"
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
                     />
                     {poErrors.alumina && (
                       <p className="text-[10px] text-red-500 mt-0.5">
@@ -1998,7 +2046,8 @@ const GeneratePurchaseOrder = () => {
                       name="iron"
                       value={formData.iron}
                       onChange={handleInputChange}
-                      className="h-8 mt-1 text-xs"
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
                     />
                     {poErrors.iron && (
                       <p className="text-[10px] text-red-500 mt-0.5">
@@ -2018,7 +2067,8 @@ const GeneratePurchaseOrder = () => {
                       name="ap"
                       value={formData.ap}
                       onChange={handleInputChange}
-                      className="h-8 mt-1 text-xs"
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
                     />
                     {poErrors.ap && (
                       <p className="text-[10px] text-red-500 mt-0.5">
@@ -2038,13 +2088,96 @@ const GeneratePurchaseOrder = () => {
                       name="bd"
                       value={formData.bd}
                       onChange={handleInputChange}
-                      className="h-8 mt-1 text-xs"
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
                     />
                     {poErrors.bd && (
                       <p className="text-[10px] text-red-500 mt-0.5">
                         {poErrors.bd}
                       </p>
                     )}
+                  </div>
+                </div>
+
+                {/* Additional Chemical Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4">
+                  <div>
+                    <Label
+                      htmlFor="sio2"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      SiO2 %
+                    </Label>
+                    <Input
+                      id="sio2"
+                      name="sio2"
+                      value={formData.sio2}
+                      onChange={handleInputChange}
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
+                    />
+                    {poErrors.sio2 && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.sio2}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="cao"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      CaO %
+                    </Label>
+                    <Input
+                      id="cao"
+                      name="cao"
+                      value={formData.cao}
+                      onChange={handleInputChange}
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
+                    />
+                    {poErrors.cao && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.cao}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="fineness"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Fineness
+                    </Label>
+                    <Input
+                      id="fineness"
+                      name="fineness"
+                      value={formData.fineness}
+                      onChange={handleInputChange}
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
+                    />
+                    {poErrors.fineness && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.fineness}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="packaging"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Packaging
+                    </Label>
+                    <Input
+                      id="packaging"
+                      name="packaging"
+                      value={formData.packaging}
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
+                    />
                   </div>
                 </div>
 

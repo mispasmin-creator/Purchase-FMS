@@ -30,10 +30,10 @@ import {
   AlertTriangle,
   Info,
   Users,
-  X,
   Search,
   Upload,
   TrendingDown,
+  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
@@ -87,6 +87,7 @@ export default function ThreeParty() {
   const { user } = useAuth();
   const { updateCount } = useNotification();
   const [vendorMasterOptions, setVendorMasterOptions] = useState([]);
+  const [selectedVendorIndex, setSelectedVendorIndex] = useState(0);
 
   const fetchVendorMasterOptions = useCallback(async () => {
     try {
@@ -155,6 +156,14 @@ export default function ThreeParty() {
                 paymentTerm: row["Payment Term 1"] || "",
                 whatsapp: row["Whatsapp Number 1"] || "",
                 email: row["Email Id 1"] || "",
+                alumina: row["Alumina 1"] || "",
+                iron: row["Iron 1"] || "",
+                sio2: row["SiO2 1"] || "",
+                cao: row["CaO 1"] || "",
+                ap: row["AP 1"] || "",
+                bd: row["BD 1"] || "",
+                fineness: row["Fineness 1"] || "",
+                packaging: row["Packaging 1"] || "",
               },
               {
                 name: row["Vendor Name 2"] || "",
@@ -168,6 +177,14 @@ export default function ThreeParty() {
                 paymentTerm: row["Payment Term 2"] || "",
                 whatsapp: row["Whatsapp Number 2"] || "",
                 email: row["Email Id 2"] || "",
+                alumina: row["Alumina 2"] || "",
+                iron: row["Iron 2"] || "",
+                sio2: row["SiO2 2"] || "",
+                cao: row["CaO 2"] || "",
+                ap: row["AP 2"] || "",
+                bd: row["BD 2"] || "",
+                fineness: row["Fineness 2"] || "",
+                packaging: row["Packaging 2"] || "",
               },
               {
                 name: row["Vendor Name 3"] || "",
@@ -181,6 +198,14 @@ export default function ThreeParty() {
                 paymentTerm: row["Payment Term 3"] || "",
                 whatsapp: row["Whatsapp Number 3"] || "",
                 email: row["Email Id 3"] || "",
+                alumina: row["Alumina 3"] || "",
+                iron: row["Iron 3"] || "",
+                sio2: row["SiO2 3"] || "",
+                cao: row["CaO 3"] || "",
+                ap: row["AP 3"] || "",
+                bd: row["BD 3"] || "",
+                fineness: row["Fineness 3"] || "",
+                packaging: row["Packaging 3"] || "",
               },
             ],
           }));
@@ -309,6 +334,14 @@ export default function ThreeParty() {
       paymentTerm: "",
       whatsapp: "",
       email: "",
+      alumina: "",
+      iron: "",
+      sio2: "",
+      cao: "",
+      ap: "",
+      bd: "",
+      fineness: "",
+      packaging: "",
     },
     {
       name: "",
@@ -319,6 +352,14 @@ export default function ThreeParty() {
       paymentTerm: "",
       whatsapp: "",
       email: "",
+      alumina: "",
+      iron: "",
+      sio2: "",
+      cao: "",
+      ap: "",
+      bd: "",
+      fineness: "",
+      packaging: "",
     },
     {
       name: "",
@@ -329,10 +370,17 @@ export default function ThreeParty() {
       paymentTerm: "",
       whatsapp: "",
       email: "",
+      alumina: "",
+      iron: "",
+      sio2: "",
+      cao: "",
+      ap: "",
+      bd: "",
+      fineness: "",
+      packaging: "",
     },
   ]);
   const [comparisonSheetFile, setComparisonSheetFile] = useState(null);
-  const [currentStep, setCurrentStep] = useState(1);
   const [historyRate, setHistoryRate] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -351,6 +399,28 @@ export default function ThreeParty() {
       .map((v) => v.rate);
     return validRates.length > 0 ? Math.min(...validRates) : null;
   }, [vendorForms]);
+
+  // Auto-calculate final rate
+  const finalRate = useMemo(() => {
+    const v = vendorForms[selectedVendorIndex];
+    if (!v.rate) return 0;
+
+    if (v.rateType === "basic" && v.withTax === "no") {
+      return v.rate + (v.rate * v.gstPercent) / 100;
+    }
+    return v.rate;
+  }, [vendorForms, selectedVendorIndex]);
+
+  // Quick approve function
+  const quickApprove = () => {
+    const lowestVendorIndex = vendorForms.findIndex(
+      (v) => v.name && v.rate === lowestRate,
+    );
+    if (lowestVendorIndex !== -1) {
+      setSelectedVendorIndex(lowestVendorIndex);
+      toast.success(`Selected vendor with best rate: ₹${lowestRate}`);
+    }
+  };
 
   async function onSubmit() {
     if (!selectedIndent) return;
@@ -401,6 +471,14 @@ export default function ThreeParty() {
           paymentTerm: v.paymentTerm || "",
           whatsapp: v.whatsapp || "",
           email: v.email || "",
+          alumina: v.alumina || "",
+          iron: v.iron || "",
+          sio2: v.sio2 || "",
+          cao: v.cao || "",
+          ap: v.ap || "",
+          bd: v.bd || "",
+          fineness: v.fineness || "",
+          packaging: v.packaging || "",
         };
       };
 
@@ -420,6 +498,7 @@ export default function ThreeParty() {
           "Payment Term 1": v1.paymentTerm,
           "Whatsapp Number 1": v1.whatsapp,
           "Email Id 1": v1.email,
+          "Packaging 1": v1.packaging,
 
           "Vendor Name 2": v2.name,
           "Select Rate Type 2": v2.rateType,
@@ -429,6 +508,7 @@ export default function ThreeParty() {
           "Payment Term 2": v2.paymentTerm,
           "Whatsapp Number 2": v2.whatsapp,
           "Email Id 2": v2.email,
+          "Packaging 2": v2.packaging,
 
           "Vendor Name 3": v3.name,
           "Select Rate Type 3": v3.rateType,
@@ -438,6 +518,31 @@ export default function ThreeParty() {
           "Payment Term 3": v3.paymentTerm,
           "Whatsapp Number 3": v3.whatsapp,
           "Email Id 3": v3.email,
+          "Packaging 3": v3.packaging,
+
+          "Alumina 1": v1.alumina,
+          "Iron 1": v1.iron,
+          "SiO2 1": v1.sio2,
+          "CaO 1": v1.cao,
+          "AP 1": v1.ap,
+          "BD 1": v1.bd,
+          "Fineness 1": v1.fineness,
+
+          "Alumina 2": v2.alumina,
+          "Iron 2": v2.iron,
+          "SiO2 2": v2.sio2,
+          "CaO 2": v2.cao,
+          "AP 2": v2.ap,
+          "BD 2": v2.bd,
+          "Fineness 2": v2.fineness,
+
+          "Alumina 3": v3.alumina,
+          "Iron 3": v3.iron,
+          "SiO2 3": v3.sio2,
+          "CaO 3": v3.cao,
+          "AP 3": v3.ap,
+          "BD 3": v3.bd,
+          "Fineness 3": v3.fineness,
 
           "Comparison Sheet": comparisonSheetUrl,
           Planned7: new Date().toISOString(),
@@ -458,6 +563,14 @@ export default function ThreeParty() {
           paymentTerm: "",
           whatsapp: "",
           email: "",
+          alumina: "",
+          iron: "",
+          sio2: "",
+          cao: "",
+          ap: "",
+          bd: "",
+          fineness: "",
+          packaging: "",
         },
         {
           name: "",
@@ -468,6 +581,14 @@ export default function ThreeParty() {
           paymentTerm: "",
           whatsapp: "",
           email: "",
+          alumina: "",
+          iron: "",
+          sio2: "",
+          cao: "",
+          ap: "",
+          bd: "",
+          fineness: "",
+          packaging: "",
         },
         {
           name: "",
@@ -478,10 +599,18 @@ export default function ThreeParty() {
           paymentTerm: "",
           whatsapp: "",
           email: "",
+          alumina: "",
+          iron: "",
+          sio2: "",
+          cao: "",
+          ap: "",
+          bd: "",
+          fineness: "",
+          packaging: "",
         },
       ]);
       setComparisonSheetFile(null);
-      setCurrentStep(1);
+      setSelectedVendorIndex(0);
       setTimeout(() => setRefreshData((prev) => !prev), 1000);
     } catch (error) {
       console.error("Error updating vendors:", error);
@@ -535,10 +664,10 @@ export default function ThreeParty() {
           <div className="p-2 bg-green-100 rounded-lg">
             <Users className="h-5 w-5 text-[#7da23a]" />
           </div>
-          Three Party Rate Approval
+          Factory Rate Approval
         </CardTitle>
         <CardDescription className="mt-1 text-sm text-gray-500">
-          Compare vendor rates and make approval decisions
+          Compare vendors and submit for factory approval
         </CardDescription>
         {user?.firmName && user.firmName.toLowerCase() !== "all" && (
           <Badge
@@ -577,7 +706,7 @@ export default function ThreeParty() {
 
           {/* Pending Tab */}
           <TabsContent value="pending" className="mt-0">
-            {/* Filters Section - Reduced visual noise */}
+            {/* Filters Section */}
             <div className="p-4 mb-6 bg-gray-50/50 rounded-xl">
               <div className="flex items-center gap-2 mb-3">
                 <Filter className="w-4 h-4 text-gray-400" />
@@ -670,17 +799,26 @@ export default function ThreeParty() {
                     {filteredPendingData.map((indent) => (
                       <TableRow
                         key={indent.id}
-                        className="transition-colors border-b border-gray-100 hover:bg-gray-50/50"
+                        className="cursor-pointer transition-colors border-b border-gray-100 hover:bg-gray-50/50"
+                        onClick={() => {
+                          setSelectedIndent(indent);
+                          setSelectedHistory(null);
+                          setOpenDialog(true);
+                          setVendorForms(indent.vendors);
+                          setComparisonSheetFile(null);
+                          setSelectedVendorIndex(0);
+                        }}
                       >
                         <TableCell className="px-4 py-3">
                           <Button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedIndent(indent);
                               setSelectedHistory(null);
                               setOpenDialog(true);
                               setVendorForms(indent.vendors);
                               setComparisonSheetFile(null);
-                              setCurrentStep(1);
+                              setSelectedVendorIndex(0);
                             }}
                             className="h-8 px-3 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white shadow-none"
                           >
@@ -857,9 +995,9 @@ export default function ThreeParty() {
         </Tabs>
       </CardContent>
 
-      {/* Redesigned Dialog with Side-by-Side Vendor Comparison */}
+      {/* Redesigned Dialog with Single Vendor Form */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden rounded-2xl">
+        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden rounded-2xl">
           {selectedIndent && (
             <div className="flex flex-col h-full max-h-[85vh]">
               {/* Header with Indent Info */}
@@ -893,241 +1031,462 @@ export default function ThreeParty() {
                 </div>
               </DialogHeader>
 
-              {/* Step Indicator */}
+              {/* Comparison Strip */}
               <div className="px-6 pt-4">
-                <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
-                  <span
-                    className={`flex items-center justify-center w-6 h-6 rounded-full ${currentStep >= 1 ? "bg-green-100 text-green-600" : "bg-gray-100"} text-xs font-medium`}
-                  >
-                    1
-                  </span>
-                  <span
-                    className={`h-px w-8 ${currentStep >= 2 ? "bg-green-300" : "bg-gray-200"}`}
-                  ></span>
-                  <span
-                    className={`flex items-center justify-center w-6 h-6 rounded-full ${currentStep >= 2 ? "bg-green-100 text-green-600" : "bg-gray-100"} text-xs font-medium`}
-                  >
-                    2
-                  </span>
-                  <span
-                    className={`h-px w-8 ${currentStep >= 3 ? "bg-green-300" : "bg-gray-200"}`}
-                  ></span>
-                  <span
-                    className={`flex items-center justify-center w-6 h-6 rounded-full ${currentStep >= 3 ? "bg-green-100 text-green-600" : "bg-gray-100"} text-xs font-medium`}
-                  >
-                    3
-                  </span>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {vendorForms.map((v, i) => {
+                    const isLowest = v.rate && v.rate === lowestRate;
+
+                    return (
+                      <div
+                        key={i}
+                        className={`p-3 rounded-lg border text-center cursor-pointer transition ${
+                          isLowest
+                            ? "bg-green-50 border-green-500 shadow-sm"
+                            : "bg-white border-gray-200 hover:border-gray-300"
+                        } ${selectedVendorIndex === i ? "ring-2 ring-green-500" : ""}`}
+                        onClick={() => setSelectedVendorIndex(i)}
+                      >
+                        <div className="text-xs text-gray-400">
+                          Vendor {i + 1}
+                        </div>
+                        <div className="text-lg font-bold text-gray-800">
+                          ₹{v.rate || "-"}
+                        </div>
+                        {isLowest && (
+                          <div className="text-[10px] text-green-600 font-semibold mt-1">
+                            BEST
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex justify-between mb-4 text-xs text-gray-500">
-                  <span>Vendor Details</span>
-                  <span>Compare Rates</span>
-                  <span>Upload & Submit</span>
-                </div>
+
+                {/* Quick Approve Button */}
+                {lowestRate && (
+                  <Button
+                    onClick={quickApprove}
+                    className="w-full mb-4 bg-green-600 hover:bg-green-700 text-white"
+                    size="sm"
+                  >
+                    <TrendingDown className="w-4 h-4 mr-2" />
+                    Approve Lowest Rate (₹{lowestRate})
+                  </Button>
+                )}
               </div>
 
               <div className="flex-1 px-6 pb-4 overflow-y-auto">
-                {/* Step 1: Vendor Details - Side by Side Comparison */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {[0, 1, 2].map((idx) => {
-                      const isLowest =
-                        vendorForms[idx].name &&
-                        vendorForms[idx].rate > 0 &&
-                        vendorForms[idx].rate === lowestRate;
-                      return (
-                        <div
-                          key={idx}
-                          className={`p-4 rounded-xl transition-all ${isLowest ? "border-2 border-green-400 bg-green-50/30" : "border border-gray-200 bg-white"}`}
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-semibold text-gray-700">
-                              Vendor {idx + 1}
-                            </span>
-                            {isLowest && (
-                              <Badge className="text-xs text-white bg-green-500">
-                                <TrendingDown className="w-3 h-3 mr-1" />
-                                Lowest
-                              </Badge>
-                            )}
+                {/* Single Vendor Form */}
+                <div className="p-4 border rounded-xl bg-gray-50/30">
+                  {(() => {
+                    const idx = selectedVendorIndex;
+                    const currentVendor = vendorForms[idx];
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold text-gray-700">
+                            Vendor {idx + 1} Details
+                          </span>
+                          <Badge className="text-green-700 bg-green-100">
+                            Editing
+                          </Badge>
+                        </div>
+
+                        {/* Vendor Name */}
+                        <div>
+                          <Label className="block mb-1 text-xs font-medium text-gray-600">
+                            Vendor Name
+                          </Label>
+                          <Select
+                            value={currentVendor.name}
+                            onValueChange={(value) =>
+                              updateVendorForm(idx, "name", value)
+                            }
+                          >
+                            <SelectTrigger className="text-sm border-gray-200 h-9 bg-white">
+                              <SelectValue placeholder="Select vendor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {vendorMasterOptions.map(
+                                (vendor, vendorIndex) => (
+                                  <SelectItem
+                                    key={`vendor-${idx}-${vendorIndex}`}
+                                    value={vendor}
+                                  >
+                                    {vendor}
+                                  </SelectItem>
+                                ),
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Rate Section */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="block mb-1 text-xs font-medium text-gray-600">
+                              Rate (₹)
+                            </Label>
+                            <Input
+                              type="number"
+                              value={currentVendor.rate || ""}
+                              onChange={(e) =>
+                                updateVendorForm(
+                                  idx,
+                                  "rate",
+                                  parseFloat(e.target.value) || 0,
+                                )
+                              }
+                              className="text-sm border-gray-200 h-9 bg-white"
+                              placeholder="0.00"
+                            />
                           </div>
+                          <div>
+                            <Label className="block mb-1 text-xs font-medium text-gray-600">
+                              Rate Type
+                            </Label>
+                            <Select
+                              value={currentVendor.rateType}
+                              onValueChange={(v) =>
+                                updateVendorForm(idx, "rateType", v)
+                              }
+                            >
+                              <SelectTrigger className="text-sm border-gray-200 h-9 bg-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="basic">
+                                  Basic Rate
+                                </SelectItem>
+                                <SelectItem value="withTax">
+                                  With Tax
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
 
-                          <div className="space-y-3">
-                            <div>
-                              <Label className="block mb-1 text-xs text-gray-500">
-                                Vendor Name
-                              </Label>
-                              <Select
-                                value={vendorForms[idx].name}
-                                onValueChange={(value) =>
-                                  updateVendorForm(idx, "name", value)
-                                }
-                              >
-                                <SelectTrigger className="text-sm border-gray-200 h-9">
-                                  <SelectValue placeholder="Select vendor" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {vendorMasterOptions.map(
-                                    (vendor, vendorIndex) => (
-                                      <SelectItem
-                                        key={`vendor-${idx}-${vendorIndex}`}
-                                        value={vendor}
-                                      >
-                                        {vendor}
-                                      </SelectItem>
-                                    ),
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                        {/* Final Rate Display */}
+                        <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-green-700">
+                              Final Rate (with GST)
+                            </span>
+                            <span className="text-xl font-bold text-green-700">
+                              ₹{finalRate}
+                            </span>
+                          </div>
+                        </div>
 
-                            <div className="grid grid-cols-2 gap-2">
+                        {/* Advanced Details */}
+                        <details className="group">
+                          <summary className="flex items-center justify-between py-2 text-xs font-medium text-gray-600 cursor-pointer list-none hover:text-gray-800">
+                            <span>Advanced Details</span>
+                            <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
+                          </summary>
+
+                          <div className="mt-3 space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <Label className="block mb-1 text-xs text-gray-500">
-                                  Rate Type
+                                <Label className="block mb-1 text-[10px] text-gray-500">
+                                  Packaging
                                 </Label>
                                 <Select
-                                  value={vendorForms[idx].rateType}
+                                  value={currentVendor.packaging}
                                   onValueChange={(v) =>
-                                    updateVendorForm(idx, "rateType", v)
+                                    updateVendorForm(idx, "packaging", v)
                                   }
                                 >
-                                  <SelectTrigger className="text-sm border-gray-200 h-9">
-                                    <SelectValue />
+                                  <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
+                                    <SelectValue placeholder="Select" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="basic">
-                                      Basic Rate
+                                    <SelectItem value="Ton Bag">
+                                      Ton Bag
                                     </SelectItem>
-                                    <SelectItem value="withTax">
-                                      With Tax
+                                    <SelectItem value="50 kg">50 kg</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label className="block mb-1 text-[10px] text-gray-500">
+                                  Payment Term
+                                </Label>
+                                <Select
+                                  value={currentVendor.paymentTerm}
+                                  onValueChange={(v) =>
+                                    updateVendorForm(idx, "paymentTerm", v)
+                                  }
+                                >
+                                  <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
+                                    <SelectValue placeholder="Select term" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Advance">
+                                      Advance
+                                    </SelectItem>
+                                    <SelectItem value="After Delivery">
+                                      After Delivery
+                                    </SelectItem>
+                                    <SelectItem value="Credit 30 Days">
+                                      Credit 30 Days
+                                    </SelectItem>
+                                    <SelectItem value="Credit 60 Days">
+                                      Credit 60 Days
                                     </SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
+                            </div>
 
+                            <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <Label className="block mb-1 text-xs text-gray-500">
-                                  Rate (₹)
+                                <Label className="block mb-1 text-[10px] text-gray-500">
+                                  WhatsApp
                                 </Label>
                                 <Input
-                                  type="number"
-                                  value={vendorForms[idx].rate || ""}
+                                  value={currentVendor.whatsapp || ""}
                                   onChange={(e) =>
                                     updateVendorForm(
                                       idx,
-                                      "rate",
-                                      parseFloat(e.target.value) || 0,
+                                      "whatsapp",
+                                      e.target.value,
                                     )
                                   }
-                                  className="text-sm border-gray-200 h-9"
-                                  placeholder="0.00"
+                                  className="h-8 text-xs bg-white border-gray-200"
+                                  placeholder="Number"
+                                />
+                              </div>
+                              <div>
+                                <Label className="block mb-1 text-[10px] text-gray-500">
+                                  Email
+                                </Label>
+                                <Input
+                                  value={currentVendor.email || ""}
+                                  onChange={(e) =>
+                                    updateVendorForm(
+                                      idx,
+                                      "email",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="h-8 text-xs bg-white border-gray-200"
+                                  placeholder="Email"
                                 />
                               </div>
                             </div>
 
-                            {vendorForms[idx].rateType === "basic" &&
-                              vendorForms[idx].withTax === "no" && (
+                            {/* Chemical Analysis */}
+                            <div>
+                              <Label className="block mb-2 text-xs font-medium text-gray-600">
+                                Chemical Analysis (%)
+                              </Label>
+                              <div className="grid grid-cols-3 gap-2">
                                 <div>
-                                  <Label className="block mb-1 text-xs text-gray-500">
-                                    GST %
+                                  <Label className="block mb-1 text-[9px] text-gray-500">
+                                    Al₂O₃
                                   </Label>
-                                  <Select
-                                    value={
-                                      vendorForms[idx].gstPercent?.toString() ||
-                                      "0"
-                                    }
-                                    onValueChange={(v) =>
+                                  <Input
+                                    type="text"
+                                    value={currentVendor.alumina}
+                                    onChange={(e) =>
                                       updateVendorForm(
                                         idx,
-                                        "gstPercent",
-                                        parseInt(v),
+                                        "alumina",
+                                        e.target.value,
                                       )
                                     }
-                                  >
-                                    <SelectTrigger className="text-sm border-gray-200 h-9">
-                                      <SelectValue placeholder="Select GST" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="5">5%</SelectItem>
-                                      <SelectItem value="18">18%</SelectItem>
-                                      <SelectItem value="40">40%</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                    className="h-7 text-[10px] border-gray-200"
+                                    placeholder="0.00"
+                                  />
                                 </div>
-                              )}
-
-                            <div>
-                              <Label className="block mb-1 text-xs text-gray-500">
-                                Payment Term
-                              </Label>
-                              <Select
-                                value={vendorForms[idx].paymentTerm}
-                                onValueChange={(v) =>
-                                  updateVendorForm(idx, "paymentTerm", v)
-                                }
-                              >
-                                <SelectTrigger className="text-sm border-gray-200 h-9">
-                                  <SelectValue placeholder="Select term" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Advance">
-                                    Advance
-                                  </SelectItem>
-                                  <SelectItem value="After Delivery">
-                                    After Delivery
-                                  </SelectItem>
-                                  <SelectItem value="Credit 30 Days">
-                                    Credit 30 Days
-                                  </SelectItem>
-                                  <SelectItem value="Credit 60 Days">
-                                    Credit 60 Days
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
+                                <div>
+                                  <Label className="block mb-1 text-[9px] text-gray-500">
+                                    Fe₂O₃
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={currentVendor.iron}
+                                    onChange={(e) =>
+                                      updateVendorForm(
+                                        idx,
+                                        "iron",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="h-7 text-[10px] border-gray-200"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="block mb-1 text-[9px] text-gray-500">
+                                    SiO₂
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={currentVendor.sio2}
+                                    onChange={(e) =>
+                                      updateVendorForm(
+                                        idx,
+                                        "sio2",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="h-7 text-[10px] border-gray-200"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="block mb-1 text-[9px] text-gray-500">
+                                    CaO
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={currentVendor.cao}
+                                    onChange={(e) =>
+                                      updateVendorForm(
+                                        idx,
+                                        "cao",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="h-7 text-[10px] border-gray-200"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="block mb-1 text-[9px] text-gray-500">
+                                    AP
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={currentVendor.ap}
+                                    onChange={(e) =>
+                                      updateVendorForm(
+                                        idx,
+                                        "ap",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="h-7 text-[10px] border-gray-200"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="block mb-1 text-[9px] text-gray-500">
+                                    BD
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={currentVendor.bd}
+                                    onChange={(e) =>
+                                      updateVendorForm(
+                                        idx,
+                                        "bd",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="h-7 text-[10px] border-gray-200"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                              </div>
+                              <div className="mt-2">
+                                <Label className="block mb-1 text-[9px] text-gray-500">
+                                  Fineness
+                                </Label>
+                                <Input
+                                  type="text"
+                                  value={currentVendor.fineness}
+                                  onChange={(e) =>
+                                    updateVendorForm(
+                                      idx,
+                                      "fineness",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="h-7 text-[10px] border-gray-200"
+                                  placeholder="Details"
+                                />
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
 
-                  {/* Step 2: Comparison Sheet Upload */}
-                  <div className="pt-4 mt-6 border-t border-gray-100">
-                    <div className="mb-3 text-sm font-semibold text-gray-700">
-                      Step 3: Upload Comparison Sheet
-                    </div>
-                    <div className="p-6 text-center transition-colors border-2 border-gray-200 border-dashed cursor-pointer rounded-xl hover:bg-gray-50">
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                      <p className="text-sm font-medium text-gray-700">
-                        {comparisonSheetFile
-                          ? comparisonSheetFile.name
-                          : "Upload Comparison Sheet"}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        PDF, JPG, PNG (max 10MB)
-                      </p>
-                      <input
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        className="hidden"
-                        id="comparison-sheet-upload"
-                        onChange={(e) =>
-                          setComparisonSheetFile(e.target.files?.[0] || null)
-                        }
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-3 text-xs"
-                        onClick={() =>
-                          document
-                            .getElementById("comparison-sheet-upload")
-                            ?.click()
-                        }
-                      >
-                        Choose File
-                      </Button>
-                    </div>
+                            {/* GST for Basic Rate */}
+                            {currentVendor.rateType === "basic" && (
+                              <div>
+                                <Label className="block mb-1 text-[10px] text-gray-500">
+                                  GST %
+                                </Label>
+                                <Select
+                                  value={
+                                    currentVendor.gstPercent?.toString() || "0"
+                                  }
+                                  onValueChange={(v) =>
+                                    updateVendorForm(
+                                      idx,
+                                      "gstPercent",
+                                      parseInt(v),
+                                    )
+                                  }
+                                >
+                                  <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
+                                    <SelectValue placeholder="Tax %" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="0">0%</SelectItem>
+                                    <SelectItem value="5">5%</SelectItem>
+                                    <SelectItem value="12">12%</SelectItem>
+                                    <SelectItem value="18">18%</SelectItem>
+                                    <SelectItem value="28">28%</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Comparison Sheet Upload */}
+                <div className="pt-4 mt-6 border-t border-gray-100">
+                  <div className="mb-3 text-sm font-semibold text-gray-700">
+                    Upload Comparison Sheet
+                  </div>
+                  <div className="p-6 text-center transition-colors border-2 border-gray-200 border-dashed cursor-pointer rounded-xl hover:bg-gray-50">
+                    <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm font-medium text-gray-700">
+                      {comparisonSheetFile
+                        ? comparisonSheetFile.name
+                        : "Upload Comparison Sheet"}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      PDF, JPG, PNG (max 10MB)
+                    </p>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      id="comparison-sheet-upload"
+                      onChange={(e) =>
+                        setComparisonSheetFile(e.target.files?.[0] || null)
+                      }
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 text-xs"
+                      onClick={() =>
+                        document
+                          .getElementById("comparison-sheet-upload")
+                          ?.click()
+                      }
+                    >
+                      Choose File
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -1149,7 +1508,7 @@ export default function ThreeParty() {
                   {isSubmitting ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : null}
-                  Submit Approval
+                  Submit to Factory Approval
                 </Button>
               </div>
             </div>

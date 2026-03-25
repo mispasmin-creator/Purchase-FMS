@@ -1,6 +1,13 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate, useLocation, Navigate, Route, Routes, Link } from "react-router-dom";
+import {
+  useNavigate,
+  useLocation,
+  Navigate,
+  Route,
+  Routes,
+  Link,
+} from "react-router-dom";
 import Dashboard from "./components/Dashboard";
 import IndentForm from "./components/IndentForm";
 import StockApproval from "./components/StockApproval";
@@ -24,7 +31,7 @@ import DebitNote from "./components/Debit-note";
 import SaleOfRawMaterial from "./components/SaleOfRawMaterial";
 
 import { useAuth } from "./context/AuthContext";
-import { useNotification } from "./context/NotificationContext";// Import hook
+import { useNotification } from "./context/NotificationContext"; // Import hook
 import { supabase } from "./supabase";
 import BiltyPage from "./components/BiltyPage";
 import FullkittingTransportingPage from "./components/FullkittingTransportingPage";
@@ -32,16 +39,43 @@ import Accounts from "./components/Accounts";
 import KycPage from "./components/KycPage";
 import VendorPaymentPage from "./components/VendorPaymentPage";
 import ThreeParty from "./components/ThreeParty";
+import FactoryApprovals from "./components/FactoryApprovals";
 import ManagementApprovals from "./components/ManagementApprovals";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
-  LayoutDashboard, FilePlus, PackageCheck, FileText, Calculator,
-  Truck, CheckSquare, TestTube, Archive, Menu, X, Receipt, PackageSearch,
-  UserCheck, Wallet, Landmark, User, Database,
-  FileEdit, Search, FileCheck, RotateCcw, Save, Edit2, Gauge, Loader2, Scale, AlertTriangle, ShoppingBag, CheckCircle2
-} from 'lucide-react';
+  LayoutDashboard,
+  FilePlus,
+  PackageCheck,
+  FileText,
+  Calculator,
+  Truck,
+  CheckSquare,
+  TestTube,
+  Archive,
+  Menu,
+  X,
+  Receipt,
+  PackageSearch,
+  UserCheck,
+  Wallet,
+  Landmark,
+  User,
+  Database,
+  FileEdit,
+  Search,
+  FileCheck,
+  RotateCcw,
+  Save,
+  Edit2,
+  Gauge,
+  Loader2,
+  Scale,
+  AlertTriangle,
+  ShoppingBag,
+  CheckCircle2,
+} from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 
 function App() {
@@ -81,7 +115,7 @@ function App() {
       icon: <LayoutDashboard size={20} />,
       stepName: "Dashboard",
       showNotification: false,
-      component: <Dashboard />
+      component: <Dashboard />,
     },
     {
       id: "indent",
@@ -90,18 +124,18 @@ function App() {
       icon: <FilePlus size={20} />,
       stepName: "Generate Indent",
       showNotification: false,
-      component: <IndentForm />
+      component: <IndentForm />,
     },
     {
       id: "stock",
       label: "HOD Approval",
-      path: "/management-approval",
+      path: "/stock-approval",
       icon: <PackageCheck size={20} />,
       stepName: "Recheck the Stock And Approve Quantity",
       showNotification: true,
       countKey: "stock",
       countLabel: "Pending",
-      component: <StockApproval />
+      component: <StockApproval />,
     },
     {
       id: "three-party",
@@ -112,18 +146,29 @@ function App() {
       showNotification: true,
       countKey: "vendor",
       countLabel: "Pending",
-      component: <ThreeParty />
+      component: <ThreeParty />,
+    },
+    {
+      id: "factory-approval",
+      label: "Factory App.",
+      path: "/factory-approval",
+      icon: <CheckCircle2 size={20} />,
+      stepName: "management", // Using 'management' as the stepName for authorization
+      showNotification: true,
+      countKey: "factory",
+      countLabel: "Pending",
+      component: <FactoryApprovals />,
     },
     {
       id: "management-approval",
       label: "Mgmt App.",
-      path: "/management-approvals",
+      path: "/management-approval",
       icon: <CheckCircle2 size={20} />,
-      stepName: "management", // Using 'management' as the stepName for authorization
+      stepName: "management",
       showNotification: true,
       countKey: "management",
       countLabel: "Pending",
-      component: <ManagementApprovals />
+      component: <ManagementApprovals />,
     },
     {
       id: "generate-po",
@@ -134,7 +179,7 @@ function App() {
       showNotification: true,
       countKey: "generate-po",
       countLabel: "Pending",
-      component: <GeneratePO />
+      component: <GeneratePO />,
     },
     {
       id: "tally-entry",
@@ -145,17 +190,17 @@ function App() {
       showNotification: true,
       countKey: "tally-entry",
       countLabel: "Pending",
-      component: <TallyEntry />
+      component: <TallyEntry />,
     },
     {
       id: "original-bills",
       label: "Advance Payement",
       path: "/advance-payement",
       icon: <Archive size={20} />,
-      countKey: "original-bills",  // ✅ Make sure this matches
+      countKey: "original-bills", // ✅ Make sure this matches
       stepName: "accounts",
       showNotification: true,
-      component: <OriginalBillsFiledPage />
+      component: <OriginalBillsFiledPage />,
     },
     {
       id: "lift-material",
@@ -166,7 +211,7 @@ function App() {
       showNotification: true,
       countKey: "lift-material",
       countLabel: "Pending",
-      component: <LiftMaterial />
+      component: <LiftMaterial />,
     },
     {
       id: "receipt-check",
@@ -177,7 +222,7 @@ function App() {
       showNotification: true,
       countKey: "receipt-check",
       countLabel: "Pending",
-      component: <ReceiptCheck />
+      component: <ReceiptCheck />,
     },
     {
       id: "lab-testing",
@@ -188,7 +233,7 @@ function App() {
       showNotification: true,
       countKey: "lab-testing",
       countLabel: "Pending",
-      component: <LabTesting />
+      component: <LabTesting />,
     },
     {
       id: "bilty",
@@ -199,7 +244,7 @@ function App() {
       showNotification: true,
       countKey: "bilty",
       countLabel: "Pending",
-      component: <BiltyPage />
+      component: <BiltyPage />,
     },
     {
       id: "mismatch",
@@ -210,7 +255,7 @@ function App() {
       showNotification: true,
       countKey: "mismatch",
       countLabel: "Issues",
-      component: <Mismatch />
+      component: <Mismatch />,
     },
     {
       id: "debit-note",
@@ -221,7 +266,7 @@ function App() {
       showNotification: true,
       countKey: "debit-note",
       countLabel: "Pending",
-      component: <DebitNote />
+      component: <DebitNote />,
     },
     {
       id: "fullkitting",
@@ -232,7 +277,7 @@ function App() {
       showNotification: true,
       countKey: "fullkitting",
       countLabel: "Pending",
-      component: <FullkittingTransportingPage />
+      component: <FullkittingTransportingPage />,
     },
     {
       id: "audit-data",
@@ -243,7 +288,7 @@ function App() {
       showNotification: true,
       countKey: "audit-data",
       countLabel: "Pending",
-      component: <AuditData />
+      component: <AuditData />,
     },
     {
       id: "sale-of-raw-material",
@@ -252,7 +297,7 @@ function App() {
       icon: <ShoppingBag size={20} />,
       stepName: "Sale Of Raw Material",
       showNotification: false,
-      component: <SaleOfRawMaterial />
+      component: <SaleOfRawMaterial />,
     },
     {
       id: "rectify-mistake",
@@ -263,7 +308,7 @@ function App() {
       stepName: "rectify-mistake", // Guessing step name or using generic
       showNotification: false,
       component: <RactifyMistake />,
-      hidden: true // Mark as hidden from sidebar if not originally there but needed for routing
+      hidden: true, // Mark as hidden from sidebar if not originally there but needed for routing
     },
     {
       id: "final-tally-entry",
@@ -273,7 +318,7 @@ function App() {
       stepName: "accounts", // Guessing
       showNotification: false,
       component: <FinalTallyEntry />,
-      hidden: true
+      hidden: true,
     },
     {
       id: "rectify-mistake-2",
@@ -283,7 +328,7 @@ function App() {
       stepName: "rectify-mistake",
       showNotification: false,
       component: <RactifyMistake2 />,
-      hidden: true
+      hidden: true,
     },
     {
       id: "take-entry-tally",
@@ -293,7 +338,7 @@ function App() {
       stepName: "accounts",
       showNotification: false,
       component: <TakeEntryTallyPage />,
-      hidden: true
+      hidden: true,
     },
     {
       id: "again-auditing",
@@ -303,7 +348,7 @@ function App() {
       stepName: "accounts",
       showNotification: false,
       component: <AgainAuditingPage />,
-      hidden: true
+      hidden: true,
     },
     {
       id: "tolerance",
@@ -313,7 +358,7 @@ function App() {
       stepName: "accounts",
       showNotification: false,
       component: <TolrancePage />,
-      hidden: true
+      hidden: true,
     },
     {
       id: "kyc",
@@ -323,7 +368,7 @@ function App() {
       stepName: "accounts",
       showNotification: false,
       component: <KycPage />,
-      hidden: true
+      hidden: true,
     },
     {
       id: "vendor-payment",
@@ -333,11 +378,11 @@ function App() {
       stepName: "accounts",
       showNotification: false,
       component: <VendorPaymentPage />,
-      hidden: true
-    }
+      hidden: true,
+    },
   ];
 
-  const accessibleTabs = allTabs.filter(tab => {
+  const accessibleTabs = allTabs.filter((tab) => {
     // Always show dashboard
     if (tab.id === "dashboard") return !tab.hidden;
 
@@ -348,15 +393,21 @@ function App() {
     const tabLabel = tab.label?.toLowerCase().trim();
     const tabStepName = tab.stepName?.toLowerCase().trim();
 
-    return allowedSteps.some(step => {
-      const stepLower = step.toLowerCase().trim();
-      return stepLower === tabLabel || stepLower === tabStepName;
-    }) && !tab.hidden;
+    return (
+      allowedSteps.some((step) => {
+        const stepLower = step.toLowerCase().trim();
+        return stepLower === tabLabel || stepLower === tabStepName;
+      }) && !tab.hidden
+    );
   });
 
   // Helper function to render notification badge
   const renderNotificationBadge = (tab) => {
-    if (!tab.showNotification || !notificationCounts[tab.countKey] || notificationCounts[tab.countKey] === 0) {
+    if (
+      !tab.showNotification ||
+      !notificationCounts[tab.countKey] ||
+      notificationCounts[tab.countKey] === 0
+    ) {
       return null;
     }
 
@@ -365,7 +416,7 @@ function App() {
       <div className="ml-auto flex items-center justify-center">
         <div className="relative">
           <div className="h-5 w-5 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-            {count > 99 ? '99+' : count}
+            {count > 99 ? "99+" : count}
           </div>
           {loadingNotifications && (
             <div className="absolute inset-0 rounded-full border-2 border-red-500 border-t-transparent animate-spin"></div>
@@ -380,24 +431,29 @@ function App() {
       <ScrollArea className={`h-full flex-1 w-full`}>
         <nav className="space-y-1 p-2 pr-3 pb-20">
           {accessibleTabs.map((tab) => {
-            const isActive = location.pathname === tab.path || (tab.path === '/dashboard' && location.pathname === '/');
+            const isActive =
+              location.pathname === tab.path ||
+              (tab.path === "/dashboard" && location.pathname === "/");
             return (
               <Link
                 key={tab.id}
                 to={tab.path}
                 className={`w-full flex items-center h-12 relative group rounded-lg transition-all duration-200 ease-in-out text-sm font-medium no-underline
-                        ${isMobile ? 'px-4' : (isSidebarOpen ? 'pl-4' : 'justify-center')}
-                        ${isActive
-                    ? "bg-[#7da23a] text-white shadow-md"
-                    : "bg-white text-gray-700 hover:bg-green-50 hover:text-gray-900"
-                  }`}
+                        ${isMobile ? "px-4" : isSidebarOpen ? "pl-4" : "justify-center"}
+                        ${
+                          isActive
+                            ? "bg-[#7da23a] text-white shadow-md"
+                            : "bg-white text-gray-700 hover:bg-green-50 hover:text-gray-900"
+                        }`}
                 onClick={() => {
                   if (isMobile) setIsMobileSidebarOpen(false);
                 }}
                 title={tab.label}
               >
-                <span className={`transition-colors duration-150 ease-in-out flex-shrink-0
-                              ${isActive ? 'text-white' : 'text-gray-600 group-hover:text-gray-900'}`}>
+                <span
+                  className={`transition-colors duration-150 ease-in-out flex-shrink-0
+                              ${isActive ? "text-white" : "text-gray-600 group-hover:text-gray-900"}`}
+                >
                   {tab.icon}
                 </span>
 
@@ -412,15 +468,20 @@ function App() {
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-[#7da23a] rounded-r-full"></span>
                 )}
 
-                {!isMobile && !isSidebarOpen && tab.showNotification && notificationCounts[tab.countKey] > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
-                    <span className="text-[8px] text-white font-bold">
-                      {notificationCounts[tab.countKey] > 9 ? '9+' : notificationCounts[tab.countKey]}
+                {!isMobile &&
+                  !isSidebarOpen &&
+                  tab.showNotification &&
+                  notificationCounts[tab.countKey] > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
+                      <span className="text-[8px] text-white font-bold">
+                        {notificationCounts[tab.countKey] > 9
+                          ? "9+"
+                          : notificationCounts[tab.countKey]}
+                      </span>
                     </span>
-                  </span>
-                )}
+                  )}
               </Link>
-            )
+            );
           })}
         </nav>
       </ScrollArea>
@@ -428,7 +489,12 @@ function App() {
       {!isMobile && isSidebarOpen && (
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 text-center bg-white">
           <p className="text-sm text-gray-500 font-semibold">Powered By</p>
-          <a className="text-base font-bold bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] bg-clip-text text-transparent" href="https://www.botivate.in/">Botivate</a>
+          <a
+            className="text-base font-bold bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] bg-clip-text text-transparent"
+            href="https://www.botivate.in/"
+          >
+            Botivate
+          </a>
         </div>
       )}
     </>
@@ -438,22 +504,32 @@ function App() {
     <div className="flex h-screen overflow-hidden bg-slate-50">
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden md:flex bg-white shadow-lg transition-all duration-300 ease-in-out flex-col flex-shrink-0 relative ${isSidebarOpen ? "w-80" : "w-20"
-          }`}
+        className={`hidden md:flex bg-white shadow-lg transition-all duration-300 ease-in-out flex-col flex-shrink-0 relative ${
+          isSidebarOpen ? "w-80" : "w-20"
+        }`}
       >
         {/* Header */}
         <div
-          className={`py-8 flex flex-col gap-8 border-b border-gray-200 flex-shrink-0 z-10 bg-white ${isSidebarOpen ? "px-6" : "px-0 items-center justify-center"
-            }`}
+          className={`py-8 flex flex-col gap-8 border-b border-gray-200 flex-shrink-0 z-10 bg-white ${
+            isSidebarOpen ? "px-6" : "px-0 items-center justify-center"
+          }`}
         >
           {isSidebarOpen ? (
             <>
               <div className="flex items-center gap-5">
                 <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center justify-center shrink-0 w-[5rem] h-[4rem]">
-                  <img src="/passary.jpeg" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
+                  <img
+                    src="/passary.jpeg"
+                    alt="Logo"
+                    className="w-full h-full object-contain mix-blend-multiply"
+                  />
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-extrabold text-[1.4rem] leading-tight text-[#7da23a] tracking-tight">Purchase<br />FMS</span>
+                  <span className="font-extrabold text-[1.4rem] leading-tight text-[#7da23a] tracking-tight">
+                    Purchase
+                    <br />
+                    FMS
+                  </span>
                 </div>
               </div>
 
@@ -462,15 +538,23 @@ function App() {
                   <User size={26} strokeWidth={1.5} />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-base font-medium text-[#7da23a] leading-tight">{user?.username || "user"}</span>
-                  <span className="text-[13px] text-slate-500 leading-tight mt-0.5">all - khem</span>
+                  <span className="text-base font-medium text-[#7da23a] leading-tight">
+                    {user?.username || "user"}
+                  </span>
+                  <span className="text-[13px] text-slate-500 leading-tight mt-0.5">
+                    all - khem
+                  </span>
                 </div>
               </div>
             </>
           ) : (
             <>
               <div className="bg-slate-50 rounded-xl p-2 border border-slate-100 shadow-sm flex items-center justify-center w-12 h-10 mb-6 mt-4">
-                <img src="/passary.jpeg" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
+                <img
+                  src="/passary.jpeg"
+                  alt="Logo"
+                  className="w-full h-full object-contain mix-blend-multiply"
+                />
               </div>
               <div className="text-slate-500">
                 <User size={24} strokeWidth={1.5} />
@@ -494,27 +578,36 @@ function App() {
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            {allTabs.map(tab => (
+            {allTabs.map((tab) => (
               <Route
                 key={tab.id}
                 path={tab.path}
                 element={
                   // Check access control - same logic as sidebar filtering
-                  (tab.id === "dashboard" ||
-                    allowedSteps.includes("admin") ||
-                    allowedSteps.some(step => {
-                      const stepLower = step.toLowerCase().trim();
-                      const tabLabel = tab.label?.toLowerCase().trim();
-                      const tabStepName = tab.stepName?.toLowerCase().trim();
-                      return stepLower === tabLabel || stepLower === tabStepName;
-                    }))
-                    ? tab.component
-                    : <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)] text-center text-gray-500">
+                  tab.id === "dashboard" ||
+                  allowedSteps.includes("admin") ||
+                  allowedSteps.some((step) => {
+                    const stepLower = step.toLowerCase().trim();
+                    const tabLabel = tab.label?.toLowerCase().trim();
+                    const tabStepName = tab.stepName?.toLowerCase().trim();
+                    return stepLower === tabLabel || stepLower === tabStepName;
+                  }) ? (
+                    tab.component
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)] text-center text-gray-500">
                       <X size={48} className="text-red-400 mb-4" />
                       <h2 className="text-2xl font-bold">Access Denied</h2>
-                      <p className="mt-2">You do not have permission to view this section.</p>
-                      <Button onClick={() => navigate("/dashboard")} className="mt-4">Go to Dashboard</Button>
+                      <p className="mt-2">
+                        You do not have permission to view this section.
+                      </p>
+                      <Button
+                        onClick={() => navigate("/dashboard")}
+                        className="mt-4"
+                      >
+                        Go to Dashboard
+                      </Button>
                     </div>
+                  )
                 }
               />
             ))}
@@ -530,10 +623,18 @@ function App() {
           <div className="py-6 flex flex-col gap-8 border-b border-gray-200 bg-white z-10 px-6 shrink-0">
             <div className="flex items-center gap-5">
               <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center justify-center shrink-0 w-[5rem] h-[4rem]">
-                <img src="/passary.jpeg" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
+                <img
+                  src="/passary.jpeg"
+                  alt="Logo"
+                  className="w-full h-full object-contain mix-blend-multiply"
+                />
               </div>
               <div className="flex flex-col">
-                <span className="font-extrabold text-[1.4rem] leading-tight text-[#7da23a] tracking-tight">Purchase<br />FMS</span>
+                <span className="font-extrabold text-[1.4rem] leading-tight text-[#7da23a] tracking-tight">
+                  Purchase
+                  <br />
+                  FMS
+                </span>
               </div>
             </div>
 
@@ -542,8 +643,12 @@ function App() {
                 <User size={26} strokeWidth={1.5} />
               </div>
               <div className="flex flex-col">
-                <span className="text-base font-medium text-[#7da23a] leading-tight">{user?.username || "user"}</span>
-                <span className="text-[13px] text-slate-500 leading-tight mt-0.5">all - khem</span>
+                <span className="text-base font-medium text-[#7da23a] leading-tight">
+                  {user?.username || "user"}
+                </span>
+                <span className="text-[13px] text-slate-500 leading-tight mt-0.5">
+                  all - khem
+                </span>
               </div>
             </div>
           </div>
@@ -565,13 +670,12 @@ export default App;
 
 // Helper functions (getPending*...) have been moved to NotificationContext.jsx
 
-
 async function getPendingMismatches() {
   try {
     const [lifts, pos, tlData] = await Promise.all([
       getLiftAccountsData(),
       getPurchaseOrdersData(),
-      getTLData()
+      getTLData(),
     ]);
 
     const rateMismatchCount = countRateMismatches(lifts, pos);
@@ -579,7 +683,6 @@ async function getPendingMismatches() {
     const materialMismatchCount = countMaterialMismatches(lifts, tlData, pos);
 
     return rateMismatchCount + quantityMismatchCount + materialMismatchCount;
-
   } catch (error) {
     console.error("Error fetching pending mismatches:", error);
     return 0;
@@ -593,12 +696,14 @@ async function getLiftAccountsData() {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(LIFT_ACCOUNTS_SHEET)}&cb=${new Date().getTime()}`;
 
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to fetch lifts data: ${response.status}`);
+  if (!response.ok)
+    throw new Error(`Failed to fetch lifts data: ${response.status}`);
 
   const text = await response.text();
   const jsonStart = text.indexOf("{");
   const jsonEnd = text.lastIndexOf("}");
-  if (jsonStart === -1 || jsonEnd === -1) throw new Error("Invalid response format");
+  if (jsonStart === -1 || jsonEnd === -1)
+    throw new Error("Invalid response format");
 
   const jsonString = text.substring(jsonStart, jsonEnd + 1);
   const data = JSON.parse(jsonString);
@@ -606,32 +711,34 @@ async function getLiftAccountsData() {
   if (!data.table || !data.table.cols) return [];
   if (!data.table.rows) data.table.rows = [];
 
-  return data.table.rows.map((row) => {
-    if (!row || !row.c) return null;
+  return data.table.rows
+    .map((row) => {
+      if (!row || !row.c) return null;
 
-    const getStringValue = (colIndex) => {
-      const cell = row.c?.[colIndex];
-      if (cell && cell.v !== undefined && cell.v !== null) {
-        return String(cell.v).trim();
-      }
-      return "";
-    };
+      const getStringValue = (colIndex) => {
+        const cell = row.c?.[colIndex];
+        if (cell && cell.v !== undefined && cell.v !== null) {
+          return String(cell.v).trim();
+        }
+        return "";
+      };
 
-    return {
-      id: getStringValue(1),
-      indentNo: getStringValue(2),
-      vendorName: getStringValue(3),
-      material: getStringValue(5),
-      materialRate: parseFloat(getStringValue(16)) || 0,
-      liftedQty: parseFloat(getStringValue(9)) || 0,
-      actualQuantityY: parseFloat(getStringValue(24)) || 0,
-      liftAlumina: parseFloat(getStringValue(42)) || 0,
-      liftIron: parseFloat(getStringValue(43)) || 0,
-      liftAP: parseFloat(getStringValue(41)) || 0,
-      firmName: getStringValue(56),
-      createdAt: getStringValue(0)
-    };
-  }).filter(row => row !== null && row.id && row.id.trim() !== "");
+      return {
+        id: getStringValue(1),
+        indentNo: getStringValue(2),
+        vendorName: getStringValue(3),
+        material: getStringValue(5),
+        materialRate: parseFloat(getStringValue(16)) || 0,
+        liftedQty: parseFloat(getStringValue(9)) || 0,
+        actualQuantityY: parseFloat(getStringValue(24)) || 0,
+        liftAlumina: parseFloat(getStringValue(42)) || 0,
+        liftIron: parseFloat(getStringValue(43)) || 0,
+        liftAP: parseFloat(getStringValue(41)) || 0,
+        firmName: getStringValue(56),
+        createdAt: getStringValue(0),
+      };
+    })
+    .filter((row) => row !== null && row.id && row.id.trim() !== "");
 }
 
 async function getPurchaseOrdersData() {
@@ -641,7 +748,8 @@ async function getPurchaseOrdersData() {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INDENT_PO_SHEET)}`;
 
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to fetch PO data: ${response.status}`);
+  if (!response.ok)
+    throw new Error(`Failed to fetch PO data: ${response.status}`);
 
   const text = await response.text();
   const jsonStart = text.indexOf("{");
@@ -651,25 +759,30 @@ async function getPurchaseOrdersData() {
 
   if (!data.table || !data.table.rows) return [];
 
-  return data.table.rows.slice(1).map(row => {
-    if (!row.c) return null;
+  return data.table.rows
+    .slice(1)
+    .map((row) => {
+      if (!row.c) return null;
 
-    const getStringValue = (colIndex) => {
-      const cell = row.c?.[colIndex];
-      if (cell && cell.v !== undefined && cell.v !== null) {
-        return String(cell.v).trim();
-      }
-      return "";
-    };
+      const getStringValue = (colIndex) => {
+        const cell = row.c?.[colIndex];
+        if (cell && cell.v !== undefined && cell.v !== null) {
+          return String(cell.v).trim();
+        }
+        return "";
+      };
 
-    return {
-      indentNo: getStringValue(1),
-      poRate: parseFloat(getStringValue(21)) || 0,
-      poAluminaPercent: parseFloat(getStringValue(30)) || 0,
-      poIronPercent: parseFloat(getStringValue(31)) || 0,
-      firmName: getStringValue(2)
-    };
-  }).filter(row => row !== null && row.indentNo && row.indentNo.trim() !== "");
+      return {
+        indentNo: getStringValue(1),
+        poRate: parseFloat(getStringValue(21)) || 0,
+        poAluminaPercent: parseFloat(getStringValue(30)) || 0,
+        poIronPercent: parseFloat(getStringValue(31)) || 0,
+        firmName: getStringValue(2),
+      };
+    })
+    .filter(
+      (row) => row !== null && row.indentNo && row.indentNo.trim() !== "",
+    );
 }
 
 async function getTLData() {
@@ -679,41 +792,52 @@ async function getTLData() {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(TL_SHEET)}&cb=${new Date().getTime()}`;
 
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to fetch TL data: ${response.status}`);
+  if (!response.ok)
+    throw new Error(`Failed to fetch TL data: ${response.status}`);
 
   const text = await response.text();
   const jsonStart = text.indexOf("{");
   const jsonEnd = text.lastIndexOf("}");
-  if (jsonStart === -1 || jsonEnd === -1) throw new Error("Invalid response format");
+  if (jsonStart === -1 || jsonEnd === -1)
+    throw new Error("Invalid response format");
   const jsonString = text.substring(jsonStart, jsonEnd + 1);
   const dataTable = JSON.parse(jsonString).table;
 
-  return dataTable.rows.map(row => {
-    if (!row.c) return null;
+  return dataTable.rows
+    .map((row) => {
+      if (!row.c) return null;
 
-    const getStringValue = (colIndex) => {
-      const cell = row.c?.[colIndex];
-      if (cell && cell.v !== undefined && cell.v !== null) {
-        return String(cell.v).trim();
-      }
-      return "";
-    };
+      const getStringValue = (colIndex) => {
+        const cell = row.c?.[colIndex];
+        if (cell && cell.v !== undefined && cell.v !== null) {
+          return String(cell.v).trim();
+        }
+        return "";
+      };
 
-    return {
-      rawMaterial: getStringValue(1),
-      alumina: parseFloat(getStringValue(2)) || 0,
-      iron: parseFloat(getStringValue(3)) || 0,
-      ap: parseFloat(getStringValue(4)) || 0
-    };
-  }).filter(row => row !== null && row.rawMaterial && row.rawMaterial.trim() !== "");
+      return {
+        rawMaterial: getStringValue(1),
+        alumina: parseFloat(getStringValue(2)) || 0,
+        iron: parseFloat(getStringValue(3)) || 0,
+        ap: parseFloat(getStringValue(4)) || 0,
+      };
+    })
+    .filter(
+      (row) => row !== null && row.rawMaterial && row.rawMaterial.trim() !== "",
+    );
 }
 
 function countRateMismatches(lifts, pos) {
   let count = 0;
-  lifts.forEach(lift => {
+  lifts.forEach((lift) => {
     if (!lift.materialRate || lift.materialRate <= 0) return;
-    const correspondingPO = pos.find(po => po.indentNo === lift.indentNo);
-    if (!correspondingPO || !correspondingPO.poRate || correspondingPO.poRate <= 0) return;
+    const correspondingPO = pos.find((po) => po.indentNo === lift.indentNo);
+    if (
+      !correspondingPO ||
+      !correspondingPO.poRate ||
+      correspondingPO.poRate <= 0
+    )
+      return;
     const rateDifference = Math.abs(lift.materialRate - correspondingPO.poRate);
     if (rateDifference >= 0.01) count++;
   });
@@ -722,8 +846,14 @@ function countRateMismatches(lifts, pos) {
 
 function countQuantityMismatches(lifts) {
   let count = 0;
-  lifts.forEach(lift => {
-    if (!lift.liftedQty || lift.liftedQty <= 0 || !lift.actualQuantityY || lift.actualQuantityY <= 0) return;
+  lifts.forEach((lift) => {
+    if (
+      !lift.liftedQty ||
+      lift.liftedQty <= 0 ||
+      !lift.actualQuantityY ||
+      lift.actualQuantityY <= 0
+    )
+      return;
     const qtyDifference = Math.abs(lift.liftedQty - lift.actualQuantityY);
     if (qtyDifference >= 0.01) count++;
   });
@@ -732,11 +862,14 @@ function countQuantityMismatches(lifts) {
 
 function countMaterialMismatches(lifts, tlData, pos) {
   let count = 0;
-  lifts.forEach(lift => {
+  lifts.forEach((lift) => {
     if (!lift.material) return;
-    const correspondingTL = tlData.find(tl =>
-      tl.rawMaterial && lift.material &&
-      tl.rawMaterial.toLowerCase().trim() === lift.material.toLowerCase().trim()
+    const correspondingTL = tlData.find(
+      (tl) =>
+        tl.rawMaterial &&
+        lift.material &&
+        tl.rawMaterial.toLowerCase().trim() ===
+          lift.material.toLowerCase().trim(),
     );
     if (!correspondingTL) return;
 
@@ -751,8 +884,15 @@ function countMaterialMismatches(lifts, tlData, pos) {
     const ironMismatch = Math.abs(tlIron - liftIron) >= 0.01;
     const apMismatch = Math.abs(tlAP - liftAP) >= 0.01;
 
-    if ((aluminaMismatch || ironMismatch || apMismatch) &&
-      (tlAlumina > 0 || liftAlumina > 0 || tlIron > 0 || liftIron > 0 || tlAP > 0 || liftAP > 0)) {
+    if (
+      (aluminaMismatch || ironMismatch || apMismatch) &&
+      (tlAlumina > 0 ||
+        liftAlumina > 0 ||
+        tlIron > 0 ||
+        liftIron > 0 ||
+        tlAP > 0 ||
+        liftAP > 0)
+    ) {
       count++;
     }
   });
@@ -769,7 +909,9 @@ async function getPendingFullkitting() {
 
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to fetch data: ${response.status} ${response.statusText}`,
+      );
     }
 
     const text = await response.text();
@@ -791,7 +933,7 @@ async function getPendingFullkitting() {
 
     const getStringValue = (row, colIndex) => {
       const cell = row.c?.[colIndex];
-      if (cell && (cell.v !== undefined && cell.v !== null)) {
+      if (cell && cell.v !== undefined && cell.v !== null) {
         return String(cell.f ?? cell.v).trim();
       }
       return "";
@@ -806,10 +948,8 @@ async function getPendingFullkitting() {
     });
 
     return pendingCount;
-
   } catch (error) {
     console.error("Error fetching pending fullkitting:", error);
     return 0;
   }
 }
-

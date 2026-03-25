@@ -27,6 +27,7 @@ export function NotificationProvider({ children }) {
         fullkitting: 0,
         "debit-note": 0,
         vendor: 0,
+        factory: 0,
         management: 0,
     });
     const [loadingNotifications, setLoadingNotifications] = useState(false);
@@ -442,7 +443,7 @@ export function NotificationProvider({ children }) {
     }
 
 
-    async function getPendingManagementApprovals(user, allowedSteps) {
+    async function getPendingFactoryApprovals(user, allowedSteps) {
         try {
             const { data, error } = await supabase
                 .from("INDENT-PO")
@@ -452,6 +453,30 @@ export function NotificationProvider({ children }) {
             if (error) throw error;
 
             let filtered = data.filter(item => item.Planned7 && !item.Actual7);
+
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(
+                    (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase() === userFirmNameLower,
+                );
+            }
+            return filtered.length;
+        } catch (error) {
+            console.error("Error fetching pending factory approvals:", error);
+            return 0;
+        }
+    }
+
+    async function getPendingManagementApprovals(user, allowedSteps) {
+        try {
+            const { data, error } = await supabase
+                .from("INDENT-PO")
+                .select("*")
+                .not("Planned8", "is", null);
+
+            if (error) throw error;
+
+            let filtered = data.filter(item => item.Planned8 && !item.Actual8);
 
             if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
                 const userFirmNameLower = user.firmName.toLowerCase();
@@ -474,7 +499,7 @@ export function NotificationProvider({ children }) {
         try {
             // We run all fetches in parallel
             const [
-                stock, po, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, kitting, debitNotes, vendor, management
+                stock, po, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, kitting, debitNotes, vendor, factory, management
             ] = await Promise.all([
                 getPendingStockApprovals(user, allowedSteps),
                 getPendingPOs(user, allowedSteps),
@@ -491,6 +516,7 @@ export function NotificationProvider({ children }) {
                 getPendingFullkitting(),
                 getPendingDebitNotes(user),
                 getPendingVendorRateUpdates(user, allowedSteps),
+                getPendingFactoryApprovals(user, allowedSteps),
                 getPendingManagementApprovals(user, allowedSteps),
             ]);
 
@@ -500,7 +526,7 @@ export function NotificationProvider({ children }) {
                 "receipt-check": receipt, "lab-testing": lab, mismatch, "rectify-mistake": rectify,
                 "audit-data": audit, "original-bills": bills, "take-entry-tally": tally2,
                 bilty, fullkitting: kitting, "debit-note": debitNotes,
-                vendor, management
+                vendor, factory, management
             }));
         } catch (error) {
             console.error("Error fetching notification counts:", error);

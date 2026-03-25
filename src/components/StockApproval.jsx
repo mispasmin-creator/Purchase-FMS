@@ -324,6 +324,7 @@ export default function StockApproval() {
     };
 
     fetchIndentsData();
+    console.log("indents", indents);
   }, [refreshData, user, allowedSteps]);
 
   // Get unique values for filters
