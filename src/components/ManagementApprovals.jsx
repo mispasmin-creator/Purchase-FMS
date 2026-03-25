@@ -117,6 +117,13 @@ export default function ManagementApprovals() {
           packaging: row["Packaging"] || "",
           taxType: row["Select Rate Type 1"] || "", // Reusing rate type from original
           comparisonSheet: row["Comparison Sheet"] || "",
+          alumina: row["Alumina %"] || "-",
+          iron: row["Iron %"] || "-",
+          sio2: row["SiO2 %"] || "-",
+          cao: row["CaO %"] || "-",
+          ap: row["AP Percent Age %"] || "-",
+          bd: row["BD Percent Age %"] || "-",
+          fineness: row["Fineness"] || "-",
         }));
 
       // Process history data (Actual8 is not null)
@@ -368,6 +375,41 @@ export default function ManagementApprovals() {
                 <div className="p-3 bg-gray-50 rounded-lg">
                     <span className="block text-xs text-gray-500 uppercase font-bold mb-1">Packaging</span>
                     <span className="text-xs">{selectedIndent.packaging || "-"}</span>
+                </div>
+              </div>
+
+              {/* Lab Analysis Section */}
+              <div className="p-4 border border-gray-100 rounded-xl bg-gray-50/50">
+                <span className="block text-xs text-gray-400 uppercase font-bold mb-3 tracking-wider">Lab Analysis (%)</span>
+                <div className="grid grid-cols-3 gap-y-3 gap-x-2">
+                   <div>
+                      <span className="block text-[10px] text-gray-500">Al₂O₃</span>
+                      <span className="text-xs font-semibold">{selectedIndent.alumina}</span>
+                   </div>
+                   <div>
+                      <span className="block text-[10px] text-gray-500">Fe₂O₃</span>
+                      <span className="text-xs font-semibold">{selectedIndent.iron}</span>
+                   </div>
+                   <div>
+                      <span className="block text-[10px] text-gray-500">SiO₂</span>
+                      <span className="text-xs font-semibold">{selectedIndent.sio2}</span>
+                   </div>
+                   <div>
+                      <span className="block text-[10px] text-gray-500">CaO</span>
+                      <span className="text-xs font-semibold">{selectedIndent.cao}</span>
+                   </div>
+                   <div>
+                      <span className="block text-[10px] text-gray-500">AP</span>
+                      <span className="text-xs font-semibold">{selectedIndent.ap}</span>
+                   </div>
+                   <div>
+                      <span className="block text-[10px] text-gray-500">BD</span>
+                      <span className="text-xs font-semibold">{selectedIndent.bd}</span>
+                   </div>
+                   <div className="col-span-3 pt-1">
+                      <span className="block text-[10px] text-gray-500">Fineness</span>
+                      <span className="text-xs font-semibold">{selectedIndent.fineness}</span>
+                   </div>
                 </div>
               </div>
               
