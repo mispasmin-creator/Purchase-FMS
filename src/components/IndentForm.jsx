@@ -1,19 +1,31 @@
-"use client"
-import { useState, useEffect, useCallback } from "react"
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
-import { FileText, Loader2, CheckCircle, XCircle } from "lucide-react"
-import { useAuth } from "../context/AuthContext"
-import { supabase } from "../supabase"
-import { fetchMasterData } from "../utils/masterDataUtils"
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { FileText, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../supabase";
+import { fetchMasterData } from "../utils/masterDataUtils";
 
 export default function IndentForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     generatedBy: "",
     vendorName: "",
@@ -25,54 +37,57 @@ export default function IndentForm() {
     deliveryOrderNo: "",
     priority: "",
     typeOfIndent: "",
-  })
-  const [errors, setErrors] = useState({})
+    uom: "",
+  });
+  const [errors, setErrors] = useState({});
   const [dropdownOptions, setDropdownOptions] = useState({
     generatedBy: [],
     vendorName: [],
     firmName: [],
     rawMaterialName: [],
     indentType: [],
-  })
-  const [isLoading, setIsLoading] = useState(true)
-  const [lastRINumberNumeric, setLastRINumberNumeric] = useState(0)
-  const { user, allowedSteps } = useAuth()
+    firmNameMapping: {},
+    uom: [],
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastRINumberNumeric, setLastRINumberNumeric] = useState(0);
+  const { user, allowedSteps } = useAuth();
 
   const fetchLatestRINumber = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("INDENT-PO")
         .select('"Indent Id.", id')
-        .order('id', { ascending: false })
-        .limit(1)
+        .order("id", { ascending: false })
+        .limit(1);
 
-      if (error) throw error
+      if (error) throw error;
 
       if (data && data.length > 0) {
-        const lastId = data[0]['Indent Id.']
+        const lastId = data[0]["Indent Id."];
         if (lastId && typeof lastId === "string") {
           // Match both RI- and RL- prefixes
-          const match = lastId.match(/^(RI|RL)-(\d+)$/)
+          const match = lastId.match(/^(RI|RL)-(\d+)$/);
           if (match) {
-            const num = parseInt(match[2], 10)
+            const num = parseInt(match[2], 10);
             if (!isNaN(num)) {
-              setLastRINumberNumeric(num)
+              setLastRINumberNumeric(num);
             }
           }
         }
       }
     } catch (error) {
-      console.error("Error fetching latest RI number from Supabase:", error)
+      console.error("Error fetching latest RI number from Supabase:", error);
     }
-  }, [])
+  }, []);
 
   const APPS_SCRIPT_URL =
-    "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec"
-  const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
-  const SHEET_NAME = "INDENT-PO"
+    "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
+  const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
+  const SHEET_NAME = "INDENT-PO";
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       // Fetch data from Supabase Master table
       const masterData = await fetchMasterData();
@@ -83,168 +98,198 @@ export default function IndentForm() {
         firmName: masterData.firmNameOptions,
         rawMaterialName: masterData.materialOptions,
         indentType: masterData.indentTypeOptions,
+        firmNameMapping: masterData.firmNameMapping || {},
+        uom: masterData.uomOptions || [],
       };
 
-      setDropdownOptions(options)
+      setDropdownOptions(options);
     } catch (error) {
-      console.error("Error fetching master data:", error)
+      console.error("Error fetching master data:", error);
       toast.error("Failed to load initial form data.", {
         description: "Please try refreshing. Error: " + error.message,
-        icon: <XCircle className="h-4 w-4" />,
-      })
+        icon: <XCircle className="w-4 h-4" />,
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchData()
-    fetchLatestRINumber()
-  }, [fetchData, fetchLatestRINumber])
+    fetchData();
+    fetchLatestRINumber();
+  }, [fetchData, fetchLatestRINumber]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-    }))
+    }));
     if (errors[name]) {
       setErrors((prevErrors) => ({
         ...prevErrors,
         [name]: null,
-      }))
+      }));
     }
-  }
+  };
 
   const handleSelectChange = (name, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
+    setFormData((prev) => {
+      const newData = {
+        ...prev,
+        [name]: value,
+      };
+
+      // Auto-populate Generated By if Firm Name is changed
+      if (name === "firmName" && dropdownOptions.firmNameMapping[value]) {
+        newData.generatedBy = dropdownOptions.firmNameMapping[value];
+      }
+
+      return newData;
+    });
     if (errors[name]) {
       setErrors((prevErrors) => ({
         ...prevErrors,
         [name]: null,
-      }))
+      }));
     }
-  }
+    // Also clear errors for generatedBy if it was auto-populated
+    if (name === "firmName" && dropdownOptions.firmNameMapping[value]) {
+      setErrors((prevErrors) => ({
+        ...prevErrors,
+        generatedBy: null,
+      }));
+    }
+  };
 
   const validateForm = () => {
-    const newErrors = {}
-    if (!formData.generatedBy) newErrors.generatedBy = "Generated By is required."
-    if (!formData.firmName) newErrors.firmName = "Firm Name is required."
-    if (!formData.vendorName) newErrors.vendorName = "Vendor Name is required."
-    if (!formData.rawMaterialName) newErrors.rawMaterialName = "Raw Material Name is required."
+    const newErrors = {};
+    if (!formData.generatedBy)
+      newErrors.generatedBy = "Generated By is required.";
+    if (!formData.firmName) newErrors.firmName = "Firm Name is required.";
+    if (!formData.rawMaterialName)
+      newErrors.rawMaterialName = "Raw Material Name is required.";
 
     // Stricter check for Quantity
     if (!formData.quantity) {
-      newErrors.quantity = "Quantity is required."
+      newErrors.quantity = "Quantity is required.";
     } else if (!/^-?\d*\.?\d+$/.test(formData.quantity)) {
-      newErrors.quantity = "Please enter only valid numeric value for Quantity."
+      newErrors.quantity =
+        "Please enter only valid numeric value for Quantity.";
     } else if (Number(formData.quantity) <= 0) {
-      newErrors.quantity = "Quantity must be a positive number."
+      newErrors.quantity = "Quantity must be a positive number.";
     }
 
     // Stricter check for Current Stock
     if (!formData.currentStock) {
-      newErrors.currentStock = "Current stock is required."
+      newErrors.currentStock = "Current stock is required.";
     } else if (!/^-?\d*\.?\d+$/.test(formData.currentStock)) {
-      newErrors.currentStock = "Please enter only valid numeric value for Current Stock."
+      newErrors.currentStock =
+        "Please enter only valid numeric value for Current Stock.";
     }
 
-    if (!formData.priority) newErrors.priority = "Priority is required."
-    if (!formData.typeOfIndent) newErrors.typeOfIndent = "Type Of Indent is required."
+    if (!formData.priority) newErrors.priority = "Priority is required.";
+    if (!formData.typeOfIndent)
+      newErrors.typeOfIndent = "Type Of Indent is required.";
+    if (!formData.uom) newErrors.uom = "UOM is required.";
 
     // Delivery Order No. is mandatory when shown (for Finished Goods)
-    if (formData.typeOfIndent === "Finished Goods" && !formData.deliveryOrderNo) {
-      newErrors.deliveryOrderNo = "Delivery Order No. is required for Finished Goods."
+    if (
+      formData.typeOfIndent === "Finished Goods" &&
+      !formData.deliveryOrderNo
+    ) {
+      newErrors.deliveryOrderNo =
+        "Delivery Order No. is required for Finished Goods.";
     }
 
     setErrors(newErrors); // Update state for UI error messages
     return newErrors; // Return errors immediately for synchronous check
-  }
+  };
 
   async function handleSubmit(e) {
-    e.preventDefault()
+    e.preventDefault();
     const validationErrors = validateForm();
 
     if (Object.keys(validationErrors).length > 0) {
       const firstErrorKey = Object.keys(validationErrors)[0];
       toast.error("Validation Error", {
         description: validationErrors[firstErrorKey],
-        icon: <XCircle className="h-4 w-4" />,
+        icon: <XCircle className="w-4 h-4" />,
       });
       return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
       // Re-fetch latest RI number from Supabase by ID order to ensure uniqueness
       const { data: latestData } = await supabase
         .from("INDENT-PO")
         .select('"Indent Id.", id')
-        .order('id', { ascending: false })
-        .limit(1)
+        .order("id", { ascending: false })
+        .limit(1);
 
-      let currentMax = lastRINumberNumeric
+      let currentMax = lastRINumberNumeric;
       if (latestData && latestData.length > 0) {
-        const lastId = latestData[0]['Indent Id.']
+        const lastId = latestData[0]["Indent Id."];
         if (lastId && typeof lastId === "string") {
-          const match = lastId.match(/^(RI|RL)-(\d+)$/)
+          const match = lastId.match(/^(RI|RL)-(\d+)$/);
           if (match) {
-            const num = parseInt(match[2], 10)
+            const num = parseInt(match[2], 10);
             if (!isNaN(num) && num > currentMax) {
-              currentMax = num
+              currentMax = num;
             }
           }
         }
       }
 
-      const nextNumericPart = currentMax + 1
-      const paddedNumber = String(nextNumericPart).padStart(3, "0")
-      const riNumber = `RI-${paddedNumber}`
+      const nextNumericPart = currentMax + 1;
+      const paddedNumber = String(nextNumericPart).padStart(3, "0");
+      const riNumber = `RI-${paddedNumber}`;
 
       const now = new Date();
       // Format as YYYY-MM-DD HH:mm:ss (IST)
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const day = String(now.getDate()).padStart(2, "0");
+      const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
       const year = now.getFullYear();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const seconds = String(now.getSeconds()).padStart(2, "0");
 
       const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
-      const { error: insertError } = await supabase
-        .from("INDENT-PO")
-        .insert([{
-          "Timestamp": timestamp,
+      const { error: insertError } = await supabase.from("INDENT-PO").insert([
+        {
+          Timestamp: timestamp,
           "Indent Id.": riNumber,
           "Firm Name": formData.firmName,
           "Generated By": formData.generatedBy,
-          "Vendor": formData.vendorName,
-          "Material": formData.rawMaterialName,
-          "Quantity": parseFloat(formData.quantity),
+          Material: formData.rawMaterialName,
+          Quantity: parseFloat(formData.quantity),
           "Current Stock As Per factory": parseFloat(formData.currentStock),
-          "Priority": formData.priority,
+          Priority: formData.priority,
           "Type Of Indent": formData.typeOfIndent,
           "Delivery Order No.": formData.deliveryOrderNo || null, // Send null if empty
-          "Notes": formData.notes
-        }])
+          Notes: formData.notes,
+          UOM: formData.uom,
+        },
+      ]);
 
-      if (insertError) throw insertError
+      if (insertError) throw insertError;
 
-      setLastRINumberNumeric(nextNumericPart)
+      setLastRINumberNumeric(nextNumericPart);
       toast.success("Success!", {
         description: `RI Number ${riNumber} generated successfully in Supabase!`,
-        icon: <CheckCircle className="h-4 w-4" />,
-      })
+        icon: <CheckCircle className="w-4 h-4" />,
+      });
 
       // Reset the form
       setFormData({
         generatedBy: "",
         vendorName: "",
-        firmName: user?.firmName && user.firmName.toLowerCase() !== "all" ? user.firmName : "",
+        firmName:
+          user?.firmName && user.firmName.toLowerCase() !== "all"
+            ? user.firmName
+            : "",
         rawMaterialName: "",
         quantity: "",
         currentStock: "",
@@ -252,16 +297,18 @@ export default function IndentForm() {
         deliveryOrderNo: "",
         priority: "",
         typeOfIndent: "",
-      })
-      setErrors({})
+        uom: "",
+      });
+      setErrors({});
     } catch (error) {
-      console.error("Error submitting form:", error)
+      console.error("Error submitting form:", error);
       toast.error("Submission Failed", {
-        description: error.message || "Failed to submit RI Number. Please try again.",
-        icon: <XCircle className="h-4 w-4" />,
-      })
+        description:
+          error.message || "Failed to submit RI Number. Please try again.",
+        icon: <XCircle className="w-4 h-4" />,
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -270,63 +317,49 @@ export default function IndentForm() {
       <div className="flex items-center justify-center h-screen bg-slate-50">
         <Card className="w-full max-w-lg shadow-lg">
           <CardContent className="flex flex-col items-center justify-center p-12">
-            <Loader2 className="h-12 w-12 text-primary animate-spin" />
-            <p className="ml-3 text-gray-700 mt-4">Loading form data...</p>
+            <Loader2 className="w-12 h-12 text-primary animate-spin" />
+            <p className="mt-4 ml-3 text-gray-700">Loading form data...</p>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 p-4 sm:p-6 lg:p-6">
-      <Card className="w-full bg-white shadow-md rounded-lg border border-gray-200">
+    <div className="w-full min-h-screen p-4 bg-slate-50 sm:p-6 lg:p-6">
+      <Card className="w-full bg-white border border-gray-200 rounded-lg shadow-md">
         <CardHeader className="p-6 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700">
-            <FileText className="h-6 w-6 text-primary" />
+            <FileText className="w-6 h-6 text-primary" />
             Step 1: Generate Entry
           </CardTitle>
           <CardDescription className="text-gray-600">
             Fill out the form to generate a new entry with an RI Number
           </CardDescription>
           {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-            <p className="text-primary text-sm mt-1">
-              Creating entry for: <span className="font-semibold">{user.firmName}</span>
+            <p className="mt-1 text-sm text-primary">
+              Creating entry for:{" "}
+              <span className="font-semibold">{user.firmName}</span>
             </p>
           )}
         </CardHeader>
         <CardContent className="p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               <div>
-                <Label htmlFor="generatedBy">Generated By <span className="text-red-500">*</span></Label>
-                <Select
-                  name="generatedBy"
-                  value={formData.generatedBy}
-                  onValueChange={(value) => handleSelectChange("generatedBy", value)}
-                >
-                  <SelectTrigger className={`mt-1 ${errors.generatedBy ? "border-red-500" : ""}`}>
-                    <SelectValue placeholder="Select generator" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dropdownOptions.generatedBy.map((option, index) => (
-                      <SelectItem key={`gen-${index}`} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.generatedBy && <p className="text-red-500 text-xs mt-1">{errors.generatedBy}</p>}
-              </div>
-
-              <div>
-                <Label htmlFor="firmName">Firm Name <span className="text-red-500">*</span></Label>
+                <Label htmlFor="firmName">
+                  Firm Name <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   name="firmName"
                   value={formData.firmName}
-                  onValueChange={(value) => handleSelectChange("firmName", value)}
+                  onValueChange={(value) =>
+                    handleSelectChange("firmName", value)
+                  }
                 >
-                  <SelectTrigger className={`mt-1 ${errors.firmName ? "border-red-500" : ""}`}>
+                  <SelectTrigger
+                    className={`mt-1 ${errors.firmName ? "border-red-500" : ""}`}
+                  >
                     <SelectValue placeholder="Select firm name" />
                   </SelectTrigger>
                   <SelectContent>
@@ -337,10 +370,45 @@ export default function IndentForm() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.firmName && <p className="text-red-500 text-xs mt-1">{errors.firmName}</p>}
+                {errors.firmName && (
+                  <p className="mt-1 text-xs text-red-500">{errors.firmName}</p>
+                )}
               </div>
-
               <div>
+                <Label htmlFor="generatedBy">
+                  Generated By <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  name="generatedBy"
+                  value={formData.generatedBy}
+                  onValueChange={(value) =>
+                    handleSelectChange("generatedBy", value)
+                  }
+                  disabled={
+                    formData.firmName &&
+                    dropdownOptions.firmNameMapping[formData.firmName]
+                  }
+                >
+                  <SelectTrigger
+                    className={`mt-1 ${errors.generatedBy ? "border-red-500" : ""}`}
+                  >
+                    <SelectValue placeholder="Select generator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dropdownOptions.generatedBy.map((option, index) => (
+                      <SelectItem key={`gen-${index}`} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.generatedBy && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.generatedBy}
+                  </p>
+                )}
+              </div>
+              {/* <div>
                 <Label htmlFor="vendorName">Vendor Name <span className="text-red-500">*</span></Label>
                 <Select
                   name="vendorName"
@@ -358,17 +426,23 @@ export default function IndentForm() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.vendorName && <p className="text-red-500 text-xs mt-1">{errors.vendorName}</p>}
-              </div>
+                {errors.vendorName && <p className="mt-1 text-xs text-red-500">{errors.vendorName}</p>}
+              </div> */}
 
               <div>
-                <Label htmlFor="rawMaterialName">Raw Material Name <span className="text-red-500">*</span></Label>
+                <Label htmlFor="rawMaterialName">
+                  Raw Material Name <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   name="rawMaterialName"
                   value={formData.rawMaterialName}
-                  onValueChange={(value) => handleSelectChange("rawMaterialName", value)}
+                  onValueChange={(value) =>
+                    handleSelectChange("rawMaterialName", value)
+                  }
                 >
-                  <SelectTrigger className={`mt-1 ${errors.rawMaterialName ? "border-red-500" : ""}`}>
+                  <SelectTrigger
+                    className={`mt-1 ${errors.rawMaterialName ? "border-red-500" : ""}`}
+                  >
                     <SelectValue placeholder="Select material" />
                   </SelectTrigger>
                   <SelectContent>
@@ -379,11 +453,17 @@ export default function IndentForm() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.rawMaterialName && <p className="text-red-500 text-xs mt-1">{errors.rawMaterialName}</p>}
+                {errors.rawMaterialName && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.rawMaterialName}
+                  </p>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="quantity">Quantity <span className="text-red-500">*</span></Label>
+                <Label htmlFor="quantity">
+                  Quantity <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="quantity"
                   type="text"
@@ -394,11 +474,43 @@ export default function IndentForm() {
                   onChange={handleChange}
                   className={`mt-1 ${errors.quantity ? "border-red-500" : ""}`}
                 />
-                {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
+                {errors.quantity && (
+                  <p className="mt-1 text-xs text-red-500">{errors.quantity}</p>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="currentStock">Current Stock As Per Factory <span className="text-red-500">*</span></Label>
+                <Label htmlFor="uom">
+                  UOM <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  name="uom"
+                  value={formData.uom}
+                  onValueChange={(value) => handleSelectChange("uom", value)}
+                >
+                  <SelectTrigger
+                    className={`mt-1 ${errors.uom ? "border-red-500" : ""}`}
+                  >
+                    <SelectValue placeholder="Select UOM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dropdownOptions.uom.map((option, index) => (
+                      <SelectItem key={`uom-${index}`} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.uom && (
+                  <p className="mt-1 text-xs text-red-500">{errors.uom}</p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="currentStock">
+                  Current Stock As Per Factory{" "}
+                  <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="currentStock"
                   type="text"
@@ -409,17 +521,27 @@ export default function IndentForm() {
                   onChange={handleChange}
                   className={`mt-1 ${errors.currentStock ? "border-red-500" : ""}`}
                 />
-                {errors.currentStock && <p className="text-red-500 text-xs mt-1">{errors.currentStock}</p>}
+                {errors.currentStock && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.currentStock}
+                  </p>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="priority">Priority <span className="text-red-500">*</span></Label>
+                <Label htmlFor="priority">
+                  Priority <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   name="priority"
                   value={formData.priority}
-                  onValueChange={(value) => handleSelectChange("priority", value)}
+                  onValueChange={(value) =>
+                    handleSelectChange("priority", value)
+                  }
                 >
-                  <SelectTrigger className={`mt-1 ${errors.priority ? "border-red-500" : ""}`}>
+                  <SelectTrigger
+                    className={`mt-1 ${errors.priority ? "border-red-500" : ""}`}
+                  >
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
@@ -428,17 +550,25 @@ export default function IndentForm() {
                     <SelectItem value="Planned">Planned</SelectItem>
                   </SelectContent>
                 </Select>
-                {errors.priority && <p className="text-red-500 text-xs mt-1">{errors.priority}</p>}
+                {errors.priority && (
+                  <p className="mt-1 text-xs text-red-500">{errors.priority}</p>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="typeOfIndent">Type Of Indent <span className="text-red-500">*</span></Label>
+                <Label htmlFor="typeOfIndent">
+                  Type Of Indent <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   name="typeOfIndent"
                   value={formData.typeOfIndent}
-                  onValueChange={(value) => handleSelectChange("typeOfIndent", value)}
+                  onValueChange={(value) =>
+                    handleSelectChange("typeOfIndent", value)
+                  }
                 >
-                  <SelectTrigger className={`mt-1 ${errors.typeOfIndent ? "border-red-500" : ""}`}>
+                  <SelectTrigger
+                    className={`mt-1 ${errors.typeOfIndent ? "border-red-500" : ""}`}
+                  >
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -449,13 +579,19 @@ export default function IndentForm() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.typeOfIndent && <p className="text-red-500 text-xs mt-1">{errors.typeOfIndent}</p>}
+                {errors.typeOfIndent && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.typeOfIndent}
+                  </p>
+                )}
               </div>
 
               {/* Delivery Order No. - Only shown for Finished Goods (optional) */}
               {formData.typeOfIndent === "Finished Goods" && (
                 <div className="lg:col-span-2">
-                  <Label htmlFor="deliveryOrderNo">Delivery Order No. <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="deliveryOrderNo">
+                    Delivery Order No. <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="deliveryOrderNo"
                     type="text"
@@ -489,7 +625,7 @@ export default function IndentForm() {
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Submitting...
                   </>
                 ) : (
@@ -501,5 +637,5 @@ export default function IndentForm() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

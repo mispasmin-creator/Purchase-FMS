@@ -15,16 +15,45 @@ import {
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 // Shadcn UI components
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AuthContext } from "../context/AuthContext"; // Import AuthContext
 import { useNotification } from "../context/NotificationContext";
@@ -35,7 +64,8 @@ import { uploadFileToStorage } from "../utils/storageUtils";
 // Constants for Google Sheets and Apps Script
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const LIFTS_SHEET_NAME = "LIFT-ACCOUNTS";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
+const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
 const DATA_START_ROW_LIFTS = 5; // FIX: Corrected from 7 to 6
 
 // Column Indices for LIFT-ACCOUNTS (0-based) - R is 17
@@ -63,8 +93,18 @@ const FIRM_NAME_COL = 55; // Column BD for Firm Name
 
 // Column Definitions
 const AWAITING_RECEIPT_COLUMNS_META = [
-  { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
-  { header: "Lift Number", dataKey: "id", toggleable: true, alwaysVisible: true },
+  {
+    header: "Action",
+    dataKey: "actionColumn",
+    toggleable: false,
+    alwaysVisible: true,
+  },
+  {
+    header: "Lift Number",
+    dataKey: "id",
+    toggleable: true,
+    alwaysVisible: true,
+  },
   { header: "Planned", dataKey: "plannedDate_formatted", toggleable: true },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
@@ -72,7 +112,13 @@ const AWAITING_RECEIPT_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
-  { header: "Bill Copy", dataKey: "billCopy", toggleable: true, isLink: true, linkText: "View" },
+  {
+    header: "Bill Copy",
+    dataKey: "billCopy",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
   { header: "Type", dataKey: "type", toggleable: true },
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
@@ -81,10 +127,23 @@ const AWAITING_RECEIPT_COLUMNS_META = [
 ];
 
 const PROCESSED_RECEIPTS_COLUMNS_META = [
-  { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
+  {
+    header: "Lift Number",
+    dataKey: "liftNo",
+    toggleable: true,
+    alwaysVisible: true,
+  },
   { header: "Planned", dataKey: "plannedDate_formatted", toggleable: true },
-  { header: "Actual Receipt Date", dataKey: "dateOfReceiving_formatted", toggleable: true },
-  { header: "Receipt Timestamp (Col U)", dataKey: "actual1Timestamp", toggleable: true },
+  {
+    header: "Actual Receipt Date",
+    dataKey: "dateOfReceiving_formatted",
+    toggleable: true,
+  },
+  {
+    header: "Receipt Timestamp (Col U)",
+    dataKey: "actual1Timestamp",
+    toggleable: true,
+  },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
@@ -92,44 +151,89 @@ const PROCESSED_RECEIPTS_COLUMNS_META = [
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "PO Qty", dataKey: "qty", toggleable: true },
   { header: "Billing Qty", dataKey: "liftingQty", toggleable: true },
-  { header: "Bill Copy", dataKey: "billCopy", toggleable: true, isLink: true, linkText: "View" },
+  {
+    header: "Bill Copy",
+    dataKey: "billCopy",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
   { header: "Type", dataKey: "type", toggleable: true },
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
-  { header: "Weight Slip Qty", dataKey: "weightSlipQty_fromSheet", toggleable: true },
-  { header: "Physical Image", dataKey: "physicalImageUrl_fromSheet", toggleable: true, isLink: true, linkText: "View Image" },
-  { header: "Weight Slip", dataKey: "weightSlipImageUrl_fromSheet", toggleable: true, isLink: true, linkText: "View Image" },
+  {
+    header: "Weight Slip Qty",
+    dataKey: "weightSlipQty_fromSheet",
+    toggleable: true,
+  },
+  {
+    header: "Physical Image",
+    dataKey: "physicalImageUrl_fromSheet",
+    toggleable: true,
+    isLink: true,
+    linkText: "View Image",
+  },
+  {
+    header: "Weight Slip",
+    dataKey: "weightSlipImageUrl_fromSheet",
+    toggleable: true,
+    isLink: true,
+    linkText: "View Image",
+  },
   { header: "Cancel PO Qty", dataKey: "orderCancelQty", toggleable: true },
 ];
 
 // Helper to parse Google Sheet gviz JSON response
 const parseGvizResponse = (text, sheetNameForError) => {
   if (!text || !text.includes("google.visualization.Query.setResponse")) {
-    console.error(`[ParseGviz] Invalid or empty gviz response for ${sheetNameForError}: `, text ? text.substring(0, 500) : "Response was null/empty");
-    throw new Error(`Invalid response format from Google Sheets for ${sheetNameForError}.Ensure it's link-shareable as 'Viewer'.`);
+    console.error(
+      `[ParseGviz] Invalid or empty gviz response for ${sheetNameForError}: `,
+      text ? text.substring(0, 500) : "Response was null/empty",
+    );
+    throw new Error(
+      `Invalid response format from Google Sheets for ${sheetNameForError}.Ensure it's link-shareable as 'Viewer'.`,
+    );
   }
   const jsonStart = text.indexOf("{");
   const jsonEnd = text.lastIndexOf("}");
   if (jsonStart === -1 || jsonEnd === -1) {
-    console.error(`[ParseGviz] JSON delimiters not found for ${sheetNameForError}. Text:`, text.substring(0, 200));
-    throw new Error(`Could not parse JSON from Google Sheets response for ${sheetNameForError}. Text: ${text.substring(0, 200)}`);
+    console.error(
+      `[ParseGviz] JSON delimiters not found for ${sheetNameForError}. Text:`,
+      text.substring(0, 200),
+    );
+    throw new Error(
+      `Could not parse JSON from Google Sheets response for ${sheetNameForError}. Text: ${text.substring(0, 200)}`,
+    );
   }
   const jsonString = text.substring(jsonStart, jsonEnd + 1);
   try {
     const data = JSON.parse(jsonString);
     if (!data.table || !data.table.cols) {
-      console.warn(`[ParseGviz] No data.table or cols in ${sheetNameForError} or sheet is empty`, data);
+      console.warn(
+        `[ParseGviz] No data.table or cols in ${sheetNameForError} or sheet is empty`,
+        data,
+      );
       return { cols: [], rows: [] };
     }
     if (!data.table.rows) {
-      console.warn(`[ParseGviz] No data.table.rows in ${sheetNameForError}, treating as empty.`, data);
+      console.warn(
+        `[ParseGviz] No data.table.rows in ${sheetNameForError}, treating as empty.`,
+        data,
+      );
       data.table.rows = [];
     }
     return data.table;
   } catch (e) {
-    console.error(`[ParseGviz] Error parsing JSON for ${sheetNameForError}:`, e, "JSON String:", jsonString.substring(0, 500));
-    throw new Error(`Failed to parse JSON response from Google Sheets for ${sheetNameForError}. Error: ${e.message}`);
+    console.error(
+      `[ParseGviz] Error parsing JSON for ${sheetNameForError}:`,
+      e,
+      "JSON String:",
+      jsonString.substring(0, 500),
+    );
+    throw new Error(
+      `Failed to parse JSON response from Google Sheets for ${sheetNameForError}. Error: ${e.message}`,
+    );
   }
 };
 
@@ -139,10 +243,19 @@ const formatDateString = (dateValue) => {
     return "";
   }
   let parsedDate;
-  const gvizMatch = dateValue.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?/);
+  const gvizMatch = dateValue.match(
+    /^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?/,
+  );
   if (gvizMatch) {
     const [, year, month, day, hours, minutes, seconds] = gvizMatch.map(Number);
-    parsedDate = new Date(year, month, day, hours || 0, minutes || 0, seconds || 0);
+    parsedDate = new Date(
+      year,
+      month,
+      day,
+      hours || 0,
+      minutes || 0,
+      seconds || 0,
+    );
   } else {
     parsedDate = new Date(dateValue);
   }
@@ -155,7 +268,9 @@ const formatDateString = (dateValue) => {
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
-    }).format(parsedDate).replace(/,/g, "");
+    })
+      .format(parsedDate)
+      .replace(/,/g, "");
   }
   return dateValue;
 };
@@ -176,13 +291,22 @@ function ReceiptFormModal({ isOpen, onClose, liftData, children }) {
   }
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="dialog-description">
+      <DialogContent
+        className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto"
+        aria-describedby="dialog-description"
+      >
         <DialogHeader className="border-b pb-4 mb-4">
           <DialogTitle className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-            <FileUp className="h-6 w-6 text-[#7da23a] mr-3" /> Record Receipt for Lift ID:{" "}
-            <span className="font-bold text-[#7da23a] ml-1">{liftData?.id}</span>
+            <FileUp className="h-6 w-6 text-[#7da23a] mr-3" /> Record Receipt
+            for Lift ID:{" "}
+            <span className="font-bold text-[#7da23a] ml-1">
+              {liftData?.id}
+            </span>
           </DialogTitle>
-          <DialogDescription id="dialog-description" className="mt-1 text-sm text-gray-500">
+          <DialogDescription
+            id="dialog-description"
+            className="mt-1 text-sm text-gray-500"
+          >
             Update LIFT-ACCOUNTS with receipt details.
           </DialogDescription>
         </DialogHeader>
@@ -211,13 +335,15 @@ export default function ReceiptCheck() {
     orderNumber: "all",
   });
   const [activeTab, setActiveTab] = useState("awaitingReceipt");
-  const [visibleAwaitingReceiptColumns, setVisibleAwaitingReceiptColumns] = useState({});
-  const [visibleProcessedReceiptsColumns, setVisibleProcessedReceiptsColumns] = useState({});
+  const [visibleAwaitingReceiptColumns, setVisibleAwaitingReceiptColumns] =
+    useState({});
+  const [visibleProcessedReceiptsColumns, setVisibleProcessedReceiptsColumns] =
+    useState({});
   const [formData, setFormData] = useState({
     liftId: "",
-    dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
-    liftId: "",
-    dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+    dateOfReceiving: new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Kolkata",
+    }),
     totalBillQuantity: "",
     actualQuantity: "",
     qtyDifference: "0.00",
@@ -253,8 +379,12 @@ export default function ReceiptCheck() {
       });
       return visibility;
     };
-    setVisibleAwaitingReceiptColumns(initializeVisibility(AWAITING_RECEIPT_COLUMNS_META));
-    setVisibleProcessedReceiptsColumns(initializeVisibility(PROCESSED_RECEIPTS_COLUMNS_META));
+    setVisibleAwaitingReceiptColumns(
+      initializeVisibility(AWAITING_RECEIPT_COLUMNS_META),
+    );
+    setVisibleProcessedReceiptsColumns(
+      initializeVisibility(PROCESSED_RECEIPTS_COLUMNS_META),
+    );
   }, []);
 
   useEffect(() => {
@@ -263,8 +393,14 @@ export default function ReceiptCheck() {
       setErrorData(null);
       try {
         // Fetch LIFT-ACCOUNTS and INDENT-PO Order Cancel Qty in parallel
-        const [{ data, error: fetchError }, { data: poData, error: poFetchError }] = await Promise.all([
-          supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
+        const [
+          { data, error: fetchError },
+          { data: poData, error: poFetchError },
+        ] = await Promise.all([
+          supabase
+            .from("LIFT-ACCOUNTS")
+            .select("*")
+            .order("Timestamp", { ascending: false }),
           supabase.from("INDENT-PO").select('"Indent Id.", "Order Cancel Qty"'),
         ]);
 
@@ -275,7 +411,8 @@ export default function ReceiptCheck() {
         const cancelQtyMap = {};
         (poData || []).forEach((row) => {
           const indent = String(row["Indent Id."] || "").trim();
-          if (indent) cancelQtyMap[indent] = String(row["Order Cancel Qty"] || "").trim();
+          if (indent)
+            cancelQtyMap[indent] = String(row["Order Cancel Qty"] || "").trim();
         });
 
         // Helper to format date for display
@@ -284,15 +421,17 @@ export default function ReceiptCheck() {
           try {
             const d = new Date(dateValue);
             if (!isNaN(d.getTime())) {
-              return d.toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false,
-              }).replace(/,/g, "");
+              return d
+                .toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                })
+                .replace(/,/g, "");
             }
           } catch (e) {
             return String(dateValue);
@@ -323,20 +462,35 @@ export default function ReceiptCheck() {
             filterColActual1: row["Actual 1"],
             actual1Timestamp: formatTimestamp(row["Actual 1"]),
             dateOfReceiving_fromSheet: row["Date Of Receiving"] || "",
-            dateOfReceiving_formatted: formatTimestamp(row["Date Of Receiving"]),
-            totalBillQuantity_fromSheet: String(row["Total Bill Quantity"] || "").trim(),
-            actualQuantity_fromSheet: String(row["Actual Quantity"] || "").trim(),
-            physicalCondition_fromSheet: String(row["Physical Condition"] || "").trim(),
+            dateOfReceiving_formatted: formatTimestamp(
+              row["Date Of Receiving"],
+            ),
+            totalBillQuantity_fromSheet: String(
+              row["Total Bill Quantity"] || "",
+            ).trim(),
+            actualQuantity_fromSheet: String(
+              row["Actual Quantity"] || "",
+            ).trim(),
+            physicalCondition_fromSheet: String(
+              row["Physical Condition"] || "",
+            ).trim(),
             moisture_fromSheet: String(row["Moisture"] || "").trim(),
-            physicalImageUrl_fromSheet: String(row["Physical Image Of Product"] || "").trim(),
-            weightSlipImageUrl_fromSheet: String(row["Image Of Weight Slip"] || "").trim(),
-            weightSlipQty_fromSheet: String(row["Weight Slip Qty"] || "").trim(),
+            physicalImageUrl_fromSheet: String(
+              row["Physical Image Of Product"] || "",
+            ).trim(),
+            weightSlipImageUrl_fromSheet: String(
+              row["Image Of Weight Slip"] || "",
+            ).trim(),
+            weightSlipQty_fromSheet: String(
+              row["Weight Slip Qty"] || "",
+            ).trim(),
             firmName: String(row["Firm Name"] || "").trim(),
-            orderCancelQty: cancelQtyMap[String(row["Indent no."] || "").trim()] || "",
+            orderCancelQty:
+              cancelQtyMap[String(row["Indent no."] || "").trim()] || "",
             // Helper property to check if quantities match
             _quantitiesMatch: checkQuantitiesMatch(
               row["Total Bill Quantity"],
-              row["Actual Quantity"]
+              row["Actual Quantity"],
             ),
           };
           return rowData;
@@ -345,10 +499,18 @@ export default function ReceiptCheck() {
         // Filter by user's firm name if applicable
         if (user?.firmName && user.firmName.toLowerCase() !== "all") {
           const userFirmNameLower = user.firmName.toLowerCase();
-          processedData = processedData.filter((lift) => lift && lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower);
+          processedData = processedData.filter(
+            (lift) =>
+              lift &&
+              lift.firmName &&
+              String(lift.firmName).toLowerCase() === userFirmNameLower,
+          );
         }
         // Show only Independent type lifts
-        processedData = processedData.filter((lift) => lift && String(lift.type || "").toLowerCase() === "independent");
+        processedData = processedData.filter(
+          (lift) =>
+            lift && String(lift.type || "").toLowerCase() === "independent",
+        );
         setAllLiftsData(processedData);
       } catch (err) {
         setErrorData(`Failed to load data: ${err.message}.`);
@@ -371,8 +533,10 @@ export default function ReceiptCheck() {
       if (lift.type) types.add(lift.type);
       if (lift.qty) quantities.add(lift.qty);
       if (lift.liftingQty) quantities.add(lift.liftingQty);
-      if (lift.totalBillQuantity_fromSheet) quantities.add(lift.totalBillQuantity_fromSheet);
-      if (lift.actualQuantity_fromSheet) quantities.add(lift.actualQuantity_fromSheet);
+      if (lift.totalBillQuantity_fromSheet)
+        quantities.add(lift.totalBillQuantity_fromSheet);
+      if (lift.actualQuantity_fromSheet)
+        quantities.add(lift.actualQuantity_fromSheet);
       if (lift.indentNo) orders.add(lift.indentNo);
       if (lift.billNo) orders.add(lift.billNo);
     });
@@ -380,7 +544,9 @@ export default function ReceiptCheck() {
       vendorName: [...vendors].sort(),
       materialName: [...materials].sort(),
       liftType: [...types].sort(),
-      totalQuantity: [...quantities].sort((a, b) => parseFloat(a) - parseFloat(b)),
+      totalQuantity: [...quantities].sort(
+        (a, b) => parseFloat(a) - parseFloat(b),
+      ),
       orderNumber: [...orders].sort(),
     };
   }, [allLiftsData]);
@@ -389,10 +555,17 @@ export default function ReceiptCheck() {
     return allLiftsData.filter((lift) => {
       // Show when Planned 1 is not null AND Actual 1 is null
       let matches = lift.filterColPlanned1 && !lift.filterColActual1;
-      if (filters.vendorName !== "all") matches = matches && lift.vendorName === filters.vendorName;
-      if (filters.materialName !== "all") matches = matches && lift.rawMaterialName === filters.materialName;
-      if (filters.liftType !== "all") matches = matches && lift.type === filters.liftType;
-      if (filters.orderNumber !== "all") matches = matches && (lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
+      if (filters.vendorName !== "all")
+        matches = matches && lift.vendorName === filters.vendorName;
+      if (filters.materialName !== "all")
+        matches = matches && lift.rawMaterialName === filters.materialName;
+      if (filters.liftType !== "all")
+        matches = matches && lift.type === filters.liftType;
+      if (filters.orderNumber !== "all")
+        matches =
+          matches &&
+          (lift.indentNo === filters.orderNumber ||
+            lift.billNo === filters.orderNumber);
       return matches;
     });
   }, [allLiftsData, filters]);
@@ -400,20 +573,33 @@ export default function ReceiptCheck() {
   // Update Notification Context
   useEffect(() => {
     // Calculate total pending for the firm/user regardless of local filters
-    const totalPending = allLiftsData.filter((lift) => lift.filterColPlanned1 && !lift.filterColActual1).length;
+    const totalPending = allLiftsData.filter(
+      (lift) => lift.filterColPlanned1 && !lift.filterColActual1,
+    ).length;
     updateCount("receipt-check", totalPending);
   }, [allLiftsData, updateCount]);
 
   const derivedMaterialReceipts = useMemo(() => {
-    return allLiftsData.filter((lift) => {
-      // Show when both Planned 1 and Actual 1 are not null
-      let matches = lift.filterColPlanned1 && lift.filterColActual1;
-      if (filters.vendorName !== "all") matches = matches && lift.vendorName === filters.vendorName;
-      if (filters.materialName !== "all") matches = matches && lift.rawMaterialName === filters.materialName;
-      if (filters.liftType !== "all") matches = matches && lift.type === filters.liftType;
-      if (filters.orderNumber !== "all") matches = matches && (lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
-      return matches;
-    }).sort((a, b) => new Date(b.actual1Timestamp) - new Date(a.actual1Timestamp));
+    return allLiftsData
+      .filter((lift) => {
+        // Show when both Planned 1 and Actual 1 are not null
+        let matches = lift.filterColPlanned1 && lift.filterColActual1;
+        if (filters.vendorName !== "all")
+          matches = matches && lift.vendorName === filters.vendorName;
+        if (filters.materialName !== "all")
+          matches = matches && lift.rawMaterialName === filters.materialName;
+        if (filters.liftType !== "all")
+          matches = matches && lift.type === filters.liftType;
+        if (filters.orderNumber !== "all")
+          matches =
+            matches &&
+            (lift.indentNo === filters.orderNumber ||
+              lift.billNo === filters.orderNumber);
+        return matches;
+      })
+      .sort(
+        (a, b) => new Date(b.actual1Timestamp) - new Date(a.actual1Timestamp),
+      );
   }, [allLiftsData, filters]);
 
   const handleInputChange = (e) => {
@@ -424,8 +610,14 @@ export default function ReceiptCheck() {
       setFormData((prev) => {
         const updated = { ...prev, [name]: value };
         if (name === "actualQuantity" || name === "totalBillQuantity") {
-          const billQty = parseFloat(name === "totalBillQuantity" ? value : prev.totalBillQuantity) || 0;
-          const actualQty = parseFloat(name === "actualQuantity" ? value : prev.actualQuantity) || 0;
+          const billQty =
+            parseFloat(
+              name === "totalBillQuantity" ? value : prev.totalBillQuantity,
+            ) || 0;
+          const actualQty =
+            parseFloat(
+              name === "actualQuantity" ? value : prev.actualQuantity,
+            ) || 0;
           updated.qtyDifference = (actualQty - billQty).toFixed(2);
         }
         return updated;
@@ -447,11 +639,14 @@ export default function ReceiptCheck() {
     setSelectedLift(lift);
     setFormErrors({});
     const initialTotal = parseFloat(lift.liftingQty) || 0;
-    const initialActual = parseFloat(lift.actualQuantity_fromSheet || lift.liftingQty) || 0;
+    const initialActual =
+      parseFloat(lift.actualQuantity_fromSheet || lift.liftingQty) || 0;
 
     setFormData({
       liftId: lift.id,
-      dateOfReceiving: lift.dateOfReceiving_fromSheet || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+      dateOfReceiving:
+        lift.dateOfReceiving_fromSheet ||
+        new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       totalBillQuantity: initialTotal.toString(),
       actualQuantity: initialActual.toString(),
       qtyDifference: (initialActual - initialTotal).toFixed(2),
@@ -468,11 +663,19 @@ export default function ReceiptCheck() {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.dateOfReceiving) newErrors.dateOfReceiving = "Date of Receiving is required.";
-    if (!formData.totalBillQuantity || isNaN(parseFloat(formData.totalBillQuantity))) newErrors.totalBillQuantity = "Valid Billing Quantity is required.";
-    if (!formData.actualQuantity || isNaN(parseFloat(formData.actualQuantity))) newErrors.actualQuantity = "Valid Actual Quantity is required.";
-    if (!formData.physicalCondition) newErrors.physicalCondition = "Physical Condition selection is required.";
-    if (!formData.moisture) newErrors.moisture = "Moisture selection is required.";
+    if (!formData.dateOfReceiving)
+      newErrors.dateOfReceiving = "Date of Receiving is required.";
+    if (
+      !formData.totalBillQuantity ||
+      isNaN(parseFloat(formData.totalBillQuantity))
+    )
+      newErrors.totalBillQuantity = "Valid Billing Quantity is required.";
+    if (!formData.actualQuantity || isNaN(parseFloat(formData.actualQuantity)))
+      newErrors.actualQuantity = "Valid Actual Quantity is required.";
+    if (!formData.physicalCondition)
+      newErrors.physicalCondition = "Physical Condition selection is required.";
+    if (!formData.moisture)
+      newErrors.moisture = "Moisture selection is required.";
 
     // Mandatory Image Fields
     if (!formData.physicalImageUrl && !formData.physicalImageFile) {
@@ -490,7 +693,7 @@ export default function ReceiptCheck() {
   const uploadFileToSupabase = async (file, folder) => {
     if (!file) return "";
     try {
-      const { url } = await uploadFileToStorage(file, 'image', folder);
+      const { url } = await uploadFileToStorage(file, "image", folder);
       return url;
     } catch (error) {
       console.error(`Error uploading ${folder} file:`, error);
@@ -501,7 +704,9 @@ export default function ReceiptCheck() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm() || !selectedLift) {
-      toast.error("Validation Error", { description: "Please fill all required fields or select a lift." });
+      toast.error("Validation Error", {
+        description: "Please fill all required fields or select a lift.",
+      });
       return;
     }
     setIsSubmitting(true);
@@ -510,22 +715,28 @@ export default function ReceiptCheck() {
     try {
       let physicalImageUrl = formData.physicalImageUrl || "";
       if (formData.physicalImageFile) {
-        physicalImageUrl = await uploadFileToSupabase(formData.physicalImageFile, 'receipt-physical');
+        physicalImageUrl = await uploadFileToSupabase(
+          formData.physicalImageFile,
+          "receipt-physical",
+        );
       }
 
       let weightSlipImageUrl = formData.weightSlipImageUrl || "";
       if (formData.weightSlipFile) {
-        weightSlipImageUrl = await uploadFileToSupabase(formData.weightSlipFile, 'receipt-weight-slip');
+        weightSlipImageUrl = await uploadFileToSupabase(
+          formData.weightSlipFile,
+          "receipt-weight-slip",
+        );
       }
 
       const now = new Date();
       // Format as YYYY-MM-DD HH:mm:ss (IST)
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const day = String(now.getDate()).padStart(2, "0");
+      const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
       const year = now.getFullYear();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const seconds = String(now.getSeconds()).padStart(2, "0");
 
       const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
@@ -536,13 +747,16 @@ export default function ReceiptCheck() {
         "Total Bill Quantity": parseFloat(formData.totalBillQuantity) || null,
         "Actual Quantity": parseFloat(formData.actualQuantity) || null,
         "Physical Condition": formData.physicalCondition,
-        "Moisture": formData.moisture || null,
+        Moisture: formData.moisture || null,
         "Physical Image Of Product": physicalImageUrl || null,
         "Image Of Weight Slip": weightSlipImageUrl || null,
-
       };
 
-      console.log("Updating LIFT-ACCOUNTS record:", selectedLift._dbId, updateData);
+      console.log(
+        "Updating LIFT-ACCOUNTS record:",
+        selectedLift._dbId,
+        updateData,
+      );
 
       // Update the LIFT-ACCOUNTS record in Supabase
       const { error: updateError } = await supabase
@@ -552,7 +766,9 @@ export default function ReceiptCheck() {
 
       if (updateError) {
         console.error("LIFT-ACCOUNTS update failed:", updateError);
-        throw new Error(`Failed to update LIFT-ACCOUNTS: ${updateError.message}`);
+        throw new Error(
+          `Failed to update LIFT-ACCOUNTS: ${updateError.message}`,
+        );
       }
 
       // Calculate quantity difference and update Mismatch table
@@ -561,7 +777,8 @@ export default function ReceiptCheck() {
       const qtyDiff = Number((actualQty - totalBillQty).toFixed(2));
       const qtyDiffStatus = qtyDiff !== 0 ? "Mismatch" : "Match";
 
-      const isQualityMismatch = formData.physicalCondition === "Bad" && formData.moisture === "Yes";
+      const isQualityMismatch =
+        formData.physicalCondition === "Bad" && formData.moisture === "Yes";
 
       const mismatchUpdatePayload = {
         "Quantity Difference": qtyDiff,
@@ -577,16 +794,24 @@ export default function ReceiptCheck() {
         .eq('"Lift ID"', selectedLift.id);
 
       if (mismatchUpdateError) {
-        console.error("Failed to update Mismatch table with qty difference:", mismatchUpdateError);
+        console.error(
+          "Failed to update Mismatch table with qty difference:",
+          mismatchUpdateError,
+        );
       }
 
-      toast.success("Success!", { id: "receipt-submit", description: `Receipt for Lift ID ${selectedLift.id} recorded successfully.` });
-      setRefreshTrigger(prev => prev + 1);
+      toast.success("Success!", {
+        id: "receipt-submit",
+        description: `Receipt for Lift ID ${selectedLift.id} recorded successfully.`,
+      });
+      setRefreshTrigger((prev) => prev + 1);
       handleModalClose();
-
     } catch (error) {
       console.error("Error submitting receipt form:", error);
-      toast.error("Submission Failed", { id: "receipt-submit", description: error.message });
+      toast.error("Submission Failed", {
+        id: "receipt-submit",
+        description: error.message,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -597,9 +822,9 @@ export default function ReceiptCheck() {
     setFormErrors({});
     setFormData({
       liftId: "",
-      dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
-      liftId: "",
-      dateOfReceiving: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+      dateOfReceiving: new Date().toLocaleDateString("en-CA", {
+        timeZone: "Asia/Kolkata",
+      }),
       totalBillQuantity: "",
       actualQuantity: "",
       qtyDifference: "0.00",
@@ -616,21 +841,34 @@ export default function ReceiptCheck() {
 
   const handleToggleColumn = (tab, dataKey, checked) => {
     if (tab === "awaiting") {
-      setVisibleAwaitingReceiptColumns((prev) => ({ ...prev, [dataKey]: checked }));
+      setVisibleAwaitingReceiptColumns((prev) => ({
+        ...prev,
+        [dataKey]: checked,
+      }));
     } else {
-      setVisibleProcessedReceiptsColumns((prev) => ({ ...prev, [dataKey]: checked }));
+      setVisibleProcessedReceiptsColumns((prev) => ({
+        ...prev,
+        [dataKey]: checked,
+      }));
     }
   };
 
   const handleSelectAllColumns = (tab, columnsMeta, checked) => {
     const newVisibility = {};
     columnsMeta.forEach((col) => {
-      if (col.toggleable && !col.alwaysVisible) newVisibility[col.dataKey] = checked;
+      if (col.toggleable && !col.alwaysVisible)
+        newVisibility[col.dataKey] = checked;
     });
     if (tab === "awaiting") {
-      setVisibleAwaitingReceiptColumns((prev) => ({ ...prev, ...newVisibility }));
+      setVisibleAwaitingReceiptColumns((prev) => ({
+        ...prev,
+        ...newVisibility,
+      }));
     } else {
-      setVisibleProcessedReceiptsColumns((prev) => ({ ...prev, ...newVisibility }));
+      setVisibleProcessedReceiptsColumns((prev) => ({
+        ...prev,
+        ...newVisibility,
+      }));
     }
   };
 
@@ -638,7 +876,12 @@ export default function ReceiptCheck() {
     const value = item[column.dataKey];
     if (column.isLink) {
       return value && String(value).startsWith("http") ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-xs">
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-xs"
+        >
           <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
         </a>
       ) : (
@@ -648,8 +891,17 @@ export default function ReceiptCheck() {
     return value || <span className="text-gray-400 text-xs">N/A</span>;
   };
 
-  const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
-    const visibleCols = columnsMeta.filter((col) => visibilityState[col.dataKey]);
+  const renderTableSection = (
+    tabKey,
+    title,
+    description,
+    data,
+    columnsMeta,
+    visibilityState,
+  ) => {
+    const visibleCols = columnsMeta.filter(
+      (col) => visibilityState[col.dataKey],
+    );
     const isLoading = loadingData && data.length === 0;
     const hasError = errorData && data.length === 0 && activeTab === tabKey;
     return (
@@ -658,22 +910,46 @@ export default function ReceiptCheck() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="flex items-center text-md font-semibold text-foreground">
-                {tabKey === "awaitingReceipt" ? <PackageOpen className="h-5 w-5 text-[#7da23a] mr-2" /> : <PackageCheck className="h-5 w-5 text-[#7da23a] mr-2" />}
+                {tabKey === "awaitingReceipt" ? (
+                  <PackageOpen className="h-5 w-5 text-[#7da23a] mr-2" />
+                ) : (
+                  <PackageCheck className="h-5 w-5 text-[#7da23a] mr-2" />
+                )}
                 {title} ({data.length})
               </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
+              <CardDescription className="text-sm text-muted-foreground mt-0.5">
+                {description}
+              </CardDescription>
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs bg-white">
-                  <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs bg-white"
+                >
+                  <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View
+                  Columns
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[240px] p-3">
                 <div className="grid gap-2">
                   <p className="text-sm font-medium">Toggle Columns</p>
                   <div className="flex items-center justify-between mt-1 mb-2">
-                    <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => handleSelectAllColumns(tabKey === "awaitingReceipt" ? "awaiting" : "processed", columnsMeta, true)}>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0 h-auto text-xs"
+                      onClick={() =>
+                        handleSelectAllColumns(
+                          tabKey === "awaitingReceipt"
+                            ? "awaiting"
+                            : "processed",
+                          columnsMeta,
+                          true,
+                        )
+                      }
+                    >
                       Reset
                     </Button>
                   </div>
@@ -681,17 +957,34 @@ export default function ReceiptCheck() {
                     {columnsMeta
                       .filter((col) => col.toggleable)
                       .map((col) => (
-                        <div key={`toggle-${tabKey}-${col.dataKey}`} className="flex items-center space-x-2">
+                        <div
+                          key={`toggle-${tabKey}-${col.dataKey}`}
+                          className="flex items-center space-x-2"
+                        >
                           <Checkbox
                             id={`toggle-${tabKey}-${col.dataKey}`}
                             checked={!!visibilityState[col.dataKey]}
                             onCheckedChange={(checked) =>
-                              handleToggleColumn(tabKey === "awaitingReceipt" ? "awaiting" : "processed", col.dataKey, Boolean(checked))
+                              handleToggleColumn(
+                                tabKey === "awaitingReceipt"
+                                  ? "awaiting"
+                                  : "processed",
+                                col.dataKey,
+                                Boolean(checked),
+                              )
                             }
                             disabled={col.alwaysVisible}
                           />
-                          <Label htmlFor={`toggle-${tabKey}-${col.dataKey}`} className="text-xs font-normal cursor-pointer">
-                            {col.header} {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
+                          <Label
+                            htmlFor={`toggle-${tabKey}-${col.dataKey}`}
+                            className="text-xs font-normal cursor-pointer"
+                          >
+                            {col.header}{" "}
+                            {col.alwaysVisible && (
+                              <span className="text-gray-400 ml-0.5 text-xs">
+                                (Fixed)
+                              </span>
+                            )}
                           </Label>
                         </div>
                       ))}
@@ -711,15 +1004,23 @@ export default function ReceiptCheck() {
             <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1">
               <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
               <p className="font-medium text-destructive">Error Loading Data</p>
-              <p className="text-sm text-muted-foreground max-w-md">{errorData}</p>
+              <p className="text-sm text-muted-foreground max-w-md">
+                {errorData}
+              </p>
             </div>
           ) : data.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
               <Info className="h-12 w-12 text-green-500 mb-3" />
               <p className="font-medium text-foreground">No Data Found</p>
               <p className="text-sm text-muted-foreground text-center">
-                {tabKey === "awaitingReceipt" ? "No lifts are currently awaiting receipt." : "No processed lifts match the criteria."}
-                {user?.firmName && user.firmName.toLowerCase() !== "all" && <span className="block mt-1">(Filtered by firm: {user.firmName})</span>}
+                {tabKey === "awaitingReceipt"
+                  ? "No lifts are currently awaiting receipt."
+                  : "No processed lifts match the criteria."}
+                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                  <span className="block mt-1">
+                    (Filtered by firm: {user.firmName})
+                  </span>
+                )}
               </p>
             </div>
           ) : (
@@ -728,7 +1029,10 @@ export default function ReceiptCheck() {
                 <TableHeader className="bg-muted/50 sticky top-0 z-10">
                   <TableRow>
                     {visibleCols.map((col) => (
-                      <TableHead key={col.dataKey} className="whitespace-nowrap text-xs px-3 py-2">
+                      <TableHead
+                        key={col.dataKey}
+                        className="whitespace-nowrap text-xs px-3 py-2"
+                      >
                         {col.header}
                       </TableHead>
                     ))}
@@ -738,15 +1042,25 @@ export default function ReceiptCheck() {
                   {data.map((item) => (
                     <TableRow
                       key={item._id}
-                      className={`hover:bg-green-50/50 ${tabKey === "processedReceipts" && !item._quantitiesMatch
-                        ? "bg-red-100 hover:bg-red-200/70 border-l-4 border-l-red-500"
-                        : ""
-                        }`}
+                      className={`hover:bg-green-50/50 ${
+                        tabKey === "processedReceipts" && !item._quantitiesMatch
+                          ? "bg-red-100 hover:bg-red-200/70 border-l-4 border-l-red-500"
+                          : ""
+                      }`}
                     >
                       {visibleCols.map((column) => (
-                        <TableCell key={`${item._id}-${column.dataKey}`} className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "liftNo" ? "font-medium text-primary" : "text-gray-700"}`}>
-                          {column.dataKey === "actionColumn" && tabKey === "awaitingReceipt" ? (
-                            <Button variant="outline" size="xs" onClick={() => handleOpenReceiptModal(item)} className="h-7 px-2.5 py-1 text-xs">
+                        <TableCell
+                          key={`${item._id}-${column.dataKey}`}
+                          className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "liftNo" ? "font-medium text-primary" : "text-gray-700"}`}
+                        >
+                          {column.dataKey === "actionColumn" &&
+                          tabKey === "awaitingReceipt" ? (
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              onClick={() => handleOpenReceiptModal(item)}
+                              className="h-7 px-2.5 py-1 text-xs"
+                            >
                               Record Receipt
                             </Button>
                           ) : (
@@ -770,25 +1084,47 @@ export default function ReceiptCheck() {
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <PackageOpen className="h-5 w-5 text-[#7da23a]" /> Step 6: Receipt Of Material / Physical Quality Check
+            <PackageOpen className="h-5 w-5 text-[#7da23a]" /> Step 6: Receipt
+            Of Material / Physical Quality Check
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
-            Record receipt details and perform quality checks for incoming materials.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>}
+            Record receipt details and perform quality checks for incoming
+            materials.
+            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+              <span className="ml-2 text-[#7da23a] font-medium">
+                • Filtered by: {user.firmName}
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="flex-1 flex flex-col"
+          >
             <TabsList className="grid w-full sm:w-[480px] grid-cols-2 mb-4">
-              <TabsTrigger value="awaitingReceipt" className="flex items-center gap-2">
+              <TabsTrigger
+                value="awaitingReceipt"
+                className="flex items-center gap-2"
+              >
                 <FileCheckIcon className="h-4 w-4" /> Awaiting Receipt
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 px-1.5 py-0.5 text-xs"
+                >
                   {liftsAwaitingReceipt.length}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="processedReceipts" className="flex items-center gap-2">
+              <TabsTrigger
+                value="processedReceipts"
+                className="flex items-center gap-2"
+              >
                 <History className="h-4 w-4" /> Processed Lifts
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 px-1.5 py-0.5 text-xs"
+                >
                   {derivedMaterialReceipts.length}
                 </Badge>
               </TabsTrigger>
@@ -797,12 +1133,22 @@ export default function ReceiptCheck() {
               <div className="flex items-center gap-2 mb-3">
                 <Filter className="h-4 w-4 text-gray-500" />
                 <Label className="text-sm font-medium">Filters</Label>
-                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="ml-auto bg-white"
+                >
                   Clear All
                 </Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Select value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
+                <Select
+                  value={filters.vendorName}
+                  onValueChange={(value) =>
+                    handleFilterChange("vendorName", value)
+                  }
+                >
                   <SelectTrigger className="h-8 bg-white">
                     <SelectValue placeholder="All Vendors" />
                   </SelectTrigger>
@@ -815,7 +1161,12 @@ export default function ReceiptCheck() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={filters.materialName} onValueChange={(value) => handleFilterChange("materialName", value)}>
+                <Select
+                  value={filters.materialName}
+                  onValueChange={(value) =>
+                    handleFilterChange("materialName", value)
+                  }
+                >
                   <SelectTrigger className="h-8 bg-white">
                     <SelectValue placeholder="All Materials" />
                   </SelectTrigger>
@@ -828,7 +1179,12 @@ export default function ReceiptCheck() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={filters.liftType} onValueChange={(value) => handleFilterChange("liftType", value)}>
+                <Select
+                  value={filters.liftType}
+                  onValueChange={(value) =>
+                    handleFilterChange("liftType", value)
+                  }
+                >
                   <SelectTrigger className="h-8 bg-white">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
@@ -841,7 +1197,12 @@ export default function ReceiptCheck() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={filters.totalQuantity} onValueChange={(value) => handleFilterChange("totalQuantity", value)}>
+                <Select
+                  value={filters.totalQuantity}
+                  onValueChange={(value) =>
+                    handleFilterChange("totalQuantity", value)
+                  }
+                >
                   <SelectTrigger className="h-8 bg-white">
                     <SelectValue placeholder="All Quantities" />
                   </SelectTrigger>
@@ -854,7 +1215,12 @@ export default function ReceiptCheck() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={filters.orderNumber} onValueChange={(value) => handleFilterChange("orderNumber", value)}>
+                <Select
+                  value={filters.orderNumber}
+                  onValueChange={(value) =>
+                    handleFilterChange("orderNumber", value)
+                  }
+                >
                   <SelectTrigger className="h-8 bg-white">
                     <SelectValue placeholder="All Orders" />
                   </SelectTrigger>
@@ -869,20 +1235,47 @@ export default function ReceiptCheck() {
                 </Select>
               </div>
             </div>
-            <TabsContent value="awaitingReceipt" className="flex-1 flex flex-col mt-0">
-              {renderTableSection("awaitingReceipt", "Material Lifts Awaiting Receipt", "Filtered by Column T (Planned) having a value and Column U (Actual Timestamp) being empty.", liftsAwaitingReceipt, AWAITING_RECEIPT_COLUMNS_META, visibleAwaitingReceiptColumns)}
+            <TabsContent
+              value="awaitingReceipt"
+              className="flex-1 flex flex-col mt-0"
+            >
+              {renderTableSection(
+                "awaitingReceipt",
+                "Material Lifts Awaiting Receipt",
+                "Filtered by Column T (Planned) having a value and Column U (Actual Timestamp) being empty.",
+                liftsAwaitingReceipt,
+                AWAITING_RECEIPT_COLUMNS_META,
+                visibleAwaitingReceiptColumns,
+              )}
             </TabsContent>
-            <TabsContent value="processedReceipts" className="flex-1 flex flex-col mt-0">
-              {renderTableSection("processedReceipts", "Processed Lifts / Receipts", "Lifts with a Timestamp in Column U, sorted by latest. Red rows indicate quantity mismatches.", derivedMaterialReceipts, PROCESSED_RECEIPTS_COLUMNS_META, visibleProcessedReceiptsColumns)}
+            <TabsContent
+              value="processedReceipts"
+              className="flex-1 flex flex-col mt-0"
+            >
+              {renderTableSection(
+                "processedReceipts",
+                "Processed Lifts / Receipts",
+                "Lifts with a Timestamp in Column U, sorted by latest. Red rows indicate quantity mismatches.",
+                derivedMaterialReceipts,
+                PROCESSED_RECEIPTS_COLUMNS_META,
+                visibleProcessedReceiptsColumns,
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
-      <ReceiptFormModal isOpen={isModalOpen} onClose={handleModalClose} liftData={selectedLift}>
+      <ReceiptFormModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        liftData={selectedLift}
+      >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="dateOfReceiving" className="block text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="dateOfReceiving"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Date Of Receiving <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -893,10 +1286,17 @@ export default function ReceiptCheck() {
                 onChange={handleInputChange}
                 className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${formErrors.dateOfReceiving ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
-              {formErrors.dateOfReceiving && <p className="text-red-500 text-xs mt-1">{formErrors.dateOfReceiving}</p>}
+              {formErrors.dateOfReceiving && (
+                <p className="text-red-500 text-xs mt-1">
+                  {formErrors.dateOfReceiving}
+                </p>
+              )}
             </div>
             <div>
-              <Label htmlFor="totalBillQuantity" className="block text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="totalBillQuantity"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Billing Quantity <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -910,7 +1310,10 @@ export default function ReceiptCheck() {
               />
             </div>
             <div>
-              <Label htmlFor="actualQuantity" className="block text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="actualQuantity"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Actual Quantity <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -925,7 +1328,10 @@ export default function ReceiptCheck() {
             </div>
 
             <div>
-              <Label htmlFor="qtyDifference" className="block text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="qtyDifference"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Difference
               </Label>
               <Input
@@ -938,11 +1344,21 @@ export default function ReceiptCheck() {
               />
             </div>
             <div>
-              <Label htmlFor="physicalCondition" className="block text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="physicalCondition"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Physical Condition <span className="text-red-500">*</span>
               </Label>
-              <Select value={formData.physicalCondition} onValueChange={(value) => handleFormSelectChange("physicalCondition", value)}>
-                <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.physicalCondition ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}>
+              <Select
+                value={formData.physicalCondition}
+                onValueChange={(value) =>
+                  handleFormSelectChange("physicalCondition", value)
+                }
+              >
+                <SelectTrigger
+                  className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.physicalCondition ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                >
                   <SelectValue placeholder="Select condition" />
                 </SelectTrigger>
                 <SelectContent>
@@ -950,14 +1366,28 @@ export default function ReceiptCheck() {
                   <SelectItem value="Bad">Bad</SelectItem>
                 </SelectContent>
               </Select>
-              {formErrors.physicalCondition && <p className="text-red-500 text-xs mt-1">{formErrors.physicalCondition}</p>}
+              {formErrors.physicalCondition && (
+                <p className="text-red-500 text-xs mt-1">
+                  {formErrors.physicalCondition}
+                </p>
+              )}
             </div>
             <div>
-              <Label htmlFor="moisture" className="block text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="moisture"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Moisture <span className="text-red-500">*</span>
               </Label>
-              <Select value={formData.moisture} onValueChange={(value) => handleFormSelectChange("moisture", value)}>
-                <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.moisture ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}>
+              <Select
+                value={formData.moisture}
+                onValueChange={(value) =>
+                  handleFormSelectChange("moisture", value)
+                }
+              >
+                <SelectTrigger
+                  className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${formErrors.moisture ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                >
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -965,10 +1395,17 @@ export default function ReceiptCheck() {
                   <SelectItem value="No">No</SelectItem>
                 </SelectContent>
               </Select>
-              {formErrors.moisture && <p className="text-red-500 text-xs mt-1">{formErrors.moisture}</p>}
+              {formErrors.moisture && (
+                <p className="text-red-500 text-xs mt-1">
+                  {formErrors.moisture}
+                </p>
+              )}
             </div>
             <div className="md:col-span-1">
-              <Label htmlFor="physicalImageFile" className="block text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="physicalImageFile"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Physical Image <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -979,16 +1416,35 @@ export default function ReceiptCheck() {
                 accept="image/*,.pdf"
                 className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 ${formErrors.physicalImageFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
               />
-              {formData.physicalImageFile && <p className="text-xs text-gray-500 mt-1">Selected: {formData.physicalImageFile.name}</p>}
-              {formData.physicalImageUrl && !formData.physicalImageFile && (
+              {formData.physicalImageFile && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Existing: <a href={formData.physicalImageUrl} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:underline">View</a>
+                  Selected: {formData.physicalImageFile.name}
                 </p>
               )}
-              {formErrors.physicalImageFile && <p className="text-red-500 text-xs mt-1">{formErrors.physicalImageFile}</p>}
+              {formData.physicalImageUrl && !formData.physicalImageFile && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Existing:{" "}
+                  <a
+                    href={formData.physicalImageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-500 hover:underline"
+                  >
+                    View
+                  </a>
+                </p>
+              )}
+              {formErrors.physicalImageFile && (
+                <p className="text-red-500 text-xs mt-1">
+                  {formErrors.physicalImageFile}
+                </p>
+              )}
             </div>
             <div className="md:col-span-1">
-              <Label htmlFor="weightSlipFile" className="block text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="weightSlipFile"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Weight Slip Image <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -999,16 +1455,31 @@ export default function ReceiptCheck() {
                 accept="image/*,.pdf"
                 className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 ${formErrors.weightSlipFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
               />
-              {formData.weightSlipFile && <p className="text-xs text-gray-500 mt-1">Selected: {formData.weightSlipFile.name}</p>}
-              {formData.weightSlipImageUrl && !formData.weightSlipFile && (
+              {formData.weightSlipFile && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Existing: <a href={formData.weightSlipImageUrl} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:underline">View</a>
+                  Selected: {formData.weightSlipFile.name}
                 </p>
               )}
-              {formErrors.weightSlipFile && <p className="text-red-500 text-xs mt-1">{formErrors.weightSlipFile}</p>}
+              {formData.weightSlipImageUrl && !formData.weightSlipFile && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Existing:{" "}
+                  <a
+                    href={formData.weightSlipImageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-500 hover:underline"
+                  >
+                    View
+                  </a>
+                </p>
+              )}
+              {formErrors.weightSlipFile && (
+                <p className="text-red-500 text-xs mt-1">
+                  {formErrors.weightSlipFile}
+                </p>
+              )}
             </div>
           </div>
-
 
           {/* Quantity Comparison Warning Removed */}
 
@@ -1020,7 +1491,8 @@ export default function ReceiptCheck() {
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" /> Saving...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" />{" "}
+                  Saving...
                 </>
               ) : (
                 "Save Receipt & Update Lift"

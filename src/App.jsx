@@ -31,6 +31,8 @@ import FullkittingTransportingPage from "./components/FullkittingTransportingPag
 import Accounts from "./components/Accounts";
 import KycPage from "./components/KycPage";
 import VendorPaymentPage from "./components/VendorPaymentPage";
+import ThreeParty from "./components/ThreeParty";
+import ManagementApprovals from "./components/ManagementApprovals";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -38,7 +40,7 @@ import {
   LayoutDashboard, FilePlus, PackageCheck, FileText, Calculator,
   Truck, CheckSquare, TestTube, Archive, Menu, X, Receipt, PackageSearch,
   UserCheck, Wallet, Landmark, User, Database,
-  FileEdit, Search, FileCheck, RotateCcw, Save, Edit2, Gauge, Loader2, Scale, AlertTriangle, ShoppingBag
+  FileEdit, Search, FileCheck, RotateCcw, Save, Edit2, Gauge, Loader2, Scale, AlertTriangle, ShoppingBag, CheckCircle2
 } from 'lucide-react';
 import { Toaster } from "@/components/ui/sonner";
 
@@ -92,7 +94,7 @@ function App() {
     },
     {
       id: "stock",
-      label: "Management Approval",
+      label: "HOD Approval",
       path: "/management-approval",
       icon: <PackageCheck size={20} />,
       stepName: "Recheck the Stock And Approve Quantity",
@@ -100,6 +102,28 @@ function App() {
       countKey: "stock",
       countLabel: "Pending",
       component: <StockApproval />
+    },
+    {
+      id: "three-party",
+      label: "Three Party",
+      path: "/three-party",
+      icon: <UserCheck size={20} />,
+      stepName: "vendor",
+      showNotification: true,
+      countKey: "vendor",
+      countLabel: "Pending",
+      component: <ThreeParty />
+    },
+    {
+      id: "management-approval",
+      label: "Mgmt App.",
+      path: "/management-approvals",
+      icon: <CheckCircle2 size={20} />,
+      stepName: "management", // Using 'management' as the stepName for authorization
+      showNotification: true,
+      countKey: "management",
+      countLabel: "Pending",
+      component: <ManagementApprovals />
     },
     {
       id: "generate-po",
@@ -432,7 +456,7 @@ function App() {
                   <span className="font-extrabold text-[1.4rem] leading-tight text-[#7da23a] tracking-tight">Purchase<br />FMS</span>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-4 pl-1">
                 <div className="text-slate-600">
                   <User size={26} strokeWidth={1.5} />
@@ -512,7 +536,7 @@ function App() {
                 <span className="font-extrabold text-[1.4rem] leading-tight text-[#7da23a] tracking-tight">Purchase<br />FMS</span>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-4 pl-1">
               <div className="text-slate-600">
                 <User size={26} strokeWidth={1.5} />

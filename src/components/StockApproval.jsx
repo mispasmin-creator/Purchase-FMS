@@ -1,35 +1,67 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import { MixerHorizontalIcon } from "@radix-ui/react-icons"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Filter, CheckCircle2, History, Shield, Loader2, AlertTriangle, Info, ChevronsUpDown } from "lucide-react"
-import { useAuth } from "../context/AuthContext"
-import { useNotification } from "../context/NotificationContext"
-import { supabase } from "../supabase"
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { MixerHorizontalIcon } from "@radix-ui/react-icons";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  Filter,
+  CheckCircle2,
+  History,
+  Shield,
+  Loader2,
+  AlertTriangle,
+  Info,
+  ChevronsUpDown,
+} from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { useNotification } from "../context/NotificationContext";
+import { supabase } from "../supabase";
 
 // Helper function to clean remarks - extract only the user text
 const cleanRemark = (remark) => {
-  if (!remark || typeof remark !== "string") return ""
+  if (!remark || typeof remark !== "string") return "";
 
   // Remove timestamp patterns like "(Approved: 21/07/2025 19:09:38)" or "[21/07/2025 19:09:38]"
   const cleaned = remark
     .replace(/\s*\([^)]*:\s*\d{2}\/\d{2}\/\d{4}[^)]*\)\s*$/i, "") // Remove "(Status: timestamp)"
     .replace(/\s*\[[^\]]+\]\s*$/, "") // Remove "[timestamp]"
-    .trim()
+    .trim();
 
-  return cleaned
-}
+  return cleaned;
+};
 
 // Simple SearchableSelect Component (without Command)
 const SearchableSelect = ({
@@ -37,14 +69,14 @@ const SearchableSelect = ({
   onValueChange,
   options,
   placeholder,
-  className
+  className,
 }) => {
-  const [open, setOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredOptions = options.filter(option =>
-    option.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredOptions = options.filter((option) =>
+    option.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
   return (
     <div className="relative">
@@ -75,9 +107,9 @@ const SearchableSelect = ({
             <div
               className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
               onClick={() => {
-                onValueChange("all")
-                setOpen(false)
-                setSearchTerm("")
+                onValueChange("all");
+                setOpen(false);
+                setSearchTerm("");
               }}
             >
               All {placeholder}
@@ -87,9 +119,9 @@ const SearchableSelect = ({
                 key={`${option}-${index}`}
                 className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-green-50" : ""}`}
                 onClick={() => {
-                  onValueChange(option)
-                  setOpen(false)
-                  setSearchTerm("")
+                  onValueChange(option);
+                  setOpen(false);
+                  setSearchTerm("");
                 }}
               >
                 {option}
@@ -100,14 +132,11 @@ const SearchableSelect = ({
       )}
 
       {open && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setOpen(false)}
-        />
+        <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
       )}
     </div>
-  )
-}
+  );
+};
 
 // Map friendly headers to their corresponding Supabase columns
 const FRIENDLY_HEADER_TO_DATA_KEY_MAP = {
@@ -116,31 +145,31 @@ const FRIENDLY_HEADER_TO_DATA_KEY_MAP = {
   "Generated By": "Generated By",
   "Vendor Name": "Vendor",
   "Raw Material Name": "Material",
-  "Quantity": "Quantity",
-  "Priority": "Priority",
+  Quantity: "Quantity",
+  Priority: "Priority",
   "Type Of Indent": "Type Of Indent",
   "Current Stock As Per factory": "Current Stock As Per factory",
-  "Notes": "Notes",
+  Notes: "Notes",
   "Planned 1": "Planned1",
-}
+};
 
 export default function StockApproval() {
-  const [indents, setIndents] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [refreshData, setRefreshData] = useState(false)
-  const [selectedRows, setSelectedRows] = useState({})
-  const [remarks, setRemarks] = useState({})
-  const [approvedQtys, setApprovedQtys] = useState({})
-  const [approvalStatuses, setApprovalStatuses] = useState({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState("approve")
-  const { user, allowedSteps } = useAuth()
-  const { updateCount } = useNotification()
+  const [indents, setIndents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshData, setRefreshData] = useState(false);
+  const [selectedRows, setSelectedRows] = useState({});
+  const [remarks, setRemarks] = useState({});
+  const [approvedQtys, setApprovedQtys] = useState({});
+  const [approvalStatuses, setApprovalStatuses] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState("approve");
+  const { user, allowedSteps } = useAuth();
+  const { updateCount } = useNotification();
 
   // --- Column Visibility States ---
-  const [visibleApproveColumns, setVisibleApproveColumns] = useState({})
-  const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({})
+  const [visibleApproveColumns, setVisibleApproveColumns] = useState({});
+  const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({});
 
   // --- Filter States ---
   const [filters, setFilters] = useState({
@@ -150,59 +179,94 @@ export default function StockApproval() {
     typeOfIndent: "all",
     generatedBy: "all",
     deliveryOrderNo: "all",
-  })
+  });
 
   // Dynamic column metadata derived from FRIENDLY_HEADER_TO_DATA_KEY_MAP
-  const [allColumnsMeta, setAllColumnsMeta] = useState([])
+  const [allColumnsMeta, setAllColumnsMeta] = useState([]);
 
   // --- Fetch Data and Initialize Column Meta/Visibility ---
   useEffect(() => {
     const fetchIndentsData = async () => {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       try {
         const { data, error: fetchError } = await supabase
           .from("INDENT-PO")
           .select("*")
-          .not("Planned1", "is", null)
+          .not("Planned1", "is", null);
 
-        if (fetchError) throw fetchError
+        if (fetchError) throw fetchError;
 
         // Initialize column metadata if needed (simplified compared to GVIZ)
         const approveUiColumns = [
-          { header: "Select", dataKey: "selectRow", alwaysVisible: true, isApproveUI: true },
-          { header: "What is To Be Done", dataKey: "statusDropdown", isApproveUI: true },
+          {
+            header: "Select",
+            dataKey: "selectRow",
+            alwaysVisible: true,
+            isApproveUI: true,
+          },
+          {
+            header: "What is To Be Done",
+            dataKey: "statusDropdown",
+            isApproveUI: true,
+          },
           { header: "Remark", dataKey: "remarkInput", isApproveUI: true },
-          { header: "Appr. Qty", dataKey: "approvedQtyInput", isApproveUI: true },
-        ]
+          {
+            header: "Appr. Qty",
+            dataKey: "approvedQtyInput",
+            isApproveUI: true,
+          },
+        ];
 
-        const generatedAllColumnsMeta = Object.keys(FRIENDLY_HEADER_TO_DATA_KEY_MAP).map(header => ({
+        const generatedAllColumnsMeta = Object.keys(
+          FRIENDLY_HEADER_TO_DATA_KEY_MAP,
+        ).map((header) => ({
           header: header,
           dataKey: FRIENDLY_HEADER_TO_DATA_KEY_MAP[header],
           toggleable: true,
-          alwaysVisible: FRIENDLY_HEADER_TO_DATA_KEY_MAP[header] === "Indent Id.",
+          alwaysVisible:
+            FRIENDLY_HEADER_TO_DATA_KEY_MAP[header] === "Indent Id.",
           isApproveUI: false,
-          isHistoryUI: false
-        }))
+          isHistoryUI: false,
+        }));
 
-        const combinedColumnsMeta = [...approveUiColumns, ...generatedAllColumnsMeta]
-        setAllColumnsMeta(combinedColumnsMeta)
+        const combinedColumnsMeta = [
+          ...approveUiColumns,
+          ...generatedAllColumnsMeta,
+        ];
+        setAllColumnsMeta(combinedColumnsMeta);
 
         // Initial Visibility
-        const initialApproveVisibility = {}
-        const initialHistoryVisibility = {}
+        const initialApproveVisibility = {};
+        const initialHistoryVisibility = {};
 
         combinedColumnsMeta.forEach((col) => {
-          initialApproveVisibility[col.dataKey] = true
-        })
+          initialApproveVisibility[col.dataKey] = true;
+        });
 
-        const historyCols = ["Indent Id.", "Approval Status", "Remarks", "Approved Qty", "Actual1", "Delivery Order No.", "Generated By", "Vendor", "Material", "Quantity", "Priority", "Type Of Indent", "Current Stock As Per factory", "Notes", "Planned1"]
-        historyCols.forEach(col => {
-          initialHistoryVisibility[col] = true
-        })
+        const historyCols = [
+          "Indent Id.",
+          "Approval Status",
+          "Remarks",
+          "Approved Qty",
+          "Actual1",
+          "Delivery Order No.",
+          "Generated By",
+          "Vendor",
+          "Material",
+          "Quantity",
+          "Priority",
+          "Type Of Indent",
+          "Current Stock As Per factory",
+          "Notes",
+          "Planned1",
+        ];
+        historyCols.forEach((col) => {
+          initialHistoryVisibility[col] = true;
+        });
 
-        setVisibleApproveColumns(initialApproveVisibility)
-        setVisibleHistoryColumns(initialHistoryVisibility)
+        setVisibleApproveColumns(initialApproveVisibility);
+        setVisibleHistoryColumns(initialHistoryVisibility);
 
         let processedIndents = data.map((row) => ({
           ...row,
@@ -223,190 +287,214 @@ export default function StockApproval() {
           approvedQty_original: row["Approved Qty"] || "",
           status_original: row["Approval Status"] || "",
           remark_original: cleanRemark(row["Remarks"] || ""),
-        }))
+        }));
 
         if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-          const userFirmNameLower = user.firmName.toLowerCase()
+          const userFirmNameLower = user.firmName.toLowerCase();
           processedIndents = processedIndents.filter(
-            (indent) => indent.firmName && String(indent.firmName).toLowerCase() === userFirmNameLower,
-          )
+            (indent) =>
+              indent.firmName &&
+              String(indent.firmName).toLowerCase() === userFirmNameLower,
+          );
         }
 
-        setIndents(processedIndents)
+        setIndents(processedIndents);
 
-        const initialQtys = {}
-        const initialStatuses = {}
-        const initialRemarks = {}
+        const initialQtys = {};
+        const initialStatuses = {};
+        const initialRemarks = {};
 
         processedIndents.forEach((indent) => {
-          initialQtys[indent.id] = indent.approvedQty_original || indent.quantity
-          initialStatuses[indent.id] = indent.status_original || "Select"
-          initialRemarks[indent.id] = indent.remark_original || ""
-        })
+          initialQtys[indent.id] =
+            indent.approvedQty_original || indent.quantity;
+          initialStatuses[indent.id] = indent.status_original || "Select";
+          initialRemarks[indent.id] = indent.remark_original || "";
+        });
 
-        setApprovedQtys(initialQtys)
-        setApprovalStatuses(initialStatuses)
-        setRemarks(initialRemarks)
-
+        setApprovedQtys(initialQtys);
+        setApprovalStatuses(initialStatuses);
+        setRemarks(initialRemarks);
       } catch (err) {
-        console.error("Error fetching indents data:", err)
-        setError("Failed to load indent data: " + err.message)
-        toast.error("Failed to load indent data", { description: err.message })
+        console.error("Error fetching indents data:", err);
+        setError("Failed to load indent data: " + err.message);
+        toast.error("Failed to load indent data", { description: err.message });
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchIndentsData()
-  }, [refreshData, user, allowedSteps])
+    fetchIndentsData();
+  }, [refreshData, user, allowedSteps]);
 
   // Get unique values for filters
   const getUniqueValues = useCallback(
     (field) => {
-      const values = indents.map((indent) => indent[field]).filter((value) => value && value.trim() !== "")
-      return [...new Set(values)].sort()
+      const values = indents
+        .map((indent) => indent[field])
+        .filter((value) => value && value.trim() !== "");
+      return [...new Set(values)].sort();
     },
     [indents],
-  )
+  );
 
   const uniqueValues = useMemo(
     () => ({
       vendorName: getUniqueValues("vendorName"),
       rawMaterialName: getUniqueValues("rawMaterialName"),
-      vendorName: getUniqueValues("vendorName"),
-      rawMaterialName: getUniqueValues("rawMaterialName"),
       priority: getUniqueValues("priority"),
       typeOfIndent: getUniqueValues("typeOfIndent"),
-      generatedBy: getUniqueValues("generatedBy"),
       generatedBy: getUniqueValues("generatedBy"),
       deliveryOrderNo: getUniqueValues("deliveryOrderNo"),
     }),
     [getUniqueValues],
-  )
+  );
 
   const handleFilterChange = (field, value) => {
-    setFilters((prev) => ({ ...prev, [field]: value }))
-  }
+    setFilters((prev) => ({ ...prev, [field]: value }));
+  };
 
   const clearAllFilters = () => {
     setFilters({
       vendorName: "all",
       rawMaterialName: "all",
-      vendorName: "all",
-      rawMaterialName: "all",
       priority: "all",
       typeOfIndent: "all",
       generatedBy: "all",
-      generatedBy: "all",
       deliveryOrderNo: "all",
-    })
-  }
+    });
+  };
 
   // Apply filters to data
   const applyFilters = useCallback(
     (data) => {
-      let filtered = [...data]
+      let filtered = [...data];
       if (filters.vendorName !== "all") {
-        filtered = filtered.filter((entry) => entry.vendorName === filters.vendorName)
+        filtered = filtered.filter(
+          (entry) => entry.vendorName === filters.vendorName,
+        );
       }
       if (filters.rawMaterialName !== "all") {
-        filtered = filtered.filter((entry) => entry.rawMaterialName === filters.rawMaterialName)
+        filtered = filtered.filter(
+          (entry) => entry.rawMaterialName === filters.rawMaterialName,
+        );
       }
       if (filters.priority !== "all") {
-        filtered = filtered.filter((entry) => entry.priority === filters.priority)
+        filtered = filtered.filter(
+          (entry) => entry.priority === filters.priority,
+        );
       }
       if (filters.typeOfIndent !== "all") {
-        filtered = filtered.filter((entry) => entry.typeOfIndent === filters.typeOfIndent)
+        filtered = filtered.filter(
+          (entry) => entry.typeOfIndent === filters.typeOfIndent,
+        );
       }
       if (filters.generatedBy !== "all") {
-        filtered = filtered.filter((entry) => entry.generatedBy === filters.generatedBy)
+        filtered = filtered.filter(
+          (entry) => entry.generatedBy === filters.generatedBy,
+        );
       }
       if (filters.deliveryOrderNo !== "all") {
-        filtered = filtered.filter((entry) => entry.deliveryOrderNo === filters.deliveryOrderNo)
+        filtered = filtered.filter(
+          (entry) => entry.deliveryOrderNo === filters.deliveryOrderNo,
+        );
       }
-      return filtered
+      return filtered;
     },
     [filters],
-  )
+  );
 
   const handleSelectRow = (id, isSelected) => {
-    setSelectedRows((prev) => ({ ...prev, [id]: isSelected }))
-  }
+    setSelectedRows((prev) => ({ ...prev, [id]: isSelected }));
+  };
 
   const handleApprovedQtyChange = (id, qty) => {
-    setApprovedQtys((prev) => ({ ...prev, [id]: qty }))
-  }
+    setApprovedQtys((prev) => ({ ...prev, [id]: qty }));
+  };
 
   const handleApprovalStatusChange = (id, status) => {
-    setApprovalStatuses((prev) => ({ ...prev, [id]: status }))
-  }
+    setApprovalStatuses((prev) => ({ ...prev, [id]: status }));
+  };
 
   const handleRemarkChange = (id, remark) => {
-    setRemarks((prev) => ({ ...prev, [id]: remark }))
-  }
+    setRemarks((prev) => ({ ...prev, [id]: remark }));
+  };
 
   // --- Column Visibility Handlers ---
   const handleToggleColumn = (tab, dataKey, checked) => {
     if (tab === "approve") {
-      setVisibleApproveColumns((prev) => ({ ...prev, [dataKey]: checked }))
+      setVisibleApproveColumns((prev) => ({ ...prev, [dataKey]: checked }));
     } else {
-      setVisibleHistoryColumns((prev) => ({ ...prev, [dataKey]: checked }))
+      setVisibleHistoryColumns((prev) => ({ ...prev, [dataKey]: checked }));
     }
-  }
+  };
 
   const handleSelectAllColumns = (tab, columnsToToggle, checked) => {
-    const newVisibility = {}
+    const newVisibility = {};
     columnsToToggle.forEach((col) => {
-      newVisibility[col.dataKey] = checked
-    })
+      newVisibility[col.dataKey] = checked;
+    });
     if (tab === "approve") {
-      setVisibleApproveColumns((prev) => ({ ...prev, ...newVisibility }))
+      setVisibleApproveColumns((prev) => ({ ...prev, ...newVisibility }));
     } else {
-      setVisibleHistoryColumns((prev) => ({ ...prev, ...newVisibility }))
+      setVisibleHistoryColumns((prev) => ({ ...prev, ...newVisibility }));
     }
-  }
+  };
 
   async function handleSubmitSelected(e) {
     if (e) e.preventDefault();
 
-    const selectedIndentIds = Object.keys(selectedRows).filter(id => selectedRows[id]);
+    const selectedIndentIds = Object.keys(selectedRows).filter(
+      (id) => selectedRows[id],
+    );
     if (selectedIndentIds.length === 0) {
-      toast.error("Validation Error", { description: "Please select at least one row to update." });
+      toast.error("Validation Error", {
+        description: "Please select at least one row to update.",
+      });
       return;
     }
 
-    const invalidRows = selectedIndentIds.filter(id => !approvalStatuses[id] || approvalStatuses[id] === "Select");
+    const invalidRows = selectedIndentIds.filter(
+      (id) => !approvalStatuses[id] || approvalStatuses[id] === "Select",
+    );
     if (invalidRows.length > 0) {
-      toast.error("Validation Error", { description: "Please select an approval status for all selected rows." });
+      toast.error("Validation Error", {
+        description: "Please select an approval status for all selected rows.",
+      });
       return;
     }
 
     setIsSubmitting(true);
-    toast.loading(`Submitting ${selectedIndentIds.length} update(s)...`, { id: "submission-toast" });
+    toast.loading(`Submitting ${selectedIndentIds.length} update(s)...`, {
+      id: "submission-toast",
+    });
 
     let successCount = 0;
     const errorMessages = [];
 
-    const selectedPendingIndents = pendingIndents.filter(indent => selectedRows[indent.id]);
+    const selectedPendingIndents = pendingIndents.filter(
+      (indent) => selectedRows[indent.id],
+    );
 
     for (const indent of selectedPendingIndents) {
       try {
         const now = new Date();
-        const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
         const userRemark = remarks[indent.id] || "";
         const finalRemark = userRemark.trim() !== "" ? userRemark.trim() : "ok";
 
         const { error: updateError } = await supabase
           .from("INDENT-PO")
           .update({
-            "Actual1": timestamp,
-            "Approved Qty": parseFloat(approvedQtys[indent.id] || indent.quantity),
+            Actual1: timestamp,
+            "Approved Qty": parseFloat(
+              approvedQtys[indent.id] || indent.quantity,
+            ),
             "Approval Status": approvalStatuses[indent.id],
-            "Remarks": finalRemark
+            Remarks: finalRemark,
           })
-          .eq('"Indent Id."', indent.id)
+          .eq('"Indent Id."', indent.id);
 
-        if (updateError) throw updateError
+        if (updateError) throw updateError;
 
         successCount++;
       } catch (err) {
@@ -419,11 +507,14 @@ export default function StockApproval() {
     toast.dismiss("submission-toast");
 
     if (errorMessages.length > 0) {
-      toast.error(`Submission finished with ${errorMessages.length} error(s).`, {
-        id: "submission-toast-error",
-        description: `${successCount} succeeded. ${errorMessages.length} failed.`,
-        duration: 5000,
-      });
+      toast.error(
+        `Submission finished with ${errorMessages.length} error(s).`,
+        {
+          id: "submission-toast-error",
+          description: `${successCount} succeeded. ${errorMessages.length} failed.`,
+          duration: 5000,
+        },
+      );
     } else {
       toast.success("Submission Complete!", {
         id: "submission-toast-success",
@@ -433,7 +524,7 @@ export default function StockApproval() {
     }
 
     setTimeout(() => {
-      setRefreshData(prev => !prev);
+      setRefreshData((prev) => !prev);
       setSelectedRows({});
       setIsSubmitting(false);
     }, 1500);
@@ -441,33 +532,43 @@ export default function StockApproval() {
 
   // --- Memoized Indent Data (Approve & History tabs) ---
   const pendingIndents = useMemo(() => {
-    const filtered = indents.filter((indent) => indent.planned1 && !indent.actual1)
-    return applyFilters(filtered)
-  }, [indents, applyFilters])
+    const filtered = indents.filter(
+      (indent) => indent.planned1 && !indent.actual1,
+    );
+    return applyFilters(filtered);
+  }, [indents, applyFilters]);
 
   // Update global notification count
   useEffect(() => {
     // We calculate the unfiltered count for the badge to match sidebar's logic (usually total pending for the user)
     // Sidebar usually shows ALL pending items for the user, regardless of temporary filters like Vendor Name.
-    const totalPendingForUser = indents.filter(indent => indent.planned1 && !indent.actual1).length
-    updateCount("stock", totalPendingForUser)
-  }, [indents, updateCount])
+    const totalPendingForUser = indents.filter(
+      (indent) => indent.planned1 && !indent.actual1,
+    ).length;
+    updateCount("stock", totalPendingForUser);
+  }, [indents, updateCount]);
 
   const processedIndents = useMemo(() => {
-    const filtered = indents.filter((indent) => indent.planned1 && indent.actual1)
+    const filtered = indents.filter(
+      (indent) => indent.planned1 && indent.actual1,
+    );
     return applyFilters(filtered).sort((a, b) => {
-      const dateA = a.actual1 ? new Date(a.actual1) : null
-      const dateB = b.actual1 ? new Date(b.actual1) : null
-      if (!dateA && !dateB) return 0
-      if (!dateA) return 1
-      if (!dateB) return -1
-      return dateB.getTime() - dateA.getTime()
-    })
-  }, [indents, applyFilters])
+      const dateA = a.actual1 ? new Date(a.actual1) : null;
+      const dateB = b.actual1 ? new Date(b.actual1) : null;
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [indents, applyFilters]);
 
   const getApproveTableColumns = useMemo(() => {
     return allColumnsMeta
-      .filter((col) => (col.dataKey !== "selectRow" && visibleApproveColumns[col.dataKey]) || col.isApproveUI)
+      .filter(
+        (col) =>
+          (col.dataKey !== "selectRow" && visibleApproveColumns[col.dataKey]) ||
+          col.isApproveUI,
+      )
       .sort((a, b) => {
         const order = [
           "selectRow",
@@ -485,12 +586,12 @@ export default function StockApproval() {
           "Type Of Indent",
           "Current Stock As Per factory",
           "Notes",
-        ]
-        const indexA = order.indexOf(a.dataKey)
-        const indexB = order.indexOf(b.dataKey)
-        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB)
-      })
-  }, [allColumnsMeta, visibleApproveColumns])
+        ];
+        const indexA = order.indexOf(a.dataKey);
+        const indexB = order.indexOf(b.dataKey);
+        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+      });
+  }, [allColumnsMeta, visibleApproveColumns]);
 
   const getHistoryTableColumns = useMemo(() => {
     const explicitHistoryColumns = [
@@ -507,17 +608,20 @@ export default function StockApproval() {
       { dataKey: "Quantity", header: "Quantity" },
       { dataKey: "Priority", header: "Priority" },
       { dataKey: "Type Of Indent", header: "Type Of Indent" },
-      { dataKey: "Current Stock As Per factory", header: "Current Stock As Per factory" },
+      {
+        dataKey: "Current Stock As Per factory",
+        header: "Current Stock As Per factory",
+      },
       { dataKey: "Notes", header: "Notes" },
-    ]
+    ];
     return explicitHistoryColumns
       .filter((col) => visibleHistoryColumns[col.dataKey])
       .filter((col) => {
         // Only show columns that have data (simple check) or are always visible
-        const key = col.dataKey
+        const key = col.dataKey;
         // Optional: Keep key columns always visible? No, let toggle handle it.
         // But maintain a consistent order if possible
-        return true
+        return true;
       })
       .sort((a, b) => {
         const order = [
@@ -536,12 +640,12 @@ export default function StockApproval() {
           "Type Of Indent",
           "Current Stock As Per factory",
           "Notes",
-        ]
-        const indexA = order.indexOf(a.dataKey)
-        const indexB = order.indexOf(b.dataKey)
-        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB)
-      })
-  }, [visibleHistoryColumns])
+        ];
+        const indexA = order.indexOf(a.dataKey);
+        const indexB = order.indexOf(b.dataKey);
+        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+      });
+  }, [visibleHistoryColumns]);
 
   return (
     <Card className="w-full max-w-full 2xl:max-w-screen-2xl mx-auto relative bg-white shadow-md rounded-lg border border-gray-200">
@@ -555,7 +659,8 @@ export default function StockApproval() {
         </CardDescription>
         {user?.firmName && user.firmName.toLowerCase() !== "all" && (
           <p className="text-[#7da23a] text-xs mt-1">
-            Showing data for: <span className="font-semibold">{user.firmName}</span>
+            Showing data for:{" "}
+            <span className="font-semibold">{user.firmName}</span>
           </p>
         )}
       </CardHeader>
@@ -585,13 +690,18 @@ export default function StockApproval() {
             <div className="flex items-center gap-2 mb-3">
               <Filter className="h-4 w-4 text-gray-500" />
               <Label className="text-sm font-medium">Filters</Label>
-              <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearAllFilters}
+                className="ml-auto bg-white"
+              >
                 Clear All
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Vendor Name Filter */}
-              <div>
+              {/* <div>
                 <Label className="text-xs mb-1 block">Vendor Name</Label>
                 <SearchableSelect
                   value={filters.vendorName}
@@ -600,14 +710,16 @@ export default function StockApproval() {
                   placeholder="Vendors"
                   className="h-9"
                 />
-              </div>
+              </div> */}
 
               {/* Material Name Filter */}
               <div>
                 <Label className="text-xs mb-1 block">Material Name</Label>
                 <SearchableSelect
                   value={filters.rawMaterialName}
-                  onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
+                  onValueChange={(value) =>
+                    handleFilterChange("rawMaterialName", value)
+                  }
                   options={uniqueValues.rawMaterialName}
                   placeholder="Materials"
                   className="h-9"
@@ -619,7 +731,9 @@ export default function StockApproval() {
                 <Label className="text-xs mb-1 block">Priority</Label>
                 <SearchableSelect
                   value={filters.priority}
-                  onValueChange={(value) => handleFilterChange("priority", value)}
+                  onValueChange={(value) =>
+                    handleFilterChange("priority", value)
+                  }
                   options={uniqueValues.priority}
                   placeholder="Priority"
                   className="h-9"
@@ -627,7 +741,7 @@ export default function StockApproval() {
               </div>
 
               {/* Type Of Indent Filter */}
-              <div>
+              {/* <div>
                 <Label className="text-xs mb-1 block">Type Of Indent</Label>
                 <SearchableSelect
                   value={filters.typeOfIndent}
@@ -643,7 +757,9 @@ export default function StockApproval() {
                 <Label className="text-xs mb-1 block">Generated By</Label>
                 <SearchableSelect
                   value={filters.generatedBy}
-                  onValueChange={(value) => handleFilterChange("generatedBy", value)}
+                  onValueChange={(value) =>
+                    handleFilterChange("generatedBy", value)
+                  }
                   options={uniqueValues.generatedBy}
                   placeholder="Users"
                   className="h-9"
@@ -651,7 +767,7 @@ export default function StockApproval() {
               </div>
 
               {/* Delivery Order No Filter */}
-              <div>
+              {/* <div>
                 <Label className="text-xs mb-1 block">Delivery Order No</Label>
                 <SearchableSelect
                   value={filters.deliveryOrderNo}
@@ -660,7 +776,7 @@ export default function StockApproval() {
                   placeholder="Orders"
                   className="h-9"
                 />
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -674,14 +790,21 @@ export default function StockApproval() {
                       <CheckCircle2 className="h-4 w-4 text-[#7da23a]" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-base text-gray-800">Pending Stock Approval</h3>
-                      <p className="text-xs text-gray-500">Review and approve/reject based on stock verification.</p>
+                      <h3 className="font-semibold text-base text-gray-800">
+                        Pending Stock Approval
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        Review and approve/reject based on stock verification.
+                      </p>
                     </div>
                   </div>
                   {pendingIndents.length > 0 && (
                     <Button
                       onClick={handleSubmitSelected}
-                      disabled={Object.values(selectedRows).filter(Boolean).length === 0 || isSubmitting}
+                      disabled={
+                        Object.values(selectedRows).filter(Boolean).length ===
+                          0 || isSubmitting
+                      }
                       className="px-3 py-1 h-8 bg-[#7da23a] text-white font-semibold rounded-md hover:bg-[#6b8e2f] transition-colors disabled:opacity-50 text-sm"
                     >
                       {isSubmitting ? (
@@ -706,7 +829,9 @@ export default function StockApproval() {
                 ) : error ? (
                   <div className="text-center p-6 bg-red-50 rounded-md">
                     <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-3" />
-                    <h3 className="text-red-700 font-semibold">Error Loading Data</h3>
+                    <h3 className="text-red-700 font-semibold">
+                      Error Loading Data
+                    </h3>
                     <p className="text-red-600 text-sm mb-3">{error}</p>
                     <Button
                       onClick={() => setRefreshData((p) => !p)}
@@ -721,15 +846,22 @@ export default function StockApproval() {
                     <div className="mb-4 flex justify-end">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="ml-auto bg-white h-8 px-3 text-sm">
+                          <Button
+                            variant="outline"
+                            className="ml-auto bg-white h-8 px-3 text-sm"
+                          >
                             <MixerHorizontalIcon className="mr-2 h-4 w-4" />
                             View Columns
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[200px] p-4">
                           <div className="grid gap-2">
-                            <p className="text-sm font-medium leading-none">Toggle Columns</p>
-                            <p className="text-xs text-gray-500">Select columns to display.</p>
+                            <p className="text-sm font-medium leading-none">
+                              Toggle Columns
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Select columns to display.
+                            </p>
                             <div className="relative flex items-center mb-2">
                               <Button
                                 variant="link"
@@ -737,7 +869,10 @@ export default function StockApproval() {
                                 onClick={() =>
                                   handleSelectAllColumns(
                                     "approve",
-                                    allColumnsMeta.filter((col) => col.toggleable && !col.isApproveUI),
+                                    allColumnsMeta.filter(
+                                      (col) =>
+                                        col.toggleable && !col.isApproveUI,
+                                    ),
                                     true,
                                   )
                                 }
@@ -745,14 +880,19 @@ export default function StockApproval() {
                               >
                                 Select All
                               </Button>
-                              <span className="text-gray-400 text-xs mx-1">|</span>
+                              <span className="text-gray-400 text-xs mx-1">
+                                |
+                              </span>
                               <Button
                                 variant="link"
                                 size="sm"
                                 onClick={() =>
                                   handleSelectAllColumns(
                                     "approve",
-                                    allColumnsMeta.filter((col) => col.toggleable && !col.isApproveUI),
+                                    allColumnsMeta.filter(
+                                      (col) =>
+                                        col.toggleable && !col.isApproveUI,
+                                    ),
                                     false,
                                   )
                                 }
@@ -763,13 +903,26 @@ export default function StockApproval() {
                             </div>
                             <div className="space-y-2">
                               {allColumnsMeta
-                                .filter((col) => col.toggleable && !col.isApproveUI)
+                                .filter(
+                                  (col) => col.toggleable && !col.isApproveUI,
+                                )
                                 .map((col) => (
-                                  <div key={col.dataKey} className="flex items-center space-x-2">
+                                  <div
+                                    key={col.dataKey}
+                                    className="flex items-center space-x-2"
+                                  >
                                     <Checkbox
                                       id={`toggle-approve-${col.dataKey}`}
-                                      checked={visibleApproveColumns[col.dataKey]}
-                                      onCheckedChange={(checked) => handleToggleColumn("approve", col.dataKey, checked)}
+                                      checked={
+                                        visibleApproveColumns[col.dataKey]
+                                      }
+                                      onCheckedChange={(checked) =>
+                                        handleToggleColumn(
+                                          "approve",
+                                          col.dataKey,
+                                          checked,
+                                        )
+                                      }
                                       disabled={col.alwaysVisible}
                                     />
                                     <Label
@@ -777,7 +930,11 @@ export default function StockApproval() {
                                       className="text-sm font-normal cursor-pointer"
                                     >
                                       {col.header}
-                                      {col.alwaysVisible && <span className="text-gray-400 ml-1 text-xs">(Fixed)</span>}
+                                      {col.alwaysVisible && (
+                                        <span className="text-gray-400 ml-1 text-xs">
+                                          (Fixed)
+                                        </span>
+                                      )}
                                     </Label>
                                   </div>
                                 ))}
@@ -790,7 +947,9 @@ export default function StockApproval() {
                     {pendingIndents.length === 0 ? (
                       <div className="text-center py-10">
                         <Info className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                        <p className="text-gray-600">No indents currently pending approval.</p>
+                        <p className="text-gray-600">
+                          No indents currently pending approval.
+                        </p>
                       </div>
                     ) : (
                       <div className="overflow-x-auto rounded-lg border border-gray-200 max-h-[calc(100vh-500px)]">
@@ -811,74 +970,118 @@ export default function StockApproval() {
                             {pendingIndents.map((indent) => (
                               <TableRow
                                 key={indent.id}
-                                className={`transition duration-150 ${selectedRows[indent.id] ? "bg-green-100" : "hover:bg-gray-50"
-                                  }`}
+                                className={`transition duration-150 ${
+                                  selectedRows[indent.id]
+                                    ? "bg-green-100"
+                                    : "hover:bg-gray-50"
+                                }`}
                               >
                                 {getApproveTableColumns.map((col) => {
                                   if (col.dataKey === "selectRow") {
                                     return (
-                                      <TableCell key={col.dataKey} className="px-4 py-1.5">
+                                      <TableCell
+                                        key={col.dataKey}
+                                        className="px-4 py-1.5"
+                                      >
                                         <Checkbox
                                           checked={!!selectedRows[indent.id]}
-                                          onCheckedChange={(checked) => handleSelectRow(indent.id, checked)}
+                                          onCheckedChange={(checked) =>
+                                            handleSelectRow(indent.id, checked)
+                                          }
                                           className="h-4 w-4"
                                         />
                                       </TableCell>
-                                    )
+                                    );
                                   }
                                   if (col.dataKey === "approvedQtyInput") {
                                     return (
-                                      <TableCell key={col.dataKey} className="px-4 py-1.5">
+                                      <TableCell
+                                        key={col.dataKey}
+                                        className="px-4 py-1.5"
+                                      >
                                         <input
-                                          type="text"  // ✅ Changed to "text" to remove spinners
+                                          type="text" // ✅ Changed to "text" to remove spinners
                                           placeholder="Qty"
                                           value={approvedQtys[indent.id] || ""}
-                                          onChange={(e) => handleApprovedQtyChange(indent.id, e.target.value)}
+                                          onChange={(e) =>
+                                            handleApprovedQtyChange(
+                                              indent.id,
+                                              e.target.value,
+                                            )
+                                          }
                                           disabled={!selectedRows[indent.id]}
                                           className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:ring-[#6b8e2f] focus:border-[#6b8e2f] disabled:bg-gray-100 text-sm"
                                         />
                                       </TableCell>
-                                    )
+                                    );
                                   }
                                   if (col.dataKey === "statusDropdown") {
                                     return (
-                                      <TableCell key={col.dataKey} className="px-4 py-1.5">
+                                      <TableCell
+                                        key={col.dataKey}
+                                        className="px-4 py-1.5"
+                                      >
                                         <select
-                                          value={approvalStatuses[indent.id] || "Select"}
-                                          onChange={(e) => handleApprovalStatusChange(indent.id, e.target.value)}
+                                          value={
+                                            approvalStatuses[indent.id] ||
+                                            "Select"
+                                          }
+                                          onChange={(e) =>
+                                            handleApprovalStatusChange(
+                                              indent.id,
+                                              e.target.value,
+                                            )
+                                          }
                                           disabled={!selectedRows[indent.id]}
                                           className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-[#6b8e2f] focus:border-[#6b8e2f] disabled:bg-gray-100 text-sm"
                                         >
                                           <option value="Select" disabled>
                                             Select...
                                           </option>
-                                          <option value="Approve">Approve</option>
+                                          <option value="Approve">
+                                            Approve
+                                          </option>
                                           <option value="Reject">Reject</option>
                                         </select>
                                       </TableCell>
-                                    )
+                                    );
                                   }
                                   if (col.dataKey === "remarkInput") {
                                     return (
-                                      <TableCell key={col.dataKey} className="px-4 py-1.5">
+                                      <TableCell
+                                        key={col.dataKey}
+                                        className="px-4 py-1.5"
+                                      >
                                         <input
                                           type="text"
                                           placeholder="Remark"
                                           value={remarks[indent.id] || ""}
-                                          onChange={(e) => handleRemarkChange(indent.id, e.target.value)}
+                                          onChange={(e) =>
+                                            handleRemarkChange(
+                                              indent.id,
+                                              e.target.value,
+                                            )
+                                          }
                                           disabled={!selectedRows[indent.id]}
                                           className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-[#6b8e2f] focus:border-[#6b8e2f] disabled:bg-gray-100 text-sm"
                                         />
                                       </TableCell>
-                                    )
+                                    );
                                   }
                                   return (
-                                    <TableCell key={col.dataKey} className="px-4 py-1.5">
+                                    <TableCell
+                                      key={col.dataKey}
+                                      className="px-4 py-1.5"
+                                    >
                                       {col.dataKey === "Planned1"
-                                        ? (indent.planned1 ? new Date(indent.planned1).toLocaleString() : "-")
+                                        ? indent.planned1
+                                          ? new Date(
+                                              indent.planned1,
+                                            ).toLocaleString()
+                                          : "-"
                                         : indent[col.dataKey]}
                                     </TableCell>
-                                  )
+                                  );
                                 })}
                               </TableRow>
                             ))}
@@ -901,8 +1104,12 @@ export default function StockApproval() {
                     <History className="h-4 w-4 text-[#7da23a]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-base text-gray-800">Approval History</h3>
-                    <p className="text-xs text-gray-500">View past approvals and rejections.</p>
+                    <h3 className="font-semibold text-base text-gray-800">
+                      Approval History
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      View past approvals and rejections.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -916,7 +1123,9 @@ export default function StockApproval() {
                 ) : error ? (
                   <div className="text-center p-6 bg-red-50 rounded-md">
                     <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-3" />
-                    <h3 className="text-red-700 font-semibold">Error Loading Data</h3>
+                    <h3 className="text-red-700 font-semibold">
+                      Error Loading Data
+                    </h3>
                     <p className="text-red-600 text-sm mb-3">{error}</p>
                     <Button
                       onClick={() => setRefreshData((p) => !p)}
@@ -931,15 +1140,22 @@ export default function StockApproval() {
                     <div className="mb-4 flex justify-end">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="ml-auto bg-white h-8 px-3 text-sm">
+                          <Button
+                            variant="outline"
+                            className="ml-auto bg-white h-8 px-3 text-sm"
+                          >
                             <MixerHorizontalIcon className="mr-2 h-4 w-4" />
                             View Columns
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[200px] p-4">
                           <div className="grid gap-2">
-                            <p className="text-sm font-medium leading-none">Toggle Columns</p>
-                            <p className="text-xs text-gray-500">Select columns to display.</p>
+                            <p className="text-sm font-medium leading-none">
+                              Toggle Columns
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Select columns to display.
+                            </p>
                             <div className="relative flex items-center mb-2">
                               <Button
                                 variant="link"
@@ -947,7 +1163,10 @@ export default function StockApproval() {
                                 onClick={() =>
                                   handleSelectAllColumns(
                                     "history",
-                                    allColumnsMeta.filter((col) => col.toggleable && !col.isHistoryUI),
+                                    allColumnsMeta.filter(
+                                      (col) =>
+                                        col.toggleable && !col.isHistoryUI,
+                                    ),
                                     true,
                                   )
                                 }
@@ -955,14 +1174,19 @@ export default function StockApproval() {
                               >
                                 Select All
                               </Button>
-                              <span className="text-gray-400 text-xs mx-1">|</span>
+                              <span className="text-gray-400 text-xs mx-1">
+                                |
+                              </span>
                               <Button
                                 variant="link"
                                 size="sm"
                                 onClick={() =>
                                   handleSelectAllColumns(
                                     "history",
-                                    allColumnsMeta.filter((col) => col.toggleable && !col.isHistoryUI),
+                                    allColumnsMeta.filter(
+                                      (col) =>
+                                        col.toggleable && !col.isHistoryUI,
+                                    ),
                                     false,
                                   )
                                 }
@@ -973,13 +1197,26 @@ export default function StockApproval() {
                             </div>
                             <div className="space-y-2">
                               {allColumnsMeta
-                                .filter((col) => col.toggleable && !col.isHistoryUI)
+                                .filter(
+                                  (col) => col.toggleable && !col.isHistoryUI,
+                                )
                                 .map((col) => (
-                                  <div key={col.dataKey} className="flex items-center space-x-2">
+                                  <div
+                                    key={col.dataKey}
+                                    className="flex items-center space-x-2"
+                                  >
                                     <Checkbox
                                       id={`toggle-history-${col.dataKey}`}
-                                      checked={visibleHistoryColumns[col.dataKey]}
-                                      onCheckedChange={(checked) => handleToggleColumn("history", col.dataKey, checked)}
+                                      checked={
+                                        visibleHistoryColumns[col.dataKey]
+                                      }
+                                      onCheckedChange={(checked) =>
+                                        handleToggleColumn(
+                                          "history",
+                                          col.dataKey,
+                                          checked,
+                                        )
+                                      }
                                       disabled={col.alwaysVisible}
                                     />
                                     <Label
@@ -987,7 +1224,11 @@ export default function StockApproval() {
                                       className="text-sm font-normal cursor-pointer"
                                     >
                                       {col.header}
-                                      {col.alwaysVisible && <span className="text-gray-400 ml-1 text-xs">(Fixed)</span>}
+                                      {col.alwaysVisible && (
+                                        <span className="text-gray-400 ml-1 text-xs">
+                                          (Fixed)
+                                        </span>
+                                      )}
                                     </Label>
                                   </div>
                                 ))}
@@ -1000,7 +1241,9 @@ export default function StockApproval() {
                     {processedIndents.length === 0 ? (
                       <div className="text-center py-10">
                         <Info className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                        <p className="text-gray-600">No approval history available.</p>
+                        <p className="text-gray-600">
+                          No approval history available.
+                        </p>
                       </div>
                     ) : (
                       <div className="overflow-x-auto rounded-lg border border-gray-200 max-h-[calc(100vh-500px)]">
@@ -1019,13 +1262,27 @@ export default function StockApproval() {
                           </TableHeader>
                           <TableBody className="bg-white divide-y divide-gray-200">
                             {processedIndents.map((indent) => (
-                              <TableRow key={indent.id} className="hover:bg-gray-50">
+                              <TableRow
+                                key={indent.id}
+                                className="hover:bg-gray-50"
+                              >
                                 {getHistoryTableColumns.map((col) => (
-                                  <TableCell key={col.dataKey} className="px-4 py-1.5">
+                                  <TableCell
+                                    key={col.dataKey}
+                                    className="px-4 py-1.5"
+                                  >
                                     {col.dataKey === "Actual1"
-                                      ? (indent.actual1 ? new Date(indent.actual1).toLocaleString() : "-")
+                                      ? indent.actual1
+                                        ? new Date(
+                                            indent.actual1,
+                                          ).toLocaleString()
+                                        : "-"
                                       : col.dataKey === "Planned1"
-                                        ? (indent.planned1 ? new Date(indent.planned1).toLocaleString() : "-")
+                                        ? indent.planned1
+                                          ? new Date(
+                                              indent.planned1,
+                                            ).toLocaleString()
+                                          : "-"
                                         : col.dataKey === "Remarks"
                                           ? cleanRemark(indent[col.dataKey])
                                           : indent[col.dataKey]}
@@ -1045,5 +1302,5 @@ export default function StockApproval() {
         </Tabs>
       </CardContent>
     </Card>
-  )
+  );
 }

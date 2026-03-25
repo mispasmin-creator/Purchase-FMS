@@ -675,6 +675,7 @@ export default function LiftMaterial() {
       transportingRate: "",
       hasBilty: "no",
       biltyImage: null,
+      testingCertificate: null,
     })
     setFormErrors({})
     setShowPopup(true)
@@ -705,6 +706,7 @@ export default function LiftMaterial() {
       transportingRate: "",
       hasBilty: "no",
       biltyImage: null,
+      testingCertificate: null,
     })
     setFormErrors({})
   }
@@ -927,6 +929,12 @@ export default function LiftMaterial() {
         biltyImageUrl = await uploadFileToSupabase(formData.biltyImage, 'lift-bilty');
       }
 
+      // Upload testing certificate (if provided)
+      let testingCertificateUrl = "";
+      if (formData.testingCertificate) {
+        testingCertificateUrl = await uploadFileToSupabase(formData.testingCertificate, 'testing-certificates');
+      }
+
       // Prepare the data for insert into Supabase LIFT-ACCOUNTS table
       const liftAccountData = {
         "Timestamp": timestamp,
@@ -949,6 +957,7 @@ export default function LiftMaterial() {
         "Bill Image": billImageUrl,
         "Truck Qty": parseFloat(formData.additionalTruckQty) || null,
         "Bilty Image": biltyImageUrl || null,
+        "Testing Certificate": testingCertificateUrl || null,
         "Firm Name": selectedPO?.firmName || null,
         "Transporter Rate": parseFloat(formData.transportRate) || null,
         "Transporting Rate": parseFloat(formData.transportingRate) || null,
@@ -1003,6 +1012,7 @@ export default function LiftMaterial() {
         "Bill Image": liftAccountData["Bill Image"],
         "Bilty No.": liftAccountData["Bilty No."],
         "Bilty Image": liftAccountData["Bilty Image"],
+        "Testing Certificate": liftAccountData["Testing Certificate"],
 
         "Status": statusValue,
         "Remarks": "Auto-generated from Lifting",
@@ -1818,6 +1828,39 @@ export default function LiftMaterial() {
                       </div>
                     </div>
                     {formErrors.billImage && <p className="mt-1 text-xs text-red-600">{formErrors.billImage}</p>}
+                  </div>
+                )}
+
+                {formData.Type !== "Common" && (
+                  <div className="mt-5">
+                    <Label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="testingCertificate">
+                      Upload Testing Certificate
+                    </Label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-green-400 transition-colors">
+                      <div className="space-y-1 text-center">
+                        <FileUp className="mx-auto h-10 w-10 text-gray-400" />
+                        <div className="flex text-sm text-gray-600 justify-center">
+                          <Label
+                            htmlFor="testingCertificate"
+                            className="relative cursor-pointer bg-white rounded-md font-medium text-[#7da23a] hover:text-green-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-[#6b8e2f] px-1"
+                          >
+                            <span>Upload testing certificate</span>
+                            <Input
+                              id="testingCertificate"
+                              name="testingCertificate"
+                              type="file"
+                              className="sr-only"
+                              onChange={handleFileUpload}
+                              accept="image/*,.pdf,.doc,.docx"
+                            />
+                          </Label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {formData.testingCertificate ? formData.testingCertificate.name : "PNG, JPG, PDF, DOC, DOCX up to 10MB"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 

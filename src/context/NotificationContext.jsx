@@ -26,6 +26,8 @@ export function NotificationProvider({ children }) {
         bilty: 0,
         fullkitting: 0,
         "debit-note": 0,
+        vendor: 0,
+        management: 0,
     });
     const [loadingNotifications, setLoadingNotifications] = useState(false);
 
@@ -415,6 +417,55 @@ export function NotificationProvider({ children }) {
         }
     }
 
+    async function getPendingVendorRateUpdates(user, allowedSteps) {
+        try {
+            const { data, error } = await supabase
+                .from("INDENT-PO")
+                .select("*")
+                .not("Planned6", "is", null);
+
+            if (error) throw error;
+
+            let filtered = data.filter(item => item.Planned6 && !item.Actual6);
+
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(
+                    (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase() === userFirmNameLower,
+                );
+            }
+            return filtered.length;
+        } catch (error) {
+            console.error("Error fetching pending vendor rate updates:", error);
+            return 0;
+        }
+    }
+
+
+    async function getPendingManagementApprovals(user, allowedSteps) {
+        try {
+            const { data, error } = await supabase
+                .from("INDENT-PO")
+                .select("*")
+                .not("Planned7", "is", null);
+
+            if (error) throw error;
+
+            let filtered = data.filter(item => item.Planned7 && !item.Actual7);
+
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(
+                    (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase() === userFirmNameLower,
+                );
+            }
+            return filtered.length;
+        } catch (error) {
+            console.error("Error fetching pending management approvals:", error);
+            return 0;
+        }
+    }
+
 
     const fetchNotificationCounts = useCallback(async () => {
         if (!isAuthenticated) return;
@@ -423,7 +474,7 @@ export function NotificationProvider({ children }) {
         try {
             // We run all fetches in parallel
             const [
-                stock, po, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, kitting, debitNotes
+                stock, po, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, kitting, debitNotes, vendor, management
             ] = await Promise.all([
                 getPendingStockApprovals(user, allowedSteps),
                 getPendingPOs(user, allowedSteps),
@@ -439,6 +490,8 @@ export function NotificationProvider({ children }) {
                 getPendingBilties(user, allowedSteps),
                 getPendingFullkitting(),
                 getPendingDebitNotes(user),
+                getPendingVendorRateUpdates(user, allowedSteps),
+                getPendingManagementApprovals(user, allowedSteps),
             ]);
 
             setNotificationCounts(prev => ({
@@ -446,7 +499,8 @@ export function NotificationProvider({ children }) {
                 stock, "generate-po": po, "tally-entry": tally, "lift-material": lift,
                 "receipt-check": receipt, "lab-testing": lab, mismatch, "rectify-mistake": rectify,
                 "audit-data": audit, "original-bills": bills, "take-entry-tally": tally2,
-                bilty, fullkitting: kitting, "debit-note": debitNotes
+                bilty, fullkitting: kitting, "debit-note": debitNotes,
+                vendor, management
             }));
         } catch (error) {
             console.error("Error fetching notification counts:", error);

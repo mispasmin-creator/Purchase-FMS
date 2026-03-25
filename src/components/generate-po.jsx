@@ -1,19 +1,67 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
-import { FileCheck, Loader2, Upload, Wallet, Filter, Link as LinkIcon, File, History, Info, AlertTriangle, ChevronsUpDown } from 'lucide-react';
-import { MixerHorizontalIcon } from '@radix-ui/react-icons';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useContext,
+} from "react";
+import {
+  FileCheck,
+  Loader2,
+  Upload,
+  Wallet,
+  Filter,
+  Link as LinkIcon,
+  File as FileIcon,
+  History,
+  Info,
+  AlertTriangle,
+  ChevronsUpDown,
+} from "lucide-react";
+import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import "../scrollbar-hide.css";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { AuthContext } from "../context/AuthContext";
@@ -21,11 +69,14 @@ import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { fetchMasterData } from "../utils/masterDataUtils";
 import { uploadFileToStorage } from "../utils/storageUtils";
+import { pdf } from "@react-pdf/renderer";
+import POPdf from "./POPdf";
 
 // Constants
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
 const INDENT_PO_SHEET = "INDENT-PO";
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
+const SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
 
 // Column mappings
 const COL_INDENT_ID = 1;
@@ -61,8 +112,9 @@ const GeneratePurchaseOrder = () => {
   const [filters, setFilters] = useState({
     vendorName: "all",
     rawMaterialName: "all",
-    firmName: "all"
+    firmName: "all",
   });
+  const [showFilters, setShowFilters] = useState(false);
 
   // States for Generate PO
   const [indents, setIndents] = useState([]);
@@ -103,7 +155,28 @@ const GeneratePurchaseOrder = () => {
     iron: "",
     ap: "",
     bd: "",
+    // New PO metadata fields
+    poNumber: "",
+    poDate: new Date().toISOString().split("T")[0],
+    quotationNumber: "",
+    quotationDate: new Date().toISOString().split("T")[0],
+    ourEnqNo: "",
+    enquiryDate: new Date().toISOString().split("T")[0],
+    deliveryDate: new Date().toISOString().split("T")[0],
+    deliveryDays: "",
+    paymentTerms: "1 DAY",
+    gstPercent: 18,
+    discountPercent: 0,
+    terms: [
+      "Price is ex factory",
+      "Subject to Raipur Jurisdiction",
+      "Payment: 1 Day",
+    ],
+    destination: "",
   });
+
+  const [showPreview, setShowPreview] = useState(false);
+  const [masterDetails, setMasterDetails] = useState(null);
 
   // Simple SearchableSelect Component (without Command)
   const SearchableSelect = ({
@@ -111,13 +184,13 @@ const GeneratePurchaseOrder = () => {
     onValueChange,
     options,
     placeholder,
-    className
+    className,
   }) => {
     const [open, setOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
 
-    const filteredOptions = options.filter(option =>
-      option.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredOptions = options.filter((option) =>
+      option.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
     return (
@@ -130,18 +203,18 @@ const GeneratePurchaseOrder = () => {
           className={`w-full justify-between h-9 bg-white text-xs ${className}`}
         >
           {value === "all" || !value ? `All ${placeholder}` : value}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
         </Button>
 
         {open && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-            <div className="sticky top-0 bg-white p-2 border-b">
+          <div className="absolute z-50 w-full mt-1 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg max-h-60">
+            <div className="sticky top-0 p-2 bg-white border-b">
               <Input
                 type="text"
                 placeholder={`Search ${placeholder.toLowerCase()}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-7 text-xs"
+                className="text-xs h-7"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
@@ -174,17 +247,17 @@ const GeneratePurchaseOrder = () => {
         )}
 
         {open && (
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setOpen(false)}
-          />
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
         )}
       </div>
     );
   };
 
   // Form state for Advance Payment
-  const [paymentFormData, setPaymentFormData] = useState({ amount: "", paymentDate: "" });
+  const [paymentFormData, setPaymentFormData] = useState({
+    amount: "",
+    paymentDate: "",
+  });
   const [paymentFormErrors, setPaymentFormErrors] = useState({});
 
   // Column visibility states
@@ -194,50 +267,99 @@ const GeneratePurchaseOrder = () => {
   const [activeTab, setActiveTab] = useState("approve");
 
   // Column definitions for display tables
-  const allIndentColumnsMeta = useMemo(() => ([
-    { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
-    { header: "Indent ID", dataKey: "id", toggleable: true, alwaysVisible: true },
-    { header: "Planned Date", dataKey: "planned", toggleable: true },
-    { header: "Firm Name", dataKey: "firmName", toggleable: true },
-    // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
-    { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
-    { header: "Indented Quantity", dataKey: "originalQuantity", toggleable: true },
-    { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
-    { header: "Type", dataKey: "typeOfIndent", toggleable: true },
-    { header: "Notes", dataKey: "indentNotes", toggleable: true },
-  ]), []);
+  const allIndentColumnsMeta = useMemo(
+    () => [
+      {
+        header: "Action",
+        dataKey: "actionColumn",
+        toggleable: false,
+        alwaysVisible: true,
+      },
+      {
+        header: "Indent ID",
+        dataKey: "id",
+        toggleable: true,
+        alwaysVisible: true,
+      },
+      { header: "Planned Date", dataKey: "planned", toggleable: true },
+      { header: "Firm Name", dataKey: "firmName", toggleable: true },
+      // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
+      { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
+      {
+        header: "Indented Quantity",
+        dataKey: "originalQuantity",
+        toggleable: true,
+      },
+      { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
+      { header: "Type", dataKey: "typeOfIndent", toggleable: true },
+      { header: "Notes", dataKey: "indentNotes", toggleable: true },
+    ],
+    [],
+  );
 
-  const allPoColumnsMeta = useMemo(() => ([
-    { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
-    { header: "Created At", dataKey: "createdAt", toggleable: true },
-    { header: "Firm Name", dataKey: "firmName", toggleable: true },
-    // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
-    { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
-    { header: "Quantity", dataKey: "quantity", toggleable: true },
-    { header: "Total Amount", dataKey: "totalAmount", toggleable: true },
-    { header: "Alumina %", dataKey: "alumina", toggleable: true },
-    { header: "Iron %", dataKey: "iron", toggleable: true },
-    { header: "PO File", dataKey: "poFile", toggleable: true, isLink: true, linkText: "View PDF" },
-  ]), []);
+  const allPoColumnsMeta = useMemo(
+    () => [
+      {
+        header: "Indent ID",
+        dataKey: "indentId",
+        toggleable: true,
+        alwaysVisible: true,
+      },
+      { header: "Created At", dataKey: "createdAt", toggleable: true },
+      { header: "Firm Name", dataKey: "firmName", toggleable: true },
+      // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
+      { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
+      { header: "Quantity", dataKey: "quantity", toggleable: true },
+      { header: "Total Amount", dataKey: "totalAmount", toggleable: true },
+      { header: "Alumina %", dataKey: "alumina", toggleable: true },
+      { header: "Iron %", dataKey: "iron", toggleable: true },
+      {
+        header: "PO File",
+        dataKey: "poFile",
+        toggleable: true,
+        isLink: true,
+        linkText: "View PDF",
+      },
+    ],
+    [],
+  );
 
-  const ADVANCE_PAYMENT_COLUMNS_META = useMemo(() => ([
-    { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
-    { header: "Payment Date", dataKey: "whenToBePaid", toggleable: true },
-    { header: "Firm Name", dataKey: "firmName", toggleable: true },
-    // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
-    { header: "Status", dataKey: "paymentStatus", toggleable: true },
-    { header: "Amount to Pay", dataKey: "toBePaidAmount", toggleable: true },
-  ]), []);
+  const ADVANCE_PAYMENT_COLUMNS_META = useMemo(
+    () => [
+      {
+        header: "Indent ID",
+        dataKey: "indentId",
+        toggleable: true,
+        alwaysVisible: true,
+      },
+      { header: "Payment Date", dataKey: "whenToBePaid", toggleable: true },
+      { header: "Firm Name", dataKey: "firmName", toggleable: true },
+      // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
+      { header: "Status", dataKey: "paymentStatus", toggleable: true },
+      { header: "Amount to Pay", dataKey: "toBePaidAmount", toggleable: true },
+    ],
+    [],
+  );
 
   // Helper function to parse gviz date string
   const parseGvizDate = useCallback((dateValue) => {
     if (!dateValue || typeof dateValue !== "string" || !dateValue.trim()) {
       return "";
     }
-    const gvizMatch = dateValue.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)/);
+    const gvizMatch = dateValue.match(
+      /^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)/,
+    );
     if (gvizMatch) {
-      const [, year, month, day, hours, minutes, seconds] = gvizMatch.map(Number);
-      const parsedDate = new Date(year, month, day, hours || 0, minutes || 0, seconds || 0);
+      const [, year, month, day, hours, minutes, seconds] =
+        gvizMatch.map(Number);
+      const parsedDate = new Date(
+        year,
+        month,
+        day,
+        hours || 0,
+        minutes || 0,
+        seconds || 0,
+      );
       if (!isNaN(parsedDate.getTime())) {
         return new Intl.DateTimeFormat("en-GB", {
           year: "numeric",
@@ -247,7 +369,9 @@ const GeneratePurchaseOrder = () => {
           minute: "2-digit",
           second: "2-digit",
           hour12: false,
-        }).format(parsedDate).replace(/,/g, "");
+        })
+          .format(parsedDate)
+          .replace(/,/g, "");
       }
     }
     const dateObj = new Date(dateValue);
@@ -260,7 +384,9 @@ const GeneratePurchaseOrder = () => {
         minute: "2-digit",
         second: "2-digit",
         hour12: false,
-      }).format(dateObj).replace(/,/g, "");
+      })
+        .format(dateObj)
+        .replace(/,/g, "");
     }
     return dateValue;
   }, []);
@@ -276,7 +402,9 @@ const GeneratePurchaseOrder = () => {
     };
     setVisibleIndentColumns(initializeVisibility(allIndentColumnsMeta));
     setVisiblePoColumns(initializeVisibility(allPoColumnsMeta));
-    setVisiblePaymentColumns(initializeVisibility(ADVANCE_PAYMENT_COLUMNS_META));
+    setVisiblePaymentColumns(
+      initializeVisibility(ADVANCE_PAYMENT_COLUMNS_META),
+    );
   }, [allIndentColumnsMeta, allPoColumnsMeta, ADVANCE_PAYMENT_COLUMNS_META]);
 
   const parseGvizResponse = useCallback((text, sheetNameForError) => {
@@ -292,7 +420,10 @@ const GeneratePurchaseOrder = () => {
     const jsonStart = text.indexOf("{");
     const jsonEnd = text.lastIndexOf("}");
     if (jsonStart === -1 || jsonEnd === -1) {
-      console.error(`JSON delimiters not found for ${sheetNameForError}. Text:`, text.substring(0, 200));
+      console.error(
+        `JSON delimiters not found for ${sheetNameForError}. Text:`,
+        text.substring(0, 200),
+      );
       throw new Error(
         `Could not parse JSON from Google Sheets response for ${sheetNameForError}. Text: ${text.substring(0, 200)}`,
       );
@@ -301,20 +432,32 @@ const GeneratePurchaseOrder = () => {
     try {
       const data = JSON.parse(jsonString);
       if (!data.table || !data.table.cols) {
-        console.warn(`No data.table or cols in ${sheetNameForError} or sheet is empty`, data);
+        console.warn(
+          `No data.table or cols in ${sheetNameForError} or sheet is empty`,
+          data,
+        );
         return { cols: [], rows: [] };
       }
       if (!data.table.rows) {
-        console.warn(`No data.table.rows in ${sheetNameForError}, treating as empty.`, data);
+        console.warn(
+          `No data.table.rows in ${sheetNameForError}, treating as empty.`,
+          data,
+        );
         data.table.rows = [];
       }
       return data.table;
     } catch (e) {
-      console.error(`Error parsing JSON for ${sheetNameForError}:`, e, "JSON String:", jsonString.substring(0, 500));
-      throw new Error(`Failed to parse JSON response from Google Sheets for ${sheetNameForError}. Error: ${e.message}`);
+      console.error(
+        `Error parsing JSON for ${sheetNameForError}:`,
+        e,
+        "JSON String:",
+        jsonString.substring(0, 500),
+      );
+      throw new Error(
+        `Failed to parse JSON response from Google Sheets for ${sheetNameForError}. Error: ${e.message}`,
+      );
     }
   }, []);
-
 
   const fetchVendorOptions = useCallback(async () => {
     try {
@@ -327,9 +470,35 @@ const GeneratePurchaseOrder = () => {
   }, []);
 
   useEffect(() => {
-    fetchVendorOptions();
-  }, [fetchVendorOptions]);
+    const loadMaster = async () => {
+      try {
+        const data = await fetchMasterData();
+        setMasterDetails(data);
+        if (data.vendorOptions) setVendorOptions(data.vendorOptions);
+      } catch (error) {
+        console.error("Error fetching master data:", error);
+      }
+    };
+    loadMaster();
+  }, []);
 
+  const generatePoNumber = useCallback((allPOs) => {
+    const prefix = "PMMPL/PO/25-26/";
+    if (!allPOs || allPOs.length === 0) return `${prefix}1`;
+
+    const existingNumbers = allPOs.map((po) => {
+      const timestamp = po.poTimestamp || "";
+      // We need to pull the actual PO number from somewhere if stored,
+      // but currently INDENT-PO doesn't have a column for it.
+      // Let's assume for now we might need to add it or derive it.
+      // If we can't find it, we'll just use a random seed or sequential increment.
+      return 0; // Fallback
+    });
+
+    const maxNumber =
+      existingNumbers.length > 0 ? Math.max(...existingNumbers) : 2554;
+    return `${prefix}${maxNumber + 1}`;
+  }, []);
 
   const fetchAllData = useCallback(async () => {
     setLoading(true);
@@ -353,18 +522,20 @@ const GeneratePurchaseOrder = () => {
           rawMaterialName: row["Material"],
           typeOfIndent: row["Priority"],
           approvedQty: row["Approved Qty"],
-          planned: String(row["Planned2"] || "").replace('T', ' '),
-          poTimestamp: String(row["Actual2"] || "").replace('T', ' '),
+          planned: String(row["Planned2"] || "").replace("T", " "),
+          poTimestamp: String(row["Actual2"] || "").replace("T", " "),
           indentId: row["Indent Id."], // For PO History and Advance Payment
           quantity: row["Total Quantity"] || row["Quantity"], // Use Total Quantity if available
           totalAmount: row["Total Amount"],
           alumina: row["Alumina %"],
           iron: row["Iron %"],
           poFile: row["PO Copy"],
-          createdAt: String(row["Actual2"] || "").replace('T', ' '),
+          createdAt: String(row["Actual2"] || "").replace("T", " "),
           haveToPO: row["Have To Make PO"],
           rate: row["Rate"],
-          leadTimeToLift: row["Lead Time To Lift (days)"] ? String(row["Lead Time To Lift (days)"]).split('T')[0] : "",
+          leadTimeToLift: row["Lead Time To Lift (days)"]
+            ? String(row["Lead Time To Lift (days)"]).split("T")[0]
+            : "",
           notes: row["PO Notes"],
           advanceToBePaid: row["Advance To Be Paid"],
           toBePaidAmount: row["To Be Paid Amount"],
@@ -379,22 +550,28 @@ const GeneratePurchaseOrder = () => {
         return rowData;
       });
 
-      if (user?.firmName && user.firmName.toLowerCase() !== 'all') {
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
-        processedData = processedData.filter(item => (item.firmName || "").toLowerCase().trim() === userFirmNameLower);
+        processedData = processedData.filter(
+          (item) =>
+            (item.firmName || "").toLowerCase().trim() === userFirmNameLower,
+        );
       }
 
-      const indentsForApproval = processedData.filter(item => item.planned && !item.poTimestamp);
-      const poHistory = processedData.filter(item => item.planned && item.poTimestamp).sort((a, b) => new Date(b.poTimestamp) - new Date(a.poTimestamp));
+      const indentsForApproval = processedData.filter(
+        (item) => item.planned && !item.poTimestamp,
+      );
+      const poHistory = processedData
+        .filter((item) => item.planned && item.poTimestamp)
+        .sort((a, b) => new Date(b.poTimestamp) - new Date(a.poTimestamp));
 
-      const advancePaymentNeeded = processedData.filter(item =>
-        (item.advanceToBePaid || "").toLowerCase() === 'yes'
+      const advancePaymentNeeded = processedData.filter(
+        (item) => (item.advanceToBePaid || "").toLowerCase() === "yes",
       );
 
       setIndents(indentsForApproval);
       setPurchaseOrders(poHistory);
       setIndentData(advancePaymentNeeded);
-
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("Failed to load data: " + err.message);
@@ -427,7 +604,7 @@ const GeneratePurchaseOrder = () => {
       }
       return newFormData;
     });
-    setPoErrors(prev => ({ ...prev, [name]: null }));
+    setPoErrors((prev) => ({ ...prev, [name]: null }));
   };
 
   const handleFileUpload = (e) => {
@@ -438,7 +615,7 @@ const GeneratePurchaseOrder = () => {
         poFile: file,
       });
       toast.info("File Selected", { description: file.name });
-      setPoErrors(prev => ({ ...prev, poFile: null }));
+      setPoErrors((prev) => ({ ...prev, poFile: null }));
     }
   };
 
@@ -447,30 +624,35 @@ const GeneratePurchaseOrder = () => {
     toast.loading("Uploading file...", { id: "upload-toast" });
 
     try {
-      console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
+      console.log(
+        "Uploading file:",
+        file.name,
+        "Size:",
+        file.size,
+        "Type:",
+        file.type,
+      );
 
       // Upload to Supabase Storage in 'po-files' folder
-      const { url } = await uploadFileToStorage(file, 'image', 'po-files');
+      const { url } = await uploadFileToStorage(file, "image", "po-files");
 
       toast.success("File Uploaded!", {
         id: "upload-toast",
-        description: `${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB) uploaded successfully.`
+        description: `${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB) uploaded successfully.`,
       });
 
       console.log("Upload successful, URL:", url);
       return url;
-
     } catch (error) {
       console.error("Error uploading file to Supabase Storage:", error);
 
       toast.error("Upload Failed", {
         id: "upload-toast",
-        description: error.message || "Failed to upload file"
+        description: error.message || "Failed to upload file",
       });
       throw error;
     }
   };
-
 
   const updateSupabase = async (dataToSubmit, currentHaveToPO) => {
     toast.loading("Updating Supabase...", { id: "supabase-update-toast" });
@@ -481,33 +663,42 @@ const GeneratePurchaseOrder = () => {
 
       const now = new Date();
       // Format as YYYY-MM-DD HH:mm:ss (IST)
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const day = String(now.getDate()).padStart(2, "0");
+      const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
       const year = now.getFullYear();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const seconds = String(now.getSeconds()).padStart(2, "0");
 
       const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
       const updates = {
-        "Actual2": timestamp,
-        "Have To Make PO": currentHaveToPO
+        Actual2: timestamp,
+        "Have To Make PO": currentHaveToPO,
       };
 
       if (currentHaveToPO === "yes") {
         updates["Vendor name"] = dataToSubmit.vendorName;
         updates["Rate"] = parseFloat(dataToSubmit.rate);
-        updates["Lead Time To Lift (days)"] = dataToSubmit.leadTimeToLift ? `${dataToSubmit.leadTimeToLift} ${hours}:${minutes}:${seconds}` : null;
+        updates["Lead Time To Lift (days)"] = dataToSubmit.leadTimeToLift
+          ? `${dataToSubmit.leadTimeToLift} ${hours}:${minutes}:${seconds}`
+          : null;
         updates["Total Quantity"] = parseFloat(dataToSubmit.totalQty);
         updates["Total Amount"] = parseFloat(dataToSubmit.totalAmount);
         if (dataToSubmit.poFileUrl) {
           updates["PO Copy"] = dataToSubmit.poFileUrl;
         }
-        updates["Advance To Be Paid"] = dataToSubmit.advanceToBePaid === "yes" ? "Yes" : dataToSubmit.advanceToBePaid;
+        updates["Advance To Be Paid"] =
+          dataToSubmit.advanceToBePaid === "yes"
+            ? "Yes"
+            : dataToSubmit.advanceToBePaid;
         if (dataToSubmit.advanceToBePaid === "yes") {
-          updates["To Be Paid Amount"] = parseFloat(dataToSubmit.toBePaidAmount);
-          updates["When To Be Paid Amount"] = dataToSubmit.whenToBePaid ? `${dataToSubmit.whenToBePaid} ${hours}:${minutes}:${seconds}` : null;
+          updates["To Be Paid Amount"] = parseFloat(
+            dataToSubmit.toBePaidAmount,
+          );
+          updates["When To Be Paid Amount"] = dataToSubmit.whenToBePaid
+            ? `${dataToSubmit.whenToBePaid} ${hours}:${minutes}:${seconds}`
+            : null;
           updates["Status5"] = "Pending";
         } else {
           updates["To Be Paid Amount"] = null;
@@ -541,11 +732,16 @@ const GeneratePurchaseOrder = () => {
 
       if (updateError) throw updateError;
 
-      toast.success("Supabase Updated!", { id: "supabase-update-toast", description: `Indent ID ${selectedIndent.id} processed.` });
-
+      toast.success("Supabase Updated!", {
+        id: "supabase-update-toast",
+        description: `Indent ID ${selectedIndent.id} processed.`,
+      });
     } catch (error) {
       console.error("Error updating Supabase:", error);
-      toast.error("Supabase Update Failed", { id: "supabase-update-toast", description: error.message });
+      toast.error("Supabase Update Failed", {
+        id: "supabase-update-toast",
+        description: error.message,
+      });
       throw error;
     }
   };
@@ -581,6 +777,8 @@ const GeneratePurchaseOrder = () => {
   };
 
   const handleIndentSelect = (indent) => {
+    const nextPoNumber = generatePoNumber(purchaseOrders);
+
     setSelectedIndent(indent);
     setFormData({
       indentId: indent.id,
@@ -588,20 +786,38 @@ const GeneratePurchaseOrder = () => {
       quantity: indent.approvedQty,
       rate: "",
       leadTimeToLift: "",
-      totalQty: indent.approvedQty || "", // Pre-fill total qty
+      totalQty: indent.approvedQty || "",
       totalAmount: "",
       advanceToBePaid: "",
       toBePaidAmount: "",
       whenToBePaid: "",
       notes: "",
       poFile: null,
-      alumina: "",
-      iron: "",
+      alumina: indent.alumina || "",
+      iron: indent.iron || "",
       ap: "",
       bd: "",
+      // Initialize PO fields
+      poNumber: nextPoNumber,
+      poDate: new Date().toISOString().split("T")[0],
+      quotationNumber: "",
+      quotationDate: new Date().toISOString().split("T")[0],
+      ourEnqNo: "",
+      enquiryDate: new Date().toISOString().split("T")[0],
+      deliveryDate: new Date().toISOString().split("T")[0],
+      deliveryDays: 7,
+      paymentTerms: "1 DAY",
+      gstPercent: 18,
+      discountPercent: 0,
+      terms: [
+        "Price is ex factory",
+        "Subject to Raipur Jurisdiction",
+        "Payment: 1 Day",
+      ],
+      destination: indent.firmName || "",
     });
     setPoErrors({});
-    setHaveToPO("yes"); // Default to yes
+    setHaveToPO("yes");
     setIsModalOpen(true);
   };
 
@@ -634,13 +850,20 @@ const GeneratePurchaseOrder = () => {
     e.preventDefault();
 
     if (!haveToPO) {
-      toast.error("Selection Required", { description: "Please select if you need to generate a PO (Yes/No)." });
-      setPoErrors(prev => ({ ...prev, haveToPO: "This selection is mandatory." }));
+      toast.error("Selection Required", {
+        description: "Please select if you need to generate a PO (Yes/No).",
+      });
+      setPoErrors((prev) => ({
+        ...prev,
+        haveToPO: "This selection is mandatory.",
+      }));
       return;
     }
 
     if (haveToPO === "yes" && !validatePoForm()) {
-      toast.error("Validation Error", { description: "Please fill all required PO fields." });
+      toast.error("Validation Error", {
+        description: "Please fill all required PO fields.",
+      });
       return;
     }
     if (!selectedIndent) {
@@ -649,38 +872,79 @@ const GeneratePurchaseOrder = () => {
     }
 
     setIsSubmitting(true);
-    toast.loading("Initiating PO process...", { id: "po-submit" });
+    toast.loading("Generating and Uploading PO...", { id: "po-submit" });
 
     try {
-      let fileUrl = "";
+      // 1. Prepare PDF Data
+      const subtotal =
+        parseFloat(formData.rate) * parseFloat(formData.totalQty);
+      const discount = (subtotal * parseFloat(formData.discountPercent)) / 100;
+      const amountAfterDiscount = subtotal - discount;
+      const gstAmount =
+        (amountAfterDiscount * parseFloat(formData.gstPercent)) / 100;
+      const grandTotal = amountAfterDiscount + gstAmount;
 
-      // Only upload file if "yes" and file is provided
-      if (haveToPO === "yes" && formData.poFile) {
-        console.log("Starting file upload...");
-        try {
-          fileUrl = await uploadFileToSupabase(formData.poFile);
-          console.log("File upload result:", fileUrl);
+      const pdfProps = {
+        companyName:
+          formData.destination === "Rkl"
+            ? "Passary Minerals Madhya Pvt Ltd"
+            : "Passary Minerals Madhya Pvt Ltd", // Map as needed
+        companyPhone: "771-4001598",
+        companyGstin: "22AAHCP9274B1ZI",
+        companyPan: "AAHCP9274B",
+        companyAddress: "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+        billingAddress: "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+        destinationAddress: formData.destination,
+        supplierName: formData.vendorName,
+        supplierAddress: "Supplier Address Here", // Should fetch from master
+        supplierGstin: "Supplier GSTIN Here",
+        orderNumber: formData.poNumber,
+        orderDate: formData.poDate,
+        deliveryDate: formData.deliveryDate,
+        items: [
+          {
+            product: selectedIndent.rawMaterialName,
+            description: formData.notes,
+            quantity: parseFloat(formData.totalQty),
+            unit: "MT",
+            rate: parseFloat(formData.rate),
+            amount: subtotal,
+          },
+        ],
+        totalQuantity: parseFloat(formData.totalQty),
+        totalAmount: subtotal,
+        gstAmount: gstAmount,
+        grandTotal: grandTotal,
+        terms: formData.terms,
+      };
 
-          if (!fileUrl) {
-            console.warn("File upload returned empty URL, continuing without file");
-          }
-        } catch (uploadError) {
-          console.error("File upload failed:", uploadError);
-          // Continue without file - don't show warning toast here
-          fileUrl = "";
-        }
-      }
+      // 2. Generate PDF Blob
+      const blob = await pdf(<POPdf {...pdfProps} />).toBlob();
+      const generatedFile = new File(
+        [blob],
+        `PO-${formData.poNumber.replace(/\//g, "-")}.pdf`,
+        {
+          type: "application/pdf",
+        },
+      );
+
+      // 3. Upload File
+      const { url } = await uploadFileToStorage(
+        generatedFile,
+        "image",
+        "po-files",
+      );
 
       const dataToSubmit = {
         ...formData,
-        poFileUrl: fileUrl,
+        poFileUrl: url,
       };
 
       await updateSupabase(dataToSubmit, haveToPO);
 
       toast.success("PO Processed", {
         id: "po-submit",
-        description: `Purchase Order for ${selectedIndent.id} has been created successfully.`
+        description: `Purchase Order for ${selectedIndent.id} has been created successfully.`,
       });
       fetchAllData();
       closeModal();
@@ -688,32 +952,93 @@ const GeneratePurchaseOrder = () => {
       console.error("Error submitting form:", error);
       toast.error("Submission Failed", {
         id: "po-submit",
-        description: error.message || "An unexpected error occurred."
+        description: error.message || "An unexpected error occurred.",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-
-
   const validatePoForm = () => {
     const newErrors = {};
     if (haveToPO === "yes") {
-      if (!formData.vendorName.trim()) newErrors.vendorName = "Vendor name is required.";
-      if (!formData.rate || isNaN(parseFloat(formData.rate)) || parseFloat(formData.rate) <= 0) newErrors.rate = "Rate must be a positive number.";
-      if (!formData.leadTimeToLift) newErrors.leadTimeToLift = "Lead Time date is required.";
-      if (!formData.totalQty || isNaN(parseFloat(formData.totalQty)) || parseFloat(formData.totalQty) <= 0) newErrors.totalQty = "Total Quantity must be a positive number.";
-      if (!formData.alumina || isNaN(parseFloat(formData.alumina)) || parseFloat(formData.alumina) < 0) newErrors.alumina = "Alumina % is required and must be non-negative.";
-      if (!formData.iron || isNaN(parseFloat(formData.iron)) || parseFloat(formData.iron) < 0) newErrors.iron = "Iron % is required and must be non-negative.";
-      if (!formData.ap || isNaN(parseFloat(formData.ap)) || parseFloat(formData.ap) < 0) newErrors.ap = "AP % is required and must be non-negative.";
-      if (!formData.bd || isNaN(parseFloat(formData.bd)) || parseFloat(formData.bd) < 0) newErrors.bd = "BD % is required and must be non-negative.";
-      if (!formData.advanceToBePaid) newErrors.advanceToBePaid = "Advance option is required.";
-      if (!formData.poFile) newErrors.poFile = "PO Copy is required.";
-      if (!formData.notes || !formData.notes.trim()) newErrors.notes = "PO Notes/Remarks are required.";
+      if (!formData.vendorName.trim())
+        newErrors.vendorName = "Vendor name is required.";
+      if (
+        !formData.rate ||
+        isNaN(parseFloat(formData.rate)) ||
+        parseFloat(formData.rate) <= 0
+      )
+        newErrors.rate = "Rate must be a positive number.";
+      if (!formData.poNumber || !formData.poNumber.trim())
+        newErrors.poNumber = "PO Number is required.";
+      if (!formData.poDate) newErrors.poDate = "PO Date is required.";
+      if (!formData.deliveryDate)
+        newErrors.deliveryDate = "Delivery Date is required.";
+      if (!formData.leadTimeToLift)
+        newErrors.leadTimeToLift = "Lead Time date is required.";
+      if (
+        !formData.totalQty ||
+        isNaN(parseFloat(formData.totalQty)) ||
+        parseFloat(formData.totalQty) <= 0
+      )
+        newErrors.totalQty = "Total Quantity must be a positive number.";
+      if (
+        !formData.alumina ||
+        isNaN(parseFloat(formData.alumina)) ||
+        parseFloat(formData.alumina) < 0
+      )
+        newErrors.alumina = "Alumina % is required and must be non-negative.";
+      if (
+        !formData.iron ||
+        isNaN(parseFloat(formData.iron)) ||
+        parseFloat(formData.iron) < 0
+      )
+        newErrors.iron = "Iron % is required and must be non-negative.";
+      if (
+        !formData.ap ||
+        isNaN(parseFloat(formData.ap)) ||
+        parseFloat(formData.ap) < 0
+      )
+        newErrors.ap = "AP % is required and must be non-negative.";
+      if (
+        !formData.bd ||
+        isNaN(parseFloat(formData.bd)) ||
+        parseFloat(formData.bd) < 0
+      )
+        newErrors.bd = "BD % is required and must be non-negative.";
+
+      if (
+        formData.gstPercent !== "" &&
+        (isNaN(parseFloat(formData.gstPercent)) ||
+          parseFloat(formData.gstPercent) < 0)
+      )
+        newErrors.gstPercent = "GST % must be a non-negative number.";
+      if (
+        formData.discountPercent !== "" &&
+        (isNaN(parseFloat(formData.discountPercent)) ||
+          parseFloat(formData.discountPercent) < 0)
+      )
+        newErrors.discountPercent = "Discount % must be a non-negative number.";
+
+      if (!formData.advanceToBePaid)
+        newErrors.advanceToBePaid = "Advance option is required.";
+      // We generate PO PDF internally, so `poFile` is optional here.
+      // If users upload manual file via UI, it can still be used.
+      if (formData.poFile && formData.poFile.size <= 0)
+        newErrors.poFile = "PO Copy must be a valid file if provided.";
+      if (!formData.notes || !formData.notes.trim())
+        newErrors.notes = "PO Notes/Remarks are required.";
       if (formData.advanceToBePaid === "yes") {
-        if (!formData.toBePaidAmount || isNaN(parseFloat(formData.toBePaidAmount)) || parseFloat(formData.toBePaidAmount) <= 0) newErrors.toBePaidAmount = "Advance amount must be a positive number.";
-        if (!formData.whenToBePaid) newErrors.whenToBePaid = "Payment date is required.";
+        if (
+          !formData.toBePaidAmount ||
+          isNaN(parseFloat(formData.toBePaidAmount)) ||
+          parseFloat(formData.toBePaidAmount) <= 0
+        )
+          newErrors.toBePaidAmount =
+            "Advance amount must be a positive number.";
+        if (!formData.whenToBePaid)
+          newErrors.whenToBePaid = "Payment date is required.";
       }
     }
     setPoErrors(newErrors);
@@ -721,14 +1046,14 @@ const GeneratePurchaseOrder = () => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const clearAllFilters = () => {
     setFilters({
       vendorName: "all",
       rawMaterialName: "all",
-      firmName: "all"
+      firmName: "all",
     });
   };
 
@@ -778,13 +1103,18 @@ const GeneratePurchaseOrder = () => {
 
   const handlePaymentInputChange = (e) => {
     const { name, value } = e.target;
-    setPaymentFormData(prev => ({ ...prev, [name]: value }));
-    if (paymentFormErrors[name]) setPaymentFormErrors(prev => ({ ...prev, [name]: null }));
+    setPaymentFormData((prev) => ({ ...prev, [name]: value }));
+    if (paymentFormErrors[name])
+      setPaymentFormErrors((prev) => ({ ...prev, [name]: null }));
   };
 
   const validatePaymentForm = () => {
     const newErrors = {};
-    if (!paymentFormData.amount || isNaN(paymentFormData.amount) || parseFloat(paymentFormData.amount) <= 0)
+    if (
+      !paymentFormData.amount ||
+      isNaN(paymentFormData.amount) ||
+      parseFloat(paymentFormData.amount) <= 0
+    )
       newErrors.amount = "A valid positive amount is required.";
     if (!paymentFormData.paymentDate)
       newErrors.paymentDate = "Payment date is required.";
@@ -795,22 +1125,26 @@ const GeneratePurchaseOrder = () => {
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     if (!validatePaymentForm() || !selectedPaymentIndent) {
-      toast.error("Validation Error", { description: "Please fill all required payment fields." });
+      toast.error("Validation Error", {
+        description: "Please fill all required payment fields.",
+      });
       return;
     }
     setIsSubmittingPayment(true);
     toast.loading("Recording payment...", { id: "payment-submit" });
     try {
       const now = new Date();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const seconds = String(now.getSeconds()).padStart(2, "0");
 
       const { error: updateError } = await supabase
         .from("INDENT-PO")
         .update({
           "To Be Paid Amount": parseFloat(paymentFormData.amount),
-          "When To Be Paid Amount": paymentFormData.paymentDate ? `${paymentFormData.paymentDate} ${hours}:${minutes}:${seconds}` : null
+          "When To Be Paid Amount": paymentFormData.paymentDate
+            ? `${paymentFormData.paymentDate} ${hours}:${minutes}:${seconds}`
+            : null,
         })
         .eq('"Indent Id."', selectedPaymentIndent.indentId);
 
@@ -818,281 +1152,463 @@ const GeneratePurchaseOrder = () => {
 
       toast.success("Payment Recorded!", {
         id: "payment-submit",
-        description: `Advance payment for Indent ID ${selectedPaymentIndent.indentId} recorded.`
+        description: `Advance payment for Indent ID ${selectedPaymentIndent.indentId} recorded.`,
       });
       fetchAllData();
       handleClosePaymentPopup();
     } catch (error) {
       console.error("Error submitting payment:", error);
-      toast.error("Submission Failed", { id: "payment-submit", description: error.message });
+      toast.error("Submission Failed", {
+        id: "payment-submit",
+        description: error.message,
+      });
     } finally {
       setIsSubmittingPayment(false);
     }
   };
 
   const filteredIndents = useMemo(() => {
-    return indents.filter(item => {
-      const matchesVendor = filters.vendorName === 'all' || item.vendorName === filters.vendorName;
-      const matchesMaterial = filters.rawMaterialName === 'all' || item.rawMaterialName === filters.rawMaterialName;
-      const matchesFirm = filters.firmName === 'all' || item.firmName === filters.firmName;
+    return indents.filter((item) => {
+      const matchesVendor =
+        filters.vendorName === "all" || item.vendorName === filters.vendorName;
+      const matchesMaterial =
+        filters.rawMaterialName === "all" ||
+        item.rawMaterialName === filters.rawMaterialName;
+      const matchesFirm =
+        filters.firmName === "all" || item.firmName === filters.firmName;
       return matchesVendor && matchesMaterial && matchesFirm;
     });
   }, [indents, filters]);
 
   const filteredPOs = useMemo(() => {
-    return purchaseOrders.filter(item => {
-      const matchesVendor = filters.vendorName === 'all' || item.vendorName === filters.vendorName;
-      const matchesMaterial = filters.rawMaterialName === 'all' || item.rawMaterialName === filters.rawMaterialName;
-      const matchesFirm = filters.firmName === 'all' || item.firmName === filters.firmName;
+    return purchaseOrders.filter((item) => {
+      const matchesVendor =
+        filters.vendorName === "all" || item.vendorName === filters.vendorName;
+      const matchesMaterial =
+        filters.rawMaterialName === "all" ||
+        item.rawMaterialName === filters.rawMaterialName;
+      const matchesFirm =
+        filters.firmName === "all" || item.firmName === filters.firmName;
       return matchesVendor && matchesMaterial && matchesFirm;
     });
   }, [purchaseOrders, filters]);
 
   const filteredPaymentIndents = useMemo(() => {
-    return indentData.filter(item => {
-      const matchesVendor = filters.vendorName === 'all' || item.vendorName === filters.vendorName;
-      const matchesFirm = filters.firmName === 'all' || item.firmName === filters.firmName;
+    return indentData.filter((item) => {
+      const matchesVendor =
+        filters.vendorName === "all" || item.vendorName === filters.vendorName;
+      const matchesFirm =
+        filters.firmName === "all" || item.firmName === filters.firmName;
       return matchesVendor && matchesFirm;
     });
   }, [indentData, filters]);
 
-  const getTableColumns = useCallback((tab) => {
-    if (tab === "approve") return allIndentColumnsMeta.filter(col => visibleIndentColumns[col.dataKey]);
-    if (tab === "history") return allPoColumnsMeta.filter(col => visiblePoColumns[col.dataKey]);
-    if (tab === "advancePayment") return ADVANCE_PAYMENT_COLUMNS_META.filter(col => visiblePaymentColumns[col.dataKey] && col.dataKey !== 'actionColumn');
-    return [];
-  }, [allIndentColumnsMeta, visibleIndentColumns, allPoColumnsMeta, visiblePoColumns, ADVANCE_PAYMENT_COLUMNS_META, visiblePaymentColumns]);
-
-
-  const renderTableSection = useCallback((tabKey, title, description, data, columnsMeta, visibilityState, isLoading, hasError, errorMessage) => {
-    const visibleCols = columnsMeta.filter((col) =>
-      visibilityState[col.dataKey] && !(tabKey === "advancePayment" && col.dataKey === 'actionColumn')
-    );
-
-    const renderCellContent = (item, column) => {
-      let value = item[column.dataKey];
-      const displayValue = (value === null || value === undefined || value === "") ? <span className="text-gray-400 text-xs">N/A</span> : value;
-
-      if (tabKey === "advancePayment" && column.dataKey === "paymentStatus") {
-        const status = (item.paymentStatus || "").toLowerCase();
-        let badgeClass = "bg-gray-100 text-gray-700 border-gray-200"; // Default
-
-        if (status === "paid") {
-          badgeClass = "bg-green-100 text-[#6b8e2f] border-green-200";
-        } else if (status === "pending") {
-          badgeClass = "bg-yellow-100 text-yellow-700 border-yellow-200";
-        }
-
-        return (
-          <Badge variant="outline" className={`px-2 py-0.5 text-xs ${badgeClass}`}>
-            {item.paymentStatus || "N/A"}
-          </Badge>
+  const getTableColumns = useCallback(
+    (tab) => {
+      if (tab === "approve")
+        return allIndentColumnsMeta.filter(
+          (col) => visibleIndentColumns[col.dataKey],
         );
-      }
-
-      if (column.dataKey === "actionColumn") {
-        if (tabKey === "approve") {
-          return <Button onClick={() => handleIndentSelect(item)} size="sm" className="h-7 px-2.5 py-1 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white font-semibold">Generate PO</Button>;
-        }
-        return null;
-      }
-
-      if (column.dataKey === "totalAmount" || column.dataKey === "toBePaidAmount") {
-        return displayValue !== "N/A" ? `₹${Number(value).toLocaleString()}` : displayValue;
-      }
-      if (column.isLink) {
-        return value ? (
-          <a href={value} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:underline inline-flex items-center text-xs">
-            <LinkIcon className="h-3 w-3 mr-1" /> {column.linkText || "View"}
-          </a>
-        ) : (
-          <span className="text-gray-400 text-xs">N/A</span>
+      if (tab === "history")
+        return allPoColumnsMeta.filter((col) => visiblePoColumns[col.dataKey]);
+      if (tab === "advancePayment")
+        return ADVANCE_PAYMENT_COLUMNS_META.filter(
+          (col) =>
+            visiblePaymentColumns[col.dataKey] &&
+            col.dataKey !== "actionColumn",
         );
-      }
-      if (column.dataKey === 'id' || column.dataKey === 'indentId') {
-        return <span className="font-semibold text-[#7da23a]">{displayValue}</span>;
-      }
-      return displayValue;
-    };
+      return [];
+    },
+    [
+      allIndentColumnsMeta,
+      visibleIndentColumns,
+      allPoColumnsMeta,
+      visiblePoColumns,
+      ADVANCE_PAYMENT_COLUMNS_META,
+      visiblePaymentColumns,
+    ],
+  );
 
-    return (
-      <Card className="shadow-sm border border-border flex-1 flex flex-col">
-        <CardHeader className="py-3 px-4 bg-muted/30">
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle className="flex items-center text-md font-semibold text-foreground">
-                {tabKey === "approve" && <File className="h-5 w-5 text-[#7da23a] mr-2" />}
-                {tabKey === "history" && <History className="h-5 w-5 text-[#7da23a] mr-2" />}
-                {tabKey === "advancePayment" && <Wallet className="h-5 w-5 text-[#7da23a] mr-2" />}
-                {title} ({data.length})
-              </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
-            </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs bg-white">
-                  <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[240px] p-3">
-                <div className="grid gap-2">
-                  <p className="text-sm font-medium">Toggle Columns</p>
-                  <div className="flex items-center justify-between mt-1 mb-2">
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="p-0 h-auto text-xs"
-                      onClick={() => handleSelectAllColumns(tabKey === "approve" ? "indent" : tabKey === "history" ? "po" : "payment", columnsMeta, true)}
-                    >
-                      Select All
-                    </Button>
-                    <span className="text-gray-300 mx-1">|</span>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="p-0 h-auto text-xs"
-                      onClick={() => handleSelectAllColumns(tabKey === "approve" ? "indent" : tabKey === "history" ? "po" : "payment", columnsMeta, false)}
-                    >
-                      Deselect All
-                    </Button>
-                  </div>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {columnsMeta
-                      .filter((col) => col.toggleable)
-                      .map((col) => (
-                        <div key={`toggle-${tabKey}-${col.dataKey}`} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`toggle-${tabKey}-${col.dataKey}`}
-                            checked={!!visibilityState[col.dataKey]}
-                            onCheckedChange={(checked) => handleToggleColumn(tabKey === "approve" ? "indent" : tabKey === "history" ? "po" : "payment", col.dataKey, Boolean(checked))}
-                            disabled={col.alwaysVisible || (tabKey === "advancePayment" && col.dataKey === 'actionColumn')} // Disable if it's the action column on advance payment
-                          />
-                          <Label
-                            htmlFor={`toggle-${tabKey}-${col.dataKey}`}
-                            className="text-xs font-normal cursor-pointer"
-                          >
-                            {col.header}{" "}
-                            {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
-                            {tabKey === "advancePayment" && col.dataKey === 'actionColumn' && <span className="text-gray-400 ml-0.5 text-xs">(Removed)</span>}
-                          </Label>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0 flex-1 flex flex-col">
-          {isLoading ? (
-            <div className="flex flex-col justify-center items-center py-10 flex-1">
-              <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
-              <p className="text-muted-foreground ml-2">Loading...</p>
-            </div>
-          ) : hasError ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1">
-              <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
-              <p className="font-medium text-destructive">Error Loading Data</p>
-              <p className="text-sm text-muted-foreground max-w-md">{errorMessage}</p>
-            </div>
-          ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-              <Info className="h-12 w-12 text-green-500 mb-3" />
-              <p className="font-medium text-foreground">No Data Found</p>
-              <p className="text-sm text-muted-foreground text-center">
-                {tabKey === "approve" && "No approved indents found for PO generation."}
-                {tabKey === "history" && "No purchase orders have been generated yet."}
-                {tabKey === "advancePayment" && "No items require advance payment."}
-                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                  <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
-                )}
-              </p>
-            </div>
+  const renderTableSection = useCallback(
+    (
+      tabKey,
+      title,
+      description,
+      data,
+      columnsMeta,
+      visibilityState,
+      isLoading,
+      hasError,
+      errorMessage,
+    ) => {
+      const visibleCols = columnsMeta.filter(
+        (col) =>
+          visibilityState[col.dataKey] &&
+          !(tabKey === "advancePayment" && col.dataKey === "actionColumn"),
+      );
+
+      const renderCellContent = (item, column) => {
+        let value = item[column.dataKey];
+        const displayValue =
+          value === null || value === undefined || value === "" ? (
+            <span className="text-xs text-gray-400">N/A</span>
           ) : (
-            <div className="overflow-x-auto rounded-b-lg flex-1">
-              <Table>
-                <TableHeader className="bg-muted/50 sticky top-0 z-10">
-                  <TableRow>
-                    {visibleCols.map((col) => (
-                      <TableHead key={col.dataKey} className="whitespace-nowrap text-xs px-3 py-2">
-                        {col.header}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.map((item) => (
-                    <TableRow key={item.id || item.indentId} className="hover:bg-green-50/50">
-                      {visibleCols.map((column) => (
-                        <TableCell
-                          key={column.dataKey}
-                          className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "indentId" ? "font-medium text-primary" : "text-gray-700"}`}
+            value
+          );
+
+        if (tabKey === "advancePayment" && column.dataKey === "paymentStatus") {
+          const status = (item.paymentStatus || "").toLowerCase();
+          let badgeClass = "bg-gray-100 text-gray-700 border-gray-200"; // Default
+
+          if (status === "paid") {
+            badgeClass = "bg-green-100 text-[#6b8e2f] border-green-200";
+          } else if (status === "pending") {
+            badgeClass = "bg-yellow-100 text-yellow-700 border-yellow-200";
+          }
+
+          return (
+            <Badge
+              variant="outline"
+              className={`px-2 py-0.5 text-xs ${badgeClass}`}
+            >
+              {item.paymentStatus || "N/A"}
+            </Badge>
+          );
+        }
+
+        if (column.dataKey === "actionColumn") {
+          if (tabKey === "approve") {
+            return (
+              <Button
+                onClick={() => handleIndentSelect(item)}
+                size="sm"
+                className="h-7 px-2.5 py-1 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white font-semibold"
+              >
+                Generate PO
+              </Button>
+            );
+          }
+          return null;
+        }
+
+        if (
+          column.dataKey === "totalAmount" ||
+          column.dataKey === "toBePaidAmount"
+        ) {
+          return displayValue !== "N/A"
+            ? `₹${Number(value).toLocaleString()}`
+            : displayValue;
+        }
+        if (column.isLink) {
+          return value ? (
+            <a
+              href={value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#7da23a] hover:underline inline-flex items-center text-xs"
+            >
+              <LinkIcon className="w-3 h-3 mr-1" /> {column.linkText || "View"}
+            </a>
+          ) : (
+            <span className="text-xs text-gray-400">N/A</span>
+          );
+        }
+        if (column.dataKey === "id" || column.dataKey === "indentId") {
+          return (
+            <span className="font-semibold text-[#7da23a]">{displayValue}</span>
+          );
+        }
+        return displayValue;
+      };
+
+      return (
+        <div className="flex flex-col flex-1 border rounded-md">
+          <div className="px-4 py-3 bg-muted/30 border-b">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="flex items-center font-semibold text-md text-foreground">
+                  {title} ({data.length})
+                </h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {description}
+                </p>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs bg-white"
+                  >
+                    <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View
+                    Columns
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[240px] p-3">
+                  <div className="grid gap-2">
+                    <p className="text-sm font-medium">Toggle Columns</p>
+                    <div className="flex items-center justify-between mt-1 mb-2">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        onClick={() =>
+                          handleSelectAllColumns(
+                            tabKey === "approve"
+                              ? "indent"
+                              : tabKey === "history"
+                                ? "po"
+                                : "payment",
+                            columnsMeta,
+                            true,
+                          )
+                        }
+                      >
+                        Select All
+                      </Button>
+                      <span className="mx-1 text-gray-300">|</span>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        onClick={() =>
+                          handleSelectAllColumns(
+                            tabKey === "approve"
+                              ? "indent"
+                              : tabKey === "history"
+                                ? "po"
+                                : "payment",
+                            columnsMeta,
+                            false,
+                          )
+                        }
+                      >
+                        Deselect All
+                      </Button>
+                    </div>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {columnsMeta
+                        .filter((col) => col.toggleable)
+                        .map((col) => (
+                          <div
+                            key={`toggle-${tabKey}-${col.dataKey}`}
+                            className="flex items-center space-x-2"
+                          >
+                            <Checkbox
+                              id={`toggle-${tabKey}-${col.dataKey}`}
+                              checked={!!visibilityState[col.dataKey]}
+                              onCheckedChange={(checked) =>
+                                handleToggleColumn(
+                                  tabKey === "approve"
+                                    ? "indent"
+                                    : tabKey === "history"
+                                      ? "po"
+                                      : "payment",
+                                  col.dataKey,
+                                  Boolean(checked),
+                                )
+                              }
+                              disabled={
+                                col.alwaysVisible ||
+                                (tabKey === "advancePayment" &&
+                                  col.dataKey === "actionColumn")
+                              } // Disable if it's the action column on advance payment
+                            />
+                            <Label
+                              htmlFor={`toggle-${tabKey}-${col.dataKey}`}
+                              className="text-xs font-normal cursor-pointer"
+                            >
+                              {col.header}{" "}
+                              {col.alwaysVisible && (
+                                <span className="text-gray-400 ml-0.5 text-xs">
+                                  (Fixed)
+                                </span>
+                              )}
+                              {tabKey === "advancePayment" &&
+                                col.dataKey === "actionColumn" && (
+                                  <span className="text-gray-400 ml-0.5 text-xs">
+                                    (Removed)
+                                  </span>
+                                )}
+                            </Label>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          <div className="flex flex-col flex-1">
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center flex-1 py-10">
+                <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
+                <p className="ml-2 text-muted-foreground">Loading...</p>
+              </div>
+            ) : hasError ? (
+              <div className="flex flex-col items-center justify-center flex-1 px-4 py-10 mx-4 my-4 text-center border-2 border-dashed rounded-lg border-destructive-foreground bg-destructive/10">
+                <AlertTriangle className="w-10 h-10 mb-3 text-destructive" />
+                <p className="font-medium text-destructive">
+                  Error Loading Data
+                </p>
+                <p className="max-w-md text-sm text-muted-foreground">
+                  {errorMessage}
+                </p>
+              </div>
+            ) : data.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 px-4 py-10 mx-4 my-4 text-center border-2 border-dashed rounded-lg border-green-200/50 bg-green-50/50">
+                <Info className="w-12 h-12 mb-3 text-green-500" />
+                <p className="font-medium text-foreground">No Data Found</p>
+                <p className="text-sm text-center text-muted-foreground">
+                  {tabKey === "approve" &&
+                    "No approved indents found for PO generation."}
+                  {tabKey === "history" &&
+                    "No purchase orders have been generated yet."}
+                  {tabKey === "advancePayment" &&
+                    "No items require advance payment."}
+                  {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                    <span className="block mt-1">
+                      (Filtered by firm: {user.firmName})
+                    </span>
+                  )}
+                </p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-x-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-muted/50">
+                    <TableRow>
+                      {visibleCols.map((col) => (
+                        <TableHead
+                          key={col.dataKey}
+                          className="px-3 py-2 text-xs whitespace-nowrap"
                         >
-                          {renderCellContent(item, column)}
-                        </TableCell>
+                          {col.header}
+                        </TableHead>
                       ))}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }, [handleIndentSelect, handlePaymentSelect, handleToggleColumn, handleSelectAllColumns]);
+                  </TableHeader>
+                  <TableBody>
+                    {data.map((item) => (
+                      <TableRow
+                        key={item.id || item.indentId}
+                        className="hover:bg-green-50/50"
+                      >
+                        {visibleCols.map((column) => (
+                          <TableCell
+                            key={column.dataKey}
+                            className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "indentId" ? "font-medium text-primary" : "text-gray-700"}`}
+                          >
+                            {renderCellContent(item, column)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    },
+    [
+      handleIndentSelect,
+      handlePaymentSelect,
+      handleToggleColumn,
+      handleSelectAllColumns,
+    ],
+  );
+
+  // Quick stats
+  const quickStats = (
+    <div className="flex gap-3 text-xs text-gray-600 mb-2">
+      <span>Pending: {filteredIndents.length}</span>
+      <span>POs: {filteredPOs.length}</span>
+      <span>Payments: {filteredPaymentIndents.length}</span>
+    </div>
+  );
 
   return (
-    <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen">
-      <Card className="shadow-md border-none">
-        <CardHeader className="p-4 border-b border-gray-200">
-          <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-            <FileCheck className="h-5 w-5 text-[#7da23a]" /> Purchase Management
-          </CardTitle>
-          <CardDescription className="text-gray-500 text-sm">
-            Manage approved indents, generate purchase orders, and record advance payments.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
+    <div className="flex flex-col h-[calc(100vh-220px)] min-h-screen p-4 space-y-4 md:p-6 bg-slate-50">
+      {/* Compact Header */}
+      <div className="py-2 px-4 border-b border-gray-200 bg-white rounded-t-md">
+        <div className="flex items-center gap-2">
+          <FileCheck className="h-5 w-5 text-[#7da23a]" />
+          <h1 className="text-lg font-semibold text-gray-700">
+            Purchase Management
+          </h1>
+          {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+            <span className="ml-2 text-[#7da23a] font-medium text-sm">
+              • Filtered by: {user.firmName}
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Manage approved indents, generate purchase orders, and record advance
+          payments.
+        </p>
+      </div>
+
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex flex-col flex-1"
+      >
+        {/* Compact Tabs */}
+        <TabsList className="flex gap-2 mb-2 bg-transparent p-0 h-auto sticky top-0 z-20 bg-white">
+          <TabsTrigger value="approve" className="h-8 px-3 text-xs">
+            Approve
+            <Badge className="ml-1 text-[10px] px-1 py-0">
+              {filteredIndents.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="h-8 px-3 text-xs">
+            History
+          </TabsTrigger>
+          <TabsTrigger value="advancePayment" className="h-8 px-3 text-xs">
+            Payments
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Quick Stats */}
+        {quickStats}
+
+        {/* Collapsible Filters */}
+        <div className="mb-2">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="h-8 text-xs"
+            >
+              <Filter className="w-3 h-3 mr-1" />
+              Filters
+            </Button>
+            {showFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                className="text-xs"
+              >
+                Clear
+              </Button>
             )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full sm:w-[580px] grid-cols-3 mb-4">
-              <TabsTrigger value="approve" className="flex items-center gap-2">
-                <File className="h-4 w-4" /> Approve Indents
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">
-                  {filteredIndents.length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="history" className="flex items-center gap-2">
-                <History className="h-4 w-4" /> PO History
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">
-                  {filteredPOs.length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="advancePayment" className="flex items-center gap-2">
-                <Wallet className="h-4 w-4" /> Advance Payment
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">
-                  {filteredPaymentIndents.length}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-            <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <Label className="text-sm font-medium">Filters</Label>
-                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-                  Clear All
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          </div>
+
+          {showFilters && (
+            <div className="mt-2 p-3 border rounded-md bg-green-50/40">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {/* Vendor Name Filter */}
                 <div>
-                  <Label className="text-xs mb-1 block">Vendor Name</Label>
+                  <Label className="block mb-1 text-xs">Vendor Name</Label>
                   <SearchableSelect
                     value={filters.vendorName}
-                    onValueChange={(value) => handleFilterChange("vendorName", value)}
+                    onValueChange={(value) =>
+                      handleFilterChange("vendorName", value)
+                    }
                     options={vendorOptions}
                     placeholder="Vendors"
                     className="h-9"
@@ -1102,10 +1618,12 @@ const GeneratePurchaseOrder = () => {
                 {/* Material Name Filter - Hidden for advancePayment tab */}
                 {activeTab !== "advancePayment" && (
                   <div>
-                    <Label className="text-xs mb-1 block">Material Name</Label>
+                    <Label className="block mb-1 text-xs">Material Name</Label>
                     <SearchableSelect
                       value={filters.rawMaterialName}
-                      onValueChange={(value) => handleFilterChange("rawMaterialName", value)}
+                      onValueChange={(value) =>
+                        handleFilterChange("rawMaterialName", value)
+                      }
                       options={materialOptions}
                       placeholder="Materials"
                       className="h-9"
@@ -1115,10 +1633,12 @@ const GeneratePurchaseOrder = () => {
 
                 {/* Firm Name Filter */}
                 <div>
-                  <Label className="text-xs mb-1 block">Firm Name</Label>
+                  <Label className="block mb-1 text-xs">Firm Name</Label>
                   <SearchableSelect
                     value={filters.firmName}
-                    onValueChange={(value) => handleFilterChange("firmName", value)}
+                    onValueChange={(value) =>
+                      handleFilterChange("firmName", value)
+                    }
                     options={firmOptions}
                     placeholder="Firms"
                     className="h-9"
@@ -1126,223 +1646,424 @@ const GeneratePurchaseOrder = () => {
                 </div>
               </div>
             </div>
-            <TabsContent value="approve" className="flex-1 flex flex-col mt-0">
-              {renderTableSection(
-                "approve",
-                "Approved Indents (Ready for PO)",
-                "Select an indent to generate its purchase order.",
-                filteredIndents,
-                allIndentColumnsMeta,
-                visibleIndentColumns,
-                loading,
-                !!error,
-                error
-              )}
-            </TabsContent>
-            <TabsContent value="history" className="flex-1 flex flex-col mt-0">
-              {renderTableSection(
-                "history",
-                "Purchase Order History",
-                "View all generated purchase orders.",
-                filteredPOs,
-                allPoColumnsMeta,
-                visiblePoColumns,
-                loading,
-                !!error,
-                error
-              )}
-            </TabsContent>
-            <TabsContent value="advancePayment" className="flex-1 flex flex-col mt-0">
-              {renderTableSection(
-                "advancePayment",
-                "Advance Payments Needed",
-                "Record advance payments for approved indents.",
-                filteredPaymentIndents,
-                ADVANCE_PAYMENT_COLUMNS_META,
-                visiblePaymentColumns,
-                paymentLoading,
-                !!paymentError,
-                paymentError
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+          )}
+        </div>
+
+        {/* Tab Contents */}
+        <TabsContent value="approve" className="flex flex-col flex-1 mt-0">
+          {renderTableSection(
+            "approve",
+            "Approved Indents (Ready for PO)",
+            "Select an indent to generate its purchase order.",
+            filteredIndents,
+            allIndentColumnsMeta,
+            visibleIndentColumns,
+            loading,
+            !!error,
+            error,
+          )}
+        </TabsContent>
+        <TabsContent value="history" className="flex flex-col flex-1 mt-0">
+          {renderTableSection(
+            "history",
+            "Purchase Order History",
+            "View all generated purchase orders.",
+            filteredPOs,
+            allPoColumnsMeta,
+            visiblePoColumns,
+            loading,
+            !!error,
+            error,
+          )}
+        </TabsContent>
+        <TabsContent
+          value="advancePayment"
+          className="flex flex-col flex-1 mt-0"
+        >
+          {renderTableSection(
+            "advancePayment",
+            "Advance Payments Needed",
+            "Record advance payments for approved indents.",
+            filteredPaymentIndents,
+            ADVANCE_PAYMENT_COLUMNS_META,
+            visiblePaymentColumns,
+            paymentLoading,
+            !!paymentError,
+            paymentError,
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Modals */}
       {isModalOpen && (
         <Dialog open={isModalOpen} onOpenChange={closeModal}>
           <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="border-b pb-4 mb-4">
-              <DialogTitle className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-                <FileCheck className="h-6 w-6 text-[#7da23a] mr-3" /> Generate PO for Indent ID:{" "}
-                <span className="font-bold text-[#7da23a] ml-1">{selectedIndent?.id}</span>
+            <DialogHeader className="pb-4 mb-4 border-b">
+              <DialogTitle className="flex items-center text-lg font-medium leading-6 text-gray-900">
+                <FileCheck className="h-6 w-6 text-[#7da23a] mr-3" /> Generate
+                PO for Indent ID:{" "}
+                <span className="font-bold text-[#7da23a] ml-1">
+                  {selectedIndent?.id}
+                </span>
               </DialogTitle>
               <DialogDescription className="mt-1 text-sm text-gray-500">
-                Vendor: {selectedIndent?.vendorName || "N/A"} | Material: {selectedIndent?.rawMaterialName || "N/A"}
+                Vendor: {selectedIndent?.vendorName || "N/A"} | Material:{" "}
+                {selectedIndent?.rawMaterialName || "N/A"}
               </DialogDescription>
             </DialogHeader>
             <div className="px-0 py-2 sm:px-0">
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4">
+                  {/* Row 1: Basic Info */}
                   <div>
-                    <Label htmlFor="quantity" className="block text-sm font-medium text-gray-700">Approved Qty</Label>
+                    <Label
+                      htmlFor="poNumber"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      PO Number
+                    </Label>
                     <Input
-                      type="text"
-                      id="quantity"
-                      name="quantity"
-                      value={selectedIndent?.approvedQty || ""}
-                      readOnly
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm"
+                      id="poNumber"
+                      name="poNumber"
+                      value={formData.poNumber}
+                      onChange={handleInputChange}
+                      className="h-8 mt-1 text-xs"
                     />
+                    {poErrors.poNumber && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.poNumber}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <Label htmlFor="vendorName" className="block text-sm font-medium text-gray-700">Vendor Name <span className="text-red-500">*</span></Label>
+                    <Label
+                      htmlFor="poDate"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      PO Date
+                    </Label>
                     <Input
-                      type="text"
+                      type="date"
+                      id="poDate"
+                      name="poDate"
+                      value={formData.poDate}
+                      onChange={handleInputChange}
+                      className="h-8 mt-1 text-xs"
+                    />
+                    {poErrors.poDate && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.poDate}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="vendorName"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Vendor
+                    </Label>
+                    <Input
                       id="vendorName"
-                      name="vendorName"
                       value={formData.vendorName}
                       readOnly
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm"
+                      className="h-8 mt-1 text-xs bg-gray-50"
                     />
-                    {poErrors.vendorName && <p className="text-red-500 text-xs mt-1">{poErrors.vendorName}</p>}
+                  </div>
+
+                  {/* Row 2: Quotation */}
+                  <div>
+                    <Label
+                      htmlFor="quotationNumber"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Quotation No
+                    </Label>
+                    <Input
+                      id="quotationNumber"
+                      name="quotationNumber"
+                      value={formData.quotationNumber}
+                      onChange={handleInputChange}
+                      className="h-8 mt-1 text-xs"
+                    />
                   </div>
                   <div>
-                    <Label htmlFor="totalQty" className="block text-sm font-medium text-gray-700">PO Total Quantity <span className="text-red-500">*</span></Label>
+                    <Label
+                      htmlFor="quotationDate"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Quotation Date
+                    </Label>
+                    <Input
+                      type="date"
+                      id="quotationDate"
+                      name="quotationDate"
+                      value={formData.quotationDate}
+                      onChange={handleInputChange}
+                      className="h-8 mt-1 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="destination"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Destination
+                    </Label>
+                    <Input
+                      id="destination"
+                      name="destination"
+                      value={formData.destination}
+                      onChange={handleInputChange}
+                      className="h-8 mt-1 text-xs"
+                    />
+                  </div>
+
+                  {/* Row 3: Items */}
+                  <div>
+                    <Label
+                      htmlFor="totalQty"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Quantity (MT)
+                    </Label>
                     <Input
                       type="number"
-                      step="any"
                       id="totalQty"
                       name="totalQty"
                       value={formData.totalQty}
                       onChange={handleInputChange}
-                      placeholder="PO Total Quantity"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${poErrors.totalQty ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                      className="h-8 mt-1 text-xs"
                     />
-                    {poErrors.totalQty && <p className="text-red-500 text-xs mt-1">{poErrors.totalQty}</p>}
+                    {poErrors.totalQty && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.totalQty}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <Label htmlFor="rate" className="block text-sm font-medium text-gray-700">Rate <span className="text-red-500">*</span></Label>
+                    <Label
+                      htmlFor="rate"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Rate
+                    </Label>
                     <Input
-                      type="text"
-                      step="any"
+                      type="number"
                       id="rate"
                       name="rate"
                       value={formData.rate}
                       onChange={handleInputChange}
-                      placeholder="Rate"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.rate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                      className="h-8 mt-1 text-xs"
                     />
-                    {poErrors.rate && <p className="text-red-500 text-xs mt-1">{poErrors.rate}</p>}
+                    {poErrors.rate && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.rate}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <Label htmlFor="totalAmount" className="block text-sm font-medium text-gray-700">Total Amount</Label>
+                    <Label
+                      htmlFor="totalAmount"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Subtotal
+                    </Label>
                     <Input
-                      type="text"
-                      id="totalAmount"
-                      name="totalAmount"
                       value={formData.totalAmount}
                       readOnly
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm"
+                      className="h-8 mt-1 text-xs bg-gray-50"
                     />
                   </div>
+
+                  {/* Row 4: Tax & Discount */}
                   <div>
-                    <Label htmlFor="leadTimeToLift" className="block text-sm font-medium text-gray-700">Lead Time Date <span className="text-red-500">*</span></Label>
+                    <Label
+                      htmlFor="gstPercent"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      GST %
+                    </Label>
+                    <Input
+                      type="number"
+                      id="gstPercent"
+                      name="gstPercent"
+                      value={formData.gstPercent}
+                      onChange={handleInputChange}
+                      className="h-8 mt-1 text-xs"
+                    />
+                    {poErrors.gstPercent && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.gstPercent}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="discountPercent"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Discount %
+                    </Label>
+                    <Input
+                      type="number"
+                      id="discountPercent"
+                      name="discountPercent"
+                      value={formData.discountPercent}
+                      onChange={handleInputChange}
+                      className="h-8 mt-1 text-xs"
+                    />
+                    {poErrors.discountPercent && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.discountPercent}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="deliveryDate"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Delivery Date
+                    </Label>
+                    <Input
+                      type="date"
+                      id="deliveryDate"
+                      name="deliveryDate"
+                      value={formData.deliveryDate}
+                      onChange={handleInputChange}
+                      className="h-8 mt-1 text-xs"
+                    />
+                    {poErrors.deliveryDate && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.deliveryDate}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Row 5: Pricing details continued */}
+                  <div>
+                    <Label
+                      htmlFor="leadTimeToLift"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Lead Time Date
+                    </Label>
                     <Input
                       type="date"
                       id="leadTimeToLift"
                       name="leadTimeToLift"
                       value={formData.leadTimeToLift}
                       onChange={handleInputChange}
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.leadTimeToLift ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                      className="h-8 mt-1 text-xs"
                     />
-                    {poErrors.leadTimeToLift && <p className="text-red-500 text-xs mt-1">{poErrors.leadTimeToLift}</p>}
+                    {poErrors.leadTimeToLift && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.leadTimeToLift}
+                      </p>
+                    )}
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                   <div>
-                    <Label htmlFor="alumina" className="block text-sm font-medium text-gray-700">Alumina % <span className="text-red-500">*</span></Label>
+                    <Label
+                      htmlFor="alumina"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Alumina %
+                    </Label>
                     <Input
-                      type="text"
-                      step="any"
                       id="alumina"
                       name="alumina"
                       value={formData.alumina}
                       onChange={handleInputChange}
-                      placeholder="Alumina %"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.alumina ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                      className="h-8 mt-1 text-xs"
                     />
-                    {poErrors.alumina && <p className="text-red-500 text-xs mt-1">{poErrors.alumina}</p>}
+                    {poErrors.alumina && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.alumina}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <Label htmlFor="iron" className="block text-sm font-medium text-gray-700">Iron % <span className="text-red-500">*</span></Label>
+                    <Label
+                      htmlFor="iron"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      Iron %
+                    </Label>
                     <Input
-                      type="text"
-                      step="any"
                       id="iron"
                       name="iron"
                       value={formData.iron}
                       onChange={handleInputChange}
-                      placeholder="Iron %"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.iron ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                      className="h-8 mt-1 text-xs"
                     />
-                    {poErrors.iron && <p className="text-red-500 text-xs mt-1">{poErrors.iron}</p>}
+                    {poErrors.iron && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.iron}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <Label htmlFor="ap" className="block text-sm font-medium text-gray-700">AP % <span className="text-red-500">*</span></Label>
+                    <Label
+                      htmlFor="ap"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      AP %
+                    </Label>
                     <Input
-                      type="text"
-                      step="any"
                       id="ap"
                       name="ap"
                       value={formData.ap}
                       onChange={handleInputChange}
-                      placeholder="AP %"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.ap ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                      className="h-8 mt-1 text-xs"
                     />
-                    {poErrors.ap && <p className="text-red-500 text-xs mt-1">{poErrors.ap}</p>}
+                    {poErrors.ap && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.ap}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <Label htmlFor="bd" className="block text-sm font-medium text-gray-700">BD % <span className="text-red-500">*</span></Label>
+                    <Label
+                      htmlFor="bd"
+                      className="text-xs font-medium text-gray-700"
+                    >
+                      BD %
+                    </Label>
                     <Input
-                      type="text"
-                      step="any"
                       id="bd"
                       name="bd"
                       value={formData.bd}
                       onChange={handleInputChange}
-                      placeholder="BD %"
-                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.bd ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                      className="h-8 mt-1 text-xs"
                     />
-                    {poErrors.bd && <p className="text-red-500 text-xs mt-1">{poErrors.bd}</p>}
+                    {poErrors.bd && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.bd}
+                      </p>
+                    )}
                   </div>
-                  <div className="md:col-span-1">
-                    <Label htmlFor="poFile" className="block text-sm font-medium text-gray-700">Upload PO Copy <span className="text-red-500">*</span></Label>
-                    <div className={`relative flex items-center justify-center h-10 border border-dashed rounded-md bg-green-50 cursor-pointer hover:bg-green-100 mt-1 ${poErrors.poFile ? "border-red-500" : "border-green-200"}`}>
-                      <Input
-                        type="file"
-                        id="poFile"
-                        name="poFile"
-                        onChange={handleFileUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                      />
-                      <Upload className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="text-xs text-[#7da23a] truncate max-w-[calc(100%-30px)]">
-                        {formData.poFile ? formData.poFile.name : "Upload PO Copy"}
-                      </span>
-                    </div>
-                    {poErrors.poFile && <p className="text-red-500 text-xs mt-1">{poErrors.poFile}</p>}
-                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div>
-                    <Label htmlFor="advanceToBePaid" className="block text-sm font-medium text-gray-700">Advance To Be Paid? <span className="text-red-500">*</span></Label>
+                    <Label className="text-xs font-medium text-gray-700">
+                      Advance To Be Paid?
+                    </Label>
                     <Select
-                      onValueChange={(value) =>
-                        handleInputChange({
-                          target: { name: "advanceToBePaid", value },
-                        })
-                      }
                       value={formData.advanceToBePaid}
+                      onValueChange={(val) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          advanceToBePaid: val,
+                        }))
+                      }
                     >
-                      <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${poErrors.advanceToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}>
-                        <SelectValue placeholder="-- Select --" />
+                      <SelectTrigger className="h-8 mt-1 text-xs">
+                        <SelectValue placeholder="Select..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="yes">Yes</SelectItem>
@@ -1350,77 +2071,151 @@ const GeneratePurchaseOrder = () => {
                       </SelectContent>
                     </Select>
                     {poErrors.advanceToBePaid && (
-                      <p className="text-red-500 text-xs mt-1">{poErrors.advanceToBePaid}</p>
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.advanceToBePaid}
+                      </p>
                     )}
                   </div>
                   {formData.advanceToBePaid === "yes" && (
                     <>
                       <div>
-                        <Label htmlFor="toBePaidAmount" className="block text-sm font-medium text-gray-700">Advance Amount <span className="text-red-500">*</span></Label>
+                        <Label
+                          htmlFor="toBePaidAmount"
+                          className="text-xs font-medium text-gray-700"
+                        >
+                          Advance Amount
+                        </Label>
                         <Input
                           type="number"
-                          step="any"
                           id="toBePaidAmount"
                           name="toBePaidAmount"
                           value={formData.toBePaidAmount}
                           onChange={handleInputChange}
-                          placeholder="To Be Paid Amount"
-                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.toBePaidAmount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                          className="h-8 mt-1 text-xs"
                         />
                         {poErrors.toBePaidAmount && (
-                          <p className="text-red-500 text-xs mt-1">{poErrors.toBePaidAmount}</p>
+                          <p className="text-[10px] text-red-500 mt-0.5">
+                            {poErrors.toBePaidAmount}
+                          </p>
                         )}
                       </div>
                       <div>
-                        <Label htmlFor="whenToBePaid" className="block text-sm font-medium text-gray-700">When To Be Paid <span className="text-red-500">*</span></Label>
+                        <Label
+                          htmlFor="whenToBePaid"
+                          className="text-xs font-medium text-gray-700"
+                        >
+                          Payment Date
+                        </Label>
                         <Input
                           type="date"
                           id="whenToBePaid"
                           name="whenToBePaid"
                           value={formData.whenToBePaid}
                           onChange={handleInputChange}
-                          placeholder="Payment Date"
-                          className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.whenToBePaid ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                          className="h-8 mt-1 text-xs"
                         />
                         {poErrors.whenToBePaid && (
-                          <p className="text-red-500 text-xs mt-1">{poErrors.whenToBePaid}</p>
+                          <p className="text-[10px] text-red-500 mt-0.5">
+                            {poErrors.whenToBePaid}
+                          </p>
                         )}
                       </div>
                     </>
                   )}
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="notes" className="block text-sm font-medium text-gray-700">PO Notes/Remarks <span className="text-red-500">*</span></Label>
+
+                <div>
+                  <Label
+                    htmlFor="notes"
+                    className="text-xs font-medium text-gray-700"
+                  >
+                    PO Notes / Description
+                  </Label>
                   <Textarea
                     id="notes"
                     name="notes"
-                    rows={3}
+                    rows={2}
                     value={formData.notes}
                     onChange={handleInputChange}
-                    placeholder="Notes"
-                    className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${poErrors.notes ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                    className="mt-1 text-xs"
+                    placeholder="Describe goods..."
                   />
-                  {poErrors.notes && <p className="text-red-500 text-xs mt-1">{poErrors.notes}</p>}
+                  {poErrors.notes && (
+                    <p className="text-[10px] text-red-500 mt-0.5">
+                      {poErrors.notes}
+                    </p>
+                  )}
                 </div>
-                <DialogFooter className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmitting ? "bg-green-400 cursor-not-allowed" : "bg-[#7da23a] hover:bg-[#6b8e2f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b8e2f]"}`}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" /> Submitting...
-                      </>
-                    ) : (
-                      "Submit PO"
-                    )}
-                  </Button>
+
+                <DialogFooter className="flex flex-col justify-end gap-2 pt-4 sm:flex-row">
                   <Button
                     type="button"
                     variant="outline"
+                    onClick={async () => {
+                      const subtotal =
+                        parseFloat(formData.rate) *
+                        parseFloat(formData.totalQty);
+                      const discount =
+                        (subtotal * parseFloat(formData.discountPercent)) / 100;
+                      const amountAfterDiscount = subtotal - discount;
+                      const gstAmount =
+                        (amountAfterDiscount *
+                          parseFloat(formData.gstPercent)) /
+                        100;
+                      const grandTotal = amountAfterDiscount + gstAmount;
+
+                      const pdfProps = {
+                        companyName: "Passary Minerals Madhya Pvt Ltd",
+                        companyPhone: "771-4001598",
+                        companyGstin: "22AAHCP9274B1ZI",
+                        companyPan: "AAHCP9274B",
+                        companyAddress:
+                          "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+                        billingAddress:
+                          "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+                        destinationAddress: formData.destination,
+                        supplierName: formData.vendorName,
+                        supplierAddress: "Supplier Address",
+                        supplierGstin: "Supplier GSTIN",
+                        orderNumber: formData.poNumber,
+                        orderDate: formData.poDate,
+                        deliveryDate: formData.deliveryDate,
+                        items: [
+                          {
+                            product: selectedIndent.rawMaterialName,
+                            description: formData.notes,
+                            quantity: parseFloat(formData.totalQty),
+                            unit: "MT",
+                            rate: parseFloat(formData.rate),
+                            amount: subtotal,
+                          },
+                        ],
+                        totalQuantity: parseFloat(formData.totalQty),
+                        totalAmount: subtotal,
+                        gstAmount: gstAmount,
+                        grandTotal: grandTotal,
+                        terms: formData.terms,
+                      };
+                      const blob = await pdf(<POPdf {...pdfProps} />).toBlob();
+                      const url = URL.createObjectURL(blob);
+                      window.open(url, "_blank");
+                    }}
+                    className="text-xs h-9"
+                  >
+                    Preview PDF
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="h-9 text-xs bg-[#7da23a] hover:bg-[#6b8e2f]"
+                  >
+                    {isSubmitting ? "Generating..." : "Generate & Submit PO"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
                     onClick={closeModal}
-                    className="w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 sm:mr-3"
+                    className="text-xs h-9"
                   >
                     Cancel
                   </Button>
@@ -1433,17 +2228,30 @@ const GeneratePurchaseOrder = () => {
 
       <Dialog open={showPaymentPopup} onOpenChange={handleClosePaymentPopup}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-4 mb-4">
-            <DialogTitle className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-              <Wallet className="h-6 w-6 text-[#7da23a] mr-3" /> Record Advance Payment
+          <DialogHeader className="pb-4 mb-4 border-b">
+            <DialogTitle className="flex items-center text-lg font-medium leading-6 text-gray-900">
+              <Wallet className="h-6 w-6 text-[#7da23a] mr-3" /> Record Advance
+              Payment
             </DialogTitle>
             <DialogDescription className="mt-1 text-sm text-gray-500">
-              For Indent ID: <span className="font-bold text-[#7da23a]">{selectedPaymentIndent?.indentId || "N/A"}</span> | Vendor: <span className="font-bold text-[#7da23a]">{selectedPaymentIndent?.vendorName || "N/A"}</span>
+              For Indent ID:{" "}
+              <span className="font-bold text-[#7da23a]">
+                {selectedPaymentIndent?.indentId || "N/A"}
+              </span>{" "}
+              | Vendor:{" "}
+              <span className="font-bold text-[#7da23a]">
+                {selectedPaymentIndent?.vendorName || "N/A"}
+              </span>
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handlePaymentSubmit} className="space-y-4 py-2 px-0">
+          <form onSubmit={handlePaymentSubmit} className="px-0 py-2 space-y-4">
             <div>
-              <Label htmlFor="amount" className="block text-sm font-medium text-gray-700">Amount to be Paid <span className="text-red-500">*</span></Label>
+              <Label
+                htmlFor="amount"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Amount to be Paid <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="amount"
                 name="amount"
@@ -1453,10 +2261,19 @@ const GeneratePurchaseOrder = () => {
                 onChange={handlePaymentInputChange}
                 className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${paymentFormErrors.amount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
-              {paymentFormErrors.amount && <p className="text-red-500 text-xs mt-1">{paymentFormErrors.amount}</p>}
+              {paymentFormErrors.amount && (
+                <p className="mt-1 text-xs text-red-500">
+                  {paymentFormErrors.amount}
+                </p>
+              )}
             </div>
             <div>
-              <Label htmlFor="paymentDate" className="block text-sm font-medium text-gray-700">Payment Date <span className="text-red-500">*</span></Label>
+              <Label
+                htmlFor="paymentDate"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Payment Date <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="paymentDate"
                 name="paymentDate"
@@ -1465,13 +2282,35 @@ const GeneratePurchaseOrder = () => {
                 onChange={handlePaymentInputChange}
                 className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${paymentFormErrors.paymentDate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
-              {paymentFormErrors.paymentDate && <p className="text-red-500 text-xs mt-1">{paymentFormErrors.paymentDate}</p>}
+              {paymentFormErrors.paymentDate && (
+                <p className="mt-1 text-xs text-red-500">
+                  {paymentFormErrors.paymentDate}
+                </p>
+              )}
             </div>
-            <DialogFooter className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
-              <Button type="submit" disabled={isSubmittingPayment} className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmittingPayment ? "bg-green-400 cursor-not-allowed" : "bg-[#7da23a] hover:bg-[#6b8e2f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b8e2f]"}`}>
-                {isSubmittingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" />Processing...</> : "Submit Payment"}
+            <DialogFooter className="flex flex-col gap-3 pt-5 sm:pt-6 sm:flex-row-reverse sm:gap-0 sm:justify-start">
+              <Button
+                type="submit"
+                disabled={isSubmittingPayment}
+                className={`w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white ${isSubmittingPayment ? "bg-green-400 cursor-not-allowed" : "bg-[#7da23a] hover:bg-[#6b8e2f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b8e2f]"}`}
+              >
+                {isSubmittingPayment ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin my-0.5" />
+                    Processing...
+                  </>
+                ) : (
+                  "Submit Payment"
+                )}
               </Button>
-              <Button type="button" variant="outline" onClick={handleClosePaymentPopup} className="w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 sm:mr-3">Cancel</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClosePaymentPopup}
+                className="w-full sm:w-auto inline-flex justify-center py-2.5 px-6 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 sm:mr-3"
+              >
+                Cancel
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

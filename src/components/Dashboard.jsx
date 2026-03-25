@@ -1,5 +1,5 @@
-"use client"
-import { useState, useEffect, useMemo, useCallback } from "react"
+"use client";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   LayoutDashboard,
   CheckCircle,
@@ -24,20 +24,50 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
-} from "lucide-react"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
-import { toast } from "sonner"
+} from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 import {
   ResponsiveContainer,
   PieChart as RePieChart,
@@ -56,10 +86,9 @@ import {
   AreaChart,
   RadialBarChart,
   RadialBar,
-} from "recharts"
-import { supabase } from "../supabase"
-import { useAuth } from "../context/AuthContext"
-
+} from "recharts";
+import { supabase } from "../supabase";
+import { useAuth } from "../context/AuthContext";
 
 // --- Constants ---
 // Enhanced color palette
@@ -74,7 +103,7 @@ const THEME_COLORS = {
   green: "#8B5CF6",
   emerald: "#6366F1",
   pink: "#EC4899",
-}
+};
 
 const PIE_COLORS = [
   "#10B981", // Green
@@ -85,24 +114,27 @@ const PIE_COLORS = [
   "#06B6D4", // Cyan
   "#EC4899", // Pink
   "#6366F1", // Indigo
-]
+];
 
 // --- Helper Functions ---
 // Gviz parser removed
 
-
 const parseDateFromSheet = (dateValue) => {
-  if (!dateValue) return null
-  if (dateValue instanceof Date) return dateValue
+  if (!dateValue) return null;
+  if (dateValue instanceof Date) return dateValue;
   if (typeof dateValue === "string" && dateValue.startsWith("Date(")) {
-    const parts = dateValue.match(/\d+/g)
+    const parts = dateValue.match(/\d+/g);
     if (parts && parts.length >= 3) {
-      return new Date(Number.parseInt(parts[0]), Number.parseInt(parts[1]), Number.parseInt(parts[2]))
+      return new Date(
+        Number.parseInt(parts[0]),
+        Number.parseInt(parts[1]),
+        Number.parseInt(parts[2]),
+      );
     }
   }
-  const d = new Date(dateValue)
-  return isNaN(d.getTime()) ? null : d
-}
+  const d = new Date(dateValue);
+  return isNaN(d.getTime()) ? null : d;
+};
 
 // Custom Tooltip Component
 const CustomTooltip = ({ active, payload, label }) => {
@@ -111,68 +143,100 @@ const CustomTooltip = ({ active, payload, label }) => {
       <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-2xl border border-green-200">
         <p className="font-bold text-gray-900 mb-2">{label}</p>
         {payload.map((entry, index) => (
-          <p key={index} className="text-sm font-medium" style={{ color: entry.color }}>
-            {entry.name}: <span className="font-bold">{typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}</span>
+          <p
+            key={index}
+            className="text-sm font-medium"
+            style={{ color: entry.color }}
+          >
+            {entry.name}:{" "}
+            <span className="font-bold">
+              {typeof entry.value === "number"
+                ? entry.value.toLocaleString()
+                : entry.value}
+            </span>
           </p>
         ))}
       </div>
-    )
+    );
   }
-  return null
-}
+  return null;
+};
 
 // Stat Card Component
-const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = "green", description }) => {
+const StatCard = ({
+  title,
+  value,
+  icon: Icon,
+  trend,
+  trendValue,
+  color = "green",
+  description,
+}) => {
   const colorClasses = {
     green: "from-green-500 to-green-600",
-    blue: "from-green-500 to-green-600",
-    green: "from-green-500 to-green-600",
+    blue: "from-blue-500 to-blue-600",
     amber: "from-amber-500 to-amber-600",
     red: "from-red-500 to-red-600",
     emerald: "from-emerald-500 to-emerald-600",
-  }
+  };
 
   return (
     <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
-      <div className={`absolute inset-0 bg-gradient-to-br ${colorClasses[color]} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${colorClasses[color]} opacity-5 group-hover:opacity-10 transition-opacity`}
+      ></div>
       <CardContent className="p-6 relative">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-sm font-semibold text-gray-600 mb-2">{title}</p>
-            <h3 className="text-4xl font-bold text-gray-900 mb-1">{typeof value === 'number' ? value.toLocaleString() : value}</h3>
-            {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
+            <h3 className="text-4xl font-bold text-gray-900 mb-1">
+              {typeof value === "number" ? value.toLocaleString() : value}
+            </h3>
+            {description && (
+              <p className="text-xs text-gray-500 mt-1">{description}</p>
+            )}
             {trend && (
               <div className="flex items-center gap-2 mt-3">
-                {trend === 'up' && <ArrowUpRight className="h-4 w-4 text-green-500" />}
-                {trend === 'down' && <ArrowDownRight className="h-4 w-4 text-red-500" />}
-                {trend === 'neutral' && <Minus className="h-4 w-4 text-gray-400" />}
-                <span className={`text-sm font-semibold ${trend === 'up' ? 'text-[#7da23a]' : trend === 'down' ? 'text-red-600' : 'text-gray-500'}`}>
+                {trend === "up" && (
+                  <ArrowUpRight className="h-4 w-4 text-green-500" />
+                )}
+                {trend === "down" && (
+                  <ArrowDownRight className="h-4 w-4 text-red-500" />
+                )}
+                {trend === "neutral" && (
+                  <Minus className="h-4 w-4 text-gray-400" />
+                )}
+                <span
+                  className={`text-sm font-semibold ${trend === "up" ? "text-[#7da23a]" : trend === "down" ? "text-red-600" : "text-gray-500"}`}
+                >
                   {trendValue}
                 </span>
               </div>
             )}
           </div>
-          <div className={`p-4 rounded-2xl bg-gradient-to-br ${colorClasses[color]} shadow-lg`}>
+          <div
+            className={`p-4 rounded-2xl bg-gradient-to-br ${colorClasses[color]} shadow-lg`}
+          >
             <Icon className="h-7 w-7 text-white" />
           </div>
         </div>
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
 export default function Dashboard() {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [allPurchaseData, setAllPurchaseData] = useState([])
-  const [allLiftAccountData, setAllLiftAccountData] = useState([])
-  const [allAccountsData, setAllAccountsData] = useState([])
-  const [activeTab, setActiveTab] = useState("overview")
-  const [purchaseSubTab, setPurchaseSubTab] = useState("pending-lift")
-  const { user, allowedSteps } = useAuth()
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [allPurchaseData, setAllPurchaseData] = useState([]);
+  const [allLiftAccountData, setAllLiftAccountData] = useState([]);
+  const [allAccountsData, setAllAccountsData] = useState([]);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [purchaseSubTab, setPurchaseSubTab] = useState("pending-lift");
+  const { user, allowedSteps } = useAuth();
 
   // Add Dropdown state
-  const [isDropdownModalOpen, setIsDropdownModalOpen] = useState(false)
+  const [isDropdownModalOpen, setIsDropdownModalOpen] = useState(false);
   const [dropdownFormData, setDropdownFormData] = useState({
     type: "",
     vendorName: "",
@@ -182,35 +246,41 @@ export default function Dashboard() {
     ironRange: "",
     apRange: "",
     bdRange: "",
-  })
-  const [dropdownSubmitLoading, setDropdownSubmitLoading] = useState(false)
+  });
+  const [dropdownSubmitLoading, setDropdownSubmitLoading] = useState(false);
 
   // Filter States
-  const [dateRange, setDateRange] = useState(undefined)
+  const [dateRange, setDateRange] = useState(undefined);
   const [filters, setFilters] = useState({
     vendorName: "all",
     material: "all",
     status: "all",
     rlNo: "",
     firmName: "all",
-  })
+  });
 
   // Fetch Data
   // Fetch Data
   const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
       // Fetch from Supabase
       const [indentPoRes, liftAccountsRes, mismatchRes] = await Promise.all([
-        supabase.from("INDENT-PO").select("*").order("Timestamp", { ascending: false }),
-        supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
-        supabase.from("Mismatch").select("*").order("id", { ascending: false })
-      ])
+        supabase
+          .from("INDENT-PO")
+          .select("*")
+          .order("Timestamp", { ascending: false }),
+        supabase
+          .from("LIFT-ACCOUNTS")
+          .select("*")
+          .order("Timestamp", { ascending: false }),
+        supabase.from("Mismatch").select("*").order("id", { ascending: false }),
+      ]);
 
-      if (indentPoRes.error) throw indentPoRes.error
-      if (liftAccountsRes.error) throw liftAccountsRes.error
-      if (mismatchRes.error) throw mismatchRes.error
+      if (indentPoRes.error) throw indentPoRes.error;
+      if (liftAccountsRes.error) throw liftAccountsRes.error;
+      if (mismatchRes.error) throw mismatchRes.error;
 
       // Process INDENT-PO data
       let processedIndentPoData = (indentPoRes.data || [])
@@ -221,10 +291,11 @@ export default function Dashboard() {
           firmName: row["Firm Name"],
           vendorName: row["Vendor"] || row["Vendor name"], // Handle both potential column names
           material: row["Material"] || row["Raw Material Name"],
-          poQty: Number.parseFloat(row["Quantity"] || row["Total Quantity"] || 0),
+          poQty: Number.parseFloat(
+            row["Quantity"] || row["Total Quantity"] || 0,
+          ),
           poTimestamp: row["Actual2"], // Generate PO Status
-          pendingQty: 0, // Need to calculate? For now use Quantity. Wait, pending quantity logic?
-          // pendingQty used for "materialLiftStatus" (Pending/Complete). 
+          // pendingQty used for "materialLiftStatus" (Pending/Complete).
           // If pendingQty === 0 it's complete.
           // In sheet logic: row.c[33]?
           // We can calculate pendingQty from "Quantity" - "Lifted Quantity"?
@@ -235,7 +306,9 @@ export default function Dashboard() {
           // Simplifying: If Actual4 (Lift Status) is present, pending = 0?
           // Let's use logic: if Actual3 (PO Entry) done, maybe?
           // Better: If row["Actual4"] (Lift) is present, pending = 0, else Quantity.
-          pendingQty: row["Actual4"] ? 0 : Number.parseFloat(row["Quantity"] || 0),
+          pendingQty: row["Actual4"]
+            ? 0
+            : Number.parseFloat(row["Quantity"] || 0),
 
           notes: row["Notes"],
           actualM: row["Actual1"], // Indent Approval
@@ -243,7 +316,7 @@ export default function Dashboard() {
           actualAL: row["Actual3"], // PO Entry
           actualAO: row["Actual4"], // Lift Item
         }))
-        .filter((p) => p && p.rlNo)
+        .filter((p) => p && p.rlNo);
 
       // Process LIFT-ACCOUNTS data
       let processedLiftAccountData = (liftAccountsRes.data || [])
@@ -263,7 +336,7 @@ export default function Dashboard() {
           actualAJ: row["Actual 3"], // Lab
           actualBB: row["Actual 4"], // Final Tally
         }))
-        .filter((l) => l && l.rlNo)
+        .filter((l) => l && l.rlNo);
 
       // Process ACCOUNTS (Mismatch) data
       let processedAccountsData = (mismatchRes.data || [])
@@ -279,7 +352,7 @@ export default function Dashboard() {
           actualAU: row["Actual6"], // Bill Entry
           firmName: row["Firm Name"] || row["firmName"], // Add Firm Name for filtering
         }))
-        .filter((a) => a && a.rlNo)
+        .filter((a) => a && a.rlNo);
 
       // Apply firm filtering
       // Firm filtering removed as per user request (Dashboard shows all data)
@@ -298,153 +371,182 @@ export default function Dashboard() {
       }
       */
 
-      setAllPurchaseData(processedIndentPoData)
-      setAllLiftAccountData(processedLiftAccountData)
-      setAllAccountsData(processedAccountsData)
+      setAllPurchaseData(processedIndentPoData);
+      setAllLiftAccountData(processedLiftAccountData);
+      setAllAccountsData(processedAccountsData);
     } catch (e) {
-      setError(`Failed to fetch dashboard data: ${e.message}`)
-      console.error("Error:", e)
+      setError(`Failed to fetch dashboard data: ${e.message}`);
+      console.error("Error:", e);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [user, allowedSteps])
+  }, [user, allowedSteps]);
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchData();
+  }, [fetchData]);
 
   // Filter Options
   const { vendorOptions, materialOptions, firmOptions } = useMemo(() => {
-    const vendors = new Set()
-    const materials = new Set()
-    const firms = new Set()
+    const vendors = new Set();
+    const materials = new Set();
+    const firms = new Set();
 
     allPurchaseData.forEach((d) => {
-      if (d.vendorName) vendors.add(d.vendorName)
-      if (d.material) materials.add(d.material)
-      if (d.firmName) firms.add(d.firmName)
-    })
+      if (d.vendorName) vendors.add(d.vendorName);
+      if (d.material) materials.add(d.material);
+      if (d.firmName) firms.add(d.firmName);
+    });
 
     allLiftAccountData.forEach((d) => {
-      if (d.vendorName) vendors.add(d.vendorName)
-      if (d.material) materials.add(d.material)
-      if (d.firmName) firms.add(d.firmName)
-    })
+      if (d.vendorName) vendors.add(d.vendorName);
+      if (d.material) materials.add(d.material);
+      if (d.firmName) firms.add(d.firmName);
+    });
 
     return {
       vendorOptions: Array.from(vendors).sort(),
       materialOptions: Array.from(materials).sort(),
       firmOptions: Array.from(firms).sort(),
-    }
-  }, [allPurchaseData, allLiftAccountData])
+    };
+  }, [allPurchaseData, allLiftAccountData]);
 
   // Filtered Data
   const filteredIndentPoData = useMemo(() => {
     return allPurchaseData
       .filter((po) => {
-        const materialLiftStatus = po.pendingQty === 0 ? "Complete" : "Pending"
-        if (dateRange?.from && po.date && po.date < dateRange.from) return false
-        if (dateRange?.to && po.date && po.date > dateRange.to) return false
-        if (filters.rlNo && !po.rlNo?.toLowerCase().includes(filters.rlNo.toLowerCase())) return false
-        if (filters.vendorName !== "all" && po.vendorName !== filters.vendorName) return false
-        if (filters.material !== "all" && po.material !== filters.material) return false
-        if (filters.status !== "all" && materialLiftStatus !== filters.status) return false
-        if (filters.firmName !== "all" && po.firmName !== filters.firmName) return false
-        return true
+        const materialLiftStatus = po.pendingQty === 0 ? "Complete" : "Pending";
+        if (dateRange?.from && po.date && po.date < dateRange.from)
+          return false;
+        if (dateRange?.to && po.date && po.date > dateRange.to) return false;
+        if (
+          filters.rlNo &&
+          !po.rlNo?.toLowerCase().includes(filters.rlNo.toLowerCase())
+        )
+          return false;
+        if (
+          filters.vendorName !== "all" &&
+          po.vendorName !== filters.vendorName
+        )
+          return false;
+        if (filters.material !== "all" && po.material !== filters.material)
+          return false;
+        if (filters.status !== "all" && materialLiftStatus !== filters.status)
+          return false;
+        if (filters.firmName !== "all" && po.firmName !== filters.firmName)
+          return false;
+        return true;
       })
       .map((po) => ({
         ...po,
         materialLiftStatus: po.pendingQty === 0 ? "Complete" : "Pending",
-      }))
-  }, [allPurchaseData, dateRange, filters])
+      }));
+  }, [allPurchaseData, dateRange, filters]);
 
   const filteredLiftAccountData = useMemo(() => {
     return allLiftAccountData.filter((lift) => {
-      if (filters.rlNo && !lift.rlNo?.toLowerCase().includes(filters.rlNo.toLowerCase())) return false
-      if (filters.vendorName !== "all" && lift.vendorName !== filters.vendorName) return false
-      if (filters.material !== "all" && lift.material !== filters.material) return false
-      if (filters.firmName !== "all" && lift.firmName !== filters.firmName) return false
-      return true
-    })
-  }, [allLiftAccountData, filters])
+      if (
+        filters.rlNo &&
+        !lift.rlNo?.toLowerCase().includes(filters.rlNo.toLowerCase())
+      )
+        return false;
+      if (
+        filters.vendorName !== "all" &&
+        lift.vendorName !== filters.vendorName
+      )
+        return false;
+      if (filters.material !== "all" && lift.material !== filters.material)
+        return false;
+      if (filters.firmName !== "all" && lift.firmName !== filters.firmName)
+        return false;
+      return true;
+    });
+  }, [allLiftAccountData, filters]);
 
   // Pending Stages Data
   const pendingStagesData = useMemo(() => {
     const stageNames = {
       indentPo: {
-        M: 'Indent Approvals',
-        S: 'Generate PO',
-        AL: 'PO Entry In Tally',
-        AO: 'Get Lift The Item'
+        M: "Indent Approvals",
+        S: "Generate PO",
+        AL: "PO Entry In Tally",
+        AO: "Get Lift The Item",
       },
       liftAccounts: {
-        U: 'Receipt / Quality Check',
-        AE: 'Bilty Entry',
-        AJ: 'Lab Testing',
-        BB: 'Final Tally Entry'
+        U: "Receipt / Quality Check",
+        AE: "Bilty Entry",
+        AJ: "Lab Testing",
+        BB: "Final Tally Entry",
       },
       accounts: {
-        AA: 'Rectify & Bilty Add',
-        AF: 'Audit Data',
-        AK: 'Rectify Mistake 2',
-        AP: 'Take Entry By Tally',
-        AU: 'Again For Auditing'
-      }
-    }
+        AA: "Rectify & Bilty Add",
+        AF: "Audit Data",
+        AK: "Rectify Mistake 2",
+        AP: "Take Entry By Tally",
+        AU: "Again For Auditing",
+      },
+    };
 
-    const pendingCounts = []
+    const pendingCounts = [];
 
     const indentPoStages = [
-      { key: 'actualM', columnName: 'M' },
-      { key: 'actualS', columnName: 'S' },
-      { key: 'actualAL', columnName: 'AL' },
-      { key: 'actualAO', columnName: 'AO' },
-    ]
+      { key: "actualM", columnName: "M" },
+      { key: "actualS", columnName: "S" },
+      { key: "actualAL", columnName: "AL" },
+      { key: "actualAO", columnName: "AO" },
+    ];
 
     indentPoStages.forEach(({ key, columnName }) => {
-      const pendingCount = filteredIndentPoData.filter(po => !po[key] || po[key] === null || po[key] === '').length
+      const pendingCount = filteredIndentPoData.filter(
+        (po) => !po[key] || po[key] === null || po[key] === "",
+      ).length;
       pendingCounts.push({
         stageName: stageNames.indentPo[columnName],
         pendingCount: pendingCount,
-        category: 'INDENT-PO'
-      })
-    })
+        category: "INDENT-PO",
+      });
+    });
 
     const liftAccountsStages = [
-      { key: 'actualU', columnName: 'U' },
-      { key: 'actualAE', columnName: 'AE' },
-      { key: 'actualAJ', columnName: 'AJ' },
-      { key: 'actualBB', columnName: 'BB' },
-    ]
+      { key: "actualU", columnName: "U" },
+      { key: "actualAE", columnName: "AE" },
+      { key: "actualAJ", columnName: "AJ" },
+      { key: "actualBB", columnName: "BB" },
+    ];
 
     liftAccountsStages.forEach(({ key, columnName }) => {
-      const pendingCount = filteredLiftAccountData.filter(lift => !lift[key] || lift[key] === null || lift[key] === '').length
+      const pendingCount = filteredLiftAccountData.filter(
+        (lift) => !lift[key] || lift[key] === null || lift[key] === "",
+      ).length;
       pendingCounts.push({
         stageName: stageNames.liftAccounts[columnName],
         pendingCount: pendingCount,
-        category: 'LIFT-ACCOUNTS'
-      })
-    })
+        category: "LIFT-ACCOUNTS",
+      });
+    });
 
     const accountsStages = [
-      { key: 'actualAA', columnName: 'AA' },
-      { key: 'actualAF', columnName: 'AF' },
-      { key: 'actualAK', columnName: 'AK' },
-      { key: 'actualAP', columnName: 'AP' },
-      { key: 'actualAU', columnName: 'AU' },
-    ]
+      { key: "actualAA", columnName: "AA" },
+      { key: "actualAF", columnName: "AF" },
+      { key: "actualAK", columnName: "AK" },
+      { key: "actualAP", columnName: "AP" },
+      { key: "actualAU", columnName: "AU" },
+    ];
 
     accountsStages.forEach(({ key, columnName }) => {
-      const pendingCount = allAccountsData.filter(account => !account[key] || account[key] === null || account[key] === '').length
+      const pendingCount = allAccountsData.filter(
+        (account) =>
+          !account[key] || account[key] === null || account[key] === "",
+      ).length;
       pendingCounts.push({
         stageName: stageNames.accounts[columnName],
         pendingCount: pendingCount,
-        category: 'ACCOUNTS'
-      })
-    })
+        category: "ACCOUNTS",
+      });
+    });
 
-    return pendingCounts
-  }, [filteredIndentPoData, filteredLiftAccountData, allAccountsData])
+    return pendingCounts;
+  }, [filteredIndentPoData, filteredLiftAccountData, allAccountsData]);
 
   // Overview Data
   const overviewData = useMemo(() => {
@@ -455,108 +557,137 @@ export default function Dashboard() {
       totalPoQuantity: 0,
       totalPendingQuantity: 0,
       totalReceivedQuantity: 0,
-    }
+    };
 
-    const vendorQuantities = {}
-    const materialQuantities = {}
-    const poQuantityByStatus = { Completed: 0, Pending: 0 }
-    const uniquePOsByRlNo = new Set()
+    const vendorQuantities = {};
+    const materialQuantities = {};
+    const poQuantityByStatus = { Completed: 0, Pending: 0 };
+    const uniquePOsByRlNo = new Set();
 
     filteredIndentPoData.forEach((po) => {
-      uniquePOsByRlNo.add(po.rlNo)
-      const isPoPendingForKPI = !po.poTimestamp
+      uniquePOsByRlNo.add(po.rlNo);
+      const isPoPendingForKPI = !po.poTimestamp;
 
       if (isPoPendingForKPI) {
-        kpis.pendingPOs += 1
+        kpis.pendingPOs += 1;
       } else {
-        kpis.completedPOs += 1
+        kpis.completedPOs += 1;
       }
 
-      const isMaterialLiftComplete = po.pendingQty === 0
+      const isMaterialLiftComplete = po.pendingQty === 0;
       if (isMaterialLiftComplete) {
-        poQuantityByStatus["Completed"] += po.poQty
+        poQuantityByStatus["Completed"] += po.poQty;
       } else {
-        poQuantityByStatus["Pending"] += po.poQty
+        poQuantityByStatus["Pending"] += po.poQty;
       }
 
-      kpis.totalPoQuantity += po.poQty
-      kpis.totalPendingQuantity += po.pendingQty
+      kpis.totalPoQuantity += po.poQty;
+      kpis.totalPendingQuantity += po.pendingQty;
 
       if (po.material && po.poQty) {
-        materialQuantities[po.material] = (materialQuantities[po.material] || 0) + po.poQty
+        materialQuantities[po.material] =
+          (materialQuantities[po.material] || 0) + po.poQty;
       }
       if (po.vendorName && po.poQty) {
-        vendorQuantities[po.vendorName] = (vendorQuantities[po.vendorName] || 0) + po.poQty
+        vendorQuantities[po.vendorName] =
+          (vendorQuantities[po.vendorName] || 0) + po.poQty;
       }
-    })
+    });
 
-    kpis.totalPOs = uniquePOsByRlNo.size
+    kpis.totalPOs = uniquePOsByRlNo.size;
 
     filteredLiftAccountData.forEach((lift) => {
-      kpis.totalReceivedQuantity += lift.receivedQty
-    })
+      kpis.totalReceivedQuantity += lift.receivedQty;
+    });
 
     const top10Materials = Object.entries(materialQuantities)
       .map(([name, quantity]) => ({ name, quantity }))
       .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 10)
+      .slice(0, 10);
 
     const top10Vendors = Object.entries(vendorQuantities)
       .map(([name, quantity]) => ({ name, quantity }))
       .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 10)
+      .slice(0, 10);
 
     const poQuantityByStatusData = [
-      { name: "Completed", value: poQuantityByStatus["Completed"], fill: "#10B981" },
-      { name: "Pending", value: poQuantityByStatus["Pending"], fill: "#F59E0B" }
-    ].filter(item => item.value > 0)
+      {
+        name: "Completed",
+        value: poQuantityByStatus["Completed"],
+        fill: "#10B981",
+      },
+      {
+        name: "Pending",
+        value: poQuantityByStatus["Pending"],
+        fill: "#F59E0B",
+      },
+    ].filter((item) => item.value > 0);
 
     return {
       kpis,
       top10Materials,
       top10Vendors,
       poQuantityByStatusData,
-    }
-  }, [filteredIndentPoData, filteredLiftAccountData])
+    };
+  }, [filteredIndentPoData, filteredLiftAccountData]);
 
   // Purchase Tab Tables
   const purchaseTabTables = useMemo(() => {
-    const pendingLift = filteredIndentPoData.filter((po) => po.materialLiftStatus === "Pending")
-    const inTransit = filteredLiftAccountData.filter((lift) => !lift.receivedTimestamp)
-    const received = filteredLiftAccountData.filter((lift) => lift.receivedTimestamp)
+    const pendingLift = filteredIndentPoData.filter(
+      (po) => po.materialLiftStatus === "Pending",
+    );
+    const inTransit = filteredLiftAccountData.filter(
+      (lift) => !lift.receivedTimestamp,
+    );
+    const received = filteredLiftAccountData.filter(
+      (lift) => lift.receivedTimestamp,
+    );
 
-    return { pendingLift, inTransit, received }
-  }, [filteredIndentPoData, filteredLiftAccountData])
+    return { pendingLift, inTransit, received };
+  }, [filteredIndentPoData, filteredLiftAccountData]);
 
   const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }))
-  }
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
   const clearFilters = () => {
-    setFilters({ vendorName: "all", material: "all", status: "all", rlNo: "", firmName: "all" })
-    setDateRange(undefined)
-  }
+    setFilters({
+      vendorName: "all",
+      material: "all",
+      status: "all",
+      rlNo: "",
+      firmName: "all",
+    });
+    setDateRange(undefined);
+  };
 
   const handleDropdownSubmit = async (e) => {
-    e.preventDefault()
-    setDropdownSubmitLoading(true)
+    e.preventDefault();
+    setDropdownSubmitLoading(true);
     try {
       if (!dropdownFormData.type) {
-        throw new Error("Please select a valid type.")
+        throw new Error("Please select a valid type.");
       }
 
       let error = null;
 
-      if (dropdownFormData.type === "Vendor Name" || dropdownFormData.type === "Transporter") {
-        let insertData = {}
+      if (
+        dropdownFormData.type === "Vendor Name" ||
+        dropdownFormData.type === "Transporter"
+      ) {
+        let insertData = {};
         if (dropdownFormData.type === "Vendor Name") {
-          insertData = { "Vendor Name": dropdownFormData.vendorName.trim() || null }
+          insertData = {
+            "Vendor Name": dropdownFormData.vendorName.trim() || null,
+          };
         } else if (dropdownFormData.type === "Transporter") {
-          insertData = { "Transporter Name": dropdownFormData.transporterName.trim() || null }
+          insertData = {
+            "Transporter Name": dropdownFormData.transporterName.trim() || null,
+          };
         }
 
-        const response = await supabase.from("Master").insert([insertData])
-        error = response.error
+        const response = await supabase.from("Master").insert([insertData]);
+        error = response.error;
       } else if (dropdownFormData.type === "Raw Material") {
         const insertData = {
           "Product name": dropdownFormData.rawMaterialName.trim() || null,
@@ -564,24 +695,33 @@ export default function Dashboard() {
           "Iron Range": dropdownFormData.ironRange?.trim() || null,
           "Ap Range": dropdownFormData.apRange?.trim() || null,
           "Bd Range": dropdownFormData.bdRange?.trim() || null,
-        }
+        };
 
-        const response = await supabase.from("TL").insert([insertData])
-        error = response.error
+        const response = await supabase.from("TL").insert([insertData]);
+        error = response.error;
       }
 
       if (error) {
-        throw error
+        throw error;
       }
-      toast.success("Dropdown Data Added Successfully")
-      setIsDropdownModalOpen(false)
-      setDropdownFormData({ type: "", vendorName: "", rawMaterialName: "", transporterName: "", aluminaRange: "", ironRange: "", apRange: "", bdRange: "" })
+      toast.success("Dropdown Data Added Successfully");
+      setIsDropdownModalOpen(false);
+      setDropdownFormData({
+        type: "",
+        vendorName: "",
+        rawMaterialName: "",
+        transporterName: "",
+        aluminaRange: "",
+        ironRange: "",
+        apRange: "",
+        bdRange: "",
+      });
     } catch (err) {
-      toast.error("Error adding dropdown data", { description: err.message })
+      toast.error("Error adding dropdown data", { description: err.message });
     } finally {
-      setDropdownSubmitLoading(false)
+      setDropdownSubmitLoading(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -592,12 +732,16 @@ export default function Dashboard() {
             <div className="absolute inset-0 w-16 h-16 border-4 border-green-200 rounded-full animate-ping mx-auto"></div>
           </div>
           <div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">Loading Dashboard</h3>
-            <p className="text-gray-600">Fetching your data from Google Sheets...</p>
+            <h3 className="text-2xl font-bold text-gray-800 mb-2">
+              Loading Dashboard
+            </h3>
+            <p className="text-gray-600">
+              Fetching your data from Google Sheets...
+            </p>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -608,16 +752,21 @@ export default function Dashboard() {
             <div className="p-4 bg-red-100 rounded-full inline-block">
               <Archive className="h-12 w-12 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-800">Connection Failed</h2>
+            <h2 className="text-2xl font-bold text-gray-800">
+              Connection Failed
+            </h2>
             <p className="text-gray-600 text-sm leading-relaxed">{error}</p>
-            <Button onClick={fetchData} className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg">
+            <Button
+              onClick={fetchData}
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg"
+            >
               <RefreshCw className="w-4 h-4 mr-2" />
               Retry Connection
             </Button>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -636,10 +785,14 @@ export default function Dashboard() {
                     Purchase Management Dashboard
                   </CardTitle>
                   <CardDescription className="text-green-100 text-base">
-                    Real-time insights into your purchase operations and material logistics
-                    {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                      <span className="ml-2 text-white font-semibold">• Filtered by: {user.firmName}</span>
-                    )}
+                    Real-time insights into your purchase operations and
+                    material logistics
+                    {user?.firmName &&
+                      user.firmName.toLowerCase() !== "all" && (
+                        <span className="ml-2 text-white font-semibold">
+                          • Filtered by: {user.firmName}
+                        </span>
+                      )}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-3">
@@ -655,7 +808,9 @@ export default function Dashboard() {
                     variant="secondary"
                     className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-lg"
                   >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                    <RefreshCw
+                      className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                    />
                     Refresh
                   </Button>
                 </div>
@@ -853,10 +1008,16 @@ export default function Dashboard() {
                     <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg">
                       <Package className="h-6 w-6 text-white" />
                     </div>
-                    <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">Total</Badge>
+                    <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">
+                      Total
+                    </Badge>
                   </div>
-                  <p className="text-sm font-semibold text-gray-600 mb-1">Total PO Quantity</p>
-                  <p className="text-3xl font-bold text-gray-900">{overviewData.kpis.totalPoQuantity.toLocaleString()}</p>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">
+                    Total PO Quantity
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {overviewData.kpis.totalPoQuantity.toLocaleString()}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -866,10 +1027,16 @@ export default function Dashboard() {
                     <div className="p-3 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl shadow-lg">
                       <Hourglass className="h-6 w-6 text-white" />
                     </div>
-                    <Badge className="bg-amber-100 text-amber-700 font-semibold">Pending</Badge>
+                    <Badge className="bg-amber-100 text-amber-700 font-semibold">
+                      Pending
+                    </Badge>
                   </div>
-                  <p className="text-sm font-semibold text-gray-600 mb-1">Pending Quantity</p>
-                  <p className="text-3xl font-bold text-gray-900">{overviewData.kpis.totalPendingQuantity.toLocaleString()}</p>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">
+                    Pending Quantity
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {overviewData.kpis.totalPendingQuantity.toLocaleString()}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -879,10 +1046,16 @@ export default function Dashboard() {
                     <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg">
                       <CheckCircle2 className="h-6 w-6 text-white" />
                     </div>
-                    <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">Received</Badge>
+                    <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">
+                      Received
+                    </Badge>
                   </div>
-                  <p className="text-sm font-semibold text-gray-600 mb-1">Received Quantity</p>
-                  <p className="text-3xl font-bold text-gray-900">{overviewData.kpis.totalReceivedQuantity.toLocaleString()}</p>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">
+                    Received Quantity
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {overviewData.kpis.totalReceivedQuantity.toLocaleString()}
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -896,7 +1069,9 @@ export default function Dashboard() {
                     <PieChart className="h-6 w-6 text-[#7da23a]" />
                     Material Lift Status Distribution
                   </CardTitle>
-                  <CardDescription>PO quantity breakdown by completion status</CardDescription>
+                  <CardDescription>
+                    PO quantity breakdown by completion status
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="h-80">
@@ -912,12 +1087,21 @@ export default function Dashboard() {
                           outerRadius={100}
                           innerRadius={60}
                           paddingAngle={5}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                          label={({ name, percent }) =>
+                            `${name}: ${(percent * 100).toFixed(1)}%`
+                          }
                           labelLine={false}
                         >
-                          {overviewData.poQuantityByStatusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} stroke="white" strokeWidth={3} />
-                          ))}
+                          {overviewData.poQuantityByStatusData.map(
+                            (entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={entry.fill}
+                                stroke="white"
+                                strokeWidth={3}
+                              />
+                            ),
+                          )}
                         </Pie>
                         <Legend
                           verticalAlign="bottom"
@@ -938,7 +1122,9 @@ export default function Dashboard() {
                     <BarChart3 className="h-6 w-6 text-[#7da23a]" />
                     Top 10 Vendors by Quantity
                   </CardTitle>
-                  <CardDescription>Vendors ranked by total order quantity</CardDescription>
+                  <CardDescription>
+                    Vendors ranked by total order quantity
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="h-80">
@@ -957,14 +1143,23 @@ export default function Dashboard() {
                           tick={{ fontSize: 12, fill: "#64748b" }}
                           stroke="#64748b"
                         />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(139, 92, 246, 0.1)" }} />
+                        <Tooltip
+                          content={<CustomTooltip />}
+                          cursor={{ fill: "rgba(139, 92, 246, 0.1)" }}
+                        />
                         <Bar
                           dataKey="quantity"
                           fill="url(#colorGradient)"
                           radius={[0, 8, 8, 0]}
                         />
                         <defs>
-                          <linearGradient id="colorGradient" x1="0" y1="0" x2="1" y2="0">
+                          <linearGradient
+                            id="colorGradient"
+                            x1="0"
+                            y1="0"
+                            x2="1"
+                            y2="0"
+                          >
                             <stop offset="0%" stopColor="#8B5CF6" />
                             <stop offset="100%" stopColor="#6366F1" />
                           </linearGradient>
@@ -983,7 +1178,9 @@ export default function Dashboard() {
                   <Activity className="h-6 w-6 text-[#7da23a]" />
                   Top 10 Materials by Quantity
                 </CardTitle>
-                <CardDescription>Most ordered materials ranked by quantity</CardDescription>
+                <CardDescription>
+                  Most ordered materials ranked by quantity
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="h-96">
@@ -999,14 +1196,23 @@ export default function Dashboard() {
                         stroke="#64748b"
                       />
                       <YAxis stroke="#64748b" tick={{ fill: "#64748b" }} />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(139, 92, 246, 0.1)" }} />
+                      <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={{ fill: "rgba(139, 92, 246, 0.1)" }}
+                      />
                       <Bar
                         dataKey="quantity"
                         fill="url(#materialGradient)"
                         radius={[8, 8, 0, 0]}
                       />
                       <defs>
-                        <linearGradient id="materialGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient
+                          id="materialGradient"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
                           <stop offset="0%" stopColor="#8B5CF6" />
                           <stop offset="100%" stopColor="#6366F1" />
                         </linearGradient>
@@ -1051,7 +1257,9 @@ export default function Dashboard() {
                     <CardTitle className="text-xl flex items-center gap-2">
                       <Hourglass className="h-6 w-6 text-amber-600" />
                       Purchase Orders Pending Lift
-                      <Badge className="ml-2 bg-amber-500 text-white">{purchaseTabTables.pendingLift.length}</Badge>
+                      <Badge className="ml-2 bg-amber-500 text-white">
+                        {purchaseTabTables.pendingLift.length}
+                      </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -1059,25 +1267,56 @@ export default function Dashboard() {
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
-                            <TableHead className="font-bold text-gray-700">Indent No.</TableHead>
-                            <TableHead className="font-bold text-gray-700">PO Date</TableHead>
-                            <TableHead className="font-bold text-gray-700">Firm</TableHead>
-                            <TableHead className="font-bold text-gray-700">Vendor</TableHead>
-                            <TableHead className="font-bold text-gray-700">Material</TableHead>
-                            <TableHead className="text-right font-bold text-gray-700">PO Qty</TableHead>
-                            <TableHead className="text-right font-bold text-gray-700">Pending</TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Indent No.
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              PO Date
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Firm
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Vendor
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Material
+                            </TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">
+                              PO Qty
+                            </TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">
+                              Pending
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {purchaseTabTables.pendingLift.length > 0 ? (
                             purchaseTabTables.pendingLift.map((po) => (
-                              <TableRow key={po.id} className="hover:bg-amber-50/50 border-b border-gray-100">
-                                <TableCell className="font-semibold text-[#7da23a]">{po.rlNo}</TableCell>
-                                <TableCell className="text-gray-700">{po.date ? format(po.date, "dd-MMM-yyyy") : "N/A"}</TableCell>
-                                <TableCell className="text-gray-700">{po.firmName || "N/A"}</TableCell>
-                                <TableCell className="text-gray-700">{po.vendorName}</TableCell>
-                                <TableCell className="max-w-xs truncate text-gray-700">{po.material}</TableCell>
-                                <TableCell className="text-right font-semibold text-gray-900">{po.poQty.toLocaleString()}</TableCell>
+                              <TableRow
+                                key={po.id}
+                                className="hover:bg-amber-50/50 border-b border-gray-100"
+                              >
+                                <TableCell className="font-semibold text-[#7da23a]">
+                                  {po.rlNo}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {po.date
+                                    ? format(po.date, "dd-MMM-yyyy")
+                                    : "N/A"}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {po.firmName || "N/A"}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {po.vendorName}
+                                </TableCell>
+                                <TableCell className="max-w-xs truncate text-gray-700">
+                                  {po.material}
+                                </TableCell>
+                                <TableCell className="text-right font-semibold text-gray-900">
+                                  {po.poQty.toLocaleString()}
+                                </TableCell>
                                 <TableCell className="text-right">
                                   <Badge className="bg-amber-100 text-amber-700 font-semibold">
                                     {po.pendingQty.toLocaleString()}
@@ -1087,9 +1326,14 @@ export default function Dashboard() {
                             ))
                           ) : (
                             <TableRow>
-                              <TableCell colSpan={7} className="text-center h-32 text-gray-500">
+                              <TableCell
+                                colSpan={7}
+                                className="text-center h-32 text-gray-500"
+                              >
                                 <Package className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                                <p className="font-medium">No pending purchase orders</p>
+                                <p className="font-medium">
+                                  No pending purchase orders
+                                </p>
                               </TableCell>
                             </TableRow>
                           )}
@@ -1106,7 +1350,9 @@ export default function Dashboard() {
                     <CardTitle className="text-xl flex items-center gap-2">
                       <Truck className="h-6 w-6 text-[#7da23a]" />
                       Materials In-Transit
-                      <Badge className="ml-2 bg-green-500 text-white">{purchaseTabTables.inTransit.length}</Badge>
+                      <Badge className="ml-2 bg-green-500 text-white">
+                        {purchaseTabTables.inTransit.length}
+                      </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -1114,31 +1360,63 @@ export default function Dashboard() {
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
-                            <TableHead className="font-bold text-gray-700">Indent No.</TableHead>
-                            <TableHead className="font-bold text-gray-700">Delivery Order</TableHead>
-                            <TableHead className="font-bold text-gray-700">Firm</TableHead>
-                            <TableHead className="font-bold text-gray-700">Vendor</TableHead>
-                            <TableHead className="font-bold text-gray-700">Material</TableHead>
-                            <TableHead className="text-right font-bold text-gray-700">Billing Quantity</TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Indent No.
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Delivery Order
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Firm
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Vendor
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Material
+                            </TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">
+                              Billing Quantity
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {purchaseTabTables.inTransit.length > 0 ? (
                             purchaseTabTables.inTransit.map((lift) => (
-                              <TableRow key={lift.id} className="hover:bg-green-50/50 border-b border-gray-100">
-                                <TableCell className="font-semibold text-[#7da23a]">{lift.rlNo}</TableCell>
-                                <TableCell className="text-gray-700">{lift.deliveryOrderNo || "N/A"}</TableCell>
-                                <TableCell className="text-gray-700">{lift.firmName || "N/A"}</TableCell>
-                                <TableCell className="text-gray-700">{lift.vendorName}</TableCell>
-                                <TableCell className="max-w-xs truncate text-gray-700">{lift.material}</TableCell>
-                                <TableCell className="text-right font-semibold text-gray-900">{lift.liftedQty.toLocaleString()}</TableCell>
+                              <TableRow
+                                key={lift.id}
+                                className="hover:bg-green-50/50 border-b border-gray-100"
+                              >
+                                <TableCell className="font-semibold text-[#7da23a]">
+                                  {lift.rlNo}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {lift.deliveryOrderNo || "N/A"}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {lift.firmName || "N/A"}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {lift.vendorName}
+                                </TableCell>
+                                <TableCell className="max-w-xs truncate text-gray-700">
+                                  {lift.material}
+                                </TableCell>
+                                <TableCell className="text-right font-semibold text-gray-900">
+                                  {lift.liftedQty.toLocaleString()}
+                                </TableCell>
                               </TableRow>
                             ))
                           ) : (
                             <TableRow>
-                              <TableCell colSpan={6} className="text-center h-32 text-gray-500">
+                              <TableCell
+                                colSpan={6}
+                                className="text-center h-32 text-gray-500"
+                              >
                                 <Truck className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                                <p className="font-medium">No materials in transit</p>
+                                <p className="font-medium">
+                                  No materials in transit
+                                </p>
                               </TableCell>
                             </TableRow>
                           )}
@@ -1155,7 +1433,9 @@ export default function Dashboard() {
                     <CardTitle className="text-xl flex items-center gap-2">
                       <CheckCircle2 className="h-6 w-6 text-[#7da23a]" />
                       Received Materials
-                      <Badge className="ml-2 bg-green-500 text-white">{purchaseTabTables.received.length}</Badge>
+                      <Badge className="ml-2 bg-green-500 text-white">
+                        {purchaseTabTables.received.length}
+                      </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -1163,25 +1443,54 @@ export default function Dashboard() {
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
-                            <TableHead className="font-bold text-gray-700">Indent No.</TableHead>
-                            <TableHead className="font-bold text-gray-700">Firm</TableHead>
-                            <TableHead className="font-bold text-gray-700">Vendor</TableHead>
-                            <TableHead className="font-bold text-gray-700">Material</TableHead>
-                            <TableHead className="font-bold text-gray-700">Notes</TableHead>
-                            <TableHead className="text-right font-bold text-gray-700">Billing Quantity</TableHead>
-                            <TableHead className="text-right font-bold text-gray-700">Received Qty</TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Indent No.
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Firm
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Vendor
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Material
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
+                              Notes
+                            </TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">
+                              Billing Quantity
+                            </TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">
+                              Received Qty
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {purchaseTabTables.received.length > 0 ? (
                             purchaseTabTables.received.map((lift) => (
-                              <TableRow key={lift.id} className="hover:bg-green-50/50 border-b border-gray-100">
-                                <TableCell className="font-semibold text-[#7da23a]">{lift.rlNo}</TableCell>
-                                <TableCell className="text-gray-700">{lift.firmName || "N/A"}</TableCell>
-                                <TableCell className="text-gray-700">{lift.vendorName}</TableCell>
-                                <TableCell className="max-w-xs truncate text-gray-700">{lift.material}</TableCell>
-                                <TableCell className="max-w-xs truncate text-gray-700">{lift.notes || "N/A"}</TableCell>
-                                <TableCell className="text-right font-semibold text-gray-900">{lift.liftedQty.toLocaleString()}</TableCell>
+                              <TableRow
+                                key={lift.id}
+                                className="hover:bg-green-50/50 border-b border-gray-100"
+                              >
+                                <TableCell className="font-semibold text-[#7da23a]">
+                                  {lift.rlNo}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {lift.firmName || "N/A"}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {lift.vendorName}
+                                </TableCell>
+                                <TableCell className="max-w-xs truncate text-gray-700">
+                                  {lift.material}
+                                </TableCell>
+                                <TableCell className="max-w-xs truncate text-gray-700">
+                                  {lift.notes || "N/A"}
+                                </TableCell>
+                                <TableCell className="text-right font-semibold text-gray-900">
+                                  {lift.liftedQty.toLocaleString()}
+                                </TableCell>
                                 <TableCell className="text-right">
                                   <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">
                                     {lift.receivedQty.toLocaleString()}
@@ -1191,9 +1500,14 @@ export default function Dashboard() {
                             ))
                           ) : (
                             <TableRow>
-                              <TableCell colSpan={7} className="text-center h-32 text-gray-500">
+                              <TableCell
+                                colSpan={7}
+                                className="text-center h-32 text-gray-500"
+                              >
                                 <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                                <p className="font-medium">No received materials</p>
+                                <p className="font-medium">
+                                  No received materials
+                                </p>
                               </TableCell>
                             </TableRow>
                           )}
@@ -1212,21 +1526,27 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <StatCard
                 title="INDENT-PO Pending"
-                value={pendingStagesData.slice(0, 4).reduce((sum, stage) => sum + stage.pendingCount, 0)}
+                value={pendingStagesData
+                  .slice(0, 4)
+                  .reduce((sum, stage) => sum + stage.pendingCount, 0)}
                 icon={FileText}
                 color="green"
                 description="4 workflow stages"
               />
               <StatCard
                 title="LIFT-ACCOUNTS Pending"
-                value={pendingStagesData.slice(4, 8).reduce((sum, stage) => sum + stage.pendingCount, 0)}
+                value={pendingStagesData
+                  .slice(4, 8)
+                  .reduce((sum, stage) => sum + stage.pendingCount, 0)}
                 icon={Truck}
                 color="blue"
                 description="4 workflow stages"
               />
               <StatCard
                 title="ACCOUNTS Pending"
-                value={pendingStagesData.slice(8).reduce((sum, stage) => sum + stage.pendingCount, 0)}
+                value={pendingStagesData
+                  .slice(8)
+                  .reduce((sum, stage) => sum + stage.pendingCount, 0)}
                 icon={CheckCircle}
                 color="green"
                 description="5 workflow stages"
@@ -1240,7 +1560,9 @@ export default function Dashboard() {
                   <Activity className="h-6 w-6 text-[#7da23a]" />
                   Workflow Stage Analysis
                 </CardTitle>
-                <CardDescription>Visual breakdown of pending items across all workflow stages</CardDescription>
+                <CardDescription>
+                  Visual breakdown of pending items across all workflow stages
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="h-96">
@@ -1256,7 +1578,10 @@ export default function Dashboard() {
                         stroke="#64748b"
                       />
                       <YAxis stroke="#64748b" tick={{ fill: "#64748b" }} />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(139, 92, 246, 0.1)" }} />
+                      <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={{ fill: "rgba(139, 92, 246, 0.1)" }}
+                      />
                       <Bar
                         dataKey="pendingCount"
                         fill="url(#pendingGradient)"
@@ -1264,7 +1589,13 @@ export default function Dashboard() {
                         name="Pending Count"
                       />
                       <defs>
-                        <linearGradient id="pendingGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient
+                          id="pendingGradient"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
                           <stop offset="0%" stopColor="#F59E0B" />
                           <stop offset="100%" stopColor="#EF4444" />
                         </linearGradient>
@@ -1282,51 +1613,78 @@ export default function Dashboard() {
                   <AlertTriangle className="h-6 w-6 text-amber-600" />
                   Detailed Pending Stages Overview
                   <Badge className="ml-2 bg-amber-500 text-white">
-                    {pendingStagesData.reduce((sum, stage) => sum + stage.pendingCount, 0)} Total
+                    {pendingStagesData.reduce(
+                      (sum, stage) => sum + stage.pendingCount,
+                      0,
+                    )}{" "}
+                    Total
                   </Badge>
                 </CardTitle>
-                <CardDescription>Comprehensive list of all workflow stages with pending counts</CardDescription>
+                <CardDescription>
+                  Comprehensive list of all workflow stages with pending counts
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
-                        <TableHead className="font-bold text-gray-700">Category</TableHead>
-                        <TableHead className="font-bold text-gray-700">Stage Name</TableHead>
-                        <TableHead className="text-right font-bold text-gray-700">Pending Count</TableHead>
-                        <TableHead className="text-right font-bold text-gray-700">Status</TableHead>
+                        <TableHead className="font-bold text-gray-700">
+                          Category
+                        </TableHead>
+                        <TableHead className="font-bold text-gray-700">
+                          Stage Name
+                        </TableHead>
+                        <TableHead className="text-right font-bold text-gray-700">
+                          Pending Count
+                        </TableHead>
+                        <TableHead className="text-right font-bold text-gray-700">
+                          Status
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {pendingStagesData.map((stage, index) => (
-                        <TableRow key={index} className="hover:bg-amber-50/30 border-b border-gray-100">
+                        <TableRow
+                          key={index}
+                          className="hover:bg-amber-50/30 border-b border-gray-100"
+                        >
                           <TableCell>
                             <Badge
-                              className={`font-semibold ${stage.category === 'INDENT-PO'
-                                ? 'bg-green-100 text-[#6b8e2f]'
-                                : stage.category === 'LIFT-ACCOUNTS'
-                                  ? 'bg-green-100 text-[#6b8e2f]'
-                                  : 'bg-green-100 text-[#6b8e2f]'
-                                }`}
+                              className={`font-semibold ${
+                                stage.category === "INDENT-PO"
+                                  ? "bg-green-100 text-[#6b8e2f]"
+                                  : stage.category === "LIFT-ACCOUNTS"
+                                    ? "bg-green-100 text-[#6b8e2f]"
+                                    : "bg-green-100 text-[#6b8e2f]"
+                              }`}
                             >
                               {stage.category}
                             </Badge>
                           </TableCell>
-                          <TableCell className="font-medium text-gray-900">{stage.stageName}</TableCell>
+                          <TableCell className="font-medium text-gray-900">
+                            {stage.stageName}
+                          </TableCell>
                           <TableCell className="text-right">
-                            <span className="text-2xl font-bold text-gray-900">{stage.pendingCount}</span>
+                            <span className="text-2xl font-bold text-gray-900">
+                              {stage.pendingCount}
+                            </span>
                           </TableCell>
                           <TableCell className="text-right">
                             <Badge
-                              className={`font-semibold ${stage.pendingCount === 0
-                                ? 'bg-green-100 text-[#6b8e2f]'
-                                : stage.pendingCount < 10
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-red-100 text-red-700'
-                                }`}
+                              className={`font-semibold ${
+                                stage.pendingCount === 0
+                                  ? "bg-green-100 text-[#6b8e2f]"
+                                  : stage.pendingCount < 10
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-red-100 text-red-700"
+                              }`}
                             >
-                              {stage.pendingCount === 0 ? 'Clear' : stage.pendingCount < 10 ? 'Low' : 'High'}
+                              {stage.pendingCount === 0
+                                ? "Clear"
+                                : stage.pendingCount < 10
+                                  ? "Low"
+                                  : "High"}
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -1342,7 +1700,9 @@ export default function Dashboard() {
               {/* INDENT-PO */}
               <Card className="border-0 shadow-lg">
                 <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
-                  <CardTitle className="text-lg font-bold text-[#6b8e2f]">INDENT-PO Stages</CardTitle>
+                  <CardTitle className="text-lg font-bold text-[#6b8e2f]">
+                    INDENT-PO Stages
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="h-64">
@@ -1350,16 +1710,25 @@ export default function Dashboard() {
                       <RePieChart>
                         <Tooltip content={<CustomTooltip />} />
                         <Pie
-                          data={pendingStagesData.slice(0, 4).map((s, i) => ({ ...s, fill: PIE_COLORS[i] }))}
+                          data={pendingStagesData
+                            .slice(0, 4)
+                            .map((s, i) => ({ ...s, fill: PIE_COLORS[i] }))}
                           dataKey="pendingCount"
                           nameKey="stageName"
                           cx="50%"
                           cy="50%"
                           outerRadius={70}
-                          label={({ pendingCount }) => pendingCount > 0 ? pendingCount : ''}
+                          label={({ pendingCount }) =>
+                            pendingCount > 0 ? pendingCount : ""
+                          }
                         >
                           {pendingStagesData.slice(0, 4).map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index]} stroke="white" strokeWidth={2} />
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={PIE_COLORS[index]}
+                              stroke="white"
+                              strokeWidth={2}
+                            />
                           ))}
                         </Pie>
                       </RePieChart>
@@ -1371,7 +1740,9 @@ export default function Dashboard() {
               {/* LIFT-ACCOUNTS */}
               <Card className="border-0 shadow-lg">
                 <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-cyan-50">
-                  <CardTitle className="text-lg font-bold text-[#6b8e2f]">LIFT-ACCOUNTS Stages</CardTitle>
+                  <CardTitle className="text-lg font-bold text-[#6b8e2f]">
+                    LIFT-ACCOUNTS Stages
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="h-64">
@@ -1379,16 +1750,25 @@ export default function Dashboard() {
                       <RePieChart>
                         <Tooltip content={<CustomTooltip />} />
                         <Pie
-                          data={pendingStagesData.slice(4, 8).map((s, i) => ({ ...s, fill: PIE_COLORS[i] }))}
+                          data={pendingStagesData
+                            .slice(4, 8)
+                            .map((s, i) => ({ ...s, fill: PIE_COLORS[i] }))}
                           dataKey="pendingCount"
                           nameKey="stageName"
                           cx="50%"
                           cy="50%"
                           outerRadius={70}
-                          label={({ pendingCount }) => pendingCount > 0 ? pendingCount : ''}
+                          label={({ pendingCount }) =>
+                            pendingCount > 0 ? pendingCount : ""
+                          }
                         >
                           {pendingStagesData.slice(4, 8).map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index]} stroke="white" strokeWidth={2} />
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={PIE_COLORS[index]}
+                              stroke="white"
+                              strokeWidth={2}
+                            />
                           ))}
                         </Pie>
                       </RePieChart>
@@ -1400,7 +1780,9 @@ export default function Dashboard() {
               {/* ACCOUNTS */}
               <Card className="border-0 shadow-lg">
                 <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
-                  <CardTitle className="text-lg font-bold text-[#6b8e2f]">ACCOUNTS Stages</CardTitle>
+                  <CardTitle className="text-lg font-bold text-[#6b8e2f]">
+                    ACCOUNTS Stages
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="h-64">
@@ -1408,16 +1790,25 @@ export default function Dashboard() {
                       <RePieChart>
                         <Tooltip content={<CustomTooltip />} />
                         <Pie
-                          data={pendingStagesData.slice(8).map((s, i) => ({ ...s, fill: PIE_COLORS[i] }))}
+                          data={pendingStagesData
+                            .slice(8)
+                            .map((s, i) => ({ ...s, fill: PIE_COLORS[i] }))}
                           dataKey="pendingCount"
                           nameKey="stageName"
                           cx="50%"
                           cy="50%"
                           outerRadius={70}
-                          label={({ pendingCount }) => pendingCount > 0 ? pendingCount : ''}
+                          label={({ pendingCount }) =>
+                            pendingCount > 0 ? pendingCount : ""
+                          }
                         >
                           {pendingStagesData.slice(8).map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index]} stroke="white" strokeWidth={2} />
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={PIE_COLORS[index]}
+                              stroke="white"
+                              strokeWidth={2}
+                            />
                           ))}
                         </Pie>
                       </RePieChart>
@@ -1435,7 +1826,8 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>Add Dropdown Data</DialogTitle>
             <DialogDescription>
-              Add new entries to the Master table for dropdowns across the application.
+              Add new entries to the Master table for dropdowns across the
+              application.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleDropdownSubmit} className="space-y-4 pt-4">
@@ -1443,7 +1835,9 @@ export default function Dashboard() {
               <Label htmlFor="dropdownType">Type</Label>
               <Select
                 value={dropdownFormData.type || undefined}
-                onValueChange={(val) => setDropdownFormData(prev => ({ ...prev, type: val }))}
+                onValueChange={(val) =>
+                  setDropdownFormData((prev) => ({ ...prev, type: val }))
+                }
               >
                 <SelectTrigger id="dropdownType" className="w-full">
                   <SelectValue placeholder="Select Type" />
@@ -1463,7 +1857,12 @@ export default function Dashboard() {
                   id="vendorName"
                   placeholder="Enter vendor name"
                   value={dropdownFormData.vendorName}
-                  onChange={(e) => setDropdownFormData(prev => ({ ...prev, vendorName: e.target.value }))}
+                  onChange={(e) =>
+                    setDropdownFormData((prev) => ({
+                      ...prev,
+                      vendorName: e.target.value,
+                    }))
+                  }
                 />
               </div>
             )}
@@ -1475,7 +1874,12 @@ export default function Dashboard() {
                   id="transporterName"
                   placeholder="Enter transporter name"
                   value={dropdownFormData.transporterName}
-                  onChange={(e) => setDropdownFormData(prev => ({ ...prev, transporterName: e.target.value }))}
+                  onChange={(e) =>
+                    setDropdownFormData((prev) => ({
+                      ...prev,
+                      transporterName: e.target.value,
+                    }))
+                  }
                 />
               </div>
             )}
@@ -1488,7 +1892,12 @@ export default function Dashboard() {
                     id="rawMaterialName"
                     placeholder="Enter product name"
                     value={dropdownFormData.rawMaterialName}
-                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, rawMaterialName: e.target.value }))}
+                    onChange={(e) =>
+                      setDropdownFormData((prev) => ({
+                        ...prev,
+                        rawMaterialName: e.target.value,
+                      }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -1497,7 +1906,12 @@ export default function Dashboard() {
                     id="aluminaRange"
                     placeholder="Enter alumina range"
                     value={dropdownFormData.aluminaRange}
-                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, aluminaRange: e.target.value }))}
+                    onChange={(e) =>
+                      setDropdownFormData((prev) => ({
+                        ...prev,
+                        aluminaRange: e.target.value,
+                      }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -1506,7 +1920,12 @@ export default function Dashboard() {
                     id="ironRange"
                     placeholder="Enter iron range"
                     value={dropdownFormData.ironRange}
-                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, ironRange: e.target.value }))}
+                    onChange={(e) =>
+                      setDropdownFormData((prev) => ({
+                        ...prev,
+                        ironRange: e.target.value,
+                      }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -1515,7 +1934,12 @@ export default function Dashboard() {
                     id="apRange"
                     placeholder="Enter AP range"
                     value={dropdownFormData.apRange}
-                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, apRange: e.target.value }))}
+                    onChange={(e) =>
+                      setDropdownFormData((prev) => ({
+                        ...prev,
+                        apRange: e.target.value,
+                      }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -1524,17 +1948,28 @@ export default function Dashboard() {
                     id="bdRange"
                     placeholder="Enter BD range"
                     value={dropdownFormData.bdRange}
-                    onChange={(e) => setDropdownFormData(prev => ({ ...prev, bdRange: e.target.value }))}
+                    onChange={(e) =>
+                      setDropdownFormData((prev) => ({
+                        ...prev,
+                        bdRange: e.target.value,
+                      }))
+                    }
                   />
                 </div>
               </>
             )}
             <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsDropdownModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDropdownModalOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={dropdownSubmitLoading}>
-                {dropdownSubmitLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {dropdownSubmitLoading && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Save Changes
               </Button>
             </DialogFooter>
@@ -1542,5 +1977,5 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
