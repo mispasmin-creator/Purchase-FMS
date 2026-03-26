@@ -384,7 +384,11 @@ export default function ThreeParty() {
   const [historyRate, setHistoryRate] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const noScroll = (e) => e.target.blur();
+
   const updateVendorForm = (index, field, value) => {
+    if (field === "whatsapp") value = value.replace(/\D/g, "").slice(0, 10);
+    if (["alumina","iron","sio2","cao","ap","bd","fineness"].includes(field)) value = value.replace(/[^0-9.]/g, "");
     setVendorForms((prev) => {
       const newForms = [...prev];
       newForms[index] = { ...newForms[index], [field]: value };
@@ -1131,12 +1135,14 @@ export default function ThreeParty() {
                             </Label>
                             <Input
                               type="number"
+                              min="0"
+                              onWheel={noScroll}
                               value={currentVendor.rate || ""}
                               onChange={(e) =>
                                 updateVendorForm(
                                   idx,
                                   "rate",
-                                  parseFloat(e.target.value) || 0,
+                                  Math.max(0, parseFloat(e.target.value) || 0),
                                 )
                               }
                               className="text-sm border-gray-200 h-9 bg-white"
@@ -1247,6 +1253,8 @@ export default function ThreeParty() {
                                   WhatsApp
                                 </Label>
                                 <Input
+                                  inputMode="numeric"
+                                  maxLength={10}
                                   value={currentVendor.whatsapp || ""}
                                   onChange={(e) =>
                                     updateVendorForm(
@@ -1256,7 +1264,7 @@ export default function ThreeParty() {
                                     )
                                   }
                                   className="h-8 text-xs bg-white border-gray-200"
-                                  placeholder="Number"
+                                  placeholder="10-digit number"
                                 />
                               </div>
                               <div>
@@ -1264,6 +1272,7 @@ export default function ThreeParty() {
                                   Email
                                 </Label>
                                 <Input
+                                  type="email"
                                   value={currentVendor.email || ""}
                                   onChange={(e) =>
                                     updateVendorForm(
@@ -1273,7 +1282,7 @@ export default function ThreeParty() {
                                     )
                                   }
                                   className="h-8 text-xs bg-white border-gray-200"
-                                  placeholder="Email"
+                                  placeholder="vendor@email.com"
                                 />
                               </div>
                             </div>
@@ -1546,9 +1555,11 @@ export default function ThreeParty() {
                 <Input
                   type="number"
                   step="0.01"
+                  min="0"
+                  onWheel={noScroll}
                   value={historyRate}
                   onChange={(e) =>
-                    setHistoryRate(parseFloat(e.target.value) || 0)
+                    setHistoryRate(Math.max(0, parseFloat(e.target.value) || 0))
                   }
                   placeholder="Enter new rate"
                   className="text-lg"
