@@ -542,6 +542,7 @@ const GeneratePurchaseOrder = () => {
           createdAt: String(row["Actual2"] || "").replace("T", " "),
           haveToPO: row["Have To Make PO"],
           rate: row["Rate"],
+          approvedRate: row["Approved Rate"],
           leadTimeToLift: row["Lead Time To Lift (days)"]
             ? String(row["Lead Time To Lift (days)"]).split("T")[0]
             : "",
@@ -805,10 +806,12 @@ const GeneratePurchaseOrder = () => {
       indentId: indent.id,
       vendorName: indent.vendorName || "",
       quantity: indent.approvedQty,
-      rate: "",
-      leadTimeToLift: "",
+      rate: indent.approvedRate || indent.rate || "",
+      leadTimeToLift: indent.leadTimeToLift || "",
       totalQty: indent.approvedQty || "",
-      totalAmount: "",
+      totalAmount:
+        parseFloat(indent.approvedRate || indent.rate || "0") *
+          parseFloat(indent.approvedQty || "0") || "",
       advanceToBePaid: "",
       toBePaidAmount: "",
       whenToBePaid: "",
@@ -905,46 +908,59 @@ const GeneratePurchaseOrder = () => {
 
     try {
       // 1. Prepare PDF Data
-      const subtotal =
-        parseFloat(formData.rate) * parseFloat(formData.totalQty);
-      const discount = (subtotal * parseFloat(formData.discountPercent)) / 100;
+      const rateNum = parseFloat(formData.rate || 0);
+      const qtyNum = parseFloat(formData.totalQty || 0);
+      const gstPercentNum = parseFloat(formData.gstPercent || 0);
+      const discountPercentNum = parseFloat(formData.discountPercent || 0);
+
+      const subtotal = rateNum * qtyNum;
+      const discount = (subtotal * discountPercentNum) / 100;
       const amountAfterDiscount = subtotal - discount;
-      const gstAmount =
-        (amountAfterDiscount * parseFloat(formData.gstPercent)) / 100;
+      const gstAmount = (amountAfterDiscount * gstPercentNum) / 100;
       const grandTotal = amountAfterDiscount + gstAmount;
 
       const pdfProps = {
-        companyName:
-          formData.destination === "Rkl"
-            ? "Passary Minerals Madhya Pvt Ltd"
-            : "Passary Minerals Madhya Pvt Ltd", // Map as needed
+        companyName: "Passary Minerals Madhya Pvt Ltd",
         companyPhone: "771-4001598",
         companyGstin: "22AAHCP9274B1ZI",
         companyPan: "AAHCP9274B",
         companyAddress: "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
         billingAddress: "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
-        destinationAddress: formData.destination,
-        supplierName: formData.vendorName,
-        supplierAddress: "Supplier Address Here", // Should fetch from master
-        supplierGstin: "Supplier GSTIN Here",
+        destinationAddress: formData.destination || "Destination",
+        supplierName: formData.vendorName || "Supplier",
+        supplierAddress: selectedIndent?.supplierAddress || "",
+        supplierGstin: selectedIndent?.supplierGstin || "",
         orderNumber: formData.poNumber,
         orderDate: formData.poDate,
         deliveryDate: formData.deliveryDate,
         items: [
           {
-            product: selectedIndent.rawMaterialName,
-            description: formData.notes,
-            quantity: parseFloat(formData.totalQty),
+            product: selectedIndent?.rawMaterialName || "Material",
+            description: formData.notes || "",
+            quantity: qtyNum,
             unit: "MT",
-            rate: parseFloat(formData.rate),
+            rate: rateNum,
             amount: subtotal,
           },
         ],
-        totalQuantity: parseFloat(formData.totalQty),
+        totalQuantity: qtyNum,
         totalAmount: subtotal,
         gstAmount: gstAmount,
         grandTotal: grandTotal,
-        terms: formData.terms,
+        gstPercent: gstPercentNum,
+        discountPercent: discountPercentNum,
+        terms: formData.terms || [],
+        paymentTerms: formData.paymentTerms || "1 DAY",
+        labDetails: {
+          alumina: formData.alumina,
+          iron: formData.iron,
+          sio2: formData.sio2,
+          cao: formData.cao,
+          ap: formData.ap,
+          bd: formData.bd,
+          fineness: formData.fineness,
+          packaging: formData.packaging,
+        },
       };
 
       // 2. Generate PDF Blob
@@ -1901,7 +1917,8 @@ const GeneratePurchaseOrder = () => {
                       name="rate"
                       value={formData.rate}
                       onChange={handleInputChange}
-                      className="h-8 mt-1 text-xs"
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50"
                     />
                     {poErrors.rate && (
                       <p className="text-[10px] text-red-500 mt-0.5">
@@ -2328,6 +2345,21 @@ const GeneratePurchaseOrder = () => {
                         gstAmount: gstAmount,
                         grandTotal: grandTotal,
                         terms: formData.terms,
+                        gstPercent: parseFloat(formData.gstPercent || 0),
+                        discountPercent: parseFloat(
+                          formData.discountPercent || 0,
+                        ),
+                        paymentTerms: formData.paymentTerms || "1 DAY",
+                        labDetails: {
+                          alumina: formData.alumina,
+                          iron: formData.iron,
+                          sio2: formData.sio2,
+                          cao: formData.cao,
+                          ap: formData.ap,
+                          bd: formData.bd,
+                          fineness: formData.fineness,
+                          packaging: formData.packaging,
+                        },
                       };
                       const blob = await pdf(<POPdf {...pdfProps} />).toBlob();
                       const url = URL.createObjectURL(blob);

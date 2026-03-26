@@ -312,6 +312,10 @@ export default function Dashboard() {
 
           notes: row["Notes"],
           actualM: row["Actual1"], // Indent Approval
+          planned7: row["Planned7"], // Factory Approval Planned
+          actual7: row["Actual7"], // Factory Approval
+          planned8: row["Planned8"], // Management Approval Planned
+          actual8: row["Actual8"], // Management Approval
           actualS: row["Actual2"], // Generate PO
           actualAL: row["Actual3"], // PO Entry
           actualAO: row["Actual4"], // Lift Item
@@ -468,6 +472,8 @@ export default function Dashboard() {
     const stageNames = {
       indentPo: {
         M: "Indent Approvals",
+        FACTORY: "Factory Approval",
+        MGMT: "Management Approval",
         S: "Generate PO",
         AL: "PO Entry In Tally",
         AO: "Get Lift The Item",
@@ -489,14 +495,50 @@ export default function Dashboard() {
 
     const pendingCounts = [];
 
+    // Standard INDENT-PO stages
     const indentPoStages = [
       { key: "actualM", columnName: "M" },
+    ];
+
+    indentPoStages.forEach(({ key, columnName }) => {
+      const pendingCount = filteredIndentPoData.filter(
+        (po) => !po[key] || po[key] === null || po[key] === "",
+      ).length;
+      pendingCounts.push({
+        stageName: stageNames.indentPo[columnName],
+        pendingCount: pendingCount,
+        category: "INDENT-PO",
+      });
+    });
+
+    // Factory Approval: pending if Planned7 exists but Actual7 doesn't
+    const factoryPendingCount = filteredIndentPoData.filter(
+      (po) => po.planned7 && (!po.actual7 || po.actual7 === ""),
+    ).length;
+    pendingCounts.push({
+      stageName: stageNames.indentPo.FACTORY,
+      pendingCount: factoryPendingCount,
+      category: "INDENT-PO",
+    });
+
+    // Management Approval: pending if Planned8 exists but Actual8 doesn't
+    const mgmtPendingCount = filteredIndentPoData.filter(
+      (po) => po.planned8 && (!po.actual8 || po.actual8 === ""),
+    ).length;
+    pendingCounts.push({
+      stageName: stageNames.indentPo.MGMT,
+      pendingCount: mgmtPendingCount,
+      category: "INDENT-PO",
+    });
+
+    // Remaining INDENT-PO stages
+    const indentPoStages2 = [
       { key: "actualS", columnName: "S" },
       { key: "actualAL", columnName: "AL" },
       { key: "actualAO", columnName: "AO" },
     ];
 
-    indentPoStages.forEach(({ key, columnName }) => {
+    indentPoStages2.forEach(({ key, columnName }) => {
       const pendingCount = filteredIndentPoData.filter(
         (po) => !po[key] || po[key] === null || po[key] === "",
       ).length;
@@ -1527,16 +1569,16 @@ export default function Dashboard() {
               <StatCard
                 title="INDENT-PO Pending"
                 value={pendingStagesData
-                  .slice(0, 4)
+                  .filter((s) => s.category === "INDENT-PO")
                   .reduce((sum, stage) => sum + stage.pendingCount, 0)}
                 icon={FileText}
                 color="green"
-                description="4 workflow stages"
+                description="6 workflow stages"
               />
               <StatCard
                 title="LIFT-ACCOUNTS Pending"
                 value={pendingStagesData
-                  .slice(4, 8)
+                  .filter((s) => s.category === "LIFT-ACCOUNTS")
                   .reduce((sum, stage) => sum + stage.pendingCount, 0)}
                 icon={Truck}
                 color="blue"
@@ -1545,7 +1587,7 @@ export default function Dashboard() {
               <StatCard
                 title="ACCOUNTS Pending"
                 value={pendingStagesData
-                  .slice(8)
+                  .filter((s) => s.category === "ACCOUNTS")
                   .reduce((sum, stage) => sum + stage.pendingCount, 0)}
                 icon={CheckCircle}
                 color="green"
@@ -1711,7 +1753,7 @@ export default function Dashboard() {
                         <Tooltip content={<CustomTooltip />} />
                         <Pie
                           data={pendingStagesData
-                            .slice(0, 4)
+                            .filter((s) => s.category === "INDENT-PO")
                             .map((s, i) => ({ ...s, fill: PIE_COLORS[i] }))}
                           dataKey="pendingCount"
                           nameKey="stageName"
@@ -1722,7 +1764,7 @@ export default function Dashboard() {
                             pendingCount > 0 ? pendingCount : ""
                           }
                         >
-                          {pendingStagesData.slice(0, 4).map((entry, index) => (
+                          {pendingStagesData.filter((s) => s.category === "INDENT-PO").map((entry, index) => (
                             <Cell
                               key={`cell-${index}`}
                               fill={PIE_COLORS[index]}
@@ -1751,7 +1793,7 @@ export default function Dashboard() {
                         <Tooltip content={<CustomTooltip />} />
                         <Pie
                           data={pendingStagesData
-                            .slice(4, 8)
+                            .filter((s) => s.category === "LIFT-ACCOUNTS")
                             .map((s, i) => ({ ...s, fill: PIE_COLORS[i] }))}
                           dataKey="pendingCount"
                           nameKey="stageName"
@@ -1762,7 +1804,7 @@ export default function Dashboard() {
                             pendingCount > 0 ? pendingCount : ""
                           }
                         >
-                          {pendingStagesData.slice(4, 8).map((entry, index) => (
+                          {pendingStagesData.filter((s) => s.category === "LIFT-ACCOUNTS").map((entry, index) => (
                             <Cell
                               key={`cell-${index}`}
                               fill={PIE_COLORS[index]}
@@ -1791,7 +1833,7 @@ export default function Dashboard() {
                         <Tooltip content={<CustomTooltip />} />
                         <Pie
                           data={pendingStagesData
-                            .slice(8)
+                            .filter((s) => s.category === "ACCOUNTS")
                             .map((s, i) => ({ ...s, fill: PIE_COLORS[i] }))}
                           dataKey="pendingCount"
                           nameKey="stageName"
@@ -1802,7 +1844,7 @@ export default function Dashboard() {
                             pendingCount > 0 ? pendingCount : ""
                           }
                         >
-                          {pendingStagesData.slice(8).map((entry, index) => (
+                          {pendingStagesData.filter((s) => s.category === "ACCOUNTS").map((entry, index) => (
                             <Cell
                               key={`cell-${index}`}
                               fill={PIE_COLORS[index]}

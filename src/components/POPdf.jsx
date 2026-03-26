@@ -12,267 +12,463 @@ import logo from "../assets/logo.jpeg";
 
 const styles = StyleSheet.create({
   page: {
-    padding: 30,
+    padding: 25,
     fontSize: 9,
     fontFamily: "Helvetica",
     lineHeight: 1.3,
     backgroundColor: "#fff",
   },
-  // Compact Title section with logo
-  titleSection: {
+
+  // ===== HEADER SECTION =====
+  headerSection: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 2,
-    borderWidth: 1,
-    borderColor: "#000",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    alignItems: "flex-start",
+    marginBottom: 8,
+    borderBottomWidth: 2,
+    borderColor: "#333",
+    paddingBottom: 6,
   },
-  sectionTitle: {
-    textAlign: "center",
-    fontWeight: "bold",
-    fontSize: 14,
-    flex: 1,
+
+  logoSection: {
+    width: "15%",
   },
+
   logo: {
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 60,
     objectFit: "contain",
   },
-  logoPlaceholder: {
-    width: 80,
-  },
-  // Main header row with two columns - Compact
-  headerRow: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: "#000",
-    borderTopWidth: 0,
-  },
-  headerColLeft: {
-    width: "55%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 4,
-  },
-  headerColRight: {
-    width: "45%",
-  },
-  detailRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderColor: "#000",
-  },
-  detailLabel: {
-    width: "45%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 3,
-    fontSize: 7,
-    fontWeight: "bold",
-  },
-  detailValue: {
-    width: "55%",
-    padding: 3,
-    fontSize: 7,
-    fontWeight: "normal",
-  },
-  // Address section (Consignee & Supplier)
-  addressSection: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: "#000",
-    borderTopWidth: 0,
-  },
-  addressBlock: {
+
+  companySection: {
     width: "50%",
-    padding: 4,
-    borderRightWidth: 1,
-    borderColor: "#000",
+    paddingLeft: 8,
   },
-  addressTitle: {
-    fontSize: 7,
+
+  companyName: {
+    fontSize: 12,
     fontWeight: "bold",
     marginBottom: 2,
+    color: "#000",
   },
-  addressText: {
-    fontSize: 6,
+
+  companyDetails: {
+    fontSize: 7,
+    marginBottom: 1,
+    color: "#333",
+  },
+
+  poSection: {
+    width: "35%",
+    borderLeft: 1,
+    borderColor: "#999",
+    paddingLeft: 8,
+  },
+
+  poHeaderLabel: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#555",
+    marginBottom: 3,
+  },
+
+  poNumber: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 3,
+  },
+
+  poDetailRow: {
+    flexDirection: "row",
+    marginBottom: 2,
+    fontSize: 7,
+  },
+
+  poDetailLabel: {
+    width: "45%",
+    fontWeight: "bold",
+    color: "#555",
+  },
+
+  poDetailValue: {
+    width: "55%",
+    color: "#000",
+  },
+
+  // ===== ADDRESS SECTION =====
+  addressSection: {
+    flexDirection: "row",
+    marginBottom: 8,
+    gap: 8,
+  },
+
+  addressBlock: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 6,
+    backgroundColor: "#f9f9f9",
+  },
+
+  addressBlockTitle: {
+    fontSize: 8,
+    fontWeight: "bold",
+    marginBottom: 3,
+    color: "#333",
+    textDecoration: "underline",
+  },
+
+  addressBlockLabel: {
+    fontSize: 7,
+    fontWeight: "bold",
+    color: "#555",
+    marginTop: 2,
+  },
+
+  addressBlockValue: {
+    fontSize: 7,
+    color: "#000",
     marginBottom: 1,
     lineHeight: 1.2,
   },
-  // Table styles
+
+  // ===== KEY INFO ROW =====
+  keyInfoRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+
+  infoBox: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 5,
+    backgroundColor: "#f5f5f5",
+  },
+
+  infoBoxLabel: {
+    fontSize: 7,
+    fontWeight: "bold",
+    color: "#666",
+    marginBottom: 2,
+  },
+
+  infoBoxValue: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#000",
+  },
+
+  // ===== TABLE STYLES =====
   table: {
     borderWidth: 1,
     borderColor: "#000",
-    borderTopWidth: 0,
+    marginBottom: 6,
   },
+
   tableHeader: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderColor: "#000",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#e8e8e8",
     fontWeight: "bold",
   },
+
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderColor: "#000",
+    borderColor: "#ddd",
   },
-  // Table cell styles
-  cellSl: {
-    width: "6%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 4,
-    textAlign: "center",
-    fontSize: 7,
-  },
-  cellDesc: {
-    width: "34%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 4,
-    fontSize: 7,
-  },
-  cellHsn: {
-    width: "10%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 4,
-    textAlign: "center",
-    fontSize: 7,
-  },
-  cellDue: {
-    width: "10%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 4,
-    textAlign: "center",
-    fontSize: 7,
-  },
-  cellQty: {
-    width: "12%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 4,
-    textAlign: "center",
-    fontSize: 7,
-  },
-  cellRate: {
-    width: "12%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 4,
-    textAlign: "right",
-    fontSize: 7,
-  },
-  cellAmount: {
-    width: "16%",
-    padding: 4,
-    textAlign: "right",
-    fontSize: 7,
-  },
-  // Tax row
-  taxRow: {
+
+  tableSummaryRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderColor: "#000",
-  },
-  taxLabel: {
-    width: "70%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 4,
-    textAlign: "right",
     fontWeight: "bold",
+    backgroundColor: "#f5f5f5",
+  },
+
+  // Cell widths
+  cellSl: {
+    width: "5%",
+    borderRightWidth: 1,
+    borderColor: "#ddd",
+    padding: 4,
+    textAlign: "center",
     fontSize: 7,
   },
-  taxValue: {
-    width: "30%",
-    padding: 4,
-    textAlign: "right",
-    fontWeight: "bold",
-    fontSize: 7,
-  },
-  // Total row
-  totalRow: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: "#000",
-    borderTopWidth: 0,
-    padding: 4,
-    fontWeight: "bold",
-  },
-  // Amount in words section
-  amountWordsSection: {
-    borderWidth: 1,
-    borderColor: "#000",
-    borderTopWidth: 0,
-    padding: 4,
-  },
-  // Declaration section
-  declarationSection: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: "#000",
-    borderTopWidth: 0,
-    minHeight: 80,
-  },
-  declarationLeft: {
-    width: "60%",
-    borderRightWidth: 1,
-    borderColor: "#000",
-    padding: 4,
-  },
-  declarationRight: {
+
+  cellDesc: {
     width: "40%",
+    borderRightWidth: 1,
+    borderColor: "#ddd",
+    padding: 4,
+    fontSize: 7,
+  },
+
+  cellQty: {
+    width: "12%",
+    borderRightWidth: 1,
+    borderColor: "#ddd",
     padding: 4,
     textAlign: "center",
-    justifyContent: "space-between",
+    fontSize: 7,
   },
-  declarationText: {
-    fontSize: 6,
-    marginTop: 2,
-    lineHeight: 1.2,
+
+  cellRate: {
+    width: "16%",
+    borderRightWidth: 1,
+    borderColor: "#ddd",
+    padding: 4,
+    textAlign: "right",
+    fontSize: 7,
   },
-  termsText: {
-    fontSize: 6,
-    marginTop: 4,
-    lineHeight: 1.2,
+
+  cellAmount: {
+    width: "27%",
+    padding: 4,
+    textAlign: "right",
+    fontSize: 7,
   },
-  footer: {
-    marginTop: 4,
-    fontSize: 6,
-    textAlign: "center",
+
+  // ===== SUMMARY SECTION =====
+  summarySection: {
+    marginBottom: 8,
+  },
+
+  summaryRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderColor: "#ddd",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+
+  summaryLabel: {
+    width: "70%",
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#333",
+  },
+
+  summaryValue: {
+    width: "30%",
+    fontSize: 8,
+    fontWeight: "bold",
+    textAlign: "right",
     color: "#000",
   },
-  companyHeaderText: {
-    fontSize: 6,
-    marginBottom: 1,
+
+  totalRow: {
+    flexDirection: "row",
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: "#000",
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    backgroundColor: "#f0f0f0",
   },
-  boldText: {
+
+  totalLabel: {
+    width: "70%",
+    fontSize: 10,
     fontWeight: "bold",
+    color: "#000",
+  },
+
+  totalValue: {
+    width: "30%",
+    fontSize: 10,
+    fontWeight: "bold",
+    textAlign: "right",
+    color: "#000",
+  },
+
+  // ===== SPECS SECTION =====
+  specsSection: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 6,
+    marginBottom: 6,
+    backgroundColor: "#f9f9f9",
+  },
+
+  specsTitle: {
+    fontSize: 8,
+    fontWeight: "bold",
+    marginBottom: 4,
+    color: "#333",
+    textDecoration: "underline",
+  },
+
+  specsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  specItem: {
+    flexDirection: "row",
+    width: "48%",
+    marginBottom: 3,
+  },
+
+  specLabel: {
+    fontSize: 7,
+    fontWeight: "bold",
+    color: "#555",
+    width: "50%",
+  },
+
+  specValue: {
+    fontSize: 7,
+    color: "#000",
+    width: "50%",
+  },
+
+  // ===== AMOUNT IN WORDS SECTION =====
+  amountWordsSection: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 6,
+    marginBottom: 6,
+    backgroundColor: "#fafafa",
+  },
+
+  amountWordsLabel: {
+    fontSize: 8,
+    fontWeight: "bold",
+    marginBottom: 2,
+    color: "#333",
+  },
+
+  amountWordsText: {
+    fontSize: 8,
+    color: "#000",
+    lineHeight: 1.4,
+  },
+
+  // ===== DECLARATION SECTION =====
+  declarationSection: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 6,
+  },
+
+  declarationLeft: {
+    width: "65%",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 6,
+    backgroundColor: "#f9f9f9",
+  },
+
+  declarationRight: {
+    width: "35%",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 6,
+    backgroundColor: "#f9f9f9",
+    textAlign: "center",
+  },
+
+  declarationTitle: {
+    fontSize: 8,
+    fontWeight: "bold",
+    marginBottom: 3,
+    color: "#333",
+    textDecoration: "underline",
+  },
+
+  declarationText: {
+    fontSize: 6.5,
+    marginBottom: 2,
+    lineHeight: 1.3,
+    color: "#000",
+  },
+
+  termsTitle: {
+    fontSize: 7,
+    fontWeight: "bold",
+    marginTop: 4,
+    marginBottom: 2,
+    color: "#333",
+  },
+
+  termItem: {
+    fontSize: 6.5,
+    marginBottom: 1,
+    lineHeight: 1.2,
+    color: "#000",
+  },
+
+  signatureLabel: {
+    fontSize: 7,
+    fontWeight: "bold",
+    marginTop: 6,
+    marginBottom: 1,
+    color: "#333",
+  },
+
+  signatureLine: {
+    borderTopWidth: 1,
+    borderColor: "#000",
+    marginTop: 20,
+    paddingTop: 2,
+    fontSize: 6.5,
+    color: "#666",
+  },
+
+  companyForLabel: {
+    fontSize: 7,
+    fontWeight: "bold",
+    marginBottom: 2,
+    color: "#333",
+  },
+
+  panText: {
+    fontSize: 6,
+    color: "#666",
+    marginTop: 2,
+  },
+
+  // ===== FOOTER =====
+  footer: {
+    fontSize: 6,
+    textAlign: "center",
+    color: "#666",
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderColor: "#ddd",
+  },
+
+  footerText: {
+    marginBottom: 1,
   },
 });
 
 const POPdf = ({
-  companyName = "Passary Minerals Madhya Pvt Ltd - (25-26)",
+  companyName = "Passary Minerals Madhya Pvt Ltd",
   companyGstin = "22AAHCP9274B1ZI",
   companyPan = "AAHCP9274B",
+  companyPhone = "771-4001598",
   companyAddress = "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
   billingAddress = "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
-  supplierName = "Passary Minerals Pvt Ltd.(Purchase)",
-  supplierAddress = "Vill. Bijabahal, P.O. Kumjharia, Dist. Sundergarh, Odisha 770039",
-  supplierGstin = "21AABCP0611Q1ZO",
+  destinationAddress = "Destination",
+  supplierName = "Supplier Name",
+  supplierAddress = "Supplier Address",
+  supplierGstin = "Supplier GSTIN",
   orderNumber = "PMMPL/PO/25-26/2555",
-  orderDate = "23-Mar-26",
-  deliveryDate = "23-Mar-26",
+  orderDate = "23-03-2026",
+  deliveryDate = "23-03-2026",
   items = [
     {
       product: "High Alumina Cement P-14",
-      hsn: "2523",
       quantity: 10.16,
+      unit: "MT",
       rate: 41000.0,
       amount: 416560.0,
     },
@@ -281,11 +477,20 @@ const POPdf = ({
   totalAmount = 416560.0,
   gstAmount = 74980.8,
   grandTotal = 491541.0,
-  terms = ["Payment within 1 day from invoice date", "E. & O.E."],
+  gstPercent = 18,
+  discountPercent = 0,
+  terms = [
+    "Price is ex factory",
+    "Subject to Raipur Jurisdiction",
+    "Payment: 1 Day",
+  ],
   logoUrl = logo,
+  labDetails = null,
+  paymentTerms = "1 DAY",
 }) => {
   const formatCurrency = (amount) => {
-    return amount.toLocaleString("en-IN", {
+    if (amount === null || amount === undefined || isNaN(amount)) return "0.00";
+    return Number(amount).toLocaleString("en-IN", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -362,8 +567,8 @@ const POPdf = ({
       return words.trim();
     };
 
-    const amount = Math.floor(num);
-    const paise = Math.round((num - amount) * 100);
+    const amount = isNaN(num) ? 0 : Math.floor(num);
+    const paise = isNaN(num) ? 0 : Math.round((num - amount) * 100);
 
     let result = numToWords(amount) + " Rupees";
     if (paise > 0) {
@@ -373,205 +578,233 @@ const POPdf = ({
     return result + " Only";
   };
 
+  const hasLabDetails =
+    labDetails &&
+    Object.values(labDetails).some(
+      (v) => v && String(v).trim() !== "" && v !== "null",
+    );
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Compact Title Section with Logo */}
-        <View style={styles.titleSection}>
-          {logoUrl ? (
-            <Image src={logoUrl} style={styles.logo} />
-          ) : (
-            <View style={styles.logoPlaceholder} />
-          )}
-          <Text style={styles.sectionTitle}>PURCHASE ORDER</Text>
-          <View style={styles.logoPlaceholder} />
-        </View>
-
-        {/* Compact Header Row with Invoice To and Voucher Details */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerColLeft}>
-            <Text style={styles.companyHeaderText}>Invoice To</Text>
-            <Text style={[styles.companyHeaderText, styles.boldText]}>
-              {companyName}
-            </Text>
-            <Text style={styles.companyHeaderText}>{companyAddress}</Text>
-            <Text style={styles.companyHeaderText}>MSME No. CG14A0000157</Text>
-            <Text style={styles.companyHeaderText}>
-              GSTIN/UIN: {companyGstin}
-            </Text>
-            <Text style={styles.companyHeaderText}>
-              State Name: Chhattisgarh, Code: 22
-            </Text>
-            <Text style={styles.companyHeaderText}>
-              CIN: U14100CT2014PTC001598
-            </Text>
-            <Text style={styles.companyHeaderText}>
-              E-Mail: pmmpl@pasmin.com
-            </Text>
+        {/* ===== HEADER SECTION ===== */}
+        <View style={styles.headerSection}>
+          {/* Logo */}
+          <View style={styles.logoSection}>
+            {logoUrl ? <Image src={logoUrl} style={styles.logo} /> : null}
           </View>
 
-          <View style={styles.headerColRight}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Voucher No.</Text>
-              <Text style={styles.detailValue}>{orderNumber}</Text>
+          {/* Company Details */}
+          <View style={styles.companySection}>
+            <Text style={styles.companyName}>{companyName}</Text>
+            <Text style={styles.companyDetails}>{companyAddress}</Text>
+            <Text style={styles.companyDetails}>Phone: {companyPhone}</Text>
+            <Text style={styles.companyDetails}>
+              GSTIN: {companyGstin} | PAN: {companyPan}
+            </Text>
+            <Text style={styles.companyDetails}>Email: pmmpl@pasmin.com</Text>
+          </View>
+
+          {/* PO Details */}
+          <View style={styles.poSection}>
+            <Text style={styles.poHeaderLabel}>PURCHASE ORDER</Text>
+            <Text style={styles.poNumber}>{orderNumber}</Text>
+            <View style={styles.poDetailRow}>
+              <Text style={styles.poDetailLabel}>Date:</Text>
+              <Text style={styles.poDetailValue}>{orderDate}</Text>
             </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Dated</Text>
-              <Text style={styles.detailValue}>{orderDate}</Text>
+            <View style={styles.poDetailRow}>
+              <Text style={styles.poDetailLabel}>Delivery Date:</Text>
+              <Text style={styles.poDetailValue}>{deliveryDate}</Text>
             </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Mode/Terms of Payment</Text>
-              <Text style={styles.detailValue}>1 DAY</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Other References</Text>
-              <Text style={styles.detailValue}>Destination</Text>
+            <View style={styles.poDetailRow}>
+              <Text style={styles.poDetailLabel}>Payment Terms:</Text>
+              <Text style={styles.poDetailValue}>{paymentTerms}</Text>
             </View>
           </View>
         </View>
 
-        {/* Consignee and Supplier Addresses - Compact */}
+        {/* ===== ADDRESS SECTION ===== */}
         <View style={styles.addressSection}>
+          {/* Bill To / Consignee */}
           <View style={styles.addressBlock}>
-            <Text style={styles.addressTitle}>Consignee (Ship to)</Text>
-            <Text style={styles.boldText}>{companyName}</Text>
-            <Text style={styles.addressText}>{billingAddress}</Text>
-            <Text style={styles.addressText}>MSME No. CG14A0000157</Text>
-            <Text style={styles.addressText}>e-mail: pmmpl@pasmin.com</Text>
-            <Text style={styles.addressText}>GSTIN/UIN : {companyGstin}</Text>
-            <Text style={styles.addressText}>
-              State Name : Chhattisgarh, Code: 22
-            </Text>
+            <Text style={styles.addressBlockTitle}>BILL TO / CONSIGNEE</Text>
+            <Text style={styles.addressBlockValue}>{companyName}</Text>
+            <Text style={styles.addressBlockValue}>{billingAddress}</Text>
+            <Text style={styles.addressBlockLabel}>Destination:</Text>
+            <Text style={styles.addressBlockValue}>{destinationAddress}</Text>
           </View>
-          <View style={[styles.addressBlock, { borderRightWidth: 0 }]}>
-            <Text style={styles.addressTitle}>Supplier (Bill from)</Text>
-            <Text style={styles.boldText}>{supplierName}</Text>
-            <Text style={styles.addressText}>{supplierAddress}</Text>
-            <Text style={styles.addressText}>GSTIN/UIN : {supplierGstin}</Text>
-            <Text style={styles.addressText}>
-              State Name : Odisha, Code: 21
-            </Text>
+
+          {/* Supplier */}
+          <View style={styles.addressBlock}>
+            <Text style={styles.addressBlockTitle}>SUPPLIER / VENDOR</Text>
+            <Text style={styles.addressBlockValue}>{supplierName}</Text>
+            <Text style={styles.addressBlockValue}>{supplierAddress}</Text>
+            <Text style={styles.addressBlockLabel}>GSTIN:</Text>
+            <Text style={styles.addressBlockValue}>{supplierGstin}</Text>
           </View>
         </View>
 
-        {/* Additional Reference Row - Compact */}
-        <View style={[styles.headerRow, { borderTopWidth: 1 }]}>
-          <View style={[styles.headerColLeft, { borderRightWidth: 1 }]}>
-            <Text style={styles.companyHeaderText}>
-              Reference No. &amp; Date.
-            </Text>
-            <Text style={styles.boldText}>{orderNumber}</Text>
+        {/* ===== KEY INFO ROW ===== */}
+        <View style={styles.keyInfoRow}>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoBoxLabel}>GST Rate</Text>
+            <Text style={styles.infoBoxValue}>{gstPercent}%</Text>
           </View>
-          <View style={styles.headerColRight}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Dispatched through</Text>
-              <Text style={styles.detailValue}>-</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Mode/Terms of Payment</Text>
-              <Text style={styles.detailValue}>1 DAY</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Other References</Text>
-              <Text style={styles.detailValue}>Destination</Text>
-            </View>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoBoxLabel}>Discount</Text>
+            <Text style={styles.infoBoxValue}>{discountPercent}%</Text>
+          </View>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoBoxLabel}>Total Items</Text>
+            <Text style={styles.infoBoxValue}>{items.length}</Text>
           </View>
         </View>
 
-        {/* Items Table */}
+        {/* ===== ITEMS TABLE ===== */}
         <View style={styles.table}>
+          {/* Header */}
           <View style={styles.tableHeader}>
-            <Text style={styles.cellSl}>Sl No.</Text>
-            <Text style={styles.cellDesc}>Description of Goods</Text>
-            <Text style={styles.cellHsn}>HSN/SAC</Text>
-            <Text style={styles.cellDue}>Due on</Text>
+            <Text style={styles.cellSl}>Sl.</Text>
+            <Text style={styles.cellDesc}>Description</Text>
             <Text style={styles.cellQty}>Quantity</Text>
-            <Text style={styles.cellRate}>Rate per</Text>
+            <Text style={styles.cellRate}>Rate</Text>
             <Text style={styles.cellAmount}>Amount</Text>
           </View>
 
-          {items.map((item, i) => (
-            <View key={i} style={styles.tableRow}>
-              <Text style={styles.cellSl}>{i + 1}</Text>
-              <Text style={styles.cellDesc}>{item.product}</Text>
-              <Text style={styles.cellHsn}>{item.hsn || "2523"}</Text>
-              <Text style={styles.cellDue}>{deliveryDate}</Text>
-              <Text style={styles.cellQty}>{item.quantity.toFixed(4)} MT</Text>
-              <Text style={styles.cellRate}>{formatCurrency(item.rate)}</Text>
+          {/* Rows */}
+          {items.map((item, idx) => {
+            const qty = parseFloat(item.quantity || 0);
+            const rate = parseFloat(item.rate || 0);
+            const amt = parseFloat(item.amount || qty * rate);
+            return (
+              <View key={idx} style={styles.tableRow}>
+                <Text style={styles.cellSl}>{idx + 1}</Text>
+                <Text style={styles.cellDesc}>{item.product || "Product"}</Text>
+                <Text style={styles.cellQty}>
+                  {qty.toFixed(2)} {item.unit || "MT"}
+                </Text>
+                <Text style={styles.cellRate}>{formatCurrency(rate)}</Text>
+                <Text style={styles.cellAmount}>{formatCurrency(amt)}</Text>
+              </View>
+            );
+          })}
+
+          {/* Summary Rows */}
+          <View style={styles.tableSummaryRow}>
+            <Text style={styles.cellSl}></Text>
+            <Text style={styles.cellDesc}>Subtotal</Text>
+            <Text style={styles.cellQty}>{totalQuantity.toFixed(2)}</Text>
+            <Text style={styles.cellRate}></Text>
+            <Text style={styles.cellAmount}>{formatCurrency(totalAmount)}</Text>
+          </View>
+
+          {discountPercent > 0 && (
+            <View style={styles.tableSummaryRow}>
+              <Text style={styles.cellSl}></Text>
+              <Text style={styles.cellDesc}>Discount ({discountPercent}%)</Text>
+              <Text style={styles.cellQty}></Text>
+              <Text style={styles.cellRate}></Text>
               <Text style={styles.cellAmount}>
-                {formatCurrency(item.amount)}
+                {formatCurrency((totalAmount * discountPercent) / 100)}
               </Text>
             </View>
-          ))}
+          )}
 
-          {/* Tax Row */}
-          <View style={styles.taxRow}>
-            <Text style={styles.taxLabel}>Input IGST</Text>
-            <Text style={styles.taxValue}>{formatCurrency(gstAmount)}</Text>
-          </View>
-          <View style={styles.taxRow}>
-            <Text style={styles.taxLabel}>Round Off</Text>
-            <Text style={styles.taxValue}>0.20</Text>
+          <View style={styles.tableSummaryRow}>
+            <Text style={styles.cellSl}></Text>
+            <Text style={styles.cellDesc}>GST ({gstPercent}%)</Text>
+            <Text style={styles.cellQty}></Text>
+            <Text style={styles.cellRate}></Text>
+            <Text style={styles.cellAmount}>{formatCurrency(gstAmount)}</Text>
           </View>
         </View>
 
-        {/* Total Row */}
+        {/* ===== GRAND TOTAL ===== */}
         <View style={styles.totalRow}>
-          <Text style={{ width: "40%" }}>Total</Text>
-          <Text style={{ width: "30%", textAlign: "center" }}>
-            {totalQuantity.toFixed(4)} MT
-          </Text>
-          <Text style={{ width: "30%", textAlign: "right" }}>
-            {formatCurrency(grandTotal)}
-          </Text>
+          <Text style={styles.totalLabel}>GRAND TOTAL</Text>
+          <Text style={styles.totalValue}>{formatCurrency(grandTotal)}</Text>
         </View>
 
-        {/* Amount in Words */}
+        {/* ===== TECHNICAL SPECIFICATIONS ===== */}
+        {hasLabDetails && (
+          <View style={styles.specsSection}>
+            <Text style={styles.specsTitle}>Lab Specifications</Text>
+            <View style={styles.specsGrid}>
+              {[
+                { label: "Alumina", value: labDetails.alumina, suffix: "%" },
+                { label: "Iron", value: labDetails.iron, suffix: "%" },
+                { label: "SiO2", value: labDetails.sio2, suffix: "%" },
+                { label: "CaO", value: labDetails.cao, suffix: "%" },
+                { label: "AP", value: labDetails.ap, suffix: "%" },
+                { label: "BD", value: labDetails.bd, suffix: "%" },
+                { label: "Fineness", value: labDetails.fineness, suffix: "" },
+                { label: "Packaging", value: labDetails.packaging, suffix: "" },
+              ].map((spec, idx) => {
+                const val = String(spec.value || "").trim();
+                if (!val || val.toLowerCase() === "null" || val === "0")
+                  return null;
+                return (
+                  <View key={idx} style={styles.specItem}>
+                    <Text style={styles.specLabel}>{spec.label}:</Text>
+                    <Text style={styles.specValue}>
+                      {val}
+                      {spec.suffix}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* ===== AMOUNT IN WORDS ===== */}
         <View style={styles.amountWordsSection}>
-          <Text style={[styles.companyHeaderText, styles.boldText]}>
-            Amount Chargeable (in words)
-          </Text>
-          <Text style={[styles.companyHeaderText, { marginTop: 1 }]}>
-            {numberToWords(grandTotal)} E. &amp; O.E
+          <Text style={styles.amountWordsLabel}>Amount in Words:</Text>
+          <Text style={styles.amountWordsText}>
+            {numberToWords(grandTotal)}
           </Text>
         </View>
 
-        {/* Declaration and Signature */}
+        {/* ===== DECLARATION & SIGNATURE ===== */}
         <View style={styles.declarationSection}>
+          {/* Declaration */}
           <View style={styles.declarationLeft}>
-            <Text style={[styles.companyHeaderText, styles.boldText]}>
-              Declaration
-            </Text>
+            <Text style={styles.declarationTitle}>Declaration</Text>
             <Text style={styles.declarationText}>
-              We declare that this invoice shows the actual price of the goods
-              described and that all particulars are true and correct.
+              We declare that this purchase order is issued in accordance with
+              our requirements and that all particulars are true and correct.
             </Text>
-            <View style={styles.termsText}>
-              <Text style={styles.boldText}>Terms and Conditions:</Text>
-              {terms.map((term, i) => (
-                <Text key={i} style={styles.declarationText}>
-                  {i + 1}. {term}
-                </Text>
-              ))}
-            </View>
+
+            <Text style={styles.termsTitle}>Terms & Conditions:</Text>
+            {terms.map((term, idx) => (
+              <Text key={idx} style={styles.termItem}>
+                • {term}
+              </Text>
+            ))}
           </View>
+
+          {/* Signature */}
           <View style={styles.declarationRight}>
-            <Text style={[styles.companyHeaderText, styles.boldText]}>
-              for {companyName}
-            </Text>
-            <Text style={[styles.companyHeaderText, { marginTop: 20 }]}>
-              Company's PAN: {companyPan}
-            </Text>
-            <View style={{ marginTop: 10 }}>
-              <Text style={styles.boldText}>Authorised Signatory</Text>
+            <Text style={styles.companyForLabel}>For {companyName}</Text>
+            <Text style={styles.panText}>PAN: {companyPan}</Text>
+
+            <View style={styles.signatureLine}>
+              <Text>Authorized Signatory</Text>
             </View>
+
+            <Text style={styles.panText}>Name & Designation</Text>
           </View>
         </View>
 
-        {/* Footer */}
-        <Text style={styles.footer}>SUBJECT TO RAIPUR JURISDICTION</Text>
-        <Text style={[styles.footer, { marginTop: 1 }]}>
-          This is a Computer Generated Document
+        {/* ===== FOOTER ===== */}
+        <Text style={styles.footer}>
+          <Text style={styles.footerText}>Subject to Raipur Jurisdiction</Text>
+        </Text>
+        <Text style={styles.footer}>
+          <Text style={styles.footerText}>
+            This is a Computer Generated Document - No Signature Required
+          </Text>
         </Text>
       </Page>
     </Document>

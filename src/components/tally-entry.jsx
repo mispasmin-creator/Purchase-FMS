@@ -167,7 +167,7 @@ const baseColumns = [
 ];
 
 const approveColumns = [
-  { header: "Mark Done", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
+  { header: "Select", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
   ...baseColumns,
 ];
 
@@ -182,6 +182,8 @@ export default function TallyEntry() {
   const [sheetData, setSheetData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingEntries, setProcessingEntries] = useState({});
+  const [selectedEntries, setSelectedEntries] = useState({});
+  const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
   const [error, setError] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState("approve");
@@ -324,28 +326,73 @@ export default function TallyEntry() {
     return { success: true };
   };
 
-  const handleMarkAsDone = async (entry, checked) => {
-    setProcessingEntries((prev) => ({ ...prev, [entry._id]: true }));
-    try {
-      await updateSupabase(entry, checked);
-      toast.success("Entry Updated", {
-        description: `PO ${entry.poNumber} status has been successfully updated.`,
-        icon: <CheckCircle className="h-4 w-4" />,
-      });
-      setRefreshTrigger((t) => t + 1);
-    } catch (error) {
-      console.error("Update Failed:", error);
-      toast.error("Update Failed", {
-        description: `Could not update PO ${entry.poNumber}. Reason: ${error.message}`,
-        icon: <XCircle className="h-4 w-4" />,
-      });
-    } finally {
-      setProcessingEntries((prev) => {
-        const newState = { ...prev };
+  const toggleSelectEntry = (entry) => {
+    setSelectedEntries((prev) => {
+      const newState = { ...prev };
+      if (newState[entry._id]) {
         delete newState[entry._id];
+      } else {
+        newState[entry._id] = entry;
+      }
+      return newState;
+    });
+  };
+
+  const toggleSelectAll = (entries) => {
+    const allSelected = entries.every((e) => selectedEntries[e._id]);
+    if (allSelected) {
+      setSelectedEntries((prev) => {
+        const newState = { ...prev };
+        entries.forEach((e) => delete newState[e._id]);
+        return newState;
+      });
+    } else {
+      setSelectedEntries((prev) => {
+        const newState = { ...prev };
+        entries.forEach((e) => { newState[e._id] = e; });
         return newState;
       });
     }
+  };
+
+  const selectedCount = Object.keys(selectedEntries).length;
+
+  const handleSubmitSelected = async () => {
+    const entriesToSubmit = Object.values(selectedEntries);
+    if (entriesToSubmit.length === 0) return;
+
+    setIsSubmittingBatch(true);
+    const ids = entriesToSubmit.map((e) => e._id);
+    ids.forEach((id) => setProcessingEntries((prev) => ({ ...prev, [id]: true })));
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const entry of entriesToSubmit) {
+      try {
+        await updateSupabase(entry, true);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to update ${entry.indentId}:`, error);
+        failCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`${successCount} entr${successCount > 1 ? "ies" : "y"} marked as done`, {
+        icon: <CheckCircle className="h-4 w-4" />,
+      });
+    }
+    if (failCount > 0) {
+      toast.error(`${failCount} entr${failCount > 1 ? "ies" : "y"} failed to update`, {
+        icon: <XCircle className="h-4 w-4" />,
+      });
+    }
+
+    setSelectedEntries({});
+    setProcessingEntries({});
+    setIsSubmittingBatch(false);
+    setRefreshTrigger((t) => t + 1);
   };
 
   const handleFilterChange = (field, value) => {
@@ -489,15 +536,22 @@ export default function TallyEntry() {
                 <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
                   <TableRow>
                     {visibleColumns.map((col) => (
-                      <TableHead key={col.dataKey} className={col.dataKey === "actionColumn" ? "w-[120px] text-center" : ""}>
-                        {col.header}
+                      <TableHead key={col.dataKey} className={col.dataKey === "actionColumn" ? "w-[60px] text-center" : ""}>
+                        {col.dataKey === "actionColumn" && type === "approve" ? (
+                          <Checkbox
+                            checked={entries.length > 0 && entries.every((e) => selectedEntries[e._id])}
+                            onCheckedChange={() => toggleSelectAll(entries)}
+                          />
+                        ) : (
+                          col.header
+                        )}
                       </TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.map((entry) => (
-                    <TableRow key={entry._id} className="hover:bg-muted/50">
+                    <TableRow key={entry._id} className={`hover:bg-muted/50 ${selectedEntries[entry._id] ? "bg-green-50" : ""}`}>
                       {visibleColumns.map((col) => (
                         <TableCell key={col.dataKey} className="py-2.5 px-3 text-xs">
                           {col.dataKey === "actionColumn" ? (
@@ -506,9 +560,8 @@ export default function TallyEntry() {
                                 <Loader2 className="h-4 w-4 animate-spin text-[#7da23a]" />
                               ) : (
                                 <Checkbox
-                                  onCheckedChange={(checked) => {
-                                    if (checked) handleMarkAsDone(entry, checked);
-                                  }}
+                                  checked={!!selectedEntries[entry._id]}
+                                  onCheckedChange={() => toggleSelectEntry(entry)}
                                 />
                               )}
                             </div>
@@ -631,6 +684,34 @@ export default function TallyEntry() {
             <TabsContent value="history" className="flex-1 mt-0">
               {renderTable("history", completedEntries, historyColumns, visibleHistoryCols, setVisibleHistoryCols)}
             </TabsContent>
+
+            {/* Sticky Submit Bar */}
+            {selectedCount > 0 && (
+              <div className="sticky bottom-0 z-20 bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between shadow-[0_-2px_8px_rgba(0,0,0,0.08)] rounded-b-lg">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-[#7da23a] text-white">
+                    {selectedCount}
+                  </Badge>
+                  <span className="text-sm text-gray-600">
+                    {selectedCount === 1 ? "entry" : "entries"} selected
+                  </span>
+                  <Button variant="ghost" size="sm" className="text-xs text-gray-500" onClick={() => setSelectedEntries({})}>
+                    Clear
+                  </Button>
+                </div>
+                <Button
+                  onClick={handleSubmitSelected}
+                  disabled={isSubmittingBatch}
+                  className="bg-[#7da23a] hover:bg-[#6b8f30] text-white gap-2"
+                >
+                  {isSubmittingBatch ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</>
+                  ) : (
+                    <><CheckCircle className="h-4 w-4" /> Submit {selectedCount} {selectedCount === 1 ? "Entry" : "Entries"}</>
+                  )}
+                </Button>
+              </div>
+            )}
           </Tabs>
         </CardContent>
       </Card>

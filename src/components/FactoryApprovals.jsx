@@ -202,6 +202,13 @@ export default function FactoryApprovals() {
               row["Approved Payment Term"] || "",
               row["With Tax or Not 4"] || "Yes",
               row["Tax Value 4"]?.toString() || "0",
+              row["Alumina %"] || "",
+              row["Iron %"] || "",
+              row["SiO2 %"] || "",
+              row["CaO %"] || "",
+              row["AP Percent Age %"] || "",
+              row["BD Percent Age %"] || "",
+              row["Fineness"] || "",
             ],
             approvedDate: row["Approved Date"] || "",
           }))
@@ -889,6 +896,65 @@ export default function FactoryApprovals() {
                                 With Tax
                               </p>
                             )}
+                            {/* Lab Details */}
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 border-t pt-2">
+                              {vendor[6] && (
+                                <span className="text-[10px]">
+                                  <span className="font-semibold text-gray-500">
+                                    Al₂O₃:
+                                  </span>{" "}
+                                  {vendor[6]}%
+                                </span>
+                              )}
+                              {vendor[7] && (
+                                <span className="text-[10px]">
+                                  <span className="font-semibold text-gray-500">
+                                    Fe₂O₃:
+                                  </span>{" "}
+                                  {vendor[7]}%
+                                </span>
+                              )}
+                              {vendor[8] && (
+                                <span className="text-[10px]">
+                                  <span className="font-semibold text-gray-500">
+                                    SiO₂:
+                                  </span>{" "}
+                                  {vendor[8]}%
+                                </span>
+                              )}
+                              {vendor[9] && (
+                                <span className="text-[10px]">
+                                  <span className="font-semibold text-gray-500">
+                                    CaO:
+                                  </span>{" "}
+                                  {vendor[9]}%
+                                </span>
+                              )}
+                              {vendor[10] && (
+                                <span className="text-[10px]">
+                                  <span className="font-semibold text-gray-500">
+                                    AP:
+                                  </span>{" "}
+                                  {vendor[10]}%
+                                </span>
+                              )}
+                              {vendor[11] && (
+                                <span className="text-[10px]">
+                                  <span className="font-semibold text-gray-500">
+                                    BD:
+                                  </span>{" "}
+                                  {vendor[11]}%
+                                </span>
+                              )}
+                              {vendor[12] && (
+                                <span className="text-[10px]">
+                                  <span className="font-semibold text-gray-500">
+                                    Fine:
+                                  </span>{" "}
+                                  {vendor[12]}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="text-right">
                             <p className="text-base font-semibold">
