@@ -472,6 +472,9 @@ const GeneratePurchaseOrder = () => {
     }
   }, []);
 
+  const numericOrNull = (value) =>
+    value === "" || value === null || value === undefined ? null : parseFloat(value);
+
   useEffect(() => {
     const loadMaster = async () => {
       try {
@@ -715,13 +718,13 @@ const GeneratePurchaseOrder = () => {
           updates["When To Be Paid Amount"] = null;
         }
         updates["PO Notes"] = dataToSubmit.notes;
-        updates["Alumina %"] = dataToSubmit.alumina;
-        updates["Iron %"] = dataToSubmit.iron;
-        updates["AP Percent Age %"] = dataToSubmit.ap;
-        updates["BD Percent Age %"] = dataToSubmit.bd;
-        updates["SiO2 %"] = dataToSubmit.sio2;
-        updates["CaO %"] = dataToSubmit.cao;
-        updates["Fineness"] = dataToSubmit.fineness;
+        updates["Alumina %"] = numericOrNull(dataToSubmit.alumina);
+        updates["Iron %"] = numericOrNull(dataToSubmit.iron);
+        updates["AP Percent Age %"] = numericOrNull(dataToSubmit.ap);
+        updates["BD Percent Age %"] = numericOrNull(dataToSubmit.bd);
+        updates["SiO2 %"] = numericOrNull(dataToSubmit.sio2);
+        updates["CaO %"] = numericOrNull(dataToSubmit.cao);
+        updates["Fineness"] = numericOrNull(dataToSubmit.fineness);
         updates["Packaging"] = dataToSubmit.packaging;
       } else {
         updates["Rate"] = null;
@@ -933,10 +936,10 @@ const GeneratePurchaseOrder = () => {
         orderNumber: formData.poNumber,
         orderDate: formData.poDate,
         deliveryDate: formData.deliveryDate,
+        notes: formData.notes || "",
         items: [
           {
             product: selectedIndent?.rawMaterialName || "Material",
-            description: formData.notes || "",
             quantity: qtyNum,
             unit: "MT",
             rate: rateNum,
@@ -1064,13 +1067,6 @@ const GeneratePurchaseOrder = () => {
         parseFloat(formData.cao) < 0
       )
         newErrors.cao = "CaO % is required and must be non-negative.";
-      if (
-        !formData.fineness ||
-        isNaN(parseFloat(formData.fineness)) ||
-        parseFloat(formData.fineness) < 0
-      )
-        newErrors.fineness = "Fineness is required and must be non-negative.";
-
       if (
         formData.gstPercent !== "" &&
         (isNaN(parseFloat(formData.gstPercent)) ||
@@ -2330,10 +2326,10 @@ const GeneratePurchaseOrder = () => {
                         orderNumber: formData.poNumber,
                         orderDate: formData.poDate,
                         deliveryDate: formData.deliveryDate,
+                        notes: formData.notes || "",
                         items: [
                           {
                             product: selectedIndent.rawMaterialName,
-                            description: formData.notes,
                             quantity: parseFloat(formData.totalQty),
                             unit: "MT",
                             rate: parseFloat(formData.rate),

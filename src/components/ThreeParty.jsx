@@ -33,7 +33,6 @@ import {
   Search,
   Upload,
   TrendingDown,
-  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
@@ -404,17 +403,6 @@ export default function ThreeParty() {
     return validRates.length > 0 ? Math.min(...validRates) : null;
   }, [vendorForms]);
 
-  // Auto-calculate final rate
-  const finalRate = useMemo(() => {
-    const v = vendorForms[selectedVendorIndex];
-    if (!v.rate) return 0;
-
-    if (v.rateType === "basic" && v.withTax === "no") {
-      return v.rate + (v.rate * v.gstPercent) / 100;
-    }
-    return v.rate;
-  }, [vendorForms, selectedVendorIndex]);
-
   // Quick approve function
   const quickApprove = () => {
     const lowestVendorIndex = vendorForms.findIndex(
@@ -449,18 +437,15 @@ export default function ThreeParty() {
       }
 
       const formatVendor = (v) => {
+        const numericOrNull = (value) =>
+          value === "" || value === null || value === undefined ? null : value;
         const rateTypeText = v.rateType === "basic" ? "Basic Rate" : "With Tax";
         let withTaxOrNot = "";
         let taxValue = 0;
 
         if (v.rateType === "basic") {
-          if (v.withTax === "yes") {
-            withTaxOrNot = "Yes";
-            taxValue = 0;
-          } else if (v.withTax === "no") {
-            withTaxOrNot = "No";
-            taxValue = v.gstPercent || 0;
-          }
+          withTaxOrNot = "No";
+          taxValue = v.gstPercent || 0;
         } else {
           withTaxOrNot = "Yes";
           taxValue = 0;
@@ -475,13 +460,13 @@ export default function ThreeParty() {
           paymentTerm: v.paymentTerm || "",
           whatsapp: v.whatsapp || "",
           email: v.email || "",
-          alumina: v.alumina || "",
-          iron: v.iron || "",
-          sio2: v.sio2 || "",
-          cao: v.cao || "",
-          ap: v.ap || "",
-          bd: v.bd || "",
-          fineness: v.fineness || "",
+          alumina: numericOrNull(v.alumina),
+          iron: numericOrNull(v.iron),
+          sio2: numericOrNull(v.sio2),
+          cao: numericOrNull(v.cao),
+          ap: numericOrNull(v.ap),
+          bd: numericOrNull(v.bd),
+          fineness: numericOrNull(v.fineness),
           packaging: v.packaging || "",
         };
       };
@@ -1001,7 +986,7 @@ export default function ThreeParty() {
 
       {/* Redesigned Dialog with Single Vendor Form */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden rounded-2xl">
+        <DialogContent className="sm:max-w-[1400px] p-0 overflow-hidden rounded-2xl">
           {selectedIndent && (
             <div className="flex flex-col h-full max-h-[85vh]">
               {/* Header with Indent Info */}
@@ -1081,383 +1066,178 @@ export default function ThreeParty() {
               </div>
 
               <div className="flex-1 px-6 pb-4 overflow-y-auto">
-                {/* Single Vendor Form */}
-                <div className="p-4 border rounded-xl bg-gray-50/30">
-                  {(() => {
-                    const idx = selectedVendorIndex;
-                    const currentVendor = vendorForms[idx];
-
-                    return (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-semibold text-gray-700">
-                            Vendor {idx + 1} Details
-                          </span>
-                          <Badge className="text-green-700 bg-green-100">
-                            Editing
-                          </Badge>
-                        </div>
-
-                        {/* Vendor Name */}
+                {/* Vendor Forms */}
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {vendorForms.map((currentVendor, idx) => (
+                    <div key={idx} className="p-4 border rounded-xl bg-gray-50/30 space-y-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-gray-700">Vendor {idx + 1} Details</span>
+                        {selectedVendorIndex === idx && (
+                          <Badge className="text-green-700 bg-green-100">Selected</Badge>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="block mb-1 text-xs font-medium text-gray-600">Vendor Name</Label>
+                        <Select value={currentVendor.name} onValueChange={(value) => updateVendorForm(idx, "name", value)}>
+                          <SelectTrigger className="text-sm border-gray-200 h-9 bg-white">
+                            <SelectValue placeholder="Select vendor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {vendorMasterOptions.map((vendor, vendorIndex) => (
+                              <SelectItem key={`vendor-${idx}-${vendorIndex}`} value={vendor}>
+                                {vendor}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="block mb-1 text-xs font-medium text-gray-600">
-                            Vendor Name
-                          </Label>
-                          <Select
-                            value={currentVendor.name}
-                            onValueChange={(value) =>
-                              updateVendorForm(idx, "name", value)
-                            }
-                          >
+                          <Label className="block mb-1 text-xs font-medium text-gray-600">Rate (₹)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            onWheel={noScroll}
+                            value={currentVendor.rate || ""}
+                            onChange={(e) => updateVendorForm(idx, "rate", Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="text-sm border-gray-200 h-9 bg-white"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <Label className="block mb-1 text-xs font-medium text-gray-600">Rate Type</Label>
+                          <Select value={currentVendor.rateType} onValueChange={(v) => updateVendorForm(idx, "rateType", v)}>
                             <SelectTrigger className="text-sm border-gray-200 h-9 bg-white">
-                              <SelectValue placeholder="Select vendor" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {vendorMasterOptions.map(
-                                (vendor, vendorIndex) => (
-                                  <SelectItem
-                                    key={`vendor-${idx}-${vendorIndex}`}
-                                    value={vendor}
-                                  >
-                                    {vendor}
-                                  </SelectItem>
-                                ),
-                              )}
+                              <SelectItem value="basic">Basic Rate</SelectItem>
+                              <SelectItem value="withTax">With Tax</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-
-                        {/* Rate Section */}
+                      </div>
+                      {currentVendor.rateType === "basic" && (
+                        <div>
+                          <Label className="block mb-1 text-[10px] text-gray-500">GST %</Label>
+                          <Select
+                            value={currentVendor.gstPercent?.toString() || "0"}
+                            onValueChange={(v) => updateVendorForm(idx, "gstPercent", parseInt(v))}
+                          >
+                            <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
+                              <SelectValue placeholder="Tax %" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">0%</SelectItem>
+                              <SelectItem value="5">5%</SelectItem>
+                              <SelectItem value="12">12%</SelectItem>
+                              <SelectItem value="18">18%</SelectItem>
+                              <SelectItem value="28">28%</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-green-700">Final Rate (with GST)</span>
+                          <span className="text-xl font-bold text-green-700">
+                            ₹
+                            {currentVendor.rateType === "basic"
+                              ? currentVendor.rate + (currentVendor.rate * currentVendor.gstPercent) / 100
+                              : currentVendor.rate}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="py-2 text-xs font-medium text-gray-600">Advanced Details</div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <Label className="block mb-1 text-xs font-medium text-gray-600">
-                              Rate (₹)
-                            </Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              onWheel={noScroll}
-                              value={currentVendor.rate || ""}
-                              onChange={(e) =>
-                                updateVendorForm(
-                                  idx,
-                                  "rate",
-                                  Math.max(0, parseFloat(e.target.value) || 0),
-                                )
-                              }
-                              className="text-sm border-gray-200 h-9 bg-white"
-                              placeholder="0.00"
-                            />
-                          </div>
-                          <div>
-                            <Label className="block mb-1 text-xs font-medium text-gray-600">
-                              Rate Type
-                            </Label>
-                            <Select
-                              value={currentVendor.rateType}
-                              onValueChange={(v) =>
-                                updateVendorForm(idx, "rateType", v)
-                              }
-                            >
-                              <SelectTrigger className="text-sm border-gray-200 h-9 bg-white">
-                                <SelectValue />
+                            <Label className="block mb-1 text-[10px] text-gray-500">Packaging</Label>
+                            <Select value={currentVendor.packaging} onValueChange={(v) => updateVendorForm(idx, "packaging", v)}>
+                              <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
+                                <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="basic">
-                                  Basic Rate
-                                </SelectItem>
-                                <SelectItem value="withTax">
-                                  With Tax
-                                </SelectItem>
+                                <SelectItem value="Ton Bag">Ton Bag</SelectItem>
+                                <SelectItem value="50 kg">50 kg</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="block mb-1 text-[10px] text-gray-500">Payment Term</Label>
+                            <Select value={currentVendor.paymentTerm} onValueChange={(v) => updateVendorForm(idx, "paymentTerm", v)}>
+                              <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
+                                <SelectValue placeholder="Select term" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Advance">Advance</SelectItem>
+                                <SelectItem value="After Delivery">After Delivery</SelectItem>
+                                <SelectItem value="Credit 30 Days">Credit 30 Days</SelectItem>
+                                <SelectItem value="Credit 60 Days">Credit 60 Days</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
-
-                        {/* Final Rate Display */}
-                        <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-green-700">
-                              Final Rate (with GST)
-                            </span>
-                            <span className="text-xl font-bold text-green-700">
-                              ₹{finalRate}
-                            </span>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="block mb-1 text-[10px] text-gray-500">WhatsApp</Label>
+                            <Input
+                              inputMode="numeric"
+                              maxLength={10}
+                              value={currentVendor.whatsapp || ""}
+                              onChange={(e) => updateVendorForm(idx, "whatsapp", e.target.value)}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              placeholder="10-digit number"
+                            />
+                          </div>
+                          <div>
+                            <Label className="block mb-1 text-[10px] text-gray-500">Email</Label>
+                            <Input
+                              type="email"
+                              value={currentVendor.email || ""}
+                              onChange={(e) => updateVendorForm(idx, "email", e.target.value)}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              placeholder="vendor@email.com"
+                            />
                           </div>
                         </div>
-
-                        {/* Advanced Details */}
-                        <details className="group">
-                          <summary className="flex items-center justify-between py-2 text-xs font-medium text-gray-600 cursor-pointer list-none hover:text-gray-800">
-                            <span>Advanced Details</span>
-                            <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
-                          </summary>
-
-                          <div className="mt-3 space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label className="block mb-1 text-[10px] text-gray-500">
-                                  Packaging
-                                </Label>
-                                <Select
-                                  value={currentVendor.packaging}
-                                  onValueChange={(v) =>
-                                    updateVendorForm(idx, "packaging", v)
-                                  }
-                                >
-                                  <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
-                                    <SelectValue placeholder="Select" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Ton Bag">
-                                      Ton Bag
-                                    </SelectItem>
-                                    <SelectItem value="50 kg">50 kg</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div>
-                                <Label className="block mb-1 text-[10px] text-gray-500">
-                                  Payment Term
-                                </Label>
-                                <Select
-                                  value={currentVendor.paymentTerm}
-                                  onValueChange={(v) =>
-                                    updateVendorForm(idx, "paymentTerm", v)
-                                  }
-                                >
-                                  <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
-                                    <SelectValue placeholder="Select term" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Advance">
-                                      Advance
-                                    </SelectItem>
-                                    <SelectItem value="After Delivery">
-                                      After Delivery
-                                    </SelectItem>
-                                    <SelectItem value="Credit 30 Days">
-                                      Credit 30 Days
-                                    </SelectItem>
-                                    <SelectItem value="Credit 60 Days">
-                                      Credit 60 Days
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label className="block mb-1 text-[10px] text-gray-500">
-                                  WhatsApp
-                                </Label>
-                                <Input
-                                  inputMode="numeric"
-                                  maxLength={10}
-                                  value={currentVendor.whatsapp || ""}
-                                  onChange={(e) =>
-                                    updateVendorForm(
-                                      idx,
-                                      "whatsapp",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="h-8 text-xs bg-white border-gray-200"
-                                  placeholder="10-digit number"
-                                />
-                              </div>
-                              <div>
-                                <Label className="block mb-1 text-[10px] text-gray-500">
-                                  Email
-                                </Label>
-                                <Input
-                                  type="email"
-                                  value={currentVendor.email || ""}
-                                  onChange={(e) =>
-                                    updateVendorForm(
-                                      idx,
-                                      "email",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="h-8 text-xs bg-white border-gray-200"
-                                  placeholder="vendor@email.com"
-                                />
-                              </div>
-                            </div>
-
-                            {/* Chemical Analysis */}
-                            <div>
-                              <Label className="block mb-2 text-xs font-medium text-gray-600">
-                                Chemical Analysis (%)
-                              </Label>
-                              <div className="grid grid-cols-3 gap-2">
-                                <div>
-                                  <Label className="block mb-1 text-[9px] text-gray-500">
-                                    Al₂O₃
-                                  </Label>
-                                  <Input
-                                    type="text"
-                                    value={currentVendor.alumina}
-                                    onChange={(e) =>
-                                      updateVendorForm(
-                                        idx,
-                                        "alumina",
-                                        e.target.value,
-                                      )
-                                    }
-                                    className="h-7 text-[10px] border-gray-200"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                                <div>
-                                  <Label className="block mb-1 text-[9px] text-gray-500">
-                                    Fe₂O₃
-                                  </Label>
-                                  <Input
-                                    type="text"
-                                    value={currentVendor.iron}
-                                    onChange={(e) =>
-                                      updateVendorForm(
-                                        idx,
-                                        "iron",
-                                        e.target.value,
-                                      )
-                                    }
-                                    className="h-7 text-[10px] border-gray-200"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                                <div>
-                                  <Label className="block mb-1 text-[9px] text-gray-500">
-                                    SiO₂
-                                  </Label>
-                                  <Input
-                                    type="text"
-                                    value={currentVendor.sio2}
-                                    onChange={(e) =>
-                                      updateVendorForm(
-                                        idx,
-                                        "sio2",
-                                        e.target.value,
-                                      )
-                                    }
-                                    className="h-7 text-[10px] border-gray-200"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                                <div>
-                                  <Label className="block mb-1 text-[9px] text-gray-500">
-                                    CaO
-                                  </Label>
-                                  <Input
-                                    type="text"
-                                    value={currentVendor.cao}
-                                    onChange={(e) =>
-                                      updateVendorForm(
-                                        idx,
-                                        "cao",
-                                        e.target.value,
-                                      )
-                                    }
-                                    className="h-7 text-[10px] border-gray-200"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                                <div>
-                                  <Label className="block mb-1 text-[9px] text-gray-500">
-                                    AP
-                                  </Label>
-                                  <Input
-                                    type="text"
-                                    value={currentVendor.ap}
-                                    onChange={(e) =>
-                                      updateVendorForm(
-                                        idx,
-                                        "ap",
-                                        e.target.value,
-                                      )
-                                    }
-                                    className="h-7 text-[10px] border-gray-200"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                                <div>
-                                  <Label className="block mb-1 text-[9px] text-gray-500">
-                                    BD
-                                  </Label>
-                                  <Input
-                                    type="text"
-                                    value={currentVendor.bd}
-                                    onChange={(e) =>
-                                      updateVendorForm(
-                                        idx,
-                                        "bd",
-                                        e.target.value,
-                                      )
-                                    }
-                                    className="h-7 text-[10px] border-gray-200"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                              </div>
-                              <div className="mt-2">
-                                <Label className="block mb-1 text-[9px] text-gray-500">
-                                  Fineness
-                                </Label>
+                        <div>
+                          <Label className="block mb-2 text-xs font-medium text-gray-600">Chemical Analysis (%)</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              ["alumina", "Al₂O₃"],
+                              ["iron", "Fe₂O₃"],
+                              ["sio2", "SiO₂"],
+                              ["cao", "CaO"],
+                              ["ap", "AP"],
+                              ["bd", "BD"],
+                            ].map(([field, label]) => (
+                              <div key={field}>
+                                <Label className="block mb-1 text-[9px] text-gray-500">{label}</Label>
                                 <Input
                                   type="text"
-                                  value={currentVendor.fineness}
-                                  onChange={(e) =>
-                                    updateVendorForm(
-                                      idx,
-                                      "fineness",
-                                      e.target.value,
-                                    )
-                                  }
+                                  value={currentVendor[field]}
+                                  onChange={(e) => updateVendorForm(idx, field, e.target.value)}
                                   className="h-7 text-[10px] border-gray-200"
-                                  placeholder="Details"
+                                  placeholder="0.00"
                                 />
                               </div>
-                            </div>
-
-                            {/* GST for Basic Rate */}
-                            {currentVendor.rateType === "basic" && (
-                              <div>
-                                <Label className="block mb-1 text-[10px] text-gray-500">
-                                  GST %
-                                </Label>
-                                <Select
-                                  value={
-                                    currentVendor.gstPercent?.toString() || "0"
-                                  }
-                                  onValueChange={(v) =>
-                                    updateVendorForm(
-                                      idx,
-                                      "gstPercent",
-                                      parseInt(v),
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
-                                    <SelectValue placeholder="Tax %" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="0">0%</SelectItem>
-                                    <SelectItem value="5">5%</SelectItem>
-                                    <SelectItem value="12">12%</SelectItem>
-                                    <SelectItem value="18">18%</SelectItem>
-                                    <SelectItem value="28">28%</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            )}
+                            ))}
                           </div>
-                        </details>
+                          <div className="mt-2">
+                            <Label className="block mb-1 text-[9px] text-gray-500">Fineness</Label>
+                            <Input
+                              type="text"
+                              value={currentVendor.fineness}
+                              onChange={(e) => updateVendorForm(idx, "fineness", e.target.value)}
+                              className="h-7 text-[10px] border-gray-200"
+                              placeholder="Details"
+                            />
+                          </div>
+                        </div>
                       </div>
-                    );
-                  })()}
+                    </div>
+                  ))}
                 </div>
 
                 {/* Comparison Sheet Upload */}

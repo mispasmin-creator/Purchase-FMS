@@ -350,6 +350,27 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
   },
 
+  notesSection: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 6,
+    marginBottom: 6,
+    backgroundColor: "#fafafa",
+  },
+
+  notesTitle: {
+    fontSize: 8,
+    fontWeight: "bold",
+    marginBottom: 2,
+    color: "#333",
+  },
+
+  notesText: {
+    fontSize: 7,
+    color: "#000",
+    lineHeight: 1.4,
+  },
+
   // ===== DECLARATION SECTION =====
   declarationSection: {
     flexDirection: "row",
@@ -487,6 +508,7 @@ const POPdf = ({
   logoUrl = logo,
   labDetails = null,
   paymentTerms = "1 DAY",
+  notes = "",
 }) => {
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) return "0.00";
@@ -765,6 +787,13 @@ const POPdf = ({
             {numberToWords(grandTotal)}
           </Text>
         </View>
+
+        {String(notes || "").trim() && (
+          <View style={styles.notesSection}>
+            <Text style={styles.notesTitle}>Notes</Text>
+            <Text style={styles.notesText}>{String(notes).trim()}</Text>
+          </View>
+        )}
 
         {/* ===== DECLARATION & SIGNATURE ===== */}
         <View style={styles.declarationSection}>

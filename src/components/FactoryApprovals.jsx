@@ -309,6 +309,8 @@ export default function FactoryApprovals() {
     try {
       const idx = parseInt(vendorIndex);
       const selectedVendor = selectedIndent.vendors[idx];
+      const numericOrNull = (value) =>
+        value === "" || value === null || value === undefined ? null : value;
 
       const { error: updateError } = await supabase
         .from("INDENT-PO")
@@ -320,13 +322,13 @@ export default function FactoryApprovals() {
           "Approved Payment Term": selectedVendor[2] || "",
           "With Tax or Not 4": selectedVendor[4] || "Yes",
           "Tax Value 4": selectedVendor[5] || "0",
-          "Alumina %": selectedVendor[6] || "",
-          "Iron %": selectedVendor[7] || "",
-          "SiO2 %": selectedVendor[8] || "",
-          "CaO %": selectedVendor[9] || "",
-          "AP Percent Age %": selectedVendor[10] || "",
-          "BD Percent Age %": selectedVendor[11] || "",
-          Fineness: selectedVendor[12] || "",
+          "Alumina %": numericOrNull(selectedVendor[6]),
+          "Iron %": numericOrNull(selectedVendor[7]),
+          "SiO2 %": numericOrNull(selectedVendor[8]),
+          "CaO %": numericOrNull(selectedVendor[9]),
+          "AP Percent Age %": numericOrNull(selectedVendor[10]),
+          "BD Percent Age %": numericOrNull(selectedVendor[11]),
+          Fineness: numericOrNull(selectedVendor[12]),
           Packaging: selectedVendor[13] || "",
           "Approved Date": new Date().toISOString(),
           Planned8: new Date().toISOString(),
@@ -857,16 +859,20 @@ export default function FactoryApprovals() {
               <div className="grid gap-3">
                 <Label className="text-sm font-semibold">Select a vendor</Label>
                 <div className="grid gap-2">
-                  {selectedIndent.vendors.map((vendor, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setVendorIndex(idx.toString())}
-                      className={`flex items-center gap-4 border p-3 rounded-md cursor-pointer transition-colors hover:bg-accent ${
-                        vendorIndex === idx.toString()
-                          ? "bg-green-50 border-green-400"
-                          : "border-gray-200"
-                      }`}
-                    >
+                  {selectedIndent.vendors.map((vendor, idx) => {
+                    const isBasicRate = vendor[3] === "Basic Rate";
+                    const gstValue = vendor[5] || "0";
+
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setVendorIndex(idx.toString())}
+                        className={`flex items-center gap-4 border p-3 rounded-md cursor-pointer transition-colors hover:bg-accent ${
+                          vendorIndex === idx.toString()
+                            ? "bg-green-50 border-green-400"
+                            : "border-gray-200"
+                        }`}
+                      >
                       {/* Radio circle indicator */}
                       <div
                         className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
@@ -886,10 +892,9 @@ export default function FactoryApprovals() {
                             <p className="text-xs text-muted-foreground">
                               Payment Term: {vendor[2]}
                             </p>
-                            {vendor[3] === "Basic Rate" &&
-                            vendor[4] === "No" ? (
+                            {isBasicRate ? (
                               <p className="mt-1 text-xs font-medium text-orange-600">
-                                Without Tax — GST: {vendor[5]}%
+                                Basic Rate {gstValue !== "0" ? `— GST: ${gstValue}%` : ""}
                               </p>
                             ) : (
                               <p className="mt-1 text-xs font-medium text-green-600">
@@ -960,8 +965,7 @@ export default function FactoryApprovals() {
                             <p className="text-base font-semibold">
                               ₹{vendor[1]}
                             </p>
-                            {vendor[3] === "Basic Rate" &&
-                              vendor[4] === "No" && (
+                            {isBasicRate && (
                                 <p className="text-xs text-muted-foreground">
                                   Basic Rate
                                 </p>
@@ -969,8 +973,9 @@ export default function FactoryApprovals() {
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
