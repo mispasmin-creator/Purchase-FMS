@@ -16,10 +16,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { FileText, Loader2, CheckCircle, XCircle } from "lucide-react";
+import {
+  Check,
+  CheckCircle,
+  ChevronsUpDown,
+  FileText,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabase";
 import { fetchMasterData } from "../utils/masterDataUtils";
@@ -51,7 +63,18 @@ export default function IndentForm() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [lastRINumberNumeric, setLastRINumberNumeric] = useState(0);
+  const [rawMaterialOpen, setRawMaterialOpen] = useState(false);
+  const [rawMaterialSearch, setRawMaterialSearch] = useState("");
   const { user, allowedSteps } = useAuth();
+
+  const normalizedIndentType = formData.typeOfIndent.trim().toLowerCase();
+  const shouldShowDeliveryOrder =
+    normalizedIndentType === "finished goods" ||
+    normalizedIndentType.includes("traiding") ||
+    normalizedIndentType.includes("trading");
+  const filteredRawMaterials = dropdownOptions.rawMaterialName.filter((option) =>
+    option.toLowerCase().includes(rawMaterialSearch.trim().toLowerCase()),
+  );
 
   const fetchLatestRINumber = useCallback(async () => {
     try {
@@ -193,13 +216,9 @@ export default function IndentForm() {
       newErrors.typeOfIndent = "Type Of Indent is required.";
     if (!formData.uom) newErrors.uom = "UOM is required.";
 
-    // Delivery Order No. is mandatory when shown (for Finished Goods)
-    if (
-      formData.typeOfIndent === "Finished Goods" &&
-      !formData.deliveryOrderNo
-    ) {
+    if (shouldShowDeliveryOrder && !formData.deliveryOrderNo) {
       newErrors.deliveryOrderNo =
-        "Delivery Order No. is required for Finished Goods.";
+        "Delivery Order No. is required for the selected indent type.";
     }
 
     setErrors(newErrors); // Update state for UI error messages
@@ -433,26 +452,57 @@ export default function IndentForm() {
                 <Label htmlFor="rawMaterialName">
                   Raw Material Name <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  name="rawMaterialName"
-                  value={formData.rawMaterialName}
-                  onValueChange={(value) =>
-                    handleSelectChange("rawMaterialName", value)
-                  }
-                >
-                  <SelectTrigger
-                    className={`mt-1 ${errors.rawMaterialName ? "border-red-500" : ""}`}
-                  >
-                    <SelectValue placeholder="Select material" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dropdownOptions.rawMaterialName.map((option, index) => (
-                      <SelectItem key={`mat-${index}`} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={rawMaterialOpen} onOpenChange={setRawMaterialOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={rawMaterialOpen}
+                      className={`mt-1 w-full justify-between font-normal ${
+                        errors.rawMaterialName ? "border-red-500" : ""
+                      }`}
+                    >
+                      <span className="truncate">
+                        {formData.rawMaterialName || "Select material"}
+                      </span>
+                      <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2">
+                    <Input
+                      value={rawMaterialSearch}
+                      onChange={(e) => setRawMaterialSearch(e.target.value)}
+                      placeholder="Search raw material..."
+                      className="mb-2"
+                    />
+                    <div className="max-h-60 overflow-y-auto">
+                      {filteredRawMaterials.length > 0 ? (
+                        filteredRawMaterials.map((option, index) => (
+                          <button
+                            key={`mat-${index}`}
+                            type="button"
+                            onClick={() => {
+                              handleSelectChange("rawMaterialName", option);
+                              setRawMaterialOpen(false);
+                              setRawMaterialSearch("");
+                            }}
+                            className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-slate-100"
+                          >
+                            <span>{option}</span>
+                            {formData.rawMaterialName === option && (
+                              <Check className="w-4 h-4 text-primary" />
+                            )}
+                          </button>
+                        ))
+                      ) : (
+                        <p className="px-3 py-2 text-sm text-gray-500">
+                          No raw material found.
+                        </p>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 {errors.rawMaterialName && (
                   <p className="mt-1 text-xs text-red-500">
                     {errors.rawMaterialName}
@@ -586,8 +636,7 @@ export default function IndentForm() {
                 )}
               </div>
 
-              {/* Delivery Order No. - Only shown for Finished Goods (optional) */}
-              {formData.typeOfIndent === "Finished Goods" && (
+              {shouldShowDeliveryOrder && (
                 <div className="lg:col-span-2">
                   <Label htmlFor="deliveryOrderNo">
                     Delivery Order No. <span className="text-red-500">*</span>

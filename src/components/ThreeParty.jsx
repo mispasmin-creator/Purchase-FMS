@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
+  Check,
   Filter,
   CheckCircle2,
   History,
@@ -31,13 +32,12 @@ import {
   Info,
   Users,
   Search,
-  Upload,
   TrendingDown,
+  ChevronsUpDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
-import { uploadFileToStorage } from "../utils/storageUtils";
 import { fetchMasterData } from "../utils/masterDataUtils";
 import {
   Select,
@@ -46,6 +46,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +69,33 @@ const formatDateTime = (isoString) => {
   const minutes = date.getMinutes().toString().padStart(2, "0");
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
+
+const createEmptyVendorForm = () => ({
+  name: "",
+  rateType: "basic",
+  rate: 0,
+  withTax: "no",
+  gstPercent: 0,
+  paymentTerm: "",
+  advancePercentage: "",
+  quotationNumber: "",
+  quotationDate: "",
+  whatsapp: "",
+  email: "",
+  alumina: "",
+  iron: "",
+  sio2: "",
+  cao: "",
+  ap: "",
+  bd: "",
+  fineness: "",
+  packaging: "",
+});
+
+const normalizeVendorForm = (vendor = {}) => ({
+  ...createEmptyVendorForm(),
+  ...vendor,
+});
 
 export default function ThreeParty() {
   const [pendingData, setPendingData] = useState([]);
@@ -87,6 +119,12 @@ export default function ThreeParty() {
   const { updateCount } = useNotification();
   const [vendorMasterOptions, setVendorMasterOptions] = useState([]);
   const [selectedVendorIndex, setSelectedVendorIndex] = useState(0);
+  const [vendorSearchTerms, setVendorSearchTerms] = useState(["", "", ""]);
+  const [vendorPopoverOpen, setVendorPopoverOpen] = useState([
+    false,
+    false,
+    false,
+  ]);
 
   const fetchVendorMasterOptions = useCallback(async () => {
     try {
@@ -153,6 +191,9 @@ export default function ThreeParty() {
                 withTax: row["With Tax or Not 1"] === "No" ? "no" : "yes",
                 gstPercent: parseInt(row["Tax Value 1"]) || 0,
                 paymentTerm: row["Payment Term 1"] || "",
+                advancePercentage: row["Advance Percentage 1"] || "",
+                quotationNumber: row["Quotation Number 1"] || "",
+                quotationDate: row["Quotation Date 1"] || "",
                 whatsapp: row["Whatsapp Number 1"] || "",
                 email: row["Email Id 1"] || "",
                 alumina: row["Alumina 1"] || "",
@@ -174,6 +215,9 @@ export default function ThreeParty() {
                 withTax: row["With Tax or Not 2"] === "No" ? "no" : "yes",
                 gstPercent: parseInt(row["Tax Value 2"]) || 0,
                 paymentTerm: row["Payment Term 2"] || "",
+                advancePercentage: row["Advance Percentage 2"] || "",
+                quotationNumber: row["Quotation Number 2"] || "",
+                quotationDate: row["Quotation Date 2"] || "",
                 whatsapp: row["Whatsapp Number 2"] || "",
                 email: row["Email Id 2"] || "",
                 alumina: row["Alumina 2"] || "",
@@ -195,6 +239,9 @@ export default function ThreeParty() {
                 withTax: row["With Tax or Not 3"] === "No" ? "no" : "yes",
                 gstPercent: parseInt(row["Tax Value 3"]) || 0,
                 paymentTerm: row["Payment Term 3"] || "",
+                advancePercentage: row["Advance Percentage 3"] || "",
+                quotationNumber: row["Quotation Number 3"] || "",
+                quotationDate: row["Quotation Date 3"] || "",
                 whatsapp: row["Whatsapp Number 3"] || "",
                 email: row["Email Id 3"] || "",
                 alumina: row["Alumina 3"] || "",
@@ -324,62 +371,10 @@ export default function ThreeParty() {
 
   // Form state for Three Party
   const [vendorForms, setVendorForms] = useState([
-    {
-      name: "",
-      rateType: "basic",
-      rate: 0,
-      withTax: "no",
-      gstPercent: 0,
-      paymentTerm: "",
-      whatsapp: "",
-      email: "",
-      alumina: "",
-      iron: "",
-      sio2: "",
-      cao: "",
-      ap: "",
-      bd: "",
-      fineness: "",
-      packaging: "",
-    },
-    {
-      name: "",
-      rateType: "basic",
-      rate: 0,
-      withTax: "no",
-      gstPercent: 0,
-      paymentTerm: "",
-      whatsapp: "",
-      email: "",
-      alumina: "",
-      iron: "",
-      sio2: "",
-      cao: "",
-      ap: "",
-      bd: "",
-      fineness: "",
-      packaging: "",
-    },
-    {
-      name: "",
-      rateType: "basic",
-      rate: 0,
-      withTax: "no",
-      gstPercent: 0,
-      paymentTerm: "",
-      whatsapp: "",
-      email: "",
-      alumina: "",
-      iron: "",
-      sio2: "",
-      cao: "",
-      ap: "",
-      bd: "",
-      fineness: "",
-      packaging: "",
-    },
+    createEmptyVendorForm(),
+    createEmptyVendorForm(),
+    createEmptyVendorForm(),
   ]);
-  const [comparisonSheetFile, setComparisonSheetFile] = useState(null);
   const [historyRate, setHistoryRate] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -387,10 +382,20 @@ export default function ThreeParty() {
 
   const updateVendorForm = (index, field, value) => {
     if (field === "whatsapp") value = value.replace(/\D/g, "").slice(0, 10);
-    if (["alumina","iron","sio2","cao","ap","bd","fineness"].includes(field)) value = value.replace(/[^0-9.]/g, "");
+    if (
+      ["alumina", "iron", "sio2", "cao", "ap", "bd", "fineness"].includes(
+        field,
+      )
+    )
+      value = value.replace(/[^0-9.]/g, "");
+    if (field === "advancePercentage")
+      value = value.replace(/[^0-9.]/g, "").slice(0, 6);
     setVendorForms((prev) => {
       const newForms = [...prev];
       newForms[index] = { ...newForms[index], [field]: value };
+      if (field === "paymentTerm" && value !== "Advance") {
+        newForms[index].advancePercentage = "";
+      }
       return newForms;
     });
   };
@@ -426,16 +431,6 @@ export default function ThreeParty() {
 
     setIsSubmitting(true);
     try {
-      let comparisonSheetUrl = selectedIndent.comparisonSheet || "";
-      if (comparisonSheetFile) {
-        const res = await uploadFileToStorage(
-          comparisonSheetFile,
-          "image",
-          "comparison_sheets",
-        );
-        comparisonSheetUrl = res.url;
-      }
-
       const formatVendor = (v) => {
         const numericOrNull = (value) =>
           value === "" || value === null || value === undefined ? null : value;
@@ -458,6 +453,9 @@ export default function ThreeParty() {
           withTaxOrNot,
           taxValue: taxValue.toString(),
           paymentTerm: v.paymentTerm || "",
+          advancePercentage: numericOrNull(v.advancePercentage),
+          quotationNumber: v.quotationNumber || "",
+          quotationDate: v.quotationDate || null,
           whatsapp: v.whatsapp || "",
           email: v.email || "",
           alumina: numericOrNull(v.alumina),
@@ -485,6 +483,9 @@ export default function ThreeParty() {
           "With Tax or Not 1": v1.withTaxOrNot,
           "Tax Value 1": v1.taxValue,
           "Payment Term 1": v1.paymentTerm,
+          "Advance Percentage 1": v1.advancePercentage,
+          "Quotation Number 1": v1.quotationNumber,
+          "Quotation Date 1": v1.quotationDate,
           "Whatsapp Number 1": v1.whatsapp,
           "Email Id 1": v1.email,
           "Packaging 1": v1.packaging,
@@ -495,6 +496,9 @@ export default function ThreeParty() {
           "With Tax or Not 2": v2.withTaxOrNot,
           "Tax Value 2": v2.taxValue,
           "Payment Term 2": v2.paymentTerm,
+          "Advance Percentage 2": v2.advancePercentage,
+          "Quotation Number 2": v2.quotationNumber,
+          "Quotation Date 2": v2.quotationDate,
           "Whatsapp Number 2": v2.whatsapp,
           "Email Id 2": v2.email,
           "Packaging 2": v2.packaging,
@@ -505,6 +509,9 @@ export default function ThreeParty() {
           "With Tax or Not 3": v3.withTaxOrNot,
           "Tax Value 3": v3.taxValue,
           "Payment Term 3": v3.paymentTerm,
+          "Advance Percentage 3": v3.advancePercentage,
+          "Quotation Number 3": v3.quotationNumber,
+          "Quotation Date 3": v3.quotationDate,
           "Whatsapp Number 3": v3.whatsapp,
           "Email Id 3": v3.email,
           "Packaging 3": v3.packaging,
@@ -532,8 +539,6 @@ export default function ThreeParty() {
           "AP 3": v3.ap,
           "BD 3": v3.bd,
           "Fineness 3": v3.fineness,
-
-          "Comparison Sheet": comparisonSheetUrl,
           Planned7: new Date().toISOString(),
         })
         .eq("id", selectedIndent.id);
@@ -543,62 +548,12 @@ export default function ThreeParty() {
       toast.success(`Approved ${selectedIndent.indentId}`);
       setOpenDialog(false);
       setVendorForms([
-        {
-          name: "",
-          rateType: "basic",
-          rate: 0,
-          withTax: "no",
-          gstPercent: 0,
-          paymentTerm: "",
-          whatsapp: "",
-          email: "",
-          alumina: "",
-          iron: "",
-          sio2: "",
-          cao: "",
-          ap: "",
-          bd: "",
-          fineness: "",
-          packaging: "",
-        },
-        {
-          name: "",
-          rateType: "basic",
-          rate: 0,
-          withTax: "no",
-          gstPercent: 0,
-          paymentTerm: "",
-          whatsapp: "",
-          email: "",
-          alumina: "",
-          iron: "",
-          sio2: "",
-          cao: "",
-          ap: "",
-          bd: "",
-          fineness: "",
-          packaging: "",
-        },
-        {
-          name: "",
-          rateType: "basic",
-          rate: 0,
-          withTax: "no",
-          gstPercent: 0,
-          paymentTerm: "",
-          whatsapp: "",
-          email: "",
-          alumina: "",
-          iron: "",
-          sio2: "",
-          cao: "",
-          ap: "",
-          bd: "",
-          fineness: "",
-          packaging: "",
-        },
+        createEmptyVendorForm(),
+        createEmptyVendorForm(),
+        createEmptyVendorForm(),
       ]);
-      setComparisonSheetFile(null);
+      setVendorSearchTerms(["", "", ""]);
+      setVendorPopoverOpen([false, false, false]);
       setSelectedVendorIndex(0);
       setTimeout(() => setRefreshData((prev) => !prev), 1000);
     } catch (error) {
@@ -793,8 +748,9 @@ export default function ThreeParty() {
                           setSelectedIndent(indent);
                           setSelectedHistory(null);
                           setOpenDialog(true);
-                          setVendorForms(indent.vendors);
-                          setComparisonSheetFile(null);
+                          setVendorForms(indent.vendors.map(normalizeVendorForm));
+                          setVendorSearchTerms(["", "", ""]);
+                          setVendorPopoverOpen([false, false, false]);
                           setSelectedVendorIndex(0);
                         }}
                       >
@@ -805,8 +761,9 @@ export default function ThreeParty() {
                               setSelectedIndent(indent);
                               setSelectedHistory(null);
                               setOpenDialog(true);
-                              setVendorForms(indent.vendors);
-                              setComparisonSheetFile(null);
+                              setVendorForms(indent.vendors.map(normalizeVendorForm));
+                              setVendorSearchTerms(["", "", ""]);
+                              setVendorPopoverOpen([false, false, false]);
                               setSelectedVendorIndex(0);
                             }}
                             className="h-8 px-3 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white shadow-none"
@@ -1078,18 +1035,82 @@ export default function ThreeParty() {
                       </div>
                       <div>
                         <Label className="block mb-1 text-xs font-medium text-gray-600">Vendor Name</Label>
-                        <Select value={currentVendor.name} onValueChange={(value) => updateVendorForm(idx, "name", value)}>
-                          <SelectTrigger className="text-sm border-gray-200 h-9 bg-white">
-                            <SelectValue placeholder="Select vendor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {vendorMasterOptions.map((vendor, vendorIndex) => (
-                              <SelectItem key={`vendor-${idx}-${vendorIndex}`} value={vendor}>
-                                {vendor}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover
+                          open={vendorPopoverOpen[idx]}
+                          onOpenChange={(open) =>
+                            setVendorPopoverOpen((prev) =>
+                              prev.map((value, index) =>
+                                index === idx ? open : value,
+                              ),
+                            )
+                          }
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={vendorPopoverOpen[idx]}
+                              className="w-full justify-between text-sm border-gray-200 h-9 bg-white font-normal"
+                            >
+                              <span className="truncate">
+                                {currentVendor.name || "Select vendor"}
+                              </span>
+                              <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2">
+                            <Input
+                              value={vendorSearchTerms[idx] || ""}
+                              onChange={(e) =>
+                                setVendorSearchTerms((prev) =>
+                                  prev.map((term, index) =>
+                                    index === idx ? e.target.value : term,
+                                  ),
+                                )
+                              }
+                              placeholder="Search vendor..."
+                              className="mb-2 h-8 text-xs"
+                            />
+                            <div className="max-h-60 overflow-y-auto">
+                              {vendorMasterOptions
+                                .filter((vendor) =>
+                                  vendor
+                                    .toLowerCase()
+                                    .includes(
+                                      (vendorSearchTerms[idx] || "")
+                                        .trim()
+                                        .toLowerCase(),
+                                    ),
+                                )
+                                .map((vendor, vendorIndex) => (
+                                  <button
+                                    key={`vendor-${idx}-${vendorIndex}`}
+                                    type="button"
+                                    onClick={() => {
+                                      updateVendorForm(idx, "name", vendor);
+                                      setVendorSearchTerms((prev) =>
+                                        prev.map((term, index) =>
+                                          index === idx ? "" : term,
+                                        ),
+                                      );
+                                      setVendorPopoverOpen((prev) =>
+                                        prev.map((value, index) =>
+                                          index === idx ? false : value,
+                                        ),
+                                      );
+                                    }}
+                                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                  >
+                                    <span>{vendor}</span>
+                                    {currentVendor.name === vendor && (
+                                      <Check className="w-4 h-4 text-primary" />
+                                    )}
+                                  </button>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -1180,6 +1201,38 @@ export default function ThreeParty() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
+                            <Label className="block mb-1 text-[10px] text-gray-500">Quotation Number</Label>
+                            <Input
+                              value={currentVendor.quotationNumber || ""}
+                              onChange={(e) => updateVendorForm(idx, "quotationNumber", e.target.value)}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              placeholder="Enter quotation no."
+                            />
+                          </div>
+                          <div>
+                            <Label className="block mb-1 text-[10px] text-gray-500">Quotation Date</Label>
+                            <Input
+                              type="date"
+                              value={currentVendor.quotationDate || ""}
+                              onChange={(e) => updateVendorForm(idx, "quotationDate", e.target.value)}
+                              className="h-8 text-xs bg-white border-gray-200"
+                            />
+                          </div>
+                        </div>
+                        {currentVendor.paymentTerm === "Advance" && (
+                          <div>
+                            <Label className="block mb-1 text-[10px] text-gray-500">Advance Percentage</Label>
+                            <Input
+                              inputMode="decimal"
+                              value={currentVendor.advancePercentage || ""}
+                              onChange={(e) => updateVendorForm(idx, "advancePercentage", e.target.value)}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              placeholder="Enter advance %"
+                            />
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
                             <Label className="block mb-1 text-[10px] text-gray-500">WhatsApp</Label>
                             <Input
                               inputMode="numeric"
@@ -1203,6 +1256,7 @@ export default function ThreeParty() {
                         </div>
                         <div>
                           <Label className="block mb-2 text-xs font-medium text-gray-600">Chemical Analysis (%)</Label>
+                          <p className="mb-2 text-[10px] text-gray-400">Optional</p>
                           <div className="grid grid-cols-3 gap-2">
                             {[
                               ["alumina", "Al₂O₃"],
@@ -1238,45 +1292,6 @@ export default function ThreeParty() {
                       </div>
                     </div>
                   ))}
-                </div>
-
-                {/* Comparison Sheet Upload */}
-                <div className="pt-4 mt-6 border-t border-gray-100">
-                  <div className="mb-3 text-sm font-semibold text-gray-700">
-                    Upload Comparison Sheet
-                  </div>
-                  <div className="p-6 text-center transition-colors border-2 border-gray-200 border-dashed cursor-pointer rounded-xl hover:bg-gray-50">
-                    <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm font-medium text-gray-700">
-                      {comparisonSheetFile
-                        ? comparisonSheetFile.name
-                        : "Upload Comparison Sheet"}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      PDF, JPG, PNG (max 10MB)
-                    </p>
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="hidden"
-                      id="comparison-sheet-upload"
-                      onChange={(e) =>
-                        setComparisonSheetFile(e.target.files?.[0] || null)
-                      }
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 text-xs"
-                      onClick={() =>
-                        document
-                          .getElementById("comparison-sheet-upload")
-                          ?.click()
-                      }
-                    >
-                      Choose File
-                    </Button>
-                  </div>
                 </div>
               </div>
 

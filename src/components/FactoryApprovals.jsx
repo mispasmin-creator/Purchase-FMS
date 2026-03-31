@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -23,16 +23,14 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  Filter,
-  CheckCircle2,
-  History,
-  Loader2,
   AlertTriangle,
+  CheckCircle2,
+  GripVertical,
+  History,
   Info,
-  ChevronsUpDown,
-  Users,
-  X,
+  Loader2,
   Search,
+  Users,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
@@ -40,14 +38,18 @@ import { supabase } from "../supabase";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  TECHNICAL_TAGS,
+  buildTechnicalTagUpdate,
+  getTechnicalAssignments,
+  getVendorsFromRow,
+} from "../utils/approvalVendorUtils";
 
-// Helper function to format datetime
 const formatDateTime = (isoString) => {
   if (!isoString) return "-";
   const date = new Date(isoString);
@@ -56,8 +58,63 @@ const formatDateTime = (isoString) => {
   const year = date.getFullYear();
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
-  const seconds = date.getSeconds().toString().padStart(2, "0");
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+};
+
+const countAssignedTags = (assignments) =>
+  Object.values(assignments).filter(Boolean).length;
+
+const getUnassignedVendors = (vendors, assignments) => {
+  const assignedSlots = new Set(Object.values(assignments).filter(Boolean));
+  return vendors.filter((vendor) => !assignedSlots.has(vendor.slot));
+};
+
+const VendorCard = ({ vendor, tag }) => {
+  const gstNote =
+    vendor.rateType === "Basic Rate" && vendor.taxValue !== "0"
+      ? `GST ${vendor.taxValue}%`
+      : vendor.rateType === "Basic Rate"
+        ? "Basic Rate"
+        : "With Tax";
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <GripVertical className="h-4 w-4 text-gray-400" />
+            <p className="truncate text-sm font-semibold text-gray-800">
+              {vendor.name}
+            </p>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            {vendor.paymentTerm || "Payment term not set"}
+          </p>
+        </div>
+        {tag && (
+          <Badge className="bg-[#7da23a] text-white hover:bg-[#7da23a]">
+            {tag}
+          </Badge>
+        )}
+      </div>
+      <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+          Rate
+        </span>
+        <span className="text-lg font-bold text-gray-900">₹{vendor.rate}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-gray-500">
+        <span>{gstNote}</span>
+        {vendor.packaging ? <span>{vendor.packaging}</span> : null}
+        {vendor.advancePercentage ? (
+          <span>Advance {vendor.advancePercentage}%</span>
+        ) : null}
+        {vendor.quotationNumber ? (
+          <span>Quote {vendor.quotationNumber}</span>
+        ) : null}
+      </div>
+    </div>
+  );
 };
 
 export default function FactoryApprovals() {
@@ -69,744 +126,385 @@ export default function FactoryApprovals() {
   const [error, setError] = useState(null);
   const [refreshData, setRefreshData] = useState(false);
   const [selectedIndent, setSelectedIndent] = useState(null);
-  const [selectedHistory, setSelectedHistory] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
-
-  // Form states
-  const [vendorIndex, setVendorIndex] = useState("");
-  const [historyRate, setHistoryRate] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Filter states
-  const [selectedDate, setSelectedDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedHistoryDate, setSelectedHistoryDate] = useState("");
   const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [draggedSlot, setDraggedSlot] = useState(null);
+  const [technicalAssignments, setTechnicalAssignments] = useState(
+    Object.fromEntries(TECHNICAL_TAGS.map((tag) => [tag, null])),
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { user } = useAuth();
   const { updateCount } = useNotification();
 
-  // Fetch data from Supabase
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data, error: fetchError } = await supabase
-          .from("INDENT-PO")
-          .select("*");
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from("INDENT-PO")
+        .select("*");
 
-        if (fetchError) throw fetchError;
+      if (fetchError) throw fetchError;
 
-        // Filter by firm name
-        let filteredData = data;
-        if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-          filteredData = data.filter(
-            (row) =>
-              row["Firm Name"] &&
-              String(row["Firm Name"]).toLowerCase() ===
-                user.firmName.toLowerCase(),
-          );
-        }
-
-        // Process pending data (Planned7 is not null and Actual7 is null)
-        const pending = filteredData
-          .filter(
-            (row) =>
-              row["Planned7"] !== null &&
-              row["Planned7"] !== "" &&
-              (!row["Actual7"] || row["Actual7"] === ""),
-          )
-          .map((row) => ({
-            id: row.id,
-            indentId: row["Indent Id."] || "",
-            firmName: row["Firm Name"] || "",
-            indenter: row["Generated By"] || "",
-            department: row["Type Of Indent"] || "",
-            product: row["Material"] || "",
-            comparisonSheet: row["Comparison Sheet"] || "",
-            planned7: row["Planned7"] || "",
-            actual7: row["Actual7"] || "",
-            vendors: [
-              [
-                row["Vendor Name 1"] || "",
-                row["Rate 1"]?.toString() || "0",
-                row["Payment Term 1"] || "",
-                row["Select Rate Type 1"] || "With Tax",
-                row["With Tax or Not 1"] || "Yes",
-                row["Tax Value 1"]?.toString() || "0",
-                row["Alumina 1"] || "",
-                row["Iron 1"] || "",
-                row["SiO2 1"] || "",
-                row["CaO 1"] || "",
-                row["AP 1"] || "",
-                row["BD 1"] || "",
-                row["Fineness 1"] || "",
-                row["Packaging 1"] || "",
-              ],
-              [
-                row["Vendor Name 2"] || "",
-                row["Rate 2"]?.toString() || "0",
-                row["Payment Term 2"] || "",
-                row["Select Rate Type 2"] || "With Tax",
-                row["With Tax or Not 2"] || "Yes",
-                row["Tax Value 2"]?.toString() || "0",
-                row["Alumina 2"] || "",
-                row["Iron 2"] || "",
-                row["SiO2 2"] || "",
-                row["CaO 2"] || "",
-                row["AP 2"] || "",
-                row["BD 2"] || "",
-                row["Fineness 2"] || "",
-                row["Packaging 2"] || "",
-              ],
-              [
-                row["Vendor Name 3"] || "",
-                row["Rate 3"]?.toString() || "0",
-                row["Payment Term 3"] || "",
-                row["Select Rate Type 3"] || "With Tax",
-                row["With Tax or Not 3"] || "Yes",
-                row["Tax Value 3"]?.toString() || "0",
-                row["Alumina 3"] || "",
-                row["Iron 3"] || "",
-                row["SiO2 3"] || "",
-                row["CaO 3"] || "",
-                row["AP 3"] || "",
-                row["BD 3"] || "",
-                row["Fineness 3"] || "",
-                row["Packaging 3"] || "",
-              ],
-            ].filter((vendor) => vendor[0] !== "" && vendor[0] !== null),
-          }));
-
-        // Process history data (Planned7 is not null and Actual7 is not null)
-        const history = filteredData
-          .filter(
-            (row) =>
-              row["Planned7"] !== null &&
-              row["Planned7"] !== "" &&
-              row["Actual7"] !== null &&
-              row["Actual7"] !== "",
-          )
-          .map((row) => ({
-            id: row.id,
-            indentId: row["Indent Id."] || "",
-            firmName: row["Firm Name"] || "",
-            indenter: row["Generated By"] || "",
-            department: row["Type Of Indent"] || "",
-            product: row["Material"] || "",
-            actual7: row["Actual7"] || "",
-            vendor: [
-              row["Approved Vendor Name"] || "",
-              row["Approved Rate"]?.toString() || "0",
-              row["Approved Payment Term"] || "",
-              row["With Tax or Not 4"] || "Yes",
-              row["Tax Value 4"]?.toString() || "0",
-              row["Alumina %"] || "",
-              row["Iron %"] || "",
-              row["SiO2 %"] || "",
-              row["CaO %"] || "",
-              row["AP Percent Age %"] || "",
-              row["BD Percent Age %"] || "",
-              row["Fineness"] || "",
-            ],
-            approvedDate: row["Approved Date"] || "",
-          }))
-          .sort((a, b) => {
-            const dateA = new Date(a.actual7);
-            const dateB = new Date(b.actual7);
-            return dateB.getTime() - dateA.getTime();
-          });
-
-        setPendingData(pending);
-        setFilteredPendingData(pending);
-        setHistoryData(history);
-        setFilteredHistoryData(history);
-
-        // Update notification count
-        updateCount("factory", pending.length);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setError("Failed to load data: " + err.message);
-        toast.error("Failed to load data", { description: err.message });
-      } finally {
-        setLoading(false);
+      let filteredData = data;
+      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+        filteredData = data.filter(
+          (row) =>
+            row["Firm Name"] &&
+            String(row["Firm Name"]).toLowerCase() ===
+              user.firmName.toLowerCase(),
+        );
       }
-    };
 
+      const pending = filteredData
+        .filter(
+          (row) =>
+            row["Planned7"] !== null &&
+            row["Planned7"] !== "" &&
+            (!row["Actual7"] || row["Actual7"] === ""),
+        )
+        .map((row) => {
+          const vendors = getVendorsFromRow(row);
+          return {
+            id: row.id,
+            indentId: row["Indent Id."] || "",
+            firmName: row["Firm Name"] || "",
+            indenter: row["Generated By"] || "",
+            department: row["Type Of Indent"] || "",
+            product: row["Material"] || "",
+            planned7: row["Planned7"] || "",
+            vendors,
+            assignments: getTechnicalAssignments(vendors),
+          };
+        });
+
+      const history = filteredData
+        .filter(
+          (row) =>
+            row["Actual7"] !== null &&
+            row["Actual7"] !== "",
+        )
+        .map((row) => {
+          const vendors = getVendorsFromRow(row);
+          return {
+            id: row.id,
+            indentId: row["Indent Id."] || "",
+            firmName: row["Firm Name"] || "",
+            indenter: row["Generated By"] || "",
+            department: row["Type Of Indent"] || "",
+            product: row["Material"] || "",
+            actual7: row["Actual7"] || "",
+            vendors,
+          };
+        })
+        .sort((a, b) => new Date(b.actual7) - new Date(a.actual7));
+
+      setPendingData(pending);
+      setFilteredPendingData(pending);
+      setHistoryData(history);
+      setFilteredHistoryData(history);
+      updateCount("factory", pending.length);
+    } catch (err) {
+      console.error("Error fetching factory approvals:", err);
+      setError(err.message || "Failed to load factory approvals");
+      toast.error("Failed to load factory approvals", {
+        description: err.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [updateCount, user]);
+
+  useEffect(() => {
     fetchData();
-  }, [refreshData, user, updateCount]);
+  }, [fetchData, refreshData]);
 
-  // Filter pending data
   useEffect(() => {
-    let filtered = [...pendingData];
-
-    if (selectedDate) {
-      filtered = filtered.filter((item) => {
-        const itemDate = new Date(item.planned7).toISOString().split("T")[0];
-        return itemDate === selectedDate;
-      });
-    }
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
+    const query = searchQuery.trim().toLowerCase();
+    setFilteredPendingData(
+      pendingData.filter(
         (item) =>
           item.indentId.toLowerCase().includes(query) ||
           item.firmName.toLowerCase().includes(query) ||
           item.indenter.toLowerCase().includes(query) ||
           item.department.toLowerCase().includes(query) ||
           item.product.toLowerCase().includes(query),
-      );
-    }
+      ),
+    );
+  }, [pendingData, searchQuery]);
 
-    setFilteredPendingData(filtered);
-  }, [selectedDate, searchQuery, pendingData]);
-
-  // Filter history data
   useEffect(() => {
-    let filtered = [...historyData];
-
-    if (selectedHistoryDate) {
-      filtered = filtered.filter((item) => {
-        const itemDate = new Date(item.actual7).toISOString().split("T")[0];
-        return itemDate === selectedHistoryDate;
-      });
-    }
-
-    if (historySearchQuery.trim()) {
-      const query = historySearchQuery.toLowerCase();
-      filtered = filtered.filter(
+    const query = historySearchQuery.trim().toLowerCase();
+    setFilteredHistoryData(
+      historyData.filter(
         (item) =>
           item.indentId.toLowerCase().includes(query) ||
           item.firmName.toLowerCase().includes(query) ||
           item.indenter.toLowerCase().includes(query) ||
           item.department.toLowerCase().includes(query) ||
-          item.product.toLowerCase().includes(query),
-      );
-    }
+          item.product.toLowerCase().includes(query) ||
+          item.vendors.some((vendor) =>
+            vendor.name.toLowerCase().includes(query),
+          ),
+      ),
+    );
+  }, [historyData, historySearchQuery]);
 
-    setFilteredHistoryData(filtered);
-  }, [selectedHistoryDate, historySearchQuery, historyData]);
+  const selectedUnassignedVendors = useMemo(
+    () =>
+      selectedIndent
+        ? getUnassignedVendors(selectedIndent.vendors, technicalAssignments)
+        : [],
+    [selectedIndent, technicalAssignments],
+  );
 
-  const clearAllFilters = () => {
-    setSelectedDate("");
-    setSearchQuery("");
+  const openCategorizationDialog = (indent) => {
+    const existingAssignments = getTechnicalAssignments(indent.vendors);
+    setSelectedIndent(indent);
+    setTechnicalAssignments(
+      existingAssignments.T1 || existingAssignments.T2 || existingAssignments.T3
+        ? existingAssignments
+        : Object.fromEntries(TECHNICAL_TAGS.map((tag) => [tag, null])),
+    );
+    setDraggedSlot(null);
+    setOpenDialog(true);
   };
 
-  const clearAllHistoryFilters = () => {
-    setSelectedHistoryDate("");
-    setHistorySearchQuery("");
+  const assignVendorToTag = (slot, tag) => {
+    setTechnicalAssignments((prev) => {
+      const next = { ...prev };
+
+      Object.keys(next).forEach((currentTag) => {
+        if (next[currentTag] === slot) {
+          next[currentTag] = null;
+        }
+      });
+
+      next[tag] = slot;
+      return next;
+    });
   };
 
-  async function onSubmit() {
-    if (!selectedIndent || !vendorIndex) {
-      toast.error("Please select a vendor");
+  const clearTag = (tag) => {
+    setTechnicalAssignments((prev) => ({ ...prev, [tag]: null }));
+  };
+
+  const handleDropToPool = () => {
+    if (!draggedSlot) return;
+    setTechnicalAssignments((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((tag) => {
+        if (next[tag] === draggedSlot) {
+          next[tag] = null;
+        }
+      });
+      return next;
+    });
+    setDraggedSlot(null);
+  };
+
+  const onSubmit = async () => {
+    if (!selectedIndent) return;
+
+    const assignedCount = countAssignedTags(technicalAssignments);
+    if (assignedCount !== selectedIndent.vendors.length) {
+      toast.error("Please assign every vendor to a technical bucket");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const idx = parseInt(vendorIndex);
-      const selectedVendor = selectedIndent.vendors[idx];
-      const numericOrNull = (value) =>
-        value === "" || value === null || value === undefined ? null : value;
-
       const { error: updateError } = await supabase
         .from("INDENT-PO")
         .update({
+          ...buildTechnicalTagUpdate(technicalAssignments),
           Actual7: new Date().toISOString(),
-          Vendor: selectedVendor[0] || "",
-          "Approved Vendor Name": selectedVendor[0] || "",
-          "Approved Rate": selectedVendor[1] || "0",
-          "Approved Payment Term": selectedVendor[2] || "",
-          "With Tax or Not 4": selectedVendor[4] || "Yes",
-          "Tax Value 4": selectedVendor[5] || "0",
-          "Alumina %": numericOrNull(selectedVendor[6]),
-          "Iron %": numericOrNull(selectedVendor[7]),
-          "SiO2 %": numericOrNull(selectedVendor[8]),
-          "CaO %": numericOrNull(selectedVendor[9]),
-          "AP Percent Age %": numericOrNull(selectedVendor[10]),
-          "BD Percent Age %": numericOrNull(selectedVendor[11]),
-          Fineness: numericOrNull(selectedVendor[12]),
-          Packaging: selectedVendor[13] || "",
-          "Approved Date": new Date().toISOString(),
           Planned8: new Date().toISOString(),
         })
         .eq("id", selectedIndent.id);
 
       if (updateError) throw updateError;
 
-      toast.success(`Approved vendor for ${selectedIndent.indentId}`);
+      toast.success(`Technical ranking saved for ${selectedIndent.indentId}`);
       setOpenDialog(false);
-      setVendorIndex("");
-      setTimeout(() => setRefreshData((prev) => !prev), 1000);
+      setSelectedIndent(null);
+      setTechnicalAssignments(
+        Object.fromEntries(TECHNICAL_TAGS.map((tag) => [tag, null])),
+      );
+      setRefreshData((prev) => !prev);
     } catch (error) {
-      console.error("Error updating vendor:", error);
-      toast.error("Failed to update vendor");
+      console.error("Error saving technical ranking:", error);
+      toast.error("Failed to save technical ranking", {
+        description: error.message,
+      });
     } finally {
       setIsSubmitting(false);
     }
-  }
-
-  async function onSubmitHistoryUpdate() {
-    if (!selectedHistory || historyRate <= 0) return;
-
-    setIsSubmitting(true);
-    try {
-      const { error: updateError } = await supabase
-        .from("INDENT-PO")
-        .update({
-          "Approved Rate": historyRate.toString(),
-          "Approved Date": new Date().toISOString(),
-        })
-        .eq("id", selectedHistory.id);
-
-      if (updateError) throw updateError;
-
-      toast.success(`Updated rate for ${selectedHistory.indentId}`);
-      setOpenDialog(false);
-      setHistoryRate(0);
-      setTimeout(() => setRefreshData((prev) => !prev), 1000);
-    } catch (error) {
-      console.error("Error updating rate:", error);
-      toast.error("Failed to update rate");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+  };
 
   return (
-    <Card className="relative w-full max-w-full mx-auto bg-white border border-gray-200 rounded-lg shadow-md">
+    <Card className="w-full max-w-full mx-auto bg-white border border-gray-200 rounded-lg shadow-md">
       <CardHeader className="p-4 border-b border-gray-200">
         <CardTitle className="flex items-center gap-2 text-lg text-gray-800">
           <Users className="h-5 w-5 text-[#7da23a]" />
-          Factory Rate Approval
+          Factory Technical Categorisation
         </CardTitle>
         <CardDescription className="text-sm text-gray-500">
-          Review and approve vendor rates at the factory level
+          Drag vendors into `T1`, `T2`, and `T3` before management makes the final selection.
         </CardDescription>
-        {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-          <p className="text-[#7da23a] text-xs mt-1">
-            Showing data for:{" "}
-            <span className="font-semibold">{user.firmName}</span>
-          </p>
-        )}
       </CardHeader>
 
       <CardContent className="p-4">
-        <Tabs defaultValue="pending" className="w-full">
-          <TabsList className="grid max-w-sm grid-cols-2 mb-4">
-            <TabsTrigger value="pending" className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
-              Pending
-              <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
-                {pendingData.length}
-              </Badge>
+        <Tabs defaultValue="pending">
+          <TabsList className="mb-4">
+            <TabsTrigger value="pending" className="gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Pending <Badge variant="secondary">{pendingData.length}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center gap-2">
-              <History className="w-4 h-4" />
-              History
-              <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
-                {historyData.length}
-              </Badge>
+            <TabsTrigger value="history" className="gap-2">
+              <History className="h-4 w-4" />
+              History <Badge variant="secondary">{historyData.length}</Badge>
             </TabsTrigger>
           </TabsList>
 
-          {/* Pending Tab */}
-          <TabsContent value="pending" className="mt-4">
-            <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-full">
-                      <CheckCircle2 className="h-4 w-4 text-[#7da23a]" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-800">
-                        Pending Factory Approvals
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        Review rates for factory level approval.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Filters Section */}
-              <div className="p-4 mb-4 border-b border-gray-200">
-                <div className="flex items-center gap-2 mb-3">
-                  <Filter className="w-4 h-4 text-gray-500" />
-                  <Label className="text-sm font-medium">Filters</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    className="ml-auto bg-white"
-                  >
-                    Clear All
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <Label className="block mb-1 text-xs">Planned Date</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="w-full h-9"
-                      />
-                      {selectedDate && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => setSelectedDate("")}
-                          className="h-9 w-9"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="block mb-1 text-xs">Search</Label>
-                    <div className="relative">
-                      <Input
-                        placeholder="Search by Indent No., Firm, Product..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pr-9 h-9"
-                      />
-                      <Search className="absolute w-4 h-4 transform -translate-y-1/2 right-3 top-1/2 text-muted-foreground" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4">
-                {loading ? (
-                  <div className="flex items-center justify-center h-40">
-                    <Loader2 className="w-8 h-8 mr-3 text-green-500 animate-spin" />
-                    <p className="text-gray-700">
-                      Loading pending approvals...
-                    </p>
-                  </div>
-                ) : error ? (
-                  <div className="p-6 text-center rounded-md bg-red-50">
-                    <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-red-500" />
-                    <h3 className="font-semibold text-red-700">
-                      Error Loading Data
-                    </h3>
-                    <p className="mb-3 text-sm text-red-600">{error}</p>
-                    <Button
-                      onClick={() => setRefreshData((p) => !p)}
-                      className="px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-                    >
-                      Try Again
-                    </Button>
-                  </div>
-                ) : filteredPendingData.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <Info className="w-12 h-12 mx-auto mb-3 text-green-500" />
-                    <p className="text-gray-600">No pending approvals found.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-lg border border-gray-200 max-h-[calc(100vh-400px)]">
-                    <Table className="w-full text-sm">
-                      <TableHeader className="sticky top-0 z-10 bg-gray-100">
-                        <TableRow>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Action
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Indent No.
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Firm Name
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Indenter
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Department
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Product
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Planned Date
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Vendors
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Comparison Sheet
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody className="bg-white divide-y divide-gray-200">
-                        {filteredPendingData.map((indent) => (
-                          <TableRow
-                            key={indent.id}
-                            className="hover:bg-gray-50"
-                          >
-                            <TableCell className="px-4 py-1.5">
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedIndent(indent);
-                                  setSelectedHistory(null);
-                                  setOpenDialog(true);
-                                  setVendorIndex("");
-                                }}
-                                className="h-7 px-2 text-xs bg-[#7da23a] text-white hover:bg-[#6b8e2f]"
-                              >
-                                Approve
-                              </Button>
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.indentId}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.firmName}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.indenter}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.department}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.product}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {formatDateTime(indent.planned7)}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              <div className="flex flex-col gap-1">
-                                {indent.vendors.map((vendor, index) => (
-                                  <span
-                                    key={index}
-                                    className="rounded-full text-[10px] px-2 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 inline-block w-fit"
-                                  >
-                                    {vendor[0]} - ₹{vendor[1]}
-                                  </span>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.comparisonSheet ? (
-                                <a
-                                  href={indent.comparisonSheet}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:underline"
-                                >
-                                  View Sheet
-                                </a>
-                              ) : (
-                                "-"
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </div>
+          <TabsContent value="pending" className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                className="pl-9"
+                placeholder="Search indent, firm, product..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-[#7da23a]" />
+              </div>
+            ) : error ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+                <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-500" />
+                <p className="font-medium text-red-700">{error}</p>
+              </div>
+            ) : filteredPendingData.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
+                <Info className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                <p className="text-sm text-gray-500">No factory categorisation pending.</p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-gray-200 overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-gray-50">
+                    <TableRow>
+                      <TableHead>Indent</TableHead>
+                      <TableHead>Firm</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Vendors</TableHead>
+                      <TableHead>Three Party Done</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPendingData.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.indentId}</TableCell>
+                        <TableCell>{item.firmName}</TableCell>
+                        <TableCell>{item.product}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1.5">
+                            {item.vendors.map((vendor) => (
+                              <Badge key={vendor.slot} variant="outline">
+                                {vendor.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDateTime(item.planned7)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            className="bg-[#7da23a] hover:bg-[#6b8e2f]"
+                            onClick={() => openCategorizationDialog(item)}
+                          >
+                            Categorise
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </TabsContent>
 
-          {/* History Tab */}
-          <TabsContent value="history" className="mt-4">
-            <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <History className="h-4 w-4 text-[#7da23a]" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-800">
-                      Approval History
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      View completed rate approvals.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Filters Section */}
-              <div className="p-4 mb-4 border-b border-gray-200">
-                <div className="flex items-center gap-2 mb-3">
-                  <Filter className="w-4 h-4 text-gray-500" />
-                  <Label className="text-sm font-medium">Filters</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearAllHistoryFilters}
-                    className="ml-auto bg-white"
-                  >
-                    Clear All
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <Label className="block mb-1 text-xs">Approval Date</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="date"
-                        value={selectedHistoryDate}
-                        onChange={(e) => setSelectedHistoryDate(e.target.value)}
-                        className="w-full h-9"
-                      />
-                      {selectedHistoryDate && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => setSelectedHistoryDate("")}
-                          className="h-9 w-9"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="block mb-1 text-xs">Search</Label>
-                    <div className="relative">
-                      <Input
-                        placeholder="Search by Indent No., Firm, Product..."
-                        value={historySearchQuery}
-                        onChange={(e) => setHistorySearchQuery(e.target.value)}
-                        className="pr-9 h-9"
-                      />
-                      <Search className="absolute w-4 h-4 transform -translate-y-1/2 right-3 top-1/2 text-muted-foreground" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4">
-                {loading ? (
-                  <div className="flex items-center justify-center h-40">
-                    <Loader2 className="w-8 h-8 mr-3 text-green-500 animate-spin" />
-                    <p className="text-gray-700">Loading history...</p>
-                  </div>
-                ) : error ? (
-                  <div className="p-6 text-center rounded-md bg-red-50">
-                    <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-red-500" />
-                    <h3 className="font-semibold text-red-700">
-                      Error Loading Data
-                    </h3>
-                    <p className="mb-3 text-sm text-red-600">{error}</p>
-                    <Button
-                      onClick={() => setRefreshData((p) => !p)}
-                      className="px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-                    >
-                      Try Again
-                    </Button>
-                  </div>
-                ) : filteredHistoryData.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <Info className="w-12 h-12 mx-auto mb-3 text-green-500" />
-                    <p className="text-gray-600">No history found.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-lg border border-gray-200 max-h-[calc(100vh-400px)]">
-                    <Table className="w-full text-sm">
-                      <TableHeader className="sticky top-0 z-10 bg-gray-100">
-                        <TableRow>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Action
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Approval Date
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Indent No.
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Firm Name
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Indenter
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Department
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Product
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Approved Vendor
-                          </TableHead>
-                          <TableHead className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-600 uppercase whitespace-nowrap">
-                            Rate
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody className="bg-white divide-y divide-gray-200">
-                        {filteredHistoryData.map((indent) => (
-                          <TableRow
-                            key={indent.id}
-                            className="hover:bg-gray-50"
-                          >
-                            <TableCell className="px-4 py-1.5">
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedHistory(indent);
-                                  setSelectedIndent(null);
-                                  setOpenDialog(true);
-                                  setHistoryRate(
-                                    parseFloat(indent.vendor[1]) || 0,
-                                  );
-                                }}
-                                className="px-2 text-xs h-7"
-                              >
-                                Update
-                              </Button>
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {formatDateTime(indent.actual7)}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.indentId}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.firmName}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.indenter}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.department}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              {indent.product}
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5">
-                              <span className="rounded-full text-[10px] px-2 py-0.5 bg-accent text-accent-foreground border border-accent-foreground">
-                                {indent.vendor[0]}
-                              </span>
-                            </TableCell>
-                            <TableCell className="px-4 py-1.5 font-medium">
-                              ₹{indent.vendor[1]}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </div>
+          <TabsContent value="history" className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                className="pl-9"
+                placeholder="Search tagged approvals..."
+                value={historySearchQuery}
+                onChange={(e) => setHistorySearchQuery(e.target.value)}
+              />
             </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-[#7da23a]" />
+              </div>
+            ) : filteredHistoryData.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
+                <Info className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                <p className="text-sm text-gray-500">No factory categorisation history yet.</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {filteredHistoryData.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-gray-900">
+                          {item.indentId}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {item.firmName} · {item.product}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">{formatDateTime(item.actual7)}</Badge>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      {TECHNICAL_TAGS.map((tag) => {
+                        const vendor = item.vendors.find(
+                          (currentVendor) => currentVendor.technicalTag === tag,
+                        );
+                        return (
+                          <div
+                            key={tag}
+                            className="rounded-xl border border-dashed border-gray-200 bg-slate-50 p-3"
+                          >
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="text-xs font-semibold tracking-wide text-gray-500">
+                                {tag}
+                              </span>
+                            </div>
+                            {vendor ? (
+                              <VendorCard vendor={vendor} tag={tag} />
+                            ) : (
+                              <p className="text-sm text-gray-400">Not assigned</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -815,164 +513,105 @@ export default function FactoryApprovals() {
         open={openDialog}
         onOpenChange={(open) => {
           setOpenDialog(open);
-          if (!open) setVendorIndex("");
+          if (!open) {
+            setSelectedIndent(null);
+            setDraggedSlot(null);
+          }
         }}
       >
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedIndent
-                ? "Management Rate Approval"
-                : "Update Approved Rate"}
-            </DialogTitle>
-            {selectedIndent && (
-              <DialogDescription>
-                Select the best vendor for{" "}
-                <span className="font-medium">{selectedIndent.indentId}</span>
-              </DialogDescription>
-            )}
-          </DialogHeader>
-
+        <DialogContent className="sm:max-w-[1100px]">
           {selectedIndent && (
-            <div className="grid gap-4 py-2">
-              <div className="grid grid-cols-3 gap-3 px-4 py-2 rounded-md bg-muted">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Indenter</p>
-                  <p className="text-sm font-light text-muted-foreground">
-                    {selectedIndent.indenter}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Department</p>
-                  <p className="text-sm font-light text-muted-foreground">
-                    {selectedIndent.department}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Product</p>
-                  <p className="text-sm font-light text-muted-foreground">
-                    {selectedIndent.product}
-                  </p>
-                </div>
-              </div>
+            <>
+              <DialogHeader>
+                <DialogTitle>Technical Categorisation</DialogTitle>
+                <DialogDescription>
+                  Drag each vendor into a technical bucket for{" "}
+                  <span className="font-medium">{selectedIndent.indentId}</span>.
+                </DialogDescription>
+              </DialogHeader>
 
-              <div className="grid gap-3">
-                <Label className="text-sm font-semibold">Select a vendor</Label>
-                <div className="grid gap-2">
-                  {selectedIndent.vendors.map((vendor, idx) => {
-                    const isBasicRate = vendor[3] === "Basic Rate";
-                    const gstValue = vendor[5] || "0";
+              <div className="grid gap-6 py-2 lg:grid-cols-[320px,1fr]">
+                <div
+                  className="rounded-2xl border border-dashed border-gray-300 bg-slate-50 p-4"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDropToPool}
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <Label className="text-sm font-semibold text-gray-700">
+                      Unassigned Vendors
+                    </Label>
+                    <Badge variant="secondary">
+                      {selectedUnassignedVendors.length}
+                    </Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {selectedUnassignedVendors.length > 0 ? (
+                      selectedUnassignedVendors.map((vendor) => (
+                        <div
+                          key={vendor.slot}
+                          draggable
+                          onDragStart={() => setDraggedSlot(vendor.slot)}
+                        >
+                          <VendorCard vendor={vendor} />
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-xl border border-dashed border-gray-200 bg-white p-4 text-sm text-gray-400">
+                        All vendors are assigned. Drag one back here to reset it.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  {TECHNICAL_TAGS.map((tag) => {
+                    const assignedSlot = technicalAssignments[tag];
+                    const vendor = selectedIndent.vendors.find(
+                      (currentVendor) => currentVendor.slot === assignedSlot,
+                    );
 
                     return (
                       <div
-                        key={idx}
-                        onClick={() => setVendorIndex(idx.toString())}
-                        className={`flex items-center gap-4 border p-3 rounded-md cursor-pointer transition-colors hover:bg-accent ${
-                          vendorIndex === idx.toString()
-                            ? "bg-green-50 border-green-400"
-                            : "border-gray-200"
-                        }`}
+                        key={tag}
+                        className="rounded-2xl border border-gray-200 bg-white p-4"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          if (draggedSlot) assignVendorToTag(draggedSlot, tag);
+                          setDraggedSlot(null);
+                        }}
                       >
-                      {/* Radio circle indicator */}
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                          vendorIndex === idx.toString()
-                            ? "border-green-500"
-                            : "border-gray-400"
-                        }`}
-                      >
-                        {vendorIndex === idx.toString() && (
-                          <div className="w-2 h-2 bg-green-500 rounded-full" />
-                        )}
-                      </div>
-                      <div className="w-full font-normal">
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{vendor[0]}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Payment Term: {vendor[2]}
+                        <div className="mb-3 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {tag}
                             </p>
-                            {isBasicRate ? (
-                              <p className="mt-1 text-xs font-medium text-orange-600">
-                                Basic Rate {gstValue !== "0" ? `— GST: ${gstValue}%` : ""}
-                              </p>
-                            ) : (
-                              <p className="mt-1 text-xs font-medium text-green-600">
-                                With Tax
-                              </p>
-                            )}
-                            {/* Lab Details */}
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 border-t pt-2">
-                              {vendor[6] && (
-                                <span className="text-[10px]">
-                                  <span className="font-semibold text-gray-500">
-                                    Al₂O₃:
-                                  </span>{" "}
-                                  {vendor[6]}%
-                                </span>
-                              )}
-                              {vendor[7] && (
-                                <span className="text-[10px]">
-                                  <span className="font-semibold text-gray-500">
-                                    Fe₂O₃:
-                                  </span>{" "}
-                                  {vendor[7]}%
-                                </span>
-                              )}
-                              {vendor[8] && (
-                                <span className="text-[10px]">
-                                  <span className="font-semibold text-gray-500">
-                                    SiO₂:
-                                  </span>{" "}
-                                  {vendor[8]}%
-                                </span>
-                              )}
-                              {vendor[9] && (
-                                <span className="text-[10px]">
-                                  <span className="font-semibold text-gray-500">
-                                    CaO:
-                                  </span>{" "}
-                                  {vendor[9]}%
-                                </span>
-                              )}
-                              {vendor[10] && (
-                                <span className="text-[10px]">
-                                  <span className="font-semibold text-gray-500">
-                                    AP:
-                                  </span>{" "}
-                                  {vendor[10]}%
-                                </span>
-                              )}
-                              {vendor[11] && (
-                                <span className="text-[10px]">
-                                  <span className="font-semibold text-gray-500">
-                                    BD:
-                                  </span>{" "}
-                                  {vendor[11]}%
-                                </span>
-                              )}
-                              {vendor[12] && (
-                                <span className="text-[10px]">
-                                  <span className="font-semibold text-gray-500">
-                                    Fine:
-                                  </span>{" "}
-                                  {vendor[12]}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-base font-semibold">
-                              ₹{vendor[1]}
+                            <p className="text-xs text-gray-500">
+                              Technical ranking bucket
                             </p>
-                            {isBasicRate && (
-                                <p className="text-xs text-muted-foreground">
-                                  Basic Rate
-                                </p>
-                              )}
                           </div>
+                          {vendor ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => clearTag(tag)}
+                            >
+                              Clear
+                            </Button>
+                          ) : null}
                         </div>
-                      </div>
+
+                        {vendor ? (
+                          <div
+                            draggable
+                            onDragStart={() => setDraggedSlot(vendor.slot)}
+                          >
+                            <VendorCard vendor={vendor} tag={tag} />
+                          </div>
+                        ) : (
+                          <div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-slate-50 p-4 text-center text-sm text-gray-400">
+                            Drop a vendor here
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -980,68 +619,21 @@ export default function FactoryApprovals() {
               </div>
 
               <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline" onClick={() => setVendorIndex("")}>
-                    Close
-                  </Button>
-                </DialogClose>
+                <Button variant="outline" onClick={() => setOpenDialog(false)}>
+                  Cancel
+                </Button>
                 <Button
                   className="bg-[#7da23a] hover:bg-[#6b8e2f]"
-                  disabled={!vendorIndex || isSubmitting}
+                  disabled={isSubmitting}
                   onClick={onSubmit}
                 >
                   {isSubmitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Confirm Approval"
-                  )}
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Save Technical Tags
                 </Button>
               </DialogFooter>
-            </div>
-          )}
-
-          {selectedHistory && (
-            <div className="grid gap-4 py-2">
-              <div className="p-3 mb-2 space-y-1 text-sm rounded-md bg-muted">
-                <p>
-                  <span className="font-semibold">Vendor:</span>{" "}
-                  {selectedHistory.vendor[0]}
-                </p>
-                <p>
-                  <span className="font-semibold">Current Rate:</span> ₹
-                  {selectedHistory.vendor[1]}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="rate">New Approved Rate</Label>
-                <Input
-                  id="rate"
-                  type="number"
-                  step="0.01"
-                  value={historyRate}
-                  onChange={(e) =>
-                    setHistoryRate(parseFloat(e.target.value) || 0)
-                  }
-                  placeholder="Enter new rate"
-                />
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">Close</Button>
-                </DialogClose>
-                <Button
-                  className="bg-[#7da23a] hover:bg-[#6b8e2f]"
-                  disabled={historyRate <= 0 || isSubmitting}
-                  onClick={onSubmitHistoryUpdate}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Update Rate"
-                  )}
-                </Button>
-              </DialogFooter>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
