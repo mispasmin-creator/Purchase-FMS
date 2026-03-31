@@ -276,7 +276,7 @@ export default function ManagementApprovals() {
 
           <TabsContent value="pending" className="space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
               <Input
                 className="pl-9"
                 placeholder="Search indent, firm, vendor..."
@@ -290,17 +290,19 @@ export default function ManagementApprovals() {
                 <Loader2 className="h-6 w-6 animate-spin text-[#7da23a]" />
               </div>
             ) : error ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-                <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-500" />
+              <div className="p-6 text-center border border-red-200 rounded-xl bg-red-50">
+                <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-red-500" />
                 <p className="font-medium text-red-700">{error}</p>
               </div>
             ) : filteredPendingData.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
-                <Info className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                <p className="text-sm text-gray-500">No pending management approvals.</p>
+              <div className="py-12 text-center border border-gray-200 border-dashed rounded-xl">
+                <Info className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                <p className="text-sm text-gray-500">
+                  No pending management approvals.
+                </p>
               </div>
             ) : (
-              <div className="rounded-xl border border-gray-200 overflow-x-auto">
+              <div className="overflow-x-auto border border-gray-200 rounded-xl">
                 <Table>
                   <TableHeader className="bg-gray-50">
                     <TableRow>
@@ -327,7 +329,9 @@ export default function ManagementApprovals() {
                             Review
                           </Button>
                         </TableCell>
-                        <TableCell className="font-medium">{item.indentId}</TableCell>
+                        <TableCell className="font-medium">
+                          {item.indentId}
+                        </TableCell>
                         <TableCell>{item.firmName}</TableCell>
                         <TableCell>{item.product}</TableCell>
                         <TableCell>
@@ -353,7 +357,7 @@ export default function ManagementApprovals() {
 
           <TabsContent value="history" className="space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
               <Input
                 className="pl-9"
                 placeholder="Search approved history..."
@@ -367,12 +371,14 @@ export default function ManagementApprovals() {
                 <Loader2 className="h-6 w-6 animate-spin text-[#7da23a]" />
               </div>
             ) : filteredHistoryData.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
-                <Info className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                <p className="text-sm text-gray-500">No management approval history yet.</p>
+              <div className="py-12 text-center border border-gray-200 border-dashed rounded-xl">
+                <Info className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                <p className="text-sm text-gray-500">
+                  No management approval history yet.
+                </p>
               </div>
             ) : (
-              <div className="rounded-xl border border-gray-200 overflow-x-auto">
+              <div className="overflow-x-auto border border-gray-200 rounded-xl">
                 <Table>
                   <TableHeader className="bg-gray-50">
                     <TableRow>
@@ -401,7 +407,9 @@ export default function ManagementApprovals() {
                             "-"
                           )}
                         </TableCell>
-                        <TableCell className="font-semibold">₹{item.approvedRate}</TableCell>
+                        <TableCell className="font-semibold">
+                          ₹{item.approvedRate}
+                        </TableCell>
                         <TableCell>{formatDateTime(item.actual8)}</TableCell>
                       </TableRow>
                     ))}
@@ -429,8 +437,10 @@ export default function ManagementApprovals() {
               <DialogHeader>
                 <DialogTitle>Management Vendor Review</DialogTitle>
                 <DialogDescription>
-                  Factory has already tagged the vendors. Review them and choose one final vendor for{" "}
-                  <span className="font-medium">{selectedIndent.indentId}</span>.
+                  Factory has already tagged the vendors. Review them and choose
+                  one final vendor for{" "}
+                  <span className="font-medium">{selectedIndent.indentId}</span>
+                  .
                 </DialogDescription>
               </DialogHeader>
 
@@ -443,7 +453,9 @@ export default function ManagementApprovals() {
                     <button
                       key={vendor.slot}
                       type="button"
-                      onClick={() => setSelectedVendorSlot(vendor.slot.toString())}
+                      onClick={() =>
+                        setSelectedVendorSlot(vendor.slot.toString())
+                      }
                       className={`rounded-2xl border p-4 text-left transition ${
                         isSelected
                           ? "border-[#7da23a] bg-green-50 shadow-sm"
@@ -472,7 +484,7 @@ export default function ManagementApprovals() {
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-xs text-gray-600">
+                      <div className="grid grid-cols-2 gap-3 p-3 mt-4 text-xs text-gray-600 rounded-xl bg-slate-50">
                         <div>
                           <span className="block text-[10px] uppercase tracking-wide text-gray-400">
                             Packaging
@@ -503,7 +515,7 @@ export default function ManagementApprovals() {
                         </div>
                       </div>
 
-                      <div className="mt-4 rounded-xl border border-dashed border-gray-200 p-3">
+                      <div className="p-3 mt-4 border border-gray-200 border-dashed rounded-xl">
                         <p className="mb-2 text-xs font-semibold text-gray-600">
                           Chemical Details
                         </p>
@@ -539,7 +551,7 @@ export default function ManagementApprovals() {
                   disabled={!selectedVendorSlot || isSubmitting}
                 >
                   {isSubmitting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : null}
                   Approve Selected Vendor
                 </Button>
