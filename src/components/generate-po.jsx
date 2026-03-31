@@ -18,6 +18,8 @@ import {
   Info,
   AlertTriangle,
   ChevronsUpDown,
+  Search,
+  Copy,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import "../scrollbar-hide.css";
@@ -93,13 +95,13 @@ const COL_LEAD_TIME = 22;
 const COL_TOTAL_QTY = 23;
 const COL_TOTAL_AMOUNT = 24;
 const COL_PO_FILE_URL = 25;
-const COL_ADVANCE_TO_BE_PAID = 26; // Column AA
-const COL_TO_BE_PAID_AMOUNT = 27; // Column AB
-const COL_WHEN_TO_BE_PAID = 28; // Column AC
+const COL_ADVANCE_TO_BE_PAID = 26;
+const COL_TO_BE_PAID_AMOUNT = 27;
+const COL_WHEN_TO_BE_PAID = 28;
 const COL_NOTES = 29;
 const COL_ALUMINA = 30;
 const COL_IRON = 31;
-const COL_VENDOR_NAME_PO = 42; // Column AQ (index 42 = column AQ)
+const COL_VENDOR_NAME_PO = 42;
 
 // Mock data for filters
 const vendorOptions = ["Devid", "Karan", "Sanjay", "Vinod", "Purab"];
@@ -115,11 +117,13 @@ const GeneratePurchaseOrder = () => {
     firmName: "all",
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // States for Generate PO
   const [indents, setIndents] = useState([]);
+  const [filteredIndents, setFilteredIndents] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
-  const [selectedIndent, setSelectedIndent] = useState(null);
+  const [selectedVendorGroup, setSelectedVendorGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -127,15 +131,18 @@ const GeneratePurchaseOrder = () => {
   const [haveToPO, setHaveToPO] = useState("");
   const [poErrors, setPoErrors] = useState({});
 
+  // NEW: State for per-item chemical specifications
+  const [itemSpecs, setItemSpecs] = useState([]);
+
   // States for Advance Payment Tab
-  const [indentData, setIndentData] = useState([]); // This holds the raw data for advance payments
+  const [indentData, setIndentData] = useState([]);
   const [selectedPaymentIndent, setSelectedPaymentIndent] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [vendorOptions, setVendorOptions] = useState([]);
+  const [vendorOptionsState, setVendorOptions] = useState([]);
 
   // Form state for Generate PO
   const [formData, setFormData] = useState({
@@ -151,14 +158,7 @@ const GeneratePurchaseOrder = () => {
     whenToBePaid: "",
     notes: "",
     poFile: null,
-    alumina: "",
-    iron: "",
-    ap: "",
-    bd: "",
-    sio2: "",
-    cao: "",
-    fineness: "",
-    // New PO metadata fields
+    packaging: "",
     poNumber: "",
     poDate: new Date().toISOString().split("T")[0],
     quotationNumber: "",
@@ -176,12 +176,13 @@ const GeneratePurchaseOrder = () => {
       "Payment: 1 Day",
     ],
     destination: "",
+    transportType: "",
   });
 
   const [showPreview, setShowPreview] = useState(false);
   const [masterDetails, setMasterDetails] = useState(null);
 
-  // Simple SearchableSelect Component (without Command)
+  // Simple SearchableSelect Component
   const SearchableSelect = ({
     value,
     onValueChange,
@@ -267,9 +268,12 @@ const GeneratePurchaseOrder = () => {
   const [visibleIndentColumns, setVisibleIndentColumns] = useState({});
   const [visiblePoColumns, setVisiblePoColumns] = useState({});
   const [visiblePaymentColumns, setVisiblePaymentColumns] = useState({});
+  const [visibleVendorGroupColumns, setVisibleVendorGroupColumns] = useState(
+    {},
+  );
   const [activeTab, setActiveTab] = useState("approve");
 
-  // Column definitions for display tables
+  // Column definitions
   const allIndentColumnsMeta = useMemo(
     () => [
       {
@@ -286,7 +290,7 @@ const GeneratePurchaseOrder = () => {
       },
       { header: "Planned Date", dataKey: "planned", toggleable: true },
       { header: "Firm Name", dataKey: "firmName", toggleable: true },
-      // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
+      { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
       { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
       {
         header: "Indented Quantity",
@@ -296,6 +300,31 @@ const GeneratePurchaseOrder = () => {
       { header: "Approved Qty", dataKey: "approvedQty", toggleable: true },
       { header: "Type", dataKey: "typeOfIndent", toggleable: true },
       { header: "Notes", dataKey: "indentNotes", toggleable: true },
+    ],
+    [],
+  );
+
+  const vendorGroupColumnsMeta = useMemo(
+    () => [
+      {
+        header: "Action",
+        dataKey: "actionColumn",
+        toggleable: false,
+        alwaysVisible: true,
+      },
+      {
+        header: "Vendor Name",
+        dataKey: "vendorName",
+        toggleable: true,
+        alwaysVisible: true,
+      },
+      { header: "Total Items", dataKey: "totalItems", toggleable: true },
+      {
+        header: "Total Quantity (MT)",
+        dataKey: "totalQuantity",
+        toggleable: true,
+      },
+      { header: "Total Amount", dataKey: "totalAmount", toggleable: true },
     ],
     [],
   );
@@ -310,12 +339,9 @@ const GeneratePurchaseOrder = () => {
       },
       { header: "Created At", dataKey: "createdAt", toggleable: true },
       { header: "Firm Name", dataKey: "firmName", toggleable: true },
-      // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
       { header: "Raw Material", dataKey: "rawMaterialName", toggleable: true },
       { header: "Quantity", dataKey: "quantity", toggleable: true },
       { header: "Total Amount", dataKey: "totalAmount", toggleable: true },
-      { header: "Alumina %", dataKey: "alumina", toggleable: true },
-      { header: "Iron %", dataKey: "iron", toggleable: true },
       {
         header: "PO File",
         dataKey: "poFile",
@@ -337,14 +363,12 @@ const GeneratePurchaseOrder = () => {
       },
       { header: "Payment Date", dataKey: "whenToBePaid", toggleable: true },
       { header: "Firm Name", dataKey: "firmName", toggleable: true },
-      // { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
       { header: "Status", dataKey: "paymentStatus", toggleable: true },
       { header: "Amount to Pay", dataKey: "toBePaidAmount", toggleable: true },
     ],
     [],
   );
 
-  // Helper function to parse gviz date string
   const parseGvizDate = useCallback((dateValue) => {
     if (!dateValue || typeof dateValue !== "string" || !dateValue.trim()) {
       return "";
@@ -408,7 +432,13 @@ const GeneratePurchaseOrder = () => {
     setVisiblePaymentColumns(
       initializeVisibility(ADVANCE_PAYMENT_COLUMNS_META),
     );
-  }, [allIndentColumnsMeta, allPoColumnsMeta, ADVANCE_PAYMENT_COLUMNS_META]);
+    setVisibleVendorGroupColumns(initializeVisibility(vendorGroupColumnsMeta));
+  }, [
+    allIndentColumnsMeta,
+    allPoColumnsMeta,
+    ADVANCE_PAYMENT_COLUMNS_META,
+    vendorGroupColumnsMeta,
+  ]);
 
   const parseGvizResponse = useCallback((text, sheetNameForError) => {
     if (!text || !text.includes("google.visualization.Query.setResponse")) {
@@ -464,7 +494,6 @@ const GeneratePurchaseOrder = () => {
 
   const fetchVendorOptions = useCallback(async () => {
     try {
-      // Fetch vendor data from Supabase Master table
       const masterData = await fetchMasterData();
       setVendorOptions(masterData.vendorOptions);
     } catch (error) {
@@ -473,7 +502,9 @@ const GeneratePurchaseOrder = () => {
   }, []);
 
   const numericOrNull = (value) =>
-    value === "" || value === null || value === undefined ? null : parseFloat(value);
+    value === "" || value === null || value === undefined
+      ? null
+      : parseFloat(value);
 
   useEffect(() => {
     const loadMaster = async () => {
@@ -491,18 +522,7 @@ const GeneratePurchaseOrder = () => {
   const generatePoNumber = useCallback((allPOs) => {
     const prefix = "PMMPL/PO/25-26/";
     if (!allPOs || allPOs.length === 0) return `${prefix}1`;
-
-    const existingNumbers = allPOs.map((po) => {
-      const timestamp = po.poTimestamp || "";
-      // We need to pull the actual PO number from somewhere if stored,
-      // but currently INDENT-PO doesn't have a column for it.
-      // Let's assume for now we might need to add it or derive it.
-      // If we can't find it, we'll just use a random seed or sequential increment.
-      return 0; // Fallback
-    });
-
-    const maxNumber =
-      existingNumbers.length > 0 ? Math.max(...existingNumbers) : 2554;
+    const maxNumber = 2554;
     return `${prefix}${maxNumber + 1}`;
   }, []);
 
@@ -530,8 +550,8 @@ const GeneratePurchaseOrder = () => {
           approvedQty: row["Approved Qty"],
           planned: String(row["Planned2"] || "").replace("T", " "),
           poTimestamp: String(row["Actual2"] || "").replace("T", " "),
-          indentId: row["Indent Id."], // For PO History and Advance Payment
-          quantity: row["Total Quantity"] || row["Quantity"], // Use Total Quantity if available
+          indentId: row["Indent Id."],
+          quantity: row["Total Quantity"] || row["Quantity"],
           totalAmount: row["Total Amount"],
           alumina: row["Alumina %"],
           iron: row["Iron %"],
@@ -556,6 +576,8 @@ const GeneratePurchaseOrder = () => {
           status5: row["Status5"],
           originalQuantity: row["Quantity"],
           indentNotes: row["Notes"],
+          quotationNumber: row["Quotation Number 1"] || "",
+          quotationDate: row["Quotation Date 1"] || "",
         };
 
         rowData.paymentStatus = row["Status5"];
@@ -574,6 +596,35 @@ const GeneratePurchaseOrder = () => {
       const indentsForApproval = processedData.filter(
         (item) => item.planned && !item.poTimestamp,
       );
+
+      const groupedIndents = indentsForApproval.reduce((acc, indent) => {
+        const vendor = indent.vendorName || "Unknown Vendor";
+        if (!acc[vendor]) {
+          acc[vendor] = [];
+        }
+        acc[vendor].push(indent);
+        return acc;
+      }, {});
+
+      const vendorGroupedIndents = Object.entries(groupedIndents).map(
+        ([vendor, indents]) => ({
+          vendorName: vendor,
+          indents,
+          totalItems: indents.length,
+          totalQuantity: indents.reduce(
+            (sum, indent) => sum + (parseFloat(indent.approvedQty) || 0),
+            0,
+          ),
+          totalAmount: indents.reduce(
+            (sum, indent) =>
+              sum +
+              (parseFloat(indent.approvedQty) || 0) *
+                (parseFloat(indent.approvedRate) || 0),
+            0,
+          ),
+        }),
+      );
+
       const poHistory = processedData
         .filter((item) => item.planned && item.poTimestamp)
         .sort((a, b) => new Date(b.poTimestamp) - new Date(a.poTimestamp));
@@ -582,7 +633,8 @@ const GeneratePurchaseOrder = () => {
         (item) => (item.advanceToBePaid || "").toLowerCase() === "yes",
       );
 
-      setIndents(indentsForApproval);
+      setIndents(vendorGroupedIndents);
+      setFilteredIndents(vendorGroupedIndents);
       setPurchaseOrders(poHistory);
       setIndentData(advancePaymentNeeded);
     } catch (err) {
@@ -595,14 +647,50 @@ const GeneratePurchaseOrder = () => {
       setPaymentLoading(false);
     }
   }, [user]);
+
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
 
-  // Update Notification Context
   useEffect(() => {
-    // indents state here IS already filtered by 'planned && !poTimestamp' and User Firm
-    // So indents.length is the correct "My Pending" count.
+    let filtered = indents;
+
+    if (filters.vendorName !== "all") {
+      filtered = filtered.filter(
+        (group) => group.vendorName === filters.vendorName,
+      );
+    }
+    if (filters.rawMaterialName !== "all") {
+      filtered = filtered.filter((group) =>
+        group.indents.some(
+          (indent) => indent.rawMaterialName === filters.rawMaterialName,
+        ),
+      );
+    }
+    if (filters.firmName !== "all") {
+      filtered = filtered.filter((group) =>
+        group.indents.some((indent) => indent.firmName === filters.firmName),
+      );
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(
+        (group) =>
+          group.vendorName.toLowerCase().includes(query) ||
+          group.indents.some(
+            (indent) =>
+              indent.id.toLowerCase().includes(query) ||
+              indent.rawMaterialName.toLowerCase().includes(query) ||
+              indent.firmName.toLowerCase().includes(query),
+          ),
+      );
+    }
+
+    setFilteredIndents(filtered);
+  }, [indents, filters, searchQuery]);
+
+  useEffect(() => {
     updateCount("generate-po", indents.length);
   }, [indents, updateCount]);
 
@@ -620,6 +708,40 @@ const GeneratePurchaseOrder = () => {
     setPoErrors((prev) => ({ ...prev, [name]: null }));
   };
 
+  const handleItemSpecChange = (index, field, value) => {
+    setItemSpecs((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+    if (poErrors.itemSpecs) {
+      setPoErrors((prev) => ({ ...prev, itemSpecs: null }));
+    }
+  };
+
+  // NEW: Apply specs from one item to all items
+  const applySpecsToAll = (index) => {
+    const sourceSpec = itemSpecs[index];
+    if (!sourceSpec) return;
+
+    setItemSpecs((prev) =>
+      prev.map((spec) => ({
+        ...spec,
+        alumina: sourceSpec.alumina,
+        iron: sourceSpec.iron,
+        sio2: sourceSpec.sio2,
+        cao: sourceSpec.cao,
+        ap: sourceSpec.ap,
+        bd: sourceSpec.bd,
+        fineness: sourceSpec.fineness,
+        packaging: sourceSpec.packaging,
+      })),
+    );
+    toast.success("Applied", {
+      description: "Chemical specs copied to all items",
+    });
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -632,7 +754,6 @@ const GeneratePurchaseOrder = () => {
     }
   };
 
-  // Upload file to Supabase Storage
   const uploadFileToSupabase = async (file) => {
     toast.loading("Uploading file...", { id: "upload-toast" });
 
@@ -646,7 +767,6 @@ const GeneratePurchaseOrder = () => {
         file.type,
       );
 
-      // Upload to Supabase Storage in 'po-files' folder
       const { url } = await uploadFileToStorage(file, "image", "po-files");
 
       toast.success("File Uploaded!", {
@@ -670,14 +790,15 @@ const GeneratePurchaseOrder = () => {
   const updateSupabase = async (dataToSubmit, currentHaveToPO) => {
     toast.loading("Updating Supabase...", { id: "supabase-update-toast" });
     try {
-      if (!selectedIndent) {
-        throw new Error("Selected indent details are missing for update.");
+      if (!selectedVendorGroup) {
+        throw new Error(
+          "Selected vendor group details are missing for update.",
+        );
       }
 
       const now = new Date();
-      // Format as YYYY-MM-DD HH:mm:ss (IST)
       const day = String(now.getDate()).padStart(2, "0");
-      const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+      const month = String(now.getMonth() + 1).padStart(2, "0");
       const year = now.getFullYear();
       const hours = String(now.getHours()).padStart(2, "0");
       const minutes = String(now.getMinutes()).padStart(2, "0");
@@ -718,14 +839,41 @@ const GeneratePurchaseOrder = () => {
           updates["When To Be Paid Amount"] = null;
         }
         updates["PO Notes"] = dataToSubmit.notes;
-        updates["Alumina %"] = numericOrNull(dataToSubmit.alumina);
-        updates["Iron %"] = numericOrNull(dataToSubmit.iron);
-        updates["AP Percent Age %"] = numericOrNull(dataToSubmit.ap);
-        updates["BD Percent Age %"] = numericOrNull(dataToSubmit.bd);
-        updates["SiO2 %"] = numericOrNull(dataToSubmit.sio2);
-        updates["CaO %"] = numericOrNull(dataToSubmit.cao);
-        updates["Fineness"] = numericOrNull(dataToSubmit.fineness);
         updates["Packaging"] = dataToSubmit.packaging;
+        updates["Transport Type"] = dataToSubmit.transportType;
+
+        // CLEANED: Build PO Items with clean specs structure
+        const poItemsWithSpecs = selectedVendorGroup.indents.map(
+          (indent, idx) => {
+            const spec = itemSpecs[idx] || {};
+
+            // Create clean specs object with only chemical values
+            const cleanSpecs = Object.fromEntries(
+              Object.entries({
+                alumina: spec.alumina,
+                iron: spec.iron,
+                sio2: spec.sio2,
+                cao: spec.cao,
+                ap: spec.ap,
+                bd: spec.bd,
+                fineness: spec.fineness,
+                packaging: dataToSubmit.packaging || indent.packaging,
+              }).filter(([_, v]) => v !== "" && v !== null && v !== undefined),
+            );
+
+            return {
+              indentId: indent.id,
+              material: indent.rawMaterialName,
+              quantity: indent.approvedQty,
+              rate: indent.approvedRate || indent.rate,
+              specs: cleanSpecs, // Only chemical specs, no duplicate fields
+            };
+          },
+        );
+
+        updates["PO Items"] = poItemsWithSpecs;
+
+        // REMOVED: Individual chemical field updates
       } else {
         updates["Rate"] = null;
         updates["Lead Time To Lift (days)"] = null;
@@ -736,26 +884,22 @@ const GeneratePurchaseOrder = () => {
         updates["To Be Paid Amount"] = null;
         updates["When To Be Paid Amount"] = null;
         updates["PO Notes"] = null;
-        updates["Alumina %"] = null;
-        updates["Iron %"] = null;
-        updates["AP Percent Age %"] = null;
-        updates["BD Percent Age %"] = null;
-        updates["SiO2 %"] = null;
-        updates["CaO %"] = null;
-        updates["Fineness"] = null;
         updates["Packaging"] = null;
+        updates["PO Items"] = null;
       }
 
-      const { error: updateError } = await supabase
-        .from("INDENT-PO")
-        .update(updates)
-        .eq('"Indent Id."', selectedIndent.id);
+      for (const indent of selectedVendorGroup.indents) {
+        const { error: updateError } = await supabase
+          .from("INDENT-PO")
+          .update(updates)
+          .eq('"Indent Id."', indent.id);
 
-      if (updateError) throw updateError;
+        if (updateError) throw updateError;
+      }
 
       toast.success("Supabase Updated!", {
         id: "supabase-update-toast",
-        description: `Indent ID ${selectedIndent.id} processed.`,
+        description: `Vendor ${selectedVendorGroup.vendorName} PO processed for ${selectedVendorGroup.indents.length} indents.`,
       });
     } catch (error) {
       console.error("Error updating Supabase:", error);
@@ -772,67 +916,69 @@ const GeneratePurchaseOrder = () => {
     if (value !== "yes") {
       setFormData((prev) => ({
         ...prev,
-        vendorName: selectedIndent?.vendorName || "",
+        vendorName: selectedVendorGroup?.vendorName || "",
         rate: "",
         leadTimeToLift: "",
-        totalQty: selectedIndent?.approvedQty || "",
+        totalQty: selectedVendorGroup?.totalQuantity || "",
         totalAmount: "",
         advanceToBePaid: "",
         toBePaidAmount: "",
         whenToBePaid: "",
         notes: "",
         poFile: null,
-        alumina: "",
-        iron: "",
-        ap: "",
-        bd: "",
-        sio2: "",
-        cao: "",
-        fineness: "",
         packaging: "",
       }));
     } else {
       setFormData((prev) => ({
         ...prev,
-        vendorName: selectedIndent?.vendorName || "",
-        totalQty: selectedIndent?.approvedQty || "",
+        vendorName: selectedVendorGroup?.vendorName || "",
+        totalQty: selectedVendorGroup?.totalQuantity || "",
       }));
     }
     setPoErrors({});
   };
 
-  const handleIndentSelect = (indent) => {
+  const handleVendorGroupSelect = (vendorGroup) => {
     const nextPoNumber = generatePoNumber(purchaseOrders);
 
-    setSelectedIndent(indent);
+    // CLEANED: Initialize itemSpecs with clean structure
+    const initialItemSpecs = vendorGroup.indents.map((indent) => ({
+      alumina: indent.alumina || "",
+      iron: indent.iron || "",
+      sio2: indent.sio2 || "",
+      cao: indent.cao || "",
+      ap: indent.ap || "",
+      bd: indent.bd || "",
+      fineness: indent.fineness || "",
+      packaging: indent.packaging || "",
+    }));
+
+    setItemSpecs(initialItemSpecs);
+
+    setSelectedVendorGroup(vendorGroup);
     setFormData({
-      indentId: indent.id,
-      vendorName: indent.vendorName || "",
-      quantity: indent.approvedQty,
-      rate: indent.approvedRate || indent.rate || "",
-      leadTimeToLift: indent.leadTimeToLift || "",
-      totalQty: indent.approvedQty || "",
-      totalAmount:
-        parseFloat(indent.approvedRate || indent.rate || "0") *
-          parseFloat(indent.approvedQty || "0") || "",
+      indentId: vendorGroup.indents.map((i) => i.id).join(", "),
+      vendorName: vendorGroup.vendorName,
+      quantity: vendorGroup.totalQuantity,
+      rate:
+        vendorGroup.indents[0]?.approvedRate ||
+        vendorGroup.indents[0]?.rate ||
+        "",
+      leadTimeToLift: vendorGroup.indents[0]?.leadTimeToLift || "",
+      totalQty: vendorGroup.totalQuantity,
+      totalAmount: vendorGroup.totalAmount,
       advanceToBePaid: "",
       toBePaidAmount: "",
       whenToBePaid: "",
       notes: "",
       poFile: null,
-      alumina: indent.alumina || "",
-      iron: indent.iron || "",
-      ap: indent.ap || "",
-      bd: indent.bd || "",
-      sio2: indent.sio2 || "",
-      cao: indent.cao || "",
-      fineness: indent.fineness || "",
-      packaging: indent.packaging || "",
-      // Initialize PO fields
+      packaging: vendorGroup.indents[0]?.packaging || "",
       poNumber: nextPoNumber,
       poDate: new Date().toISOString().split("T")[0],
-      quotationNumber: "",
-      quotationDate: new Date().toISOString().split("T")[0],
+      quotationNumber: vendorGroup.indents[0]?.quotationNumber || "",
+      quotationDate:
+        vendorGroup.indents[0]?.quotationDate ||
+        new Date().toISOString().split("T")[0],
       ourEnqNo: "",
       enquiryDate: new Date().toISOString().split("T")[0],
       deliveryDate: new Date().toISOString().split("T")[0],
@@ -845,7 +991,8 @@ const GeneratePurchaseOrder = () => {
         "Subject to Raipur Jurisdiction",
         "Payment: 1 Day",
       ],
-      destination: indent.firmName || "",
+      destination: vendorGroup.indents[0]?.firmName || "",
+      transportType: "",
     });
     setPoErrors({});
     setHaveToPO("yes");
@@ -856,7 +1003,8 @@ const GeneratePurchaseOrder = () => {
     setIsModalOpen(false);
     setPoErrors({});
     setHaveToPO("");
-    setSelectedIndent(null);
+    setSelectedVendorGroup(null);
+    setItemSpecs([]); // NEW: Reset item specs
     setFormData({
       indentId: "",
       vendorName: "",
@@ -870,15 +1018,82 @@ const GeneratePurchaseOrder = () => {
       whenToBePaid: "",
       notes: "",
       poFile: null,
-      alumina: "",
-      iron: "",
-      ap: "",
-      bd: "",
-      sio2: "",
-      cao: "",
-      fineness: "",
       packaging: "",
+      poNumber: "",
+      poDate: new Date().toISOString().split("T")[0],
+      quotationNumber: "",
+      quotationDate: new Date().toISOString().split("T")[0],
+      ourEnqNo: "",
+      enquiryDate: new Date().toISOString().split("T")[0],
+      deliveryDate: new Date().toISOString().split("T")[0],
+      deliveryDays: "",
+      paymentTerms: "1 DAY",
+      gstPercent: 18,
+      discountPercent: 0,
+      terms: [
+        "Price is ex factory",
+        "Subject to Raipur Jurisdiction",
+        "Payment: 1 Day",
+      ],
+      destination: "",
+      transportType: "",
     });
+  };
+
+  const validatePoForm = () => {
+    const newErrors = {};
+    if (haveToPO === "yes") {
+      if (!formData.vendorName.trim())
+        newErrors.vendorName = "Vendor name is required.";
+      if (
+        !formData.rate ||
+        isNaN(parseFloat(formData.rate)) ||
+        parseFloat(formData.rate) <= 0
+      )
+        newErrors.rate = "Rate must be a positive number.";
+      if (!formData.poNumber || !formData.poNumber.trim())
+        newErrors.poNumber = "PO Number is required.";
+      if (!formData.poDate) newErrors.poDate = "PO Date is required.";
+      if (!formData.deliveryDate)
+        newErrors.deliveryDate = "Delivery Date is required.";
+      if (!formData.leadTimeToLift)
+        newErrors.leadTimeToLift = "Lead Time date is required.";
+
+      if (
+        formData.gstPercent !== "" &&
+        (isNaN(parseFloat(formData.gstPercent)) ||
+          parseFloat(formData.gstPercent) < 0)
+      )
+        newErrors.gstPercent = "GST % must be a non-negative number.";
+      if (
+        formData.discountPercent !== "" &&
+        (isNaN(parseFloat(formData.discountPercent)) ||
+          parseFloat(formData.discountPercent) < 0)
+      )
+        newErrors.discountPercent = "Discount % must be a non-negative number.";
+
+      if (!formData.advanceToBePaid)
+        newErrors.advanceToBePaid = "Advance option is required.";
+      if (formData.poFile && formData.poFile.size <= 0)
+        newErrors.poFile = "PO Copy must be a valid file if provided.";
+      if (!formData.notes || !formData.notes.trim())
+        newErrors.notes = "PO Notes/Remarks are required.";
+      if (!formData.transportType)
+        newErrors.transportType = "Transport Type is required.";
+      if (formData.advanceToBePaid === "yes") {
+        if (
+          !formData.toBePaidAmount ||
+          isNaN(parseFloat(formData.toBePaidAmount)) ||
+          parseFloat(formData.toBePaidAmount) <= 0
+        )
+          newErrors.toBePaidAmount =
+            "Advance amount must be a positive number.";
+        if (!formData.whenToBePaid)
+          newErrors.whenToBePaid = "Payment date is required.";
+      }
+    }
+    setPoErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
@@ -901,7 +1116,7 @@ const GeneratePurchaseOrder = () => {
       });
       return;
     }
-    if (!selectedIndent) {
+    if (!selectedVendorGroup) {
       toast.error("Selection Error", { description: "No indent selected." });
       return;
     }
@@ -910,7 +1125,6 @@ const GeneratePurchaseOrder = () => {
     toast.loading("Generating and Uploading PO...", { id: "po-submit" });
 
     try {
-      // 1. Prepare PDF Data
       const rateNum = parseFloat(formData.rate || 0);
       const qtyNum = parseFloat(formData.totalQty || 0);
       const gstPercentNum = parseFloat(formData.gstPercent || 0);
@@ -922,6 +1136,28 @@ const GeneratePurchaseOrder = () => {
       const gstAmount = (amountAfterDiscount * gstPercentNum) / 100;
       const grandTotal = amountAfterDiscount + gstAmount;
 
+      // NEW: Build items with per-item specs for PDF
+      // In handleSubmit function, update the pdfItems mapping:
+      // Build items with specs for PDF
+      const pdfItems = selectedVendorGroup.indents.map((indent, idx) => ({
+        product: indent.rawMaterialName,
+        quantity: parseFloat(indent.approvedQty),
+        unit: "MT",
+        rate: parseFloat(indent.approvedRate || indent.rate),
+        amount:
+          parseFloat(indent.approvedQty) *
+          parseFloat(indent.approvedRate || indent.rate),
+        specs: {
+          alumina: itemSpecs[idx]?.alumina || "",
+          iron: itemSpecs[idx]?.iron || "",
+          sio2: itemSpecs[idx]?.sio2 || "",
+          cao: itemSpecs[idx]?.cao || "",
+          ap: itemSpecs[idx]?.ap || "",
+          bd: itemSpecs[idx]?.bd || "",
+          fineness: itemSpecs[idx]?.fineness || "",
+          packaging: formData.packaging || indent.packaging || "", // Add packaging to specs
+        },
+      }));
       const pdfProps = {
         companyName: "Passary Minerals Madhya Pvt Ltd",
         companyPhone: "771-4001598",
@@ -931,21 +1167,13 @@ const GeneratePurchaseOrder = () => {
         billingAddress: "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
         destinationAddress: formData.destination || "Destination",
         supplierName: formData.vendorName || "Supplier",
-        supplierAddress: selectedIndent?.supplierAddress || "",
-        supplierGstin: selectedIndent?.supplierGstin || "",
+        supplierAddress: selectedVendorGroup?.indents[0]?.supplierAddress || "",
+        supplierGstin: selectedVendorGroup?.indents[0]?.supplierGstin || "",
         orderNumber: formData.poNumber,
         orderDate: formData.poDate,
         deliveryDate: formData.deliveryDate,
         notes: formData.notes || "",
-        items: [
-          {
-            product: selectedIndent?.rawMaterialName || "Material",
-            quantity: qtyNum,
-            unit: "MT",
-            rate: rateNum,
-            amount: subtotal,
-          },
-        ],
+        items: pdfItems,
         totalQuantity: qtyNum,
         totalAmount: subtotal,
         gstAmount: gstAmount,
@@ -955,18 +1183,10 @@ const GeneratePurchaseOrder = () => {
         terms: formData.terms || [],
         paymentTerms: formData.paymentTerms || "1 DAY",
         labDetails: {
-          alumina: formData.alumina,
-          iron: formData.iron,
-          sio2: formData.sio2,
-          cao: formData.cao,
-          ap: formData.ap,
-          bd: formData.bd,
-          fineness: formData.fineness,
           packaging: formData.packaging,
         },
       };
 
-      // 2. Generate PDF Blob
       const blob = await pdf(<POPdf {...pdfProps} />).toBlob();
       const generatedFile = new File(
         [blob],
@@ -976,7 +1196,6 @@ const GeneratePurchaseOrder = () => {
         },
       );
 
-      // 3. Upload File
       const { url } = await uploadFileToStorage(
         generatedFile,
         "image",
@@ -992,7 +1211,7 @@ const GeneratePurchaseOrder = () => {
 
       toast.success("PO Processed", {
         id: "po-submit",
-        description: `Purchase Order for ${selectedIndent.id} has been created successfully.`,
+        description: `Purchase Order for ${selectedVendorGroup.vendorName} has been created successfully.`,
       });
       fetchAllData();
       closeModal();
@@ -1005,103 +1224,6 @@ const GeneratePurchaseOrder = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const validatePoForm = () => {
-    const newErrors = {};
-    if (haveToPO === "yes") {
-      if (!formData.vendorName.trim())
-        newErrors.vendorName = "Vendor name is required.";
-      if (
-        !formData.rate ||
-        isNaN(parseFloat(formData.rate)) ||
-        parseFloat(formData.rate) <= 0
-      )
-        newErrors.rate = "Rate must be a positive number.";
-      if (!formData.poNumber || !formData.poNumber.trim())
-        newErrors.poNumber = "PO Number is required.";
-      if (!formData.poDate) newErrors.poDate = "PO Date is required.";
-      if (!formData.deliveryDate)
-        newErrors.deliveryDate = "Delivery Date is required.";
-      if (!formData.leadTimeToLift)
-        newErrors.leadTimeToLift = "Lead Time date is required.";
-      if (
-        !formData.totalQty ||
-        isNaN(parseFloat(formData.totalQty)) ||
-        parseFloat(formData.totalQty) <= 0
-      )
-        newErrors.totalQty = "Total Quantity must be a positive number.";
-      if (
-        !formData.alumina ||
-        isNaN(parseFloat(formData.alumina)) ||
-        parseFloat(formData.alumina) < 0
-      )
-        newErrors.alumina = "Alumina % is required and must be non-negative.";
-      if (
-        !formData.iron ||
-        isNaN(parseFloat(formData.iron)) ||
-        parseFloat(formData.iron) < 0
-      )
-        newErrors.iron = "Iron % is required and must be non-negative.";
-      if (
-        !formData.ap ||
-        isNaN(parseFloat(formData.ap)) ||
-        parseFloat(formData.ap) < 0
-      )
-        newErrors.ap = "AP % is required and must be non-negative.";
-      if (
-        !formData.bd ||
-        isNaN(parseFloat(formData.bd)) ||
-        parseFloat(formData.bd) < 0
-      )
-        newErrors.bd = "BD % is required and must be non-negative.";
-      if (
-        !formData.sio2 ||
-        isNaN(parseFloat(formData.sio2)) ||
-        parseFloat(formData.sio2) < 0
-      )
-        newErrors.sio2 = "SiO2 % is required and must be non-negative.";
-      if (
-        !formData.cao ||
-        isNaN(parseFloat(formData.cao)) ||
-        parseFloat(formData.cao) < 0
-      )
-        newErrors.cao = "CaO % is required and must be non-negative.";
-      if (
-        formData.gstPercent !== "" &&
-        (isNaN(parseFloat(formData.gstPercent)) ||
-          parseFloat(formData.gstPercent) < 0)
-      )
-        newErrors.gstPercent = "GST % must be a non-negative number.";
-      if (
-        formData.discountPercent !== "" &&
-        (isNaN(parseFloat(formData.discountPercent)) ||
-          parseFloat(formData.discountPercent) < 0)
-      )
-        newErrors.discountPercent = "Discount % must be a non-negative number.";
-
-      if (!formData.advanceToBePaid)
-        newErrors.advanceToBePaid = "Advance option is required.";
-      // We generate PO PDF internally, so `poFile` is optional here.
-      // If users upload manual file via UI, it can still be used.
-      if (formData.poFile && formData.poFile.size <= 0)
-        newErrors.poFile = "PO Copy must be a valid file if provided.";
-      if (!formData.notes || !formData.notes.trim())
-        newErrors.notes = "PO Notes/Remarks are required.";
-      if (formData.advanceToBePaid === "yes") {
-        if (
-          !formData.toBePaidAmount ||
-          isNaN(parseFloat(formData.toBePaidAmount)) ||
-          parseFloat(formData.toBePaidAmount) <= 0
-        )
-          newErrors.toBePaidAmount =
-            "Advance amount must be a positive number.";
-        if (!formData.whenToBePaid)
-          newErrors.whenToBePaid = "Payment date is required.";
-      }
-    }
-    setPoErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleFilterChange = (key, value) => {
@@ -1144,7 +1266,6 @@ const GeneratePurchaseOrder = () => {
 
   const handlePaymentSelect = (item) => {
     setSelectedPaymentIndent(item);
-    // When selecting for payment, pre-fill with existing (or empty) values from the item
     setPaymentFormData({
       amount: item.toBePaidAmount || "",
       paymentDate: item.whenToBePaid || "",
@@ -1226,19 +1347,6 @@ const GeneratePurchaseOrder = () => {
     }
   };
 
-  const filteredIndents = useMemo(() => {
-    return indents.filter((item) => {
-      const matchesVendor =
-        filters.vendorName === "all" || item.vendorName === filters.vendorName;
-      const matchesMaterial =
-        filters.rawMaterialName === "all" ||
-        item.rawMaterialName === filters.rawMaterialName;
-      const matchesFirm =
-        filters.firmName === "all" || item.firmName === filters.firmName;
-      return matchesVendor && matchesMaterial && matchesFirm;
-    });
-  }, [indents, filters]);
-
   const filteredPOs = useMemo(() => {
     return purchaseOrders.filter((item) => {
       const matchesVendor =
@@ -1265,8 +1373,8 @@ const GeneratePurchaseOrder = () => {
   const getTableColumns = useCallback(
     (tab) => {
       if (tab === "approve")
-        return allIndentColumnsMeta.filter(
-          (col) => visibleIndentColumns[col.dataKey],
+        return vendorGroupColumnsMeta.filter(
+          (col) => visibleVendorGroupColumns[col.dataKey],
         );
       if (tab === "history")
         return allPoColumnsMeta.filter((col) => visiblePoColumns[col.dataKey]);
@@ -1279,8 +1387,8 @@ const GeneratePurchaseOrder = () => {
       return [];
     },
     [
-      allIndentColumnsMeta,
-      visibleIndentColumns,
+      vendorGroupColumnsMeta,
+      visibleVendorGroupColumns,
       allPoColumnsMeta,
       visiblePoColumns,
       ADVANCE_PAYMENT_COLUMNS_META,
@@ -1317,7 +1425,7 @@ const GeneratePurchaseOrder = () => {
 
         if (tabKey === "advancePayment" && column.dataKey === "paymentStatus") {
           const status = (item.paymentStatus || "").toLowerCase();
-          let badgeClass = "bg-gray-100 text-gray-700 border-gray-200"; // Default
+          let badgeClass = "bg-gray-100 text-gray-700 border-gray-200";
 
           if (status === "paid") {
             badgeClass = "bg-green-100 text-[#6b8e2f] border-green-200";
@@ -1339,7 +1447,7 @@ const GeneratePurchaseOrder = () => {
           if (tabKey === "approve") {
             return (
               <Button
-                onClick={() => handleIndentSelect(item)}
+                onClick={() => handleVendorGroupSelect(item)}
                 size="sm"
                 className="h-7 px-2.5 py-1 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white font-semibold"
               >
@@ -1356,6 +1464,11 @@ const GeneratePurchaseOrder = () => {
         ) {
           return displayValue !== "N/A"
             ? `₹${Number(value).toLocaleString()}`
+            : displayValue;
+        }
+        if (column.dataKey === "totalQuantity") {
+          return displayValue !== "N/A"
+            ? `${Number(value).toLocaleString()} MT`
             : displayValue;
         }
         if (column.isLink) {
@@ -1382,7 +1495,7 @@ const GeneratePurchaseOrder = () => {
 
       return (
         <div className="flex flex-col flex-1 border rounded-md">
-          <div className="px-4 py-3 bg-muted/30 border-b">
+          <div className="px-4 py-3 border-b bg-muted/30">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="flex items-center font-semibold text-md text-foreground">
@@ -1471,7 +1584,7 @@ const GeneratePurchaseOrder = () => {
                                 col.alwaysVisible ||
                                 (tabKey === "advancePayment" &&
                                   col.dataKey === "actionColumn")
-                              } // Disable if it's the action column on advance payment
+                              }
                             />
                             <Label
                               htmlFor={`toggle-${tabKey}-${col.dataKey}`}
@@ -1548,9 +1661,11 @@ const GeneratePurchaseOrder = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.map((item) => (
+                    {data.map((item, index) => (
                       <TableRow
-                        key={item.id || item.indentId}
+                        key={
+                          item.vendorName || item.id || item.indentId || index
+                        }
                         className="hover:bg-green-50/50"
                       >
                         {visibleCols.map((column) => (
@@ -1572,16 +1687,15 @@ const GeneratePurchaseOrder = () => {
       );
     },
     [
-      handleIndentSelect,
+      handleVendorGroupSelect,
       handlePaymentSelect,
       handleToggleColumn,
       handleSelectAllColumns,
     ],
   );
 
-  // Quick stats
   const quickStats = (
-    <div className="flex gap-3 text-xs text-gray-600 mb-2">
+    <div className="flex gap-3 mb-2 text-xs text-gray-600">
       <span>Pending: {filteredIndents.length}</span>
       <span>POs: {filteredPOs.length}</span>
       <span>Payments: {filteredPaymentIndents.length}</span>
@@ -1590,8 +1704,7 @@ const GeneratePurchaseOrder = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-220px)] min-h-screen p-4 space-y-4 md:p-6 bg-slate-50">
-      {/* Compact Header */}
-      <div className="py-2 px-4 border-b border-gray-200 bg-white rounded-t-md">
+      <div className="px-4 py-2 bg-white border-b border-gray-200 rounded-t-md">
         <div className="flex items-center gap-2">
           <FileCheck className="h-5 w-5 text-[#7da23a]" />
           <h1 className="text-lg font-semibold text-gray-700">
@@ -1614,8 +1727,7 @@ const GeneratePurchaseOrder = () => {
         onValueChange={setActiveTab}
         className="flex flex-col flex-1"
       >
-        {/* Compact Tabs */}
-        <TabsList className="flex gap-2 mb-2 bg-transparent p-0 h-auto sticky top-0 z-20 bg-white">
+        <TabsList className="sticky top-0 z-20 flex h-auto gap-2 p-0 mb-2 bg-transparent bg-white">
           <TabsTrigger value="approve" className="h-8 px-3 text-xs">
             Approve
             <Badge className="ml-1 text-[10px] px-1 py-0">
@@ -1630,10 +1742,20 @@ const GeneratePurchaseOrder = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* Quick Stats */}
         {quickStats}
 
-        {/* Collapsible Filters */}
+        <div className="mb-2">
+          <div className="relative">
+            <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+            <Input
+              className="h-8 text-xs pl-9"
+              placeholder="Search vendor, material, indent ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
         <div className="mb-2">
           <div className="flex items-center gap-2">
             <Button
@@ -1658,9 +1780,8 @@ const GeneratePurchaseOrder = () => {
           </div>
 
           {showFilters && (
-            <div className="mt-2 p-3 border rounded-md bg-green-50/40">
+            <div className="p-3 mt-2 border rounded-md bg-green-50/40">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {/* Vendor Name Filter */}
                 <div>
                   <Label className="block mb-1 text-xs">Vendor Name</Label>
                   <SearchableSelect
@@ -1674,7 +1795,6 @@ const GeneratePurchaseOrder = () => {
                   />
                 </div>
 
-                {/* Material Name Filter - Hidden for advancePayment tab */}
                 {activeTab !== "advancePayment" && (
                   <div>
                     <Label className="block mb-1 text-xs">Material Name</Label>
@@ -1690,7 +1810,6 @@ const GeneratePurchaseOrder = () => {
                   </div>
                 )}
 
-                {/* Firm Name Filter */}
                 <div>
                   <Label className="block mb-1 text-xs">Firm Name</Label>
                   <SearchableSelect
@@ -1708,15 +1827,14 @@ const GeneratePurchaseOrder = () => {
           )}
         </div>
 
-        {/* Tab Contents */}
         <TabsContent value="approve" className="flex flex-col flex-1 mt-0">
           {renderTableSection(
             "approve",
-            "Approved Indents (Ready for PO)",
-            "Select an indent to generate its purchase order.",
+            "Approved Vendor Groups (Ready for PO)",
+            "Select a vendor group to generate its purchase order.",
             filteredIndents,
-            allIndentColumnsMeta,
-            visibleIndentColumns,
+            vendorGroupColumnsMeta,
+            visibleVendorGroupColumns,
             loading,
             !!error,
             error,
@@ -1753,27 +1871,27 @@ const GeneratePurchaseOrder = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Modals */}
+      {/* PO Modal with Per-Item Specs */}
       {isModalOpen && (
         <Dialog open={isModalOpen} onOpenChange={closeModal}>
-          <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-5xl md:max-w-6xl lg:max-w-7xl max-h-[90vh] overflow-y-auto">
             <DialogHeader className="pb-4 mb-4 border-b">
               <DialogTitle className="flex items-center text-lg font-medium leading-6 text-gray-900">
                 <FileCheck className="h-6 w-6 text-[#7da23a] mr-3" /> Generate
-                PO for Indent ID:{" "}
+                PO for Vendor:{" "}
                 <span className="font-bold text-[#7da23a] ml-1">
-                  {selectedIndent?.id}
+                  {selectedVendorGroup?.vendorName}
                 </span>
               </DialogTitle>
               <DialogDescription className="mt-1 text-sm text-gray-500">
-                Vendor: {selectedIndent?.vendorName || "N/A"} | Material:{" "}
-                {selectedIndent?.rawMaterialName || "N/A"}
+                Items: {selectedVendorGroup?.indents.length} | Total Quantity:{" "}
+                {selectedVendorGroup?.totalQuantity} MT | Total Amount: ₹
+                {selectedVendorGroup?.totalAmount.toLocaleString()}
               </DialogDescription>
             </DialogHeader>
             <div className="px-0 py-2 sm:px-0">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4">
-                  {/* Row 1: Basic Info */}
                   <div>
                     <Label
                       htmlFor="poNumber"
@@ -1830,7 +1948,6 @@ const GeneratePurchaseOrder = () => {
                     />
                   </div>
 
-                  {/* Row 2: Quotation */}
                   <div>
                     <Label
                       htmlFor="quotationNumber"
@@ -1842,8 +1959,8 @@ const GeneratePurchaseOrder = () => {
                       id="quotationNumber"
                       name="quotationNumber"
                       value={formData.quotationNumber}
-                      onChange={handleInputChange}
-                      className="h-8 mt-1 text-xs"
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50"
                     />
                   </div>
                   <div>
@@ -1858,11 +1975,11 @@ const GeneratePurchaseOrder = () => {
                       id="quotationDate"
                       name="quotationDate"
                       value={formData.quotationDate}
-                      onChange={handleInputChange}
-                      className="h-8 mt-1 text-xs"
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50"
                     />
                   </div>
-                  <div>
+                   <div>
                     <Label
                       htmlFor="destination"
                       className="text-xs font-medium text-gray-700"
@@ -1877,8 +1994,37 @@ const GeneratePurchaseOrder = () => {
                       className="h-8 mt-1 text-xs"
                     />
                   </div>
+                  <div>
+                    <Label className="text-xs font-medium text-gray-700">
+                      Transport Type <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.transportType}
+                      onValueChange={(val) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          transportType: val,
+                        }));
+                        setPoErrors((prev) => ({ ...prev, transportType: null }));
+                      }}
+                    >
+                      <SelectTrigger
+                        className={`h-8 mt-1 text-xs ${poErrors.transportType ? "border-red-500" : ""}`}
+                      >
+                        <SelectValue placeholder="Select Type..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EX Factory">EX Factory</SelectItem>
+                        <SelectItem value="FOR">FOR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {poErrors.transportType && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {poErrors.transportType}
+                      </p>
+                    )}
+                  </div>
 
-                  {/* Row 3: Items */}
                   <div>
                     <Label
                       htmlFor="totalQty"
@@ -1891,14 +2037,9 @@ const GeneratePurchaseOrder = () => {
                       id="totalQty"
                       name="totalQty"
                       value={formData.totalQty}
-                      onChange={handleInputChange}
-                      className="h-8 mt-1 text-xs"
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50"
                     />
-                    {poErrors.totalQty && (
-                      <p className="text-[10px] text-red-500 mt-0.5">
-                        {poErrors.totalQty}
-                      </p>
-                    )}
                   </div>
                   <div>
                     <Label
@@ -1936,7 +2077,6 @@ const GeneratePurchaseOrder = () => {
                     />
                   </div>
 
-                  {/* Row 4: Tax & Discount */}
                   <div>
                     <Label
                       htmlFor="gstPercent"
@@ -1949,8 +2089,8 @@ const GeneratePurchaseOrder = () => {
                       id="gstPercent"
                       name="gstPercent"
                       value={formData.gstPercent}
-                      onChange={handleInputChange}
-                      className="h-8 mt-1 text-xs"
+                      readOnly
+                      className="h-8 mt-1 text-xs bg-gray-50"
                     />
                     {poErrors.gstPercent && (
                       <p className="text-[10px] text-red-500 mt-0.5">
@@ -2001,7 +2141,6 @@ const GeneratePurchaseOrder = () => {
                     )}
                   </div>
 
-                  {/* Row 5: Pricing details continued */}
                   <div>
                     <Label
                       htmlFor="leadTimeToLift"
@@ -2025,172 +2164,120 @@ const GeneratePurchaseOrder = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                  <div>
-                    <Label
-                      htmlFor="alumina"
-                      className="text-xs font-medium text-gray-700"
-                    >
-                      Alumina %
-                    </Label>
-                    <Input
-                      id="alumina"
-                      name="alumina"
-                      value={formData.alumina}
-                      onChange={handleInputChange}
-                      readOnly
-                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
-                    />
-                    {poErrors.alumina && (
-                      <p className="text-[10px] text-red-500 mt-0.5">
-                        {poErrors.alumina}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="iron"
-                      className="text-xs font-medium text-gray-700"
-                    >
-                      Iron %
-                    </Label>
-                    <Input
-                      id="iron"
-                      name="iron"
-                      value={formData.iron}
-                      onChange={handleInputChange}
-                      readOnly
-                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
-                    />
-                    {poErrors.iron && (
-                      <p className="text-[10px] text-red-500 mt-0.5">
-                        {poErrors.iron}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="ap"
-                      className="text-xs font-medium text-gray-700"
-                    >
-                      AP %
-                    </Label>
-                    <Input
-                      id="ap"
-                      name="ap"
-                      value={formData.ap}
-                      onChange={handleInputChange}
-                      readOnly
-                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
-                    />
-                    {poErrors.ap && (
-                      <p className="text-[10px] text-red-500 mt-0.5">
-                        {poErrors.ap}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="bd"
-                      className="text-xs font-medium text-gray-700"
-                    >
-                      BD %
-                    </Label>
-                    <Input
-                      id="bd"
-                      name="bd"
-                      value={formData.bd}
-                      onChange={handleInputChange}
-                      readOnly
-                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
-                    />
-                    {poErrors.bd && (
-                      <p className="text-[10px] text-red-500 mt-0.5">
-                        {poErrors.bd}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Additional Chemical Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4">
-                  <div>
-                    <Label
-                      htmlFor="sio2"
-                      className="text-xs font-medium text-gray-700"
-                    >
-                      SiO2 %
-                    </Label>
-                    <Input
-                      id="sio2"
-                      name="sio2"
-                      value={formData.sio2}
-                      onChange={handleInputChange}
-                      readOnly
-                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
-                    />
-                    {poErrors.sio2 && (
-                      <p className="text-[10px] text-red-500 mt-0.5">
-                        {poErrors.sio2}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="cao"
-                      className="text-xs font-medium text-gray-700"
-                    >
-                      CaO %
-                    </Label>
-                    <Input
-                      id="cao"
-                      name="cao"
-                      value={formData.cao}
-                      onChange={handleInputChange}
-                      readOnly
-                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
-                    />
-                    {poErrors.cao && (
-                      <p className="text-[10px] text-red-500 mt-0.5">
-                        {poErrors.cao}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="fineness"
-                      className="text-xs font-medium text-gray-700"
-                    >
-                      Fineness
-                    </Label>
-                    <Input
-                      id="fineness"
-                      name="fineness"
-                      value={formData.fineness}
-                      onChange={handleInputChange}
-                      readOnly
-                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
-                    />
-                    {poErrors.fineness && (
-                      <p className="text-[10px] text-red-500 mt-0.5">
-                        {poErrors.fineness}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="packaging"
-                      className="text-xs font-medium text-gray-700"
-                    >
-                      Packaging
-                    </Label>
-                    <Input
-                      id="packaging"
-                      name="packaging"
-                      value={formData.packaging}
-                      readOnly
-                      className="h-8 mt-1 text-xs bg-gray-50 cursor-not-allowed"
-                    />
+                {/* NEW: Per-Item Chemical Specifications Table */}
+                <div className="mt-4">
+                  <Label className="block mb-2 text-xs font-medium text-gray-700">
+                    Material Specifications (Per Item)
+                  </Label>
+                  <div className="overflow-x-auto border rounded-md">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Material</th>
+                          <th className="px-3 py-2 text-left">Qty (MT)</th>
+                          <th className="px-3 py-2 text-left">Rate</th>
+                          <th className="px-3 py-2 text-left">Alumina %</th>
+                          <th className="px-3 py-2 text-left">Iron %</th>
+                          <th className="px-3 py-2 text-left">SiO₂ %</th>
+                          <th className="px-3 py-2 text-left">CaO %</th>
+                          <th className="px-3 py-2 text-left">AP %</th>
+                          <th className="px-3 py-2 text-left">BD %</th>
+                          <th className="px-3 py-2 text-left">Fineness</th>
+                          <th className="px-3 py-2 text-left">Packaging</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedVendorGroup?.indents.map((indent, idx) => (
+                          <tr key={idx} className="border-t hover:bg-gray-50">
+                            <td className="px-3 py-2 font-medium">
+                              {indent.rawMaterialName}
+                            </td>
+                            <td className="px-3 py-2">{indent.approvedQty}</td>
+                            <td className="px-3 py-2">
+                              {indent.approvedRate || indent.rate}
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                type="number"
+                                step="any"
+                                value={itemSpecs[idx]?.alumina || ""}
+                                readOnly
+                                className={`h-7 w-24 text-xs bg-gray-50 ${poErrors[`alumina_${idx}`] ? "border-red-500" : ""}`}
+                                placeholder=""
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                type="number"
+                                step="any"
+                                value={itemSpecs[idx]?.iron || ""}
+                                readOnly
+                                className={`h-7 w-24 text-xs bg-gray-50 ${poErrors[`iron_${idx}`] ? "border-red-500" : ""}`}
+                                placeholder=""
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                type="number"
+                                step="any"
+                                value={itemSpecs[idx]?.sio2 || ""}
+                                readOnly
+                                className={`h-7 w-24 text-xs bg-gray-50 ${poErrors[`sio2_${idx}`] ? "border-red-500" : ""}`}
+                                placeholder=""
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                type="number"
+                                step="any"
+                                value={itemSpecs[idx]?.cao || ""}
+                                readOnly
+                                className={`h-7 w-24 text-xs bg-gray-50 ${poErrors[`cao_${idx}`] ? "border-red-500" : ""}`}
+                                placeholder=""
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                type="number"
+                                step="any"
+                                value={itemSpecs[idx]?.ap || ""}
+                                readOnly
+                                className={`h-7 w-24 text-xs bg-gray-50 ${poErrors[`ap_${idx}`] ? "border-red-500" : ""}`}
+                                placeholder=""
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                type="number"
+                                step="any"
+                                value={itemSpecs[idx]?.bd || ""}
+                                readOnly
+                                className={`h-7 w-24 text-xs bg-gray-50 ${poErrors[`bd_${idx}`] ? "border-red-500" : ""}`}
+                                placeholder=""
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                type="number"
+                                step="any"
+                                value={itemSpecs[idx]?.fineness || ""}
+                                readOnly
+                                className={`h-7 w-24 text-xs bg-gray-50 ${poErrors[`fineness_${idx}`] ? "border-red-500" : ""}`}
+                                placeholder=""
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                value={itemSpecs[idx]?.packaging || ""}
+                                readOnly
+                                className="w-24 text-xs h-7 bg-gray-50"
+                                placeholder="Type"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
@@ -2310,6 +2397,25 @@ const GeneratePurchaseOrder = () => {
                         100;
                       const grandTotal = amountAfterDiscount + gstAmount;
 
+                      // In the PDF preview button onClick handler:
+                      const pdfItems = selectedVendorGroup.indents.map(
+                        (indent, idx) => ({
+                          product: indent.rawMaterialName,
+                          quantity: parseFloat(indent.approvedQty),
+                          unit: "MT",
+                          rate: parseFloat(indent.approvedRate || indent.rate),
+                          amount:
+                            parseFloat(indent.approvedQty) *
+                            parseFloat(indent.approvedRate || indent.rate),
+                          specs: itemSpecs[idx] || {},
+                          packaging:
+                            itemSpecs[idx]?.packaging ||
+                            formData.packaging ||
+                            indent.packaging ||
+                            "",
+                        }),
+                      );
+
                       const pdfProps = {
                         companyName: "Passary Minerals Madhya Pvt Ltd",
                         companyPhone: "771-4001598",
@@ -2321,23 +2427,18 @@ const GeneratePurchaseOrder = () => {
                           "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
                         destinationAddress: formData.destination,
                         supplierName: formData.vendorName,
-                        supplierAddress: "Supplier Address",
-                        supplierGstin: "Supplier GSTIN",
+                        supplierAddress:
+                          selectedVendorGroup?.indents[0]?.supplierAddress ||
+                          "",
+                        supplierGstin:
+                          selectedVendorGroup?.indents[0]?.supplierGstin || "",
                         orderNumber: formData.poNumber,
                         orderDate: formData.poDate,
                         deliveryDate: formData.deliveryDate,
                         notes: formData.notes || "",
-                        items: [
-                          {
-                            product: selectedIndent.rawMaterialName,
-                            quantity: parseFloat(formData.totalQty),
-                            unit: "MT",
-                            rate: parseFloat(formData.rate),
-                            amount: subtotal,
-                          },
-                        ],
-                        totalQuantity: parseFloat(formData.totalQty),
-                        totalAmount: subtotal,
+                        items: pdfItems,
+                        totalQuantity: selectedVendorGroup.totalQuantity,
+                        totalAmount: selectedVendorGroup.totalAmount,
                         gstAmount: gstAmount,
                         grandTotal: grandTotal,
                         terms: formData.terms,
@@ -2347,13 +2448,6 @@ const GeneratePurchaseOrder = () => {
                         ),
                         paymentTerms: formData.paymentTerms || "1 DAY",
                         labDetails: {
-                          alumina: formData.alumina,
-                          iron: formData.iron,
-                          sio2: formData.sio2,
-                          cao: formData.cao,
-                          ap: formData.ap,
-                          bd: formData.bd,
-                          fineness: formData.fineness,
                           packaging: formData.packaging,
                         },
                       };

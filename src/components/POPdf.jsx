@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     color: "#000",
   },
 
-  // ===== TABLE STYLES =====
+  // ===== TABLE STYLES - UPDATED WITH SPEC COLUMNS =====
   table: {
     borderWidth: 1,
     borderColor: "#000",
@@ -190,9 +190,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
 
-  // Cell widths
+  // Updated cell widths for spec columns
   cellSl: {
-    width: "5%",
+    width: "4%",
     borderRightWidth: 1,
     borderColor: "#ddd",
     padding: 4,
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   },
 
   cellDesc: {
-    width: "40%",
+    width: "25%",
     borderRightWidth: 1,
     borderColor: "#ddd",
     padding: 4,
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   },
 
   cellQty: {
-    width: "12%",
+    width: "8%",
     borderRightWidth: 1,
     borderColor: "#ddd",
     padding: 4,
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   },
 
   cellRate: {
-    width: "16%",
+    width: "10%",
     borderRightWidth: 1,
     borderColor: "#ddd",
     padding: 4,
@@ -226,8 +226,18 @@ const styles = StyleSheet.create({
     fontSize: 7,
   },
 
+  // New spec column styles
+  cellSpec: {
+    width: "8%",
+    borderRightWidth: 1,
+    borderColor: "#ddd",
+    padding: 4,
+    textAlign: "center",
+    fontSize: 7,
+  },
+
   cellAmount: {
-    width: "27%",
+    width: "13%",
     padding: 4,
     textAlign: "right",
     fontSize: 7,
@@ -286,46 +296,70 @@ const styles = StyleSheet.create({
     color: "#000",
   },
 
-  // ===== SPECS SECTION =====
-  specsSection: {
+  // ===== ITEM-WISE SPECS SECTION (Alternative/Additional display) =====
+  // Replace these styles in your POPdf.js file
+
+  itemSpecsSection: {
     borderWidth: 1,
     borderColor: "#ddd",
-    padding: 6,
-    marginBottom: 6,
+    padding: 4, // Reduced from 6
+    marginBottom: 4, // Reduced from 6
     backgroundColor: "#f9f9f9",
   },
 
-  specsTitle: {
+  itemSpecsTitle: {
     fontSize: 8,
     fontWeight: "bold",
-    marginBottom: 4,
+    marginBottom: 3, // Reduced from 6
     color: "#333",
     textDecoration: "underline",
   },
 
-  specsGrid: {
+  itemSpecBlock: {
+    marginBottom: 4, // Reduced from 8
+    borderBottomWidth: 0, // Changed from 1 to 0 - remove border
+    paddingBottom: 2, // Reduced from 6
+    flexDirection: "row", // Added - horizontal layout
+    alignItems: "flex-start", // Added
+    flexWrap: "wrap", // Added
+  },
+
+  itemSpecName: {
+    fontSize: 8,
+    fontWeight: "bold",
+    marginBottom: 2, // Reduced from 3
+    color: "#000",
+    width: "20%", // Added - fixed width for material name
+    paddingRight: 4, // Added
+  },
+
+  itemSpecGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 4, // Reduced from 8
+    width: "80%", // Added
   },
 
-  specItem: {
+  itemSpecItem: {
     flexDirection: "row",
-    width: "48%",
-    marginBottom: 3,
+    width: "auto", // Changed from 30% to auto
+    minWidth: "23%", // Added - responsive width
+    marginBottom: 2, // Added
+    marginRight: 4, // Added
   },
 
-  specLabel: {
+  itemSpecLabel: {
     fontSize: 7,
     fontWeight: "bold",
     color: "#555",
-    width: "50%",
+    width: "auto", // Changed from 45%
+    marginRight: 2, // Added
   },
 
-  specValue: {
+  itemSpecValue: {
     fontSize: 7,
     color: "#000",
-    width: "50%",
+    width: "auto", // Changed from 55%
   },
 
   // ===== AMOUNT IN WORDS SECTION =====
@@ -492,6 +526,16 @@ const POPdf = ({
       unit: "MT",
       rate: 41000.0,
       amount: 416560.0,
+      specs: {
+        alumina: "",
+        iron: "",
+        sio2: "",
+        cao: "",
+        ap: "",
+        bd: "",
+        fineness: "",
+      },
+      packaging: "", // Add this
     },
   ],
   totalQuantity = 10.16,
@@ -600,7 +644,20 @@ const POPdf = ({
     return result + " Only";
   };
 
-  const hasLabDetails =
+  // Check if any item has specs to display in the separate section
+  const hasAnySpecs = items.some(
+    (item) =>
+      (item.specs &&
+        Object.values(item.specs).some(
+          (v) => v && String(v).trim() !== "" && v !== "null" && v !== "0",
+        )) ||
+      (item.packaging &&
+        item.packaging.trim() !== "" &&
+        item.packaging !== "null"),
+  );
+
+  // Check if we should use the legacy labDetails section (for backward compatibility)
+  const hasLegacyLabDetails =
     labDetails &&
     Object.values(labDetails).some(
       (v) => v && String(v).trim() !== "" && v !== "null",
@@ -683,22 +740,28 @@ const POPdf = ({
           </View>
         </View>
 
-        {/* ===== ITEMS TABLE ===== */}
+        {/* ===== ITEMS TABLE WITH SPEC COLUMNS ===== */}
         <View style={styles.table}>
-          {/* Header */}
+          {/* Header - Updated with spec columns */}
           <View style={styles.tableHeader}>
             <Text style={styles.cellSl}>Sl.</Text>
             <Text style={styles.cellDesc}>Description</Text>
-            <Text style={styles.cellQty}>Quantity</Text>
+            <Text style={styles.cellQty}>Qty</Text>
             <Text style={styles.cellRate}>Rate</Text>
+            <Text style={styles.cellSpec}>Al₂O₃%</Text>
+            <Text style={styles.cellSpec}>Fe%</Text>
+            <Text style={styles.cellSpec}>SiO₂%</Text>
+            <Text style={styles.cellSpec}>CaO%</Text>
             <Text style={styles.cellAmount}>Amount</Text>
           </View>
 
-          {/* Rows */}
+          {/* Rows - Updated to display per-item specs */}
           {items.map((item, idx) => {
             const qty = parseFloat(item.quantity || 0);
             const rate = parseFloat(item.rate || 0);
             const amt = parseFloat(item.amount || qty * rate);
+            const specs = item.specs || {};
+
             return (
               <View key={idx} style={styles.tableRow}>
                 <Text style={styles.cellSl}>{idx + 1}</Text>
@@ -707,6 +770,20 @@ const POPdf = ({
                   {qty.toFixed(2)} {item.unit || "MT"}
                 </Text>
                 <Text style={styles.cellRate}>{formatCurrency(rate)}</Text>
+                <Text style={styles.cellSpec}>
+                  {specs.alumina && specs.alumina !== "0"
+                    ? `${specs.alumina}%`
+                    : "-"}
+                </Text>
+                <Text style={styles.cellSpec}>
+                  {specs.iron && specs.iron !== "0" ? `${specs.iron}%` : "-"}
+                </Text>
+                <Text style={styles.cellSpec}>
+                  {specs.sio2 && specs.sio2 !== "0" ? `${specs.sio2}%` : "-"}
+                </Text>
+                <Text style={styles.cellSpec}>
+                  {specs.cao && specs.cao !== "0" ? `${specs.cao}%` : "-"}
+                </Text>
                 <Text style={styles.cellAmount}>{formatCurrency(amt)}</Text>
               </View>
             );
@@ -718,6 +795,10 @@ const POPdf = ({
             <Text style={styles.cellDesc}>Subtotal</Text>
             <Text style={styles.cellQty}>{totalQuantity.toFixed(2)}</Text>
             <Text style={styles.cellRate}></Text>
+            <Text style={styles.cellSpec}></Text>
+            <Text style={styles.cellSpec}></Text>
+            <Text style={styles.cellSpec}></Text>
+            <Text style={styles.cellSpec}></Text>
             <Text style={styles.cellAmount}>{formatCurrency(totalAmount)}</Text>
           </View>
 
@@ -727,6 +808,10 @@ const POPdf = ({
               <Text style={styles.cellDesc}>Discount ({discountPercent}%)</Text>
               <Text style={styles.cellQty}></Text>
               <Text style={styles.cellRate}></Text>
+              <Text style={styles.cellSpec}></Text>
+              <Text style={styles.cellSpec}></Text>
+              <Text style={styles.cellSpec}></Text>
+              <Text style={styles.cellSpec}></Text>
               <Text style={styles.cellAmount}>
                 {formatCurrency((totalAmount * discountPercent) / 100)}
               </Text>
@@ -738,6 +823,10 @@ const POPdf = ({
             <Text style={styles.cellDesc}>GST ({gstPercent}%)</Text>
             <Text style={styles.cellQty}></Text>
             <Text style={styles.cellRate}></Text>
+            <Text style={styles.cellSpec}></Text>
+            <Text style={styles.cellSpec}></Text>
+            <Text style={styles.cellSpec}></Text>
+            <Text style={styles.cellSpec}></Text>
             <Text style={styles.cellAmount}>{formatCurrency(gstAmount)}</Text>
           </View>
         </View>
@@ -748,8 +837,77 @@ const POPdf = ({
           <Text style={styles.totalValue}>{formatCurrency(grandTotal)}</Text>
         </View>
 
-        {/* ===== TECHNICAL SPECIFICATIONS ===== */}
-        {hasLabDetails && (
+        {/* ===== ITEM-WISE SPECIFICATIONS SECTION (Detailed View) ===== */}
+        {/* This provides a cleaner, more detailed view of specs per material */}
+        {/* ===== ITEM-WISE SPECIFICATIONS SECTION (Compact Layout) ===== */}
+        {hasAnySpecs && (
+          <View style={styles.itemSpecsSection}>
+            <Text style={styles.itemSpecsTitle}>Material Specifications</Text>
+            {items.map((item, idx) => {
+              const specs = item.specs || {};
+              const packaging = item.packaging || labDetails?.packaging || "";
+
+              // Build specs array for display
+              const specItems = [];
+              if (
+                specs.alumina &&
+                specs.alumina !== "0" &&
+                specs.alumina !== ""
+              ) {
+                specItems.push({ label: "Al₂O₃", value: `${specs.alumina}%` });
+              }
+              if (specs.iron && specs.iron !== "0" && specs.iron !== "") {
+                specItems.push({ label: "Fe", value: `${specs.iron}%` });
+              }
+              if (specs.sio2 && specs.sio2 !== "0" && specs.sio2 !== "") {
+                specItems.push({ label: "SiO₂", value: `${specs.sio2}%` });
+              }
+              if (specs.cao && specs.cao !== "0" && specs.cao !== "") {
+                specItems.push({ label: "CaO", value: `${specs.cao}%` });
+              }
+              if (specs.ap && specs.ap !== "0" && specs.ap !== "") {
+                specItems.push({ label: "AP", value: `${specs.ap}%` });
+              }
+              if (specs.bd && specs.bd !== "0" && specs.bd !== "") {
+                specItems.push({ label: "BD", value: `${specs.bd}%` });
+              }
+              if (
+                specs.fineness &&
+                specs.fineness !== "0" &&
+                specs.fineness !== ""
+              ) {
+                specItems.push({ label: "Fineness", value: specs.fineness });
+              }
+
+              // Add packaging if available
+              if (packaging && packaging !== "" && packaging !== "null") {
+                specItems.push({ label: "Pkg", value: packaging });
+              }
+
+              if (specItems.length === 0) return null;
+
+              return (
+                <View key={idx} style={styles.itemSpecBlock} wrap={false}>
+                  <Text style={styles.itemSpecName}>
+                    {idx + 1}. {item.product || "Product"}
+                  </Text>
+                  <View style={styles.itemSpecGrid}>
+                    {specItems.map((spec, specIdx) => (
+                      <View key={specIdx} style={styles.itemSpecItem}>
+                        <Text style={styles.itemSpecLabel}>{spec.label}:</Text>
+                        <Text style={styles.itemSpecValue}>{spec.value}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ===== LEGACY LAB SPECIFICATIONS SECTION (Backward Compatible) ===== */}
+        {/* This section is kept for backward compatibility with older PO formats */}
+        {hasLegacyLabDetails && !hasAnySpecs && (
           <View style={styles.specsSection}>
             <Text style={styles.specsTitle}>Lab Specifications</Text>
             <View style={styles.specsGrid}>
