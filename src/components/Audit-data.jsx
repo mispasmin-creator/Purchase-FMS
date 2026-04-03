@@ -962,11 +962,8 @@ const CallTrackerPage = () => {
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
-      finalAuditData = finalAuditData.filter((entry) =>
-        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
-      );
       setAuditMismatchData(finalAuditData);
+
 
     } catch (err) {
       console.error('Error fetching audit data from Supabase:', err);
@@ -1044,11 +1041,8 @@ const CallTrackerPage = () => {
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
-      finalTallyData = finalTallyData.filter((entry) =>
-        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
-      );
       setTallyEntryMismatchData(finalTallyData);
+
 
     } catch (err) {
       console.error('Error fetching tally entry data from Supabase:', err);
@@ -1126,11 +1120,8 @@ const CallTrackerPage = () => {
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
-      finalBillData = finalBillData.filter((entry) =>
-        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
-      );
       setBillEntryMismatchData(finalBillData);
+
 
     } catch (err) {
       console.error('Error fetching bill entry data from Supabase:', err);
@@ -1208,11 +1199,8 @@ const CallTrackerPage = () => {
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
-      finalRectifyData = finalRectifyData.filter((entry) =>
-        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
-      );
       setRectifyMismatchData(finalRectifyData);
+
 
     } catch (err) {
       console.error('Error fetching rectify data from Supabase:', err);
@@ -1290,11 +1278,8 @@ const CallTrackerPage = () => {
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
       }
-      // Show only Independent type lifts (via LIFT-ACCOUNTS type lookup)
-      finalReAuditData = finalReAuditData.filter((entry) =>
-        String(liftTypeMap[String(entry.liftNumber || "").trim()] || "").toLowerCase() === "independent"
-      );
       setReAuditMismatchData(finalReAuditData);
+
 
     } catch (err) {
       console.error('Error fetching re-audit data from Supabase:', err);

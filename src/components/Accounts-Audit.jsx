@@ -234,8 +234,6 @@ const AccountsAudit = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      // Show only Independent type lifts
-      filteredData = filteredData.filter((item) => String(item.type || "").toLowerCase() === "independent");
 
       // Filter by Firm Name
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {

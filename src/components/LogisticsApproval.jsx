@@ -214,11 +214,11 @@ export default function LogisticsApproval() {
         ActualLogistics: now,
         Planned3: now,
         "Transporter Name": selectedTransporter.name,
-        "Transport Type": selectedTransporter.rateType || "",
         "Transporter Rate": Number(selectedTransporter.cost || 0),
         transpoter_rate_type: selectedTransporter.rateType || "",
         SelectedTransporter: selectedTransporter,
         SelectedTransporterIndex: selectedTransporterIndex,
+
       };
 
       const { error: updateError } = await supabase

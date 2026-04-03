@@ -1006,9 +1006,10 @@ export default function LiftMaterial() {
           ? po.transporterName || transporterOptions[0]?.value || ""
           : po.transporterName || "",
       rateType:
-        po.transportType?.toUpperCase() === "FOR"
+        po.transportType?.toUpperCase() === "FOR" || po.transportRateType
           ? po.transportRateType || ""
           : "",
+
       rate: String(po.rate || ""),
     });
     setFormErrors({});
