@@ -1,0 +1,518 @@
+import React, { useContext, useEffect, useMemo, useState } from "react";
+import { FilePlus2, Pencil, Save, Trash, Eye } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./src/components/ui/card";
+import { Input } from "./src/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./src/components/ui/table";
+import { Button } from "./src/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./src/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "./src/components/ui/tabs";
+import { Textarea } from "./src/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./src/components/ui/dialog";
+import { Label } from "./src/components/ui/label";
+import { pdf, PDFViewer } from "@react-pdf/renderer";
+import { ClipLoader as Loader } from "react-spinners";
+import { toast } from "sonner";
+import POPdf from "./src/components/POPdf";
+import { AuthContext } from "./src/context/AuthContext";
+import { supabase } from "./src/supabase";
+import { uploadFileToStorage } from "./src/utils/storageUtils";
+
+const DEFAULT_TERMS = [
+  "Price is ex factory",
+  "Subject to Raipur Jurisdiction",
+  "Payment: 1 Day",
+];
+
+const defaultForm = () => ({
+  poNumber: "",
+  poDate: new Date().toISOString().split("T")[0],
+  supplierName: "",
+  supplierAddress: "",
+  gstin: "",
+  companyEmail: "",
+  quotationNumber: "",
+  quotationDate: new Date().toISOString().split("T")[0],
+  deliveryDate: new Date().toISOString().split("T")[0],
+  paymentTerms: "1 DAY",
+  description: "",
+  notes: "",
+  destination: "",
+  transportType: "",
+  advanceToBePaid: "no",
+  toBePaidAmount: "",
+  whenToBePaid: "",
+  terms: [...DEFAULT_TERMS],
+  indents: [],
+});
+
+const normalize = (value) => String(value || "").trim().toLowerCase();
+const toDateInput = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value.split("T")[0].split(" ")[0];
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
+};
+const formatDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value || "" : new Intl.DateTimeFormat("en-GB").format(date);
+};
+const lineBase = (item) => (Number(item.quantity) || 0) * (Number(item.rate) || 0);
+const taxable = (item) => lineBase(item) - (lineBase(item) * (Number(item.discountPercent) || 0)) / 100;
+const lineGst = (item) => (taxable(item) * (Number(item.gstPercent) || 0)) / 100;
+const lineTotal = (item) => taxable(item) + lineGst(item);
+const sumBy = (items, fn) => items.reduce((sum, item) => sum + fn(item), 0);
+const money = (value) => Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const generatePoNumber = (rows) => `PMMPL/PO/25-26/${(rows?.filter((row) => row.poFile)?.length || 2554) + 1}`;
+
+const mapRow = (row) => ({
+  id: row["Indent Id."],
+  firmName: row["Firm Name"] || "",
+  vendorName: row["Vendor"] || "",
+  rawMaterialName: row["Material"] || "",
+  approvedQty: Number(row["Approved Qty"] || 0),
+  approvedRate: Number(row["Approved Rate"] || row["Rate"] || 0),
+  quotationNumber: row["Quotation Number 1"] || "",
+  quotationDate: toDateInput(row["Quotation Date 1"]),
+  poTimestamp: row["Actual2"] || "",
+  planned: row["Planned2"] || "",
+  notes: row["PO Notes"] || row["Notes"] || "",
+  supplierAddress: row["Vendor Address"] || row["Address"] || "",
+  supplierGstin: row["GST Number"] || row["GSTIN"] || "",
+  supplierEmail: row["Email"] || "",
+  alumina: row["Alumina %"] || "",
+  iron: row["Iron %"] || "",
+  sio2: row["SiO2 %"] || "",
+  cao: row["CaO %"] || "",
+  ap: row["AP Percent Age %"] || "",
+  bd: row["BD Percent Age %"] || "",
+  fineness: row["Fineness"] || "",
+  packaging: row["Packaging"] || "",
+  poFile: row["PO Copy"] || "",
+  advanceToBePaid: row["Advance To Be Paid"] || "",
+  toBePaidAmount: row["To Be Paid Amount"] || "",
+  whenToBePaid: toDateInput(row["When To Be Paid Amount"]),
+  transportType: row["Transport Type"] || "",
+});
+
+const groupByVendor = (rows) => {
+  const groups = rows.reduce((acc, row) => {
+    const key = row.vendorName || "Unknown Vendor";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(row);
+    return acc;
+  }, {});
+  return Object.entries(groups).map(([vendorName, indents]) => ({
+    vendorName,
+    indents,
+    totalItems: indents.length,
+    totalQuantity: sumBy(indents, (item) => Number(item.approvedQty) || 0),
+  }));
+};
+
+export default function CreatePO() {
+  const { user } = useContext(AuthContext);
+  const [mode, setMode] = useState("create");
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+  const [termEditIndex, setTermEditIndex] = useState(-1);
+  const [editDestination, setEditDestination] = useState(false);
+  const [formData, setFormData] = useState(defaultForm());
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.from("INDENT-PO").select("*").not("Planned2", "is", null);
+        if (error) throw error;
+        const mapped = (data || []).map(mapRow);
+        const firm = normalize(user?.firmName);
+        const filtered = firm && firm !== "all" ? mapped.filter((item) => normalize(item.firmName) === firm) : mapped;
+        setRows(filtered);
+        setFormData((prev) => ({ ...prev, poNumber: generatePoNumber(filtered) }));
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load purchase order data");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [user?.firmName]);
+
+  const pendingGroups = useMemo(() => groupByVendor(rows.filter((item) => item.planned && !item.poTimestamp)), [rows]);
+  const createdGroups = useMemo(() => groupByVendor(rows.filter((item) => item.planned && item.poTimestamp)), [rows]);
+  const vendorGroups = mode === "create" ? pendingGroups : createdGroups;
+  const currentGroup = useMemo(() => vendorGroups.find((group) => normalize(group.vendorName) === normalize(formData.supplierName)) || null, [vendorGroups, formData.supplierName]);
+
+  useEffect(() => {
+    if (!currentGroup) return;
+    const first = currentGroup.indents[0] || {};
+    setFormData((prev) => ({
+      ...prev,
+      poNumber: prev.poNumber || generatePoNumber(rows),
+      supplierName: currentGroup.vendorName,
+      supplierAddress: first.supplierAddress || prev.supplierAddress,
+      gstin: first.supplierGstin || prev.gstin,
+      companyEmail: first.supplierEmail || prev.companyEmail,
+      quotationNumber: first.quotationNumber || prev.quotationNumber,
+      quotationDate: first.quotationDate || prev.quotationDate,
+      notes: prev.notes || first.notes || "",
+      destination: first.firmName || prev.destination,
+      advanceToBePaid: normalize(first.advanceToBePaid) === "yes" ? "yes" : prev.advanceToBePaid,
+      toBePaidAmount: first.toBePaidAmount || prev.toBePaidAmount,
+      whenToBePaid: first.whenToBePaid || prev.whenToBePaid,
+      transportType: first.transportType || prev.transportType,
+      indents: currentGroup.indents.map((indent) => ({
+        id: indent.id,
+        indentNumber: String(indent.id || ""),
+        productName: indent.rawMaterialName || "",
+        specifications: [
+          indent.alumina ? `Alumina ${indent.alumina}%` : "",
+          indent.iron ? `Iron ${indent.iron}%` : "",
+          indent.sio2 ? `SiO2 ${indent.sio2}%` : "",
+          indent.cao ? `CaO ${indent.cao}%` : "",
+          indent.ap ? `AP ${indent.ap}%` : "",
+          indent.bd ? `BD ${indent.bd}%` : "",
+          indent.fineness ? `Fineness ${indent.fineness}` : "",
+          indent.packaging ? `Packaging ${indent.packaging}` : "",
+        ].filter(Boolean).join(", "),
+        quantity: indent.approvedQty,
+        unit: "MT",
+        rate: indent.approvedRate,
+        gstPercent: 18,
+        discountPercent: 0,
+        specs: {
+          alumina: indent.alumina || "",
+          iron: indent.iron || "",
+          sio2: indent.sio2 || "",
+          cao: indent.cao || "",
+          ap: indent.ap || "",
+          bd: indent.bd || "",
+          fineness: indent.fineness || "",
+        },
+        packaging: indent.packaging || "",
+      })),
+    }));
+  }, [currentGroup, rows]);
+
+  const subtotal = useMemo(() => sumBy(formData.indents, taxable), [formData.indents]);
+  const gstAmount = useMemo(() => sumBy(formData.indents, lineGst), [formData.indents]);
+  const grandTotal = useMemo(() => sumBy(formData.indents, lineTotal), [formData.indents]);
+  const totalQuantity = useMemo(() => sumBy(formData.indents, (item) => Number(item.quantity) || 0), [formData.indents]);
+
+  const setField = (name, value) => setFormData((prev) => ({ ...prev, [name]: value }));
+  const updateTerm = (index, value) => setFormData((prev) => ({ ...prev, terms: prev.terms.map((term, i) => i === index ? value : term) }));
+  const updateIndent = (index, key, value) => setFormData((prev) => ({ ...prev, indents: prev.indents.map((item, i) => i === index ? { ...item, [key]: value } : item) }));
+  const removeIndent = (index) => setFormData((prev) => ({ ...prev, indents: prev.indents.filter((_, i) => i !== index) }));
+  const removeTerm = (index) => setFormData((prev) => ({ ...prev, terms: prev.terms.filter((_, i) => i !== index) }));
+  const resetForm = () => { setErrors({}); setTermEditIndex(-1); setEditDestination(false); setFormData({ ...defaultForm(), poNumber: generatePoNumber(rows) }); };
+
+  const validateForm = () => {
+    const next = {};
+    if (!formData.supplierName) next.supplierName = "Supplier is required";
+    if (!formData.poNumber) next.poNumber = "PO number is required";
+    if (!formData.poDate) next.poDate = "PO date is required";
+    if (!formData.deliveryDate) next.deliveryDate = "Delivery date is required";
+    if (!formData.supplierAddress) next.supplierAddress = "Supplier address is required";
+    if (!formData.gstin) next.gstin = "GSTIN is required";
+    if (!formData.quotationNumber) next.quotationNumber = "Quotation number is required";
+    if (!formData.notes) next.notes = "PO notes are required";
+    if (!formData.indents.length) next.indents = "At least one item is required";
+    if (formData.advanceToBePaid === "yes" && !formData.toBePaidAmount) next.toBePaidAmount = "Advance amount is required";
+    if (formData.advanceToBePaid === "yes" && !formData.whenToBePaid) next.whenToBePaid = "Advance payment date is required";
+    setErrors(next);
+    return !Object.keys(next).length;
+  };
+
+  const buildPdfProps = () => ({
+    companyName: "Passary Minerals Madhya Pvt Ltd",
+    companyPhone: "771-4001598",
+    companyGstin: "22AAHCP9274B1ZI",
+    companyPan: "AAHCP9274B",
+    companyAddress: "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+    billingAddress: "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+    destinationAddress: formData.destination,
+    supplierName: formData.supplierName,
+    supplierAddress: formData.supplierAddress,
+    supplierGstin: formData.gstin,
+    orderNumber: formData.poNumber,
+    orderDate: formatDate(formData.poDate),
+    deliveryDate: formatDate(formData.deliveryDate),
+    quotationNumber: formData.quotationNumber,
+    quotationDate: formatDate(formData.quotationDate),
+    notes: formData.notes,
+    items: formData.indents.map((item) => ({
+      product: item.productName,
+      quantity: Number(item.quantity) || 0,
+      unit: item.unit || "MT",
+      rate: Number(item.rate) || 0,
+      amount: lineBase(item),
+      specs: item.specs || {},
+      packaging: item.packaging || "",
+    })),
+    totalQuantity,
+    totalAmount: subtotal,
+    gstAmount,
+    grandTotal,
+    gstPercent: 18,
+    discountPercent: 0,
+    terms: formData.terms.filter(Boolean),
+    paymentTerms: formData.paymentTerms || "1 DAY",
+    labDetails: { packaging: formData.indents[0]?.packaging || "" },
+  });
+
+  const handlePreview = async () => {
+    if (!validateForm()) return toast.error("Please fill all required PO fields first");
+    setPreviewData(buildPdfProps());
+    setShowPreview(true);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!validateForm()) return toast.error("Please fill all required PO fields");
+    if (!currentGroup) return toast.error("Please select a vendor group first");
+
+    setSubmitting(true);
+    toast.loading("Generating and uploading PO...", { id: "create-po" });
+    try {
+      const pdfProps = buildPdfProps();
+      const blob = await pdf(<POPdf {...pdfProps} />).toBlob();
+      const file = new File([blob], `PO-${formData.poNumber.replace(/\//g, "-")}.pdf`, { type: "application/pdf" });
+      const { url } = await uploadFileToStorage(file, "image", "po-files");
+      const now = new Date();
+      const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      const updates = {
+        Actual2: stamp,
+        "Vendor name": formData.supplierName,
+        Rate: Number(formData.indents[0]?.rate) || 0,
+        "Lead Time To Lift (days)": formData.deliveryDate ? `${formData.deliveryDate} 00:00:00` : null,
+        "Total Quantity": totalQuantity,
+        "Total Amount": subtotal,
+        "PO Copy": url,
+        "Advance To Be Paid": formData.advanceToBePaid === "yes" ? "Yes" : "No",
+        "To Be Paid Amount": formData.advanceToBePaid === "yes" ? Number(formData.toBePaidAmount) || 0 : null,
+        "When To Be Paid Amount": formData.advanceToBePaid === "yes" && formData.whenToBePaid ? `${formData.whenToBePaid} 00:00:00` : null,
+        Status5: formData.advanceToBePaid === "yes" ? "Pending" : null,
+        "PO Notes": formData.notes,
+        Packaging: formData.indents[0]?.packaging || "",
+        "Transport Type": formData.transportType || "",
+        "PO Items": formData.indents.map((item) => ({ indentId: item.id, material: item.productName, quantity: Number(item.quantity) || 0, rate: Number(item.rate) || 0, specs: { ...(item.specs || {}), packaging: item.packaging || "" } })),
+      };
+      for (const indent of currentGroup.indents) {
+        const { error } = await supabase.from("INDENT-PO").update(updates).eq('"Indent Id."', indent.id);
+        if (error) throw error;
+      }
+      toast.success("PO created successfully", { id: "create-po", description: `${currentGroup.vendorName} processed for ${currentGroup.indents.length} indents` });
+      resetForm();
+      const { data, error } = await supabase.from("INDENT-PO").select("*").not("Planned2", "is", null);
+      if (error) throw error;
+      const mapped = (data || []).map(mapRow);
+      const firm = normalize(user?.firmName);
+      setRows(firm && firm !== "all" ? mapped.filter((item) => normalize(item.firmName) === firm) : mapped);
+      setShowPreview(false);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Failed to save purchase order", { id: "create-po" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="grid w-full place-items-center rounded-md bg-gradient-to-br from-blue-100 via-purple-50 to-blue-50">
+      <div className="flex w-full justify-between p-5">
+        <div className="flex items-center gap-2">
+          <FilePlus2 size={50} className="text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold text-primary">Create or Revise PO</h1>
+            <p className="text-sm text-muted-foreground">Create purchase order for approved indents using the current PO flow</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl sm:p-4">
+        <Tabs defaultValue="create" onValueChange={(value) => { setMode(value === "revise" ? "revise" : "create"); resetForm(); }}>
+          <TabsList className="h-10 w-full rounded-none">
+            <TabsTrigger value="create">Create</TabsTrigger>
+            <TabsTrigger value="revise">Revise</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <form onSubmit={handleSubmit} className="flex flex-col items-center">
+          <div className="w-full space-y-4 rounded-sm bg-white p-4 shadow-md">
+            <div className="flex h-25 items-center justify-center gap-4 rounded bg-blue-50 p-2">
+              <img src="/Passary.jpeg" alt="Company Logo" className="w-40 object-contain" />
+              <div className="text-center">
+                <h1 className="text-2xl font-bold">Passary Mineral Madhya Pvt.Ltd</h1>
+                <p className="text-sm">Shri Ram Business Park , Block - C, 2nd floor , Room No. 212</p>
+                <p className="text-sm">Phone No: +91 7223844007</p>
+              </div>
+            </div>
+
+            <hr />
+            <h2 className="text-center text-lg font-bold">Purchase Order</h2>
+            <hr />
+
+            <div className="grid gap-5 px-4 py-2 text-foreground/80">
+              <div className="grid grid-cols-2 gap-x-5">
+                <div>
+                  <Label className="mb-2 block">PO Number</Label>
+                  <Input className="h-9" value={formData.poNumber} onChange={(e) => setField("poNumber", e.target.value)} readOnly={mode === "create"} />
+                  {errors.poNumber && <p className="mt-1 text-xs text-red-500">{errors.poNumber}</p>}
+                </div>
+                <div>
+                  <Label className="mb-2 block">PO Date</Label>
+                  <Input className="h-9" type="date" value={formData.poDate} onChange={(e) => setField("poDate", e.target.value)} />
+                  {errors.poDate && <p className="mt-1 text-xs text-red-500">{errors.poDate}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-x-5">
+                <div>
+                  <Label className="mb-2 block">{mode === "create" ? "Supplier Name" : "Processed Vendor"}</Label>
+                  <Select value={formData.supplierName || undefined} onValueChange={(value) => setField("supplierName", value)}>
+                    <SelectTrigger className="h-9 w-full"><SelectValue placeholder={mode === "create" ? "Select supplier" : "Select processed vendor"} /></SelectTrigger>
+                    <SelectContent>
+                      {vendorGroups.map((group) => <SelectItem key={group.vendorName} value={group.vendorName}>{group.vendorName}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {errors.supplierName && <p className="mt-1 text-xs text-red-500">{errors.supplierName}</p>}
+                </div>
+                <div>
+                  <Label className="mb-2 block">Quotation Number</Label>
+                  <Input className="h-9" value={formData.quotationNumber} onChange={(e) => setField("quotationNumber", e.target.value)} />
+                  {errors.quotationNumber && <p className="mt-1 text-xs text-red-500">{errors.quotationNumber}</p>}
+                </div>
+                <div>
+                  <Label className="mb-2 block">Quotation Date</Label>
+                  <Input className="h-9" type="date" value={formData.quotationDate} onChange={(e) => setField("quotationDate", e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-x-5">
+                <div>
+                  <Label className="mb-2 block">Supplier Address</Label>
+                  <Input className="h-9" value={formData.supplierAddress} onChange={(e) => setField("supplierAddress", e.target.value)} />
+                  {errors.supplierAddress && <p className="mt-1 text-xs text-red-500">{errors.supplierAddress}</p>}
+                </div>
+                <div>
+                  <Label className="mb-2 block">GSTIN</Label>
+                  <Input className="h-9" value={formData.gstin} onChange={(e) => setField("gstin", e.target.value)} />
+                  {errors.gstin && <p className="mt-1 text-xs text-red-500">{errors.gstin}</p>}
+                </div>
+                <div>
+                  <Label className="mb-2 block">Company Email</Label>
+                  <Input className="h-9" type="email" value={formData.companyEmail} onChange={(e) => setField("companyEmail", e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-x-5">
+                <div>
+                  <Label className="mb-2 block">Delivery Date</Label>
+                  <Input className="h-9" type="date" value={formData.deliveryDate} onChange={(e) => setField("deliveryDate", e.target.value)} />
+                  {errors.deliveryDate && <p className="mt-1 text-xs text-red-500">{errors.deliveryDate}</p>}
+                </div>
+                <div>
+                  <Label className="mb-2 block">Payment Terms</Label>
+                  <Input className="h-9" value={formData.paymentTerms} onChange={(e) => setField("paymentTerms", e.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Transport Type</Label>
+                  <Input className="h-9" value={formData.transportType} onChange={(e) => setField("transportType", e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-x-5">
+                <div>
+                  <Label className="mb-2 block">Advance To Be Paid?</Label>
+                  <Select value={formData.advanceToBePaid} onValueChange={(value) => setField("advanceToBePaid", value)}>
+                    <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent><SelectItem value="yes">Yes</SelectItem><SelectItem value="no">No</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="mb-2 block">Advance Amount</Label>
+                  <Input className="h-9" type="number" value={formData.toBePaidAmount} onChange={(e) => setField("toBePaidAmount", e.target.value)} disabled={formData.advanceToBePaid !== "yes"} />
+                  {errors.toBePaidAmount && <p className="mt-1 text-xs text-red-500">{errors.toBePaidAmount}</p>}
+                </div>
+                <div>
+                  <Label className="mb-2 block">Advance Payment Date</Label>
+                  <Input className="h-9" type="date" value={formData.whenToBePaid} onChange={(e) => setField("whenToBePaid", e.target.value)} disabled={formData.advanceToBePaid !== "yes"} />
+                  {errors.whenToBePaid && <p className="mt-1 text-xs text-red-500">{errors.whenToBePaid}</p>}
+                </div>
+              </div>
+            </div>
+
+            <hr />
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <Card className="gap-0 rounded-[3px] p-0 shadow-xs">
+                <CardHeader className="bg-muted px-5 py-2"><CardTitle className="text-center">Our Commercial Details</CardTitle></CardHeader>
+                <CardContent className="p-5 text-sm"><p><span className="font-semibold">GSTIN:</span> 22AAHCP9274B1ZI</p><p><span className="font-semibold">Pan No.</span> AAHCP9274B</p></CardContent>
+              </Card>
+              <Card className="gap-0 rounded-[3px] p-0 shadow-xs">
+                <CardHeader className="bg-muted px-5 py-2"><CardTitle className="text-center">Billing Address</CardTitle></CardHeader>
+                <CardContent className="p-5 text-sm">{formData.supplierName ? <><p className="text-xs font-semibold">Passary Minerals Madhya Pvt Ltd</p><p className="text-xs">Kh No 297/2, Akoli, Block Dharsiwa, Raipur</p></> : <p className="text-center text-gray-400">Select Supplier</p>}</CardContent>
+              </Card>
+              <Card className="gap-0 rounded-[3px] p-0 shadow-xs">
+                <CardHeader className="bg-muted px-5 py-2">
+                  <CardTitle className="flex items-center justify-between text-center">Destination Address{formData.supplierName && <Button type="button" variant="ghost" size="sm" onClick={() => setEditDestination((prev) => !prev)} className="h-6 w-6 p-0 hover:bg-gray-200">{editDestination ? <Save size={14} className="text-green-600" /> : <Pencil size={14} className="text-gray-600" />}</Button>}</CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 text-sm">
+                  {formData.supplierName ? <>{editDestination ? <div className="mt-1 flex items-center gap-2"><Input value={formData.destination} onChange={(e) => setField("destination", e.target.value)} className="h-7 text-sm" placeholder="Enter destination address" /><Button type="button" variant="ghost" size="sm" onClick={() => setField("destination", "")} className="h-6 w-6 p-0 hover:bg-red-100"><Trash size={12} className="text-red-500" /></Button></div> : <p>{formData.destination || "Destination not set"}</p>}</> : <p className="text-center text-gray-400">Select Supplier</p>}
+                </CardContent>
+              </Card>
+            </div>
+
+            <hr />
+
+            <div><Label className="mb-2 block">Description</Label><Textarea placeholder="Enter message" className="resize-y" value={formData.description} onChange={(e) => setField("description", e.target.value)} /></div>
+            <div><Label className="mb-2 block">PO Notes</Label><Textarea placeholder="Describe goods / remarks" className="resize-y" value={formData.notes} onChange={(e) => setField("notes", e.target.value)} />{errors.notes && <p className="mt-1 text-xs text-red-500">{errors.notes}</p>}</div>
+
+            <hr />
+
+            <div className="mx-4 grid">
+              <div className="min-w-full w-full overflow-x-auto rounded-[3px]">
+                <Table>
+                  <TableHeader className="bg-muted"><TableRow><TableHead>S/N</TableHead><TableHead>Internal Code</TableHead><TableHead>Product</TableHead><TableHead>Description</TableHead><TableHead>Qty</TableHead><TableHead>Unit</TableHead><TableHead>Rate</TableHead><TableHead>GST (%)</TableHead><TableHead>Discount (%)</TableHead><TableHead>Amount</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {formData.indents.map((item, index) => <TableRow key={`${item.id}-${index}`}><TableCell>{index + 1}</TableCell><TableCell className="font-medium">{item.indentNumber || "N/A"}</TableCell><TableCell>{item.productName || "No Product"}</TableCell><TableCell>{item.specifications || <span className="italic text-muted-foreground">No description</span>}</TableCell><TableCell><Input type="number" className="h-9 w-20 bg-gray-50 text-center" value={item.quantity || 0} readOnly /></TableCell><TableCell><Input className="h-9 w-20 bg-gray-50 text-center" value={item.unit || ""} readOnly /></TableCell><TableCell><Input type="number" className="h-9 w-24 bg-gray-50 text-center" value={item.rate || 0} readOnly /></TableCell><TableCell><Input type="number" className="h-9 w-16 bg-gray-50 text-center" value={item.gstPercent || 0} onChange={(e) => updateIndent(index, "gstPercent", e.target.value)} /></TableCell><TableCell><Input type="number" className="h-9 w-16 bg-gray-50 text-center" value={item.discountPercent || 0} onChange={(e) => updateIndent(index, "discountPercent", e.target.value)} /></TableCell><TableCell className="font-medium">Rs. {money(lineTotal(item))}</TableCell><TableCell><Button type="button" variant="ghost" size="sm" onClick={() => removeIndent(index)}><Trash size={16} className="text-red-500" /></Button></TableCell></TableRow>)}
+                  </TableBody>
+                </Table>
+              </div>
+              {errors.indents && <p className="mt-2 text-xs text-red-500">{errors.indents}</p>}
+              <div className="flex justify-end p-4"><div className="w-80 rounded-[3px] bg-muted"><p className="flex justify-between px-7 py-2"><span>Total:</span><span className="text-end">{money(subtotal)}</span></p><hr /><p className="flex justify-between px-7 py-2"><span>GST Amount:</span><span className="text-end">{money(gstAmount)}</span></p><hr /><p className="flex justify-between px-7 py-2 font-bold"><span>Grand Total:</span><span className="text-end">{money(grandTotal)}</span></p></div></div>
+            </div>
+
+            <hr />
+
+            <div>
+              <p className="px-3 text-sm font-semibold">THE ABOVE</p>
+              <div>
+                {formData.terms.map((term, index) => { const writable = termEditIndex === index; return <div className="flex items-center" key={`${term}-${index}`}><span className="px-3">{index + 1}.</span><Input className={`h-6 rounded-xs border-transparent shadow-none ${writable ? "border-b border-b-foreground" : ""}`} readOnly={!writable} value={term} onChange={(e) => updateTerm(index, e.target.value)} /><Button variant="ghost" type="button" onClick={() => { if (writable) setTermEditIndex(-1); else if (termEditIndex === -1) setTermEditIndex(index); else toast.error(`Please save term ${termEditIndex + 1} before editing`); }}>{!writable ? <Pencil size={20} /> : <Save size={20} />}</Button><Button variant="ghost" type="button" onClick={() => removeTerm(index)}><Trash className="text-red-300" size={20} /></Button></div>; })}
+              </div>
+              <div className="flex w-full justify-end p-3"><Button className="w-50" variant="outline" type="button" onClick={() => { if (formData.terms.length >= 10) return toast.error("Only 10 terms are allowed"); if (termEditIndex !== -1) return toast.error(`Please save term ${termEditIndex + 1} before creating`); setFormData((prev) => ({ ...prev, terms: [...prev.terms, ""] })); setTermEditIndex(formData.terms.length); }}>Add Term</Button></div>
+            </div>
+          </div>
+
+          <div className="m-5 grid w-full max-w-6xl grid-cols-3 gap-3 rounded-md bg-background p-3 shadow-md">
+            <Button type="button" variant="outline" onClick={resetForm}>Reset</Button>
+            <Button type="button" variant="secondary" onClick={handlePreview} disabled={!formData.supplierName || !formData.indents.length}><Eye size={20} className="mr-2" />Preview</Button>
+            <Button type="submit" disabled={submitting || loading}>{(submitting || loading) && <Loader size={20} color="white" aria-label="Loading Spinner" />}Save And Send PO</Button>
+          </div>
+        </form>
+
+        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+          <DialogContent className="h-[95vh] w-[95vw] max-w-[95vw] gap-0 p-0">
+            <DialogHeader className="border-b px-6 py-4"><DialogTitle>PO Preview</DialogTitle></DialogHeader>
+            <div className="h-[calc(95vh-70px)] w-full">{previewData && <PDFViewer width="100%" height="100%" showToolbar style={{ border: "none" }}><POPdf {...previewData} /></PDFViewer>}</div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}

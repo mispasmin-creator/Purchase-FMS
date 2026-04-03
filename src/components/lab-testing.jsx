@@ -1,13 +1,32 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback, useMemo, useContext } from "react"
+import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 // Shadcn/ui components
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -15,68 +34,83 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Checkbox } from "@/components/ui/checkbox"
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 // Remove Command import if you don't have it, or install it
 // import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
 
 // Sonner Toast
-import { toast } from "sonner"
+import { toast } from "sonner";
 
 // Lucide icons - FIXED: Correct icon name
-import { Beaker, CheckCircle, XCircle, Loader2, AlertTriangle, Info, History, FileCheckIcon, Filter, ChevronsUpDown } from "lucide-react"
-import { MixerHorizontalIcon } from "@radix-ui/react-icons"
-import { AuthContext } from "../context/AuthContext"
-import { supabase } from "../supabase"
+import {
+  Beaker,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  AlertTriangle,
+  Info,
+  History,
+  FileCheckIcon,
+  Filter,
+  ChevronsUpDown,
+} from "lucide-react";
+import { MixerHorizontalIcon } from "@radix-ui/react-icons";
+import { AuthContext } from "../context/AuthContext";
+import { supabase } from "../supabase";
 
 // --- Constants for Google Sheets and Apps Script ---
-const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
-const LIFTS_SHEET_NAME = "LIFT-ACCOUNTS"
-const INDENT_SHEET_NAME = "INDENT-PO"
+const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
+const LIFTS_SHEET_NAME = "LIFT-ACCOUNTS";
+const INDENT_SHEET_NAME = "INDENT-PO";
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec"
-const DATA_START_ROW_LIFTS = 5 // FIX: Corrected from 7 to 6
+  "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
+const DATA_START_ROW_LIFTS = 5; // FIX: Corrected from 7 to 6
 
 // ---- Column Indices for LIFT-ACCOUNTS (0-based) ----
-const LIFT_ID_COL = 1 // B: Lift No
-const INDENT_NO_COL = 2 // C: Indent No.
-const VENDOR_NAME_COL = 3 // D: Vendor Name
-const RAW_MATERIAL_NAME_COL = 5 // F: Raw Material Name
-const ORIGINAL_QTY_COL = 6 // G: PO Qty
-const LIFT_TYPE_COL = 10 // K: Type
-const BILL_NO_COL = 7 // H: Bill No.
-const RECEIPT_DATE_OF_RECEIVING_COL = 22 // W: Date Of Receiving
-const RECEIPT_TOTAL_BILL_QUANTITY_COL = 23 // X: Total Bill Quantity
-const RECEIPT_ACTUAL_QTY_COL = 24 // Y: Actual Quantity Received
-const FIRM_NAME_COL = 55 // BD: Firm Name
+const LIFT_ID_COL = 1; // B: Lift No
+const INDENT_NO_COL = 2; // C: Indent No.
+const VENDOR_NAME_COL = 3; // D: Vendor Name
+const RAW_MATERIAL_NAME_COL = 5; // F: Raw Material Name
+const ORIGINAL_QTY_COL = 6; // G: PO Qty
+const LIFT_TYPE_COL = 10; // K: Type
+const BILL_NO_COL = 7; // H: Bill No.
+const RECEIPT_DATE_OF_RECEIVING_COL = 22; // W: Date Of Receiving
+const RECEIPT_TOTAL_BILL_QUANTITY_COL = 23; // X: Total Bill Quantity
+const RECEIPT_ACTUAL_QTY_COL = 24; // Y: Actual Quantity Received
+const FIRM_NAME_COL = 55; // BD: Firm Name
 
 // --- Lab Test Data Columns ---
-const AI_CONDITION_NOT_NULL_COL = 34 // AI: Date Of Receiving
-const AJ_TIMESTAMP_OR_NULL_COL = 35 // AJ: Lab Test Timestamp
-const AL_STATUS_COL = 37 // AL: Status
-const AM_DATE_OF_TEST_COL = 38 // AM: Date of Test
-const AN_MOISTURE_PERCENT_COL = 39 // AN: Moisture %
-const AO_BD_PERCENT_COL = 40 // AO: BD %
-const AP_AP_PERCENT_COL = 41 // AP: AP %
-const AQ_ALUMINA_PERCENT_COL = 42 // AQ: Alumina %
-const AR_IRON_PERCENT_COL = 43 // AR: Iron %
-const AS_SIEVE_ANALYSIS_COL = 44 // AS: Sieve Analysis
-const AT_LOI_PERCENT_COL = 45 // AT: LOI %
-const AU_SIO2_PERCENT_COL = 46 // AU: SiO2 %
-const AV_CAO_PERCENT_COL = 47 // AV: CaO %
-const AW_MGO_PERCENT_COL = 48 // AW: MgO %
-const AX_TIO2_PERCENT_COL = 49 // AX: TiO2 %
-const AY_KNA2O_PERCENT_COL = 50 // AY: K2O+Na2O %
-const AZ_FREE_IRON_PERCENT_COL = 51 // AZ: Free Iron %
+const AI_CONDITION_NOT_NULL_COL = 34; // AI: Date Of Receiving
+const AJ_TIMESTAMP_OR_NULL_COL = 35; // AJ: Lab Test Timestamp
+const AL_STATUS_COL = 37; // AL: Status
+const AM_DATE_OF_TEST_COL = 38; // AM: Date of Test
+const AN_MOISTURE_PERCENT_COL = 39; // AN: Moisture %
+const AO_BD_PERCENT_COL = 40; // AO: BD %
+const AP_AP_PERCENT_COL = 41; // AP: AP %
+const AQ_ALUMINA_PERCENT_COL = 42; // AQ: Alumina %
+const AR_IRON_PERCENT_COL = 43; // AR: Iron %
+const AS_SIEVE_ANALYSIS_COL = 44; // AS: Sieve Analysis
+const AT_LOI_PERCENT_COL = 45; // AT: LOI %
+const AU_SIO2_PERCENT_COL = 46; // AU: SiO2 %
+const AV_CAO_PERCENT_COL = 47; // AV: CaO %
+const AW_MGO_PERCENT_COL = 48; // AW: MgO %
+const AX_TIO2_PERCENT_COL = 49; // AX: TiO2 %
+const AY_KNA2O_PERCENT_COL = 50; // AY: K2O+Na2O %
+const AZ_FREE_IRON_PERCENT_COL = 51; // AZ: Free Iron %
 
 // --- Column Indices for INDENT-PO (0-based) ----
-const INDENT_NO_COL_INDENT = 1 // B: Indent No (in INDENT-PO)
-const ALUMINA_COL_INDENT = 30 // AE: Alumina % (in INDENT-PO) - Adjust based on your sheet
-const TOTAL_QUANTITY_COL_INDENT = 23 // X: Total Quantity (in INDENT-PO) - ADD THIS LINE
-const IRON_COL_INDENT = 31 // AF: Iron % (in INDENT-PO) - Adjust based on your sheet
+const INDENT_NO_COL_INDENT = 1; // B: Indent No (in INDENT-PO)
+const ALUMINA_COL_INDENT = 30; // AE: Alumina % (in INDENT-PO) - Adjust based on your sheet
+const TOTAL_QUANTITY_COL_INDENT = 23; // X: Total Quantity (in INDENT-PO) - ADD THIS LINE
+const IRON_COL_INDENT = 31; // AF: Iron % (in INDENT-PO) - Adjust based on your sheet
 
 // --- Helper to parse Google Sheet gviz JSON response ---
 const parseGvizResponse = (text, sheetNameForError) => {
@@ -84,58 +118,75 @@ const parseGvizResponse = (text, sheetNameForError) => {
     console.error(
       `Invalid or empty gviz response for ${sheetNameForError}:`,
       text ? text.substring(0, 500) : "Response was null/empty",
-    )
+    );
     throw new Error(
       `Invalid response format from Google Sheets for ${sheetNameForError}. Please ensure the sheet is publicly accessible and the sheet name is correct.`,
-    )
+    );
   }
 
   try {
-    const jsonStart = text.indexOf("{")
-    const jsonEnd = text.lastIndexOf("}") + 1
+    const jsonStart = text.indexOf("{");
+    const jsonEnd = text.lastIndexOf("}") + 1;
     if (jsonStart === -1 || jsonEnd === 0) {
-      throw new Error(`Could not find JSON data in response`)
+      throw new Error(`Could not find JSON data in response`);
     }
 
-    const jsonString = text.substring(jsonStart, jsonEnd)
-    const data = JSON.parse(jsonString)
+    const jsonString = text.substring(jsonStart, jsonEnd);
+    const data = JSON.parse(jsonString);
 
     if (data.status === "error") {
-      throw new Error(`Google Sheets API Error: ${data.errors?.[0]?.detailed_message || "Unknown error"}`)
+      throw new Error(
+        `Google Sheets API Error: ${data.errors?.[0]?.detailed_message || "Unknown error"}`,
+      );
     }
 
     if (!data.table) {
-      console.warn(`No data.table in ${sheetNameForError}, treating as empty.`)
-      return { cols: [], rows: [] }
+      console.warn(`No data.table in ${sheetNameForError}, treating as empty.`);
+      return { cols: [], rows: [] };
     }
 
     if (!data.table.cols) {
-      console.warn(`No data.table.cols in ${sheetNameForError}, treating as empty.`)
-      return { cols: [], rows: [] }
+      console.warn(
+        `No data.table.cols in ${sheetNameForError}, treating as empty.`,
+      );
+      return { cols: [], rows: [] };
     }
 
     if (!data.table.rows) {
-      console.warn(`No data.table.rows in ${sheetNameForError}, treating as empty.`)
-      data.table.rows = []
+      console.warn(
+        `No data.table.rows in ${sheetNameForError}, treating as empty.`,
+      );
+      data.table.rows = [];
     }
 
-    return data.table
+    return data.table;
   } catch (parseError) {
-    console.error("JSON Parse Error:", parseError)
-    throw new Error(`Failed to parse response from Google Sheets: ${parseError.message}`)
+    console.error("JSON Parse Error:", parseError);
+    throw new Error(
+      `Failed to parse response from Google Sheets: ${parseError.message}`,
+    );
   }
-}
+};
 
 // Function to format date string
 const formatDateString = (dateValue) => {
   if (!dateValue || typeof dateValue !== "string" || !dateValue.trim()) {
-    return ""
+    return "";
   }
 
-  const gvizMatch = dateValue.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?/)
+  const gvizMatch = dateValue.match(
+    /^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?/,
+  );
   if (gvizMatch) {
-    const [, year, month, day, hours, minutes, seconds] = gvizMatch.map(Number)
-    const parsedDate = new Date(year, month, day, hours || 0, minutes || 0, seconds || 0)
+    const [, year, month, day, hours, minutes, seconds] = gvizMatch.map(Number);
+    const parsedDate = new Date(
+      year,
+      month,
+      day,
+      hours || 0,
+      minutes || 0,
+      seconds || 0,
+    );
     if (!isNaN(parsedDate.getTime())) {
       return new Intl.DateTimeFormat("en-GB", {
         year: "numeric",
@@ -145,11 +196,11 @@ const formatDateString = (dateValue) => {
         minute: "2-digit",
         second: "2-digit",
         hour12: false,
-      }).format(parsedDate)
+      }).format(parsedDate);
     }
   }
 
-  const dateObj = new Date(dateValue)
+  const dateObj = new Date(dateValue);
   if (!isNaN(dateObj.getTime())) {
     return new Intl.DateTimeFormat("en-GB", {
       year: "numeric",
@@ -159,46 +210,102 @@ const formatDateString = (dateValue) => {
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
-    }).format(dateObj)
+    }).format(dateObj);
   }
 
-  return dateValue
-}
+  return dateValue;
+};
 
 // --- Column Definitions for Tables ---
 const ELIGIBLE_TESTS_COLUMNS_META = [
-  { header: "Action", dataKey: "actionColumn", toggleable: false, alwaysVisible: true },
-  { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
-  { header: "Planned Date", dataKey: "aiCondition_val_formatted", toggleable: true },
+  {
+    header: "Action",
+    dataKey: "actionColumn",
+    toggleable: false,
+    alwaysVisible: true,
+  },
+  {
+    header: "Lift Number",
+    dataKey: "liftNo",
+    toggleable: true,
+    alwaysVisible: true,
+  },
+  {
+    header: "Planned Date",
+    dataKey: "aiCondition_val_formatted",
+    toggleable: true,
+  },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "PO Quantity", dataKey: "poQuantity", toggleable: true },
-  { header: "Actual Qty Rcvd", dataKey: "actualQty_fromReceipt", toggleable: true },
+  {
+    header: "Actual Qty Rcvd",
+    dataKey: "actualQty_fromReceipt",
+    toggleable: true,
+  },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
-]
+];
 
 const RECORDED_TESTS_COLUMNS_META = [
-  { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
-  { header: "Test Date (AM)", dataKey: "amDateOfTest_formatted_val", toggleable: true },
-  { header: "Test Timestamp (AJ)", dataKey: "ajTimestamp_formatted_val", toggleable: true },
-  { header: "Status (AL)", dataKey: "alStatus_val", toggleable: true, isBadge: true },
-  { header: "Moisture % (AN)", dataKey: "anMoisturePercent_val", toggleable: true },
+  {
+    header: "Lift Number",
+    dataKey: "liftNo",
+    toggleable: true,
+    alwaysVisible: true,
+  },
+  {
+    header: "Test Date (AM)",
+    dataKey: "amDateOfTest_formatted_val",
+    toggleable: true,
+  },
+  {
+    header: "Test Timestamp (AJ)",
+    dataKey: "ajTimestamp_formatted_val",
+    toggleable: true,
+  },
+  {
+    header: "Status (AL)",
+    dataKey: "alStatus_val",
+    toggleable: true,
+    isBadge: true,
+  },
+  {
+    header: "Moisture % (AN)",
+    dataKey: "anMoisturePercent_val",
+    toggleable: true,
+  },
   { header: "BD % (AO)", dataKey: "aoBdPercent_val", toggleable: true },
   { header: "AP % (AP)", dataKey: "apApPercent_val", toggleable: true },
-  { header: "Alumina % (AQ)", dataKey: "aqAluminaPercent_val", toggleable: true },
+  {
+    header: "Alumina % (AQ)",
+    dataKey: "aqAluminaPercent_val",
+    toggleable: true,
+  },
   { header: "Iron % (AR)", dataKey: "arIronPercent_val", toggleable: true },
-  { header: "Sieve Analysis (AS)", dataKey: "asSieveAnalysis_val", toggleable: true },
+  {
+    header: "Sieve Analysis (AS)",
+    dataKey: "asSieveAnalysis_val",
+    toggleable: true,
+  },
   { header: "LOI % (AT)", dataKey: "atLoiPercent_val", toggleable: true },
   { header: "SiO2 % (AU)", dataKey: "auSio2Percent_val", toggleable: true },
   { header: "CaO % (AV)", dataKey: "avCaoPercent_val", toggleable: true },
   { header: "MgO % (AW)", dataKey: "awMgoPercent_val", toggleable: true },
   { header: "TiO2 % (AX)", dataKey: "axTio2Percent_val", toggleable: true },
-  { header: "K2O+Na2O % (AY)", dataKey: "ayKna2oPercent_val", toggleable: true },
-  { header: "Free Iron % (AZ)", dataKey: "azFreeIronPercent_val", toggleable: true },
+  {
+    header: "K2O+Na2O % (AY)",
+    dataKey: "ayKna2oPercent_val",
+    toggleable: true,
+  },
+  {
+    header: "Free Iron % (AZ)",
+    dataKey: "azFreeIronPercent_val",
+    toggleable: true,
+  },
   { header: "Reason", dataKey: "baReason_val", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
-]
+];
 
 // Simple SearchableSelect Component (without Command)
 const SearchableSelect = ({
@@ -206,14 +313,14 @@ const SearchableSelect = ({
   onValueChange,
   options,
   placeholder,
-  className
+  className,
 }) => {
-  const [open, setOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredOptions = options.filter(option =>
-    option.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredOptions = options.filter((option) =>
+    option.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
   return (
     <div className="relative">
@@ -225,18 +332,18 @@ const SearchableSelect = ({
         className={`w-full justify-between h-9 bg-white text-xs ${className}`}
       >
         {value === "all" || !value ? `All ${placeholder}` : value}
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
       </Button>
 
       {open && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-          <div className="sticky top-0 bg-white p-2 border-b">
+        <div className="absolute z-50 w-full mt-1 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg max-h-60">
+          <div className="sticky top-0 p-2 bg-white border-b">
             <Input
               type="text"
               placeholder={`Search ${placeholder.toLowerCase()}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-7 text-xs"
+              className="text-xs h-7"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -244,9 +351,9 @@ const SearchableSelect = ({
             <div
               className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
               onClick={() => {
-                onValueChange("all")
-                setOpen(false)
-                setSearchTerm("")
+                onValueChange("all");
+                setOpen(false);
+                setSearchTerm("");
               }}
             >
               All {placeholder}
@@ -256,9 +363,9 @@ const SearchableSelect = ({
                 key={`${option}-${index}`}
                 className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === option ? "bg-green-50" : ""}`}
                 onClick={() => {
-                  onValueChange(option)
-                  setOpen(false)
-                  setSearchTerm("")
+                  onValueChange(option);
+                  setOpen(false);
+                  setSearchTerm("");
                 }}
               >
                 {option}
@@ -269,30 +376,31 @@ const SearchableSelect = ({
       )}
 
       {open && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setOpen(false)}
-        />
+        <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
       )}
     </div>
-  )
-}
+  );
+};
 
 export default function LabTesting() {
-  const { user } = useContext(AuthContext)
-  const [allLiftsData, setAllLiftsData] = useState([])
-  const [indentData, setIndentData] = useState([])
-  const [selectedReceiptForModal, setSelectedReceiptForModal] = useState(null)
-  const [loadingData, setLoadingData] = useState(true)
-  const [errorData, setErrorData] = useState(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const { user } = useContext(AuthContext);
+  const [allLiftsData, setAllLiftsData] = useState([]);
+  const [indentData, setIndentData] = useState([]);
+  const [selectedReceiptForModal, setSelectedReceiptForModal] = useState(null);
+  const [loadingData, setLoadingData] = useState(true);
+  const [errorData, setErrorData] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Tab and Column Visibility States
-  const [activeTab, setActiveTab] = useState("eligibleForTest")
-  const [visibleEligibleTestColumns, setVisibleEligibleTestColumns] = useState({})
-  const [visibleRecordedTestColumns, setVisibleRecordedTestColumns] = useState({})
+  const [activeTab, setActiveTab] = useState("eligibleForTest");
+  const [visibleEligibleTestColumns, setVisibleEligibleTestColumns] = useState(
+    {},
+  );
+  const [visibleRecordedTestColumns, setVisibleRecordedTestColumns] = useState(
+    {},
+  );
 
   // Filter State
   const [filters, setFilters] = useState({
@@ -301,12 +409,14 @@ export default function LabTesting() {
     liftType: "all",
     totalQuantity: "all",
     orderNumber: "all",
-  })
+  });
 
   const initialFormData = {
     liftIdToUpdate: "",
     alStatus: "",
-    amDateOfTest: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+    amDateOfTest: new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Kolkata",
+    }),
     anMoisturePercent: "",
     aoBdPercent: "",
     apApPercent: "",
@@ -321,15 +431,15 @@ export default function LabTesting() {
     ayKna2oPercent: "",
     azFreeIronPercent: "",
     baReason: "",
-  }
+  };
 
-  const [formData, setFormData] = useState(initialFormData)
-  const [formErrors, setFormErrors] = useState({})
+  const [formData, setFormData] = useState(initialFormData);
+  const [formErrors, setFormErrors] = useState({});
 
   // Filter Handlers
   const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }))
-  }
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
   const clearAllFilters = () => {
     setFilters({
@@ -338,8 +448,8 @@ export default function LabTesting() {
       liftType: "all",
       totalQuantity: "all",
       orderNumber: "all",
-    })
-  }
+    });
+  };
 
   // Function to get expected values
   // Function to get expected values
@@ -354,7 +464,7 @@ export default function LabTesting() {
       const cleanIndentNo = String(indentNo).trim().toLowerCase();
 
       // Find matching indent with multiple matching strategies
-      const indent = indentData.find(item => {
+      const indent = indentData.find((item) => {
         if (!item.indentNo) return false;
 
         const itemIndent = String(item.indentNo).trim().toLowerCase();
@@ -363,8 +473,14 @@ export default function LabTesting() {
         if (itemIndent === cleanIndentNo) return true;
 
         // Try matching with/without prefixes like "RL-", "PO-", etc.
-        const cleanIndentNoWithoutPrefix = cleanIndentNo.replace(/^(rl[-_ ]?|po[-_ ]?|indent[-_ ]?)/i, '');
-        const itemIndentWithoutPrefix = itemIndent.replace(/^(rl[-_ ]?|po[-_ ]?|indent[-_ ]?)/i, '');
+        const cleanIndentNoWithoutPrefix = cleanIndentNo.replace(
+          /^(rl[-_ ]?|po[-_ ]?|indent[-_ ]?)/i,
+          "",
+        );
+        const itemIndentWithoutPrefix = itemIndent.replace(
+          /^(rl[-_ ]?|po[-_ ]?|indent[-_ ]?)/i,
+          "",
+        );
 
         if (itemIndentWithoutPrefix === cleanIndentNoWithoutPrefix) return true;
 
@@ -372,7 +488,12 @@ export default function LabTesting() {
         const cleanIndentNumeric = cleanIndentNo.match(/\d+/)?.[0];
         const itemIndentNumeric = itemIndent.match(/\d+/)?.[0];
 
-        if (cleanIndentNumeric && itemIndentNumeric && cleanIndentNumeric === itemIndentNumeric) return true;
+        if (
+          cleanIndentNumeric &&
+          itemIndentNumeric &&
+          cleanIndentNumeric === itemIndentNumeric
+        )
+          return true;
 
         return false;
       });
@@ -390,31 +511,46 @@ export default function LabTesting() {
     }
   };
 
-
   // Fetch INDENT-PO Data from Supabase
   useEffect(() => {
     const fetchIndentData = async () => {
       try {
         const { data, error } = await supabase
           .from("INDENT-PO")
-          .select('"Indent Id.", "Total Quantity", Quantity, "Alumina %", "Iron %", "AP Percent Age %", "BD Percent Age %"');
+          .select(
+            '"Indent Id.", "Total Quantity", Quantity, "Alumina %", "Iron %", "AP Percent Age %", "BD Percent Age %"',
+          );
 
         if (error) throw error;
 
-        const processedData = data.map((row) => ({
-          indentNo: row["Indent Id."] ? String(row["Indent Id."]) : "",
-          poQuantity: row["Total Quantity"] ? String(row["Total Quantity"]) : String(row["Quantity"] || ""),
-          expectedAlumina: row["Alumina %"] ? String(row["Alumina %"]) : "",
-          expectedIron: row["Iron %"] ? String(row["Iron %"]) : "",
-          expectedAp: row["AP Percent Age %"] ? String(row["AP Percent Age %"]) : "",
-          expectedBd: row["BD Percent Age %"] ? String(row["BD Percent Age %"]) : "",
-        })).filter(item => item.indentNo && item.indentNo.trim() !== "");
+        const processedData = data
+          .map((row) => ({
+            indentNo: row["Indent Id."] ? String(row["Indent Id."]) : "",
+            poQuantity: row["Total Quantity"]
+              ? String(row["Total Quantity"])
+              : String(row["Quantity"] || ""),
+            expectedAlumina: row["Alumina %"] ? String(row["Alumina %"]) : "",
+            expectedIron: row["Iron %"] ? String(row["Iron %"]) : "",
+            expectedAp: row["AP Percent Age %"]
+              ? String(row["AP Percent Age %"])
+              : "",
+            expectedBd: row["BD Percent Age %"]
+              ? String(row["BD Percent Age %"])
+              : "",
+          }))
+          .filter((item) => item.indentNo && item.indentNo.trim() !== "");
 
-        console.log("Total INDENT-PO records loaded from Supabase:", processedData.length);
+        console.log(
+          "Total INDENT-PO records loaded from Supabase:",
+          processedData.length,
+        );
 
         setIndentData(processedData);
       } catch (err) {
-        console.error("Failed to load INDENT-PO data from Supabase:", err.message);
+        console.error(
+          "Failed to load INDENT-PO data from Supabase:",
+          err.message,
+        );
         toast.error("Failed to load Indent Data", { description: err.message });
       }
     };
@@ -422,19 +558,22 @@ export default function LabTesting() {
     fetchIndentData();
   }, [refreshTrigger]);
 
-
   // Initialize column visibility
   useEffect(() => {
     const initializeVisibility = (columnsMeta) => {
-      const visibility = {}
+      const visibility = {};
       columnsMeta.forEach((col) => {
-        visibility[col.dataKey] = col.alwaysVisible || col.toggleable
-      })
-      return visibility
-    }
-    setVisibleEligibleTestColumns(initializeVisibility(ELIGIBLE_TESTS_COLUMNS_META))
-    setVisibleRecordedTestColumns(initializeVisibility(RECORDED_TESTS_COLUMNS_META))
-  }, [])
+        visibility[col.dataKey] = col.alwaysVisible || col.toggleable;
+      });
+      return visibility;
+    };
+    setVisibleEligibleTestColumns(
+      initializeVisibility(ELIGIBLE_TESTS_COLUMNS_META),
+    );
+    setVisibleRecordedTestColumns(
+      initializeVisibility(RECORDED_TESTS_COLUMNS_META),
+    );
+  }, []);
 
   // Fetch LIFT-ACCOUNTS Data
   // Update the fetchLiftAccountData useEffect
@@ -458,15 +597,17 @@ export default function LabTesting() {
           try {
             const d = new Date(dateValue);
             if (!isNaN(d.getTime())) {
-              return d.toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false,
-              }).replace(/,/g, "");
+              return d
+                .toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                })
+                .replace(/,/g, "");
             }
           } catch (e) {
             return String(dateValue);
@@ -480,11 +621,15 @@ export default function LabTesting() {
           const indentNo = String(row["Indent no."] || "").trim();
 
           // Get expected values for this indent
-          let expectedValues = { poQuantity: "", expectedAlumina: "", expectedIron: "" };
+          let expectedValues = {
+            poQuantity: "",
+            expectedAlumina: "",
+            expectedIron: "",
+          };
 
           if (indentNo && indentData.length > 0) {
             // Find matching indent in INDENT-PO data
-            const matchingIndent = indentData.find(indent => {
+            const matchingIndent = indentData.find((indent) => {
               const liftIndent = String(indentNo).trim().toLowerCase();
               const sheetIndent = String(indent.indentNo).trim().toLowerCase();
 
@@ -495,7 +640,11 @@ export default function LabTesting() {
               const liftIndentNumeric = liftIndent.match(/\d+/)?.[0];
               const sheetIndentNumeric = sheetIndent.match(/\d+/)?.[0];
 
-              return liftIndentNumeric && sheetIndentNumeric && liftIndentNumeric === sheetIndentNumeric;
+              return (
+                liftIndentNumeric &&
+                sheetIndentNumeric &&
+                liftIndentNumeric === sheetIndentNumeric
+              );
             });
 
             if (matchingIndent) {
@@ -516,13 +665,23 @@ export default function LabTesting() {
             rawMaterialName: String(row["Raw Material Name"] || "").trim(),
             type: String(row["Type"] || "").trim(),
             qty: String(row["Qty"] || "").trim(),
-            totalBillQuantity_fromSheet: String(row["Total Bill Quantity"] || "").trim(),
+            totalBillQuantity_fromSheet: String(
+              row["Total Bill Quantity"] || "",
+            ).trim(),
             actualQty_fromReceipt: String(row["Actual Quantity"] || "").trim(),
             billNo: String(row["Bill No."] || "").trim(),
-            dateOfReceiving_formatted: formatTimestamp(row["Date Of Receiving"]),
+            dateOfReceiving_formatted: formatTimestamp(
+              row["Date Of Receiving"],
+            ),
             firmName: String(row["Firm Name"] || "").trim(),
             physicalCondition: String(row["Physical Condition"] || "").trim(),
             moisture: String(row["Moisture"] || "").trim(),
+            unloadApprovalRequired: String(
+              row["Unload Approval Required"] || "",
+            ).trim(),
+            unloadApprovalStatus: String(
+              row["Unload Approval Status"] || "",
+            ).trim(),
             // Filter columns - using Planned 2 and Actual 2
             filterColPlanned2: row["Planned 2"],
             filterColActual2: row["Actual 2"],
@@ -534,10 +693,14 @@ export default function LabTesting() {
             alStatus_val: String(row["Status"] || "").trim(),
             amDateOfTest_val: row["Date Of Test"] || "",
             amDateOfTest_formatted_val: formatTimestamp(row["Date Of Test"]),
-            anMoisturePercent_val: String(row["Moisture Percent Age %"] || "").trim(),
+            anMoisturePercent_val: String(
+              row["Moisture Percent Age %"] || "",
+            ).trim(),
             aoBdPercent_val: String(row["BD Percent Age %"] || "").trim(),
             apApPercent_val: String(row["AP Percent Age %"] || "").trim(),
-            aqAluminaPercent_val: String(row["Alumina Percent Age %"] || "").trim(),
+            aqAluminaPercent_val: String(
+              row["Alumina Percent Age %"] || "",
+            ).trim(),
             arIronPercent_val: String(row["Iron Percent Age %"] || "").trim(),
             asSieveAnalysis_val: String(row["Sieve Analysis"] || "").trim(),
             atLoiPercent_val: String(row["LOI %"] || "").trim(),
@@ -560,20 +723,19 @@ export default function LabTesting() {
         if (user?.firmName && user.firmName.toLowerCase() !== "all") {
           const userFirmNameLower = user.firmName.toLowerCase();
           processedData = processedData.filter(
-            (lift) => lift && lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
+            (lift) =>
+              lift &&
+              lift.firmName &&
+              String(lift.firmName).toLowerCase() === userFirmNameLower,
           );
         }
-        // Show only Independent type lifts
-        processedData = processedData.filter((lift) => lift && String(lift.type || "").toLowerCase() === "independent");
-
         setAllLiftsData(processedData);
-
       } catch (err) {
         const errorMessage = `Failed to load data from LIFT-ACCOUNTS: ${err.message}`;
         setErrorData(errorMessage);
         toast.error("Data Load Error", {
           description: errorMessage,
-          icon: <XCircle className="h-4 w-4" />,
+          icon: <XCircle className="w-4 h-4" />,
         });
       } finally {
         setLoadingData(false);
@@ -587,20 +749,24 @@ export default function LabTesting() {
   // NEW: Add this useEffect to combine data AFTER both are loaded
   useEffect(() => {
     // Only run if we have both datasets and lifts don't already have poQuantity
-    if (indentData.length > 0 && allLiftsData.length > 0 && !allLiftsData[0]?.poQuantity) {
+    if (
+      indentData.length > 0 &&
+      allLiftsData.length > 0 &&
+      !allLiftsData[0]?.poQuantity
+    ) {
       console.log("Matching PO quantities...", {
         lifts: allLiftsData.length,
         indents: indentData.length,
-        sampleIndents: indentData.slice(0, 3)
-      })
+        sampleIndents: indentData.slice(0, 3),
+      });
 
-      const updatedLifts = allLiftsData.map(lift => {
+      const updatedLifts = allLiftsData.map((lift) => {
         if (lift.indentNo) {
           // Find matching indent in INDENT-PO data
-          const matchingIndent = indentData.find(indent => {
+          const matchingIndent = indentData.find((indent) => {
             // Clean both indent numbers for comparison
-            const liftIndent = String(lift.indentNo).trim().toLowerCase()
-            const sheetIndent = String(indent.indentNo).trim().toLowerCase()
+            const liftIndent = String(lift.indentNo).trim().toLowerCase();
+            const sheetIndent = String(indent.indentNo).trim().toLowerCase();
 
             // Log for debugging
             if (liftIndent === "rl-007") {
@@ -608,172 +774,215 @@ export default function LabTesting() {
                 liftIndent,
                 sheetIndent,
                 poQuantity: indent.poQuantity,
-                matches: liftIndent === sheetIndent
-              })
+                matches: liftIndent === sheetIndent,
+              });
             }
 
-            return liftIndent === sheetIndent
-          })
+            return liftIndent === sheetIndent;
+          });
 
           if (matchingIndent) {
-            console.log(`Found match for ${lift.indentNo}:`, matchingIndent.poQuantity)
+            console.log(
+              `Found match for ${lift.indentNo}:`,
+              matchingIndent.poQuantity,
+            );
             return {
               ...lift,
-              poQuantity: matchingIndent.poQuantity || ""
-            }
+              poQuantity: matchingIndent.poQuantity || "",
+            };
           } else {
-            console.log(`No match found for indent: ${lift.indentNo}`)
+            console.log(`No match found for indent: ${lift.indentNo}`);
           }
         }
-        return lift
-      })
+        return lift;
+      });
 
-      console.log("Updated lifts with PO quantities:", updatedLifts.filter(l => l.indentNo === "RL-007"))
-      setAllLiftsData(updatedLifts)
+      console.log(
+        "Updated lifts with PO quantities:",
+        updatedLifts.filter((l) => l.indentNo === "RL-007"),
+      );
+      setAllLiftsData(updatedLifts);
     }
-  }, [indentData])
+  }, [indentData]);
 
   const uniqueFilterOptions = useMemo(() => {
-    const vendors = new Set()
-    const materials = new Set()
-    const types = new Set()
-    const quantities = new Set()
-    const orders = new Set()
+    const vendors = new Set();
+    const materials = new Set();
+    const types = new Set();
+    const quantities = new Set();
+    const orders = new Set();
 
     allLiftsData.forEach((lift) => {
-      if (lift.vendorName) vendors.add(lift.vendorName)
-      if (lift.rawMaterialName) materials.add(lift.rawMaterialName)
-      if (lift.type) types.add(lift.type)
-      if (lift.qty) quantities.add(lift.qty)
-      if (lift.totalBillQuantity_fromSheet) quantities.add(lift.totalBillQuantity_fromSheet)
-      if (lift.actualQty_fromReceipt) quantities.add(lift.actualQty_fromReceipt)
+      if (lift.vendorName) vendors.add(lift.vendorName);
+      if (lift.rawMaterialName) materials.add(lift.rawMaterialName);
+      if (lift.type) types.add(lift.type);
+      if (lift.qty) quantities.add(lift.qty);
+      if (lift.totalBillQuantity_fromSheet)
+        quantities.add(lift.totalBillQuantity_fromSheet);
+      if (lift.actualQty_fromReceipt)
+        quantities.add(lift.actualQty_fromReceipt);
 
-      if (lift.indentNo) orders.add(lift.indentNo)
-      if (lift.billNo) orders.add(lift.billNo)
-    })
+      if (lift.indentNo) orders.add(lift.indentNo);
+      if (lift.billNo) orders.add(lift.billNo);
+    });
 
     return {
       vendorName: [...vendors].sort(),
       materialName: [...materials].sort(),
       liftType: [...types].sort(),
-      totalQuantity: [...quantities].sort((a, b) => parseFloat(a) - parseFloat(b)),
+      totalQuantity: [...quantities].sort(
+        (a, b) => parseFloat(a) - parseFloat(b),
+      ),
       orderNumber: [...orders].sort(),
-    }
-  }, [allLiftsData])
+    };
+  }, [allLiftsData]);
 
   // Memoized lists for tabs
   const receiptsAwaitingLabTest = useMemo(() => {
     let filtered = allLiftsData.filter((lift) => {
-      const aiValue = lift.aiCondition_val
-      const ajValue = lift.ajTimestamp_val
+      const aiValue = lift.aiCondition_val;
+      const ajValue = lift.ajTimestamp_val;
+      const needsUnloadApproval =
+        lift.unloadApprovalRequired.toLowerCase() === "yes";
+      const unloadStatus = lift.unloadApprovalStatus.toLowerCase();
+      const isUnloadApproved =
+        unloadStatus === "approved" || unloadStatus === "completed";
       return (
         aiValue !== null &&
         aiValue !== undefined &&
         String(aiValue).trim() !== "" &&
-        (ajValue === null || ajValue === undefined || String(ajValue).trim() === "")
-      )
-    })
-
+        (ajValue === null ||
+          ajValue === undefined ||
+          String(ajValue).trim() === "") &&
+        (!needsUnloadApproval || isUnloadApproved)
+      );
+    });
+    console.log("Receipts awaiting lab test before filters:", filtered.length);
     if (filters.vendorName !== "all") {
-      filtered = filtered.filter(lift => lift.vendorName === filters.vendorName);
+      filtered = filtered.filter(
+        (lift) => lift.vendorName === filters.vendorName,
+      );
     }
     if (filters.materialName !== "all") {
-      filtered = filtered.filter(lift => lift.rawMaterialName === filters.materialName);
+      filtered = filtered.filter(
+        (lift) => lift.rawMaterialName === filters.materialName,
+      );
     }
     if (filters.liftType !== "all") {
-      filtered = filtered.filter(lift => lift.type === filters.liftType);
+      filtered = filtered.filter((lift) => lift.type === filters.liftType);
     }
     if (filters.totalQuantity !== "all") {
-      filtered = filtered.filter(lift =>
-        lift.qty === filters.totalQuantity ||
-        lift.totalBillQuantity_fromSheet === filters.totalQuantity ||
-        lift.actualQty_fromReceipt === filters.totalQuantity
+      filtered = filtered.filter(
+        (lift) =>
+          lift.qty === filters.totalQuantity ||
+          lift.totalBillQuantity_fromSheet === filters.totalQuantity ||
+          lift.actualQty_fromReceipt === filters.totalQuantity,
       );
     }
     if (filters.orderNumber !== "all") {
-      filtered = filtered.filter(lift => lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
+      filtered = filtered.filter(
+        (lift) =>
+          lift.indentNo === filters.orderNumber ||
+          lift.billNo === filters.orderNumber,
+      );
     }
 
-    return filtered
-  }, [allLiftsData, filters])
-
+    return filtered;
+  }, [allLiftsData, filters]);
+  console.log(
+    "Receipts awaiting lab test after filters:",
+    receiptsAwaitingLabTest,
+  );
   const recordedLabTests = useMemo(() => {
-    let filtered = allLiftsData.filter((lift) => lift.ajTimestamp_val && String(lift.ajTimestamp_val).trim() !== "")
+    let filtered = allLiftsData.filter(
+      (lift) =>
+        lift.ajTimestamp_val && String(lift.ajTimestamp_val).trim() !== "",
+    );
 
     if (filters.vendorName !== "all") {
-      filtered = filtered.filter(lift => lift.vendorName === filters.vendorName);
+      filtered = filtered.filter(
+        (lift) => lift.vendorName === filters.vendorName,
+      );
     }
     if (filters.materialName !== "all") {
-      filtered = filtered.filter(lift => lift.rawMaterialName === filters.materialName);
+      filtered = filtered.filter(
+        (lift) => lift.rawMaterialName === filters.materialName,
+      );
     }
     if (filters.liftType !== "all") {
-      filtered = filtered.filter(lift => lift.type === filters.liftType);
+      filtered = filtered.filter((lift) => lift.type === filters.liftType);
     }
     if (filters.totalQuantity !== "all") {
-      filtered = filtered.filter(lift =>
-        lift.qty === filters.totalQuantity ||
-        lift.totalBillQuantity_fromSheet === filters.totalQuantity ||
-        lift.actualQty_fromReceipt === filters.totalQuantity
+      filtered = filtered.filter(
+        (lift) =>
+          lift.qty === filters.totalQuantity ||
+          lift.totalBillQuantity_fromSheet === filters.totalQuantity ||
+          lift.actualQty_fromReceipt === filters.totalQuantity,
       );
     }
     if (filters.orderNumber !== "all") {
-      filtered = filtered.filter(lift => lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
+      filtered = filtered.filter(
+        (lift) =>
+          lift.indentNo === filters.orderNumber ||
+          lift.billNo === filters.orderNumber,
+      );
     }
 
     return filtered.sort((a, b) => {
       const parseDate = (dateStr) => {
-        if (!dateStr) return 0
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return new Date(dateStr).getTime()
-        const dtParts = dateStr.split(" ")
+        if (!dateStr) return 0;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr))
+          return new Date(dateStr).getTime();
+        const dtParts = dateStr.split(" ");
         if (dtParts.length > 0) {
-          const dateParts = dtParts[0].split("/")
+          const dateParts = dtParts[0].split("/");
           if (dateParts.length === 3) {
-            const [d, m, y] = dateParts.map(Number)
+            const [d, m, y] = dateParts.map(Number);
             if (d && m && y && y > 1900 && y < 2100) {
-              const t = { hr: 0, min: 0, s: 0 }
+              const t = { hr: 0, min: 0, s: 0 };
               if (dtParts.length > 1) {
-                const ts = dtParts[1].split(":")
+                const ts = dtParts[1].split(":");
                 if (ts.length >= 2) {
-                  t.hr = Number.parseInt(ts[0], 10)
-                  t.min = Number.parseInt(ts[1], 10)
-                  if (ts.length === 3) t.s = Number.parseInt(ts[2], 10)
+                  t.hr = Number.parseInt(ts[0], 10);
+                  t.min = Number.parseInt(ts[1], 10);
+                  if (ts.length === 3) t.s = Number.parseInt(ts[2], 10);
                 }
               }
-              return new Date(y, m - 1, d, t.hr, t.min, t.s).getTime()
+              return new Date(y, m - 1, d, t.hr, t.min, t.s).getTime();
             }
           }
         }
-        return new Date(dateStr).getTime()
-      }
-      const dateA = parseDate(a.ajTimestamp_formatted_val || a.ajTimestamp_val)
-      const dateB = parseDate(b.ajTimestamp_formatted_val || b.ajTimestamp_val)
-      return dateB - dateA
-    })
-  }, [allLiftsData, filters])
+        return new Date(dateStr).getTime();
+      };
+      const dateA = parseDate(a.ajTimestamp_formatted_val || a.ajTimestamp_val);
+      const dateB = parseDate(b.ajTimestamp_formatted_val || b.ajTimestamp_val);
+      return dateB - dateA;
+    });
+  }, [allLiftsData, filters]);
 
   // Form and Submission Logic
   const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-    if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: null }))
-  }
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: null }));
+  };
 
   const handleSelectChange = (name) => (value) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-    if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: null }))
-  }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: null }));
+  };
 
   const handleOpenLabTestModal = (receipt) => {
     console.log("Opening modal for receipt:", {
       liftNo: receipt?.liftNo,
       indentNo: receipt?.indentNo,
-      vendorName: receipt?.vendorName
+      vendorName: receipt?.vendorName,
     });
 
     if (!receipt || !receipt.liftNo) {
       toast.error("Invalid Receipt", {
         description: "Cannot open lab test form for this receipt.",
-        icon: <XCircle className="h-4 w-4" />,
+        icon: <XCircle className="w-4 h-4" />,
       });
       return;
     }
@@ -785,14 +994,18 @@ export default function LabTesting() {
     let initialStatus = "";
     if (receipt.alStatus_val) {
       const valLower = receipt.alStatus_val.toLowerCase();
-      if (valLower === "accepted" || valLower === "tested") initialStatus = "Accepted";
-      else if (valLower === "rejected" || valLower === "not tested") initialStatus = "Rejected";
+      if (valLower === "accepted" || valLower === "tested")
+        initialStatus = "Accepted";
+      else if (valLower === "rejected" || valLower === "not tested")
+        initialStatus = "Rejected";
     }
 
     setFormData({
       liftIdToUpdate: receipt.liftNo,
       alStatus: initialStatus,
-      amDateOfTest: receipt.amDateOfTest_val || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+      amDateOfTest:
+        receipt.amDateOfTest_val ||
+        new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       anMoisturePercent: receipt.anMoisturePercent_val || "",
       aoBdPercent: receipt.aoBdPercent_val || "",
       apApPercent: receipt.apApPercent_val || "",
@@ -817,7 +1030,7 @@ export default function LabTesting() {
   };
 
   const validateForm = useCallback(() => {
-    const newErrors = {}
+    const newErrors = {};
     const reqFields = {
       alStatus: "Status",
       amDateOfTest: "Date Of Test",
@@ -834,24 +1047,32 @@ export default function LabTesting() {
       axTio2Percent: "TiO2 %",
       ayKna2oPercent: "K2O+Na2O %",
       azFreeIronPercent: "Free Iron %",
-    }
+    };
     for (const fKey in reqFields) {
-      if (formData[fKey] === null || formData[fKey] === undefined || String(formData[fKey]).trim() === "") {
-        newErrors[fKey] = `${reqFields[fKey]} is required`
+      if (
+        formData[fKey] === null ||
+        formData[fKey] === undefined ||
+        String(formData[fKey]).trim() === ""
+      ) {
+        newErrors[fKey] = `${reqFields[fKey]} is required`;
       }
     }
-    setFormErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }, [formData])
+    setFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [formData]);
 
   const handleSubmitLabTest = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
-      toast.error("Validation Error", { description: "Please fill all required fields." });
+      toast.error("Validation Error", {
+        description: "Please fill all required fields.",
+      });
       return;
     }
     if (!selectedReceiptForModal) {
-      toast.error("Error", { description: "No receipt selected. Please try again." });
+      toast.error("Error", {
+        description: "No receipt selected. Please try again.",
+      });
       return;
     }
 
@@ -859,20 +1080,21 @@ export default function LabTesting() {
 
     try {
       const now = new Date();
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, "0");
+      const month = String(now.getMonth() + 1).padStart(2, "0");
       const year = now.getFullYear();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const seconds = String(now.getSeconds()).padStart(2, "0");
       const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
       // Prepare update data for Supabase LIFT-ACCOUNTS - using actual schema column names
       const updateData = {
         "Actual 2": timestamp,
-        "Status": formData.alStatus,
+        Status: formData.alStatus,
         "Date Of Test": formData.amDateOfTest,
-        "Moisture Percent Age %": parseFloat(formData.anMoisturePercent) || null,
+        "Moisture Percent Age %":
+          parseFloat(formData.anMoisturePercent) || null,
         "BD Percent Age %": parseFloat(formData.aoBdPercent) || null,
         "AP Percent Age %": parseFloat(formData.apApPercent) || null,
         "Alumina Percent Age %": parseFloat(formData.aqAluminaPercent) || null,
@@ -885,10 +1107,14 @@ export default function LabTesting() {
         "TiO2 %": parseFloat(formData.axTio2Percent) || null,
         "K2O + Na2O %": parseFloat(formData.ayKna2oPercent) || null,
         "Free Iron %": parseFloat(formData.azFreeIronPercent) || null,
-        "Reason": formData.baReason || null,
+        Reason: formData.baReason || null,
       };
 
-      console.log("Updating LIFT-ACCOUNTS record:", selectedReceiptForModal._dbId, updateData);
+      console.log(
+        "Updating LIFT-ACCOUNTS record:",
+        selectedReceiptForModal._dbId,
+        updateData,
+      );
 
       // Update the LIFT-ACCOUNTS record in Supabase
       const { error: updateError } = await supabase
@@ -898,7 +1124,9 @@ export default function LabTesting() {
 
       if (updateError) {
         console.error("LIFT-ACCOUNTS update failed:", updateError);
-        throw new Error(`Failed to update LIFT-ACCOUNTS: ${updateError.message}`);
+        throw new Error(
+          `Failed to update LIFT-ACCOUNTS: ${updateError.message}`,
+        );
       }
 
       // Calculate Lab Mismatch (TL table tolerance vs LIFT-ACCOUNTS lab values only)
@@ -915,7 +1143,9 @@ export default function LabTesting() {
       let tlBdRange = null;
 
       if (selectedReceiptForModal.rawMaterialName) {
-        const materialName = String(selectedReceiptForModal.rawMaterialName).trim();
+        const materialName = String(
+          selectedReceiptForModal.rawMaterialName,
+        ).trim();
         const { data: tlData, error: tlError } = await supabase
           .from("TL")
           .select('"TL Alumina", "TL Iron", "BD%", "AP%"')
@@ -936,53 +1166,81 @@ export default function LabTesting() {
       // BD:      BD_Percent is MINIMUM → mismatch if labBd < BD_Percent
       // AP:      AP_Percent is MAXIMUM → mismatch if labAp > AP_Percent
 
-      const tlAluminaMin = tlAluminaRange !== null ? parseFloat(tlAluminaRange) : null;
+      const tlAluminaMin =
+        tlAluminaRange !== null ? parseFloat(tlAluminaRange) : null;
       const tlIronMax = tlIronRange !== null ? parseFloat(tlIronRange) : null;
       const tlBdMin = tlBdRange !== null ? parseFloat(tlBdRange) : null;
       const tlApMax = tlApRange !== null ? parseFloat(tlApRange) : null;
 
       // diffAlumina: negative means lab is below minimum (mismatch)
-      const diffAlumina = (labAlumina !== null && tlAluminaMin !== null && !isNaN(tlAluminaMin))
-        ? (labAlumina < tlAluminaMin ? Math.round((labAlumina - tlAluminaMin) * 1000) / 1000 : 0)
-        : null;
+      const diffAlumina =
+        labAlumina !== null && tlAluminaMin !== null && !isNaN(tlAluminaMin)
+          ? labAlumina < tlAluminaMin
+            ? Math.round((labAlumina - tlAluminaMin) * 1000) / 1000
+            : 0
+          : null;
 
       // diffIron: positive means lab exceeds maximum (mismatch)
-      const diffIron = (labIron !== null && tlIronMax !== null && !isNaN(tlIronMax))
-        ? (labIron > tlIronMax ? Math.round((labIron - tlIronMax) * 1000) / 1000 : 0)
-        : null;
+      const diffIron =
+        labIron !== null && tlIronMax !== null && !isNaN(tlIronMax)
+          ? labIron > tlIronMax
+            ? Math.round((labIron - tlIronMax) * 1000) / 1000
+            : 0
+          : null;
 
       // diffBd: negative means lab is below minimum (mismatch)
-      const diffBd = (labBd !== null && tlBdMin !== null && !isNaN(tlBdMin))
-        ? (labBd < tlBdMin ? Math.round((labBd - tlBdMin) * 1000) / 1000 : 0)
-        : null;
+      const diffBd =
+        labBd !== null && tlBdMin !== null && !isNaN(tlBdMin)
+          ? labBd < tlBdMin
+            ? Math.round((labBd - tlBdMin) * 1000) / 1000
+            : 0
+          : null;
 
       // diffAp: positive means lab exceeds maximum (mismatch)
-      const diffAp = (labAp !== null && tlApMax !== null && !isNaN(tlApMax))
-        ? (labAp > tlApMax ? Math.round((labAp - tlApMax) * 1000) / 1000 : 0)
-        : null;
+      const diffAp =
+        labAp !== null && tlApMax !== null && !isNaN(tlApMax)
+          ? labAp > tlApMax
+            ? Math.round((labAp - tlApMax) * 1000) / 1000
+            : 0
+          : null;
 
       const hasAluminaMismatch = diffAlumina !== null && diffAlumina !== 0;
       const hasIronMismatch = diffIron !== null && diffIron !== 0;
       const hasApMismatch = diffAp !== null && diffAp !== 0;
       const hasBdMismatch = diffBd !== null && diffBd !== 0;
 
-      const isQualityMismatch = selectedReceiptForModal.physicalCondition === "Bad" && selectedReceiptForModal.moisture === "Yes";
-      const isMismatch = hasAluminaMismatch || hasIronMismatch || hasApMismatch || hasBdMismatch || isQualityMismatch;
+      const isQualityMismatch =
+        selectedReceiptForModal.physicalCondition === "Bad" &&
+        selectedReceiptForModal.moisture === "Yes";
+      const isMismatch =
+        hasAluminaMismatch ||
+        hasIronMismatch ||
+        hasApMismatch ||
+        hasBdMismatch ||
+        isQualityMismatch;
 
       // Only store a difference value if it EXCEEDS the TL table range for that material.
       // If within range → store null (so it won't appear in Material Mismatch tab).
       const mismatchUpdatePayload = {
-        "Alumina Difference": hasAluminaMismatch ? Math.round(diffAlumina * 1000) / 1000 : null,
-        "Iron Difference": hasIronMismatch ? Math.round(diffIron * 1000) / 1000 : null,
-        "AP Difference": hasApMismatch ? Math.round(diffAp * 1000) / 1000 : null,
-        "BD Difference": hasBdMismatch ? Math.round(diffBd * 1000) / 1000 : null,
-        "Status": "Pending",
+        "Alumina Difference": hasAluminaMismatch
+          ? Math.round(diffAlumina * 1000) / 1000
+          : null,
+        "Iron Difference": hasIronMismatch
+          ? Math.round(diffIron * 1000) / 1000
+          : null,
+        "AP Difference": hasApMismatch
+          ? Math.round(diffAp * 1000) / 1000
+          : null,
+        "BD Difference": hasBdMismatch
+          ? Math.round(diffBd * 1000) / 1000
+          : null,
+        Status: "Pending",
       };
 
       const { error: mismatchError } = await supabase
         .from("Mismatch")
         .update(mismatchUpdatePayload)
-        .eq('Lift Number', selectedReceiptForModal.liftNo);
+        .eq("Lift Number", selectedReceiptForModal.liftNo);
 
       if (mismatchError) {
         console.error("Failed to update Mismatch table:", mismatchError);
@@ -990,15 +1248,15 @@ export default function LabTesting() {
 
       toast.success("Success!", {
         description: `Lab test for Lift ID ${selectedReceiptForModal.liftNo} recorded.`,
-        icon: <CheckCircle className="h-4 w-4" />,
+        icon: <CheckCircle className="w-4 h-4" />,
       });
 
-      setRefreshTrigger(prev => prev + 1);
+      setRefreshTrigger((prev) => prev + 1);
       handleModalClose();
     } catch (error) {
       toast.error("Operation Failed", {
         description: error.message,
-        icon: <XCircle className="h-4 w-4" />,
+        icon: <XCircle className="w-4 h-4" />,
       });
     } finally {
       setIsSubmitting(false);
@@ -1015,50 +1273,60 @@ export default function LabTesting() {
   // Column Toggle Handlers
   const handleToggleColumn = (tab, dataKey, checked) => {
     if (tab === "eligible") {
-      setVisibleEligibleTestColumns((prev) => ({ ...prev, [dataKey]: checked }))
+      setVisibleEligibleTestColumns((prev) => ({
+        ...prev,
+        [dataKey]: checked,
+      }));
     } else {
-      setVisibleRecordedTestColumns((prev) => ({ ...prev, [dataKey]: checked }))
+      setVisibleRecordedTestColumns((prev) => ({
+        ...prev,
+        [dataKey]: checked,
+      }));
     }
-  }
+  };
 
   const handleSelectAllColumns = (tab, columnsMeta, checked) => {
-    const newVisibility = {}
+    const newVisibility = {};
     columnsMeta.forEach((col) => {
-      if (col.toggleable && !col.alwaysVisible) newVisibility[col.dataKey] = checked
-    })
+      if (col.toggleable && !col.alwaysVisible)
+        newVisibility[col.dataKey] = checked;
+    });
     if (tab === "eligible") {
-      setVisibleEligibleTestColumns((prev) => ({ ...prev, ...newVisibility }))
+      setVisibleEligibleTestColumns((prev) => ({ ...prev, ...newVisibility }));
     } else {
-      setVisibleRecordedTestColumns((prev) => ({ ...prev, ...newVisibility }))
+      setVisibleRecordedTestColumns((prev) => ({ ...prev, ...newVisibility }));
     }
-  }
+  };
 
   const getStatusBadgeVariant = (status) => {
     switch (status?.toLowerCase()) {
       case "tested":
       case "accepted":
-        return "success"
+        return "success";
       case "not tested":
-        return "warning"
+        return "warning";
       case "rejected":
-        return "destructive"
+        return "destructive";
       case "passed":
-        return "success"
+        return "success";
       case "failed":
-        return "destructive"
+        return "destructive";
       case "conditional":
-        return "warning"
+        return "warning";
       default:
-        return "outline"
+        return "outline";
     }
-  }
+  };
 
   const renderCell = (item, column) => {
     const value = item[column.dataKey];
 
     if (column.isBadge && column.dataKey === "alStatus_val") {
       return (
-        <Badge variant={getStatusBadgeVariant(value)} className="capitalize px-2 py-0.5 text-xs whitespace-nowrap">
+        <Badge
+          variant={getStatusBadgeVariant(value)}
+          className="capitalize px-2 py-0.5 text-xs whitespace-nowrap"
+        >
           {value || "N/A"}
         </Badge>
       );
@@ -1074,8 +1342,8 @@ export default function LabTesting() {
           // Show loading state or "Not found" with tooltip
           return (
             <div className="relative group">
-              <span className="text-xs text-gray-400 italic">Loading...</span>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+              <span className="text-xs italic text-gray-400">Loading...</span>
+              <div className="absolute z-50 px-2 py-1 mb-2 text-xs text-white transition-opacity transform -translate-x-1/2 bg-gray-800 rounded opacity-0 bottom-full left-1/2 group-hover:opacity-100 whitespace-nowrap">
                 Indent: {item.indentNo}
               </div>
             </div>
@@ -1086,34 +1354,49 @@ export default function LabTesting() {
       }
     }
 
-    return value || (value === 0 ? "0" : <span className="text-xs text-gray-400">N/A</span>);
+    return (
+      value ||
+      (value === 0 ? "0" : <span className="text-xs text-gray-400">N/A</span>)
+    );
   };
 
   // Reusable Table Rendering Function
-  const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
-    const visibleCols = columnsMeta.filter((col) => visibilityState[col.dataKey])
-    const isLoading = loadingData && data.length === 0
-    const hasError = errorData && data.length === 0 && activeTab === tabKey
+  const renderTableSection = (
+    tabKey,
+    title,
+    description,
+    data,
+    columnsMeta,
+    visibilityState,
+  ) => {
+    const visibleCols = columnsMeta.filter(
+      (col) => visibilityState[col.dataKey],
+    );
+    const isLoading = loadingData && data.length === 0;
+    const hasError = errorData && data.length === 0 && activeTab === tabKey;
 
     return (
-      <Card className="shadow-sm border border-border flex-1 flex flex-col">
-        <CardHeader className="py-3 px-4 bg-muted/30">
-          <div className="flex justify-between items-center">
+      <Card className="flex flex-col flex-1 border shadow-sm border-border">
+        <CardHeader className="px-4 py-3 bg-muted/30">
+          <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center text-md font-semibold text-foreground">
+              <CardTitle className="flex items-center font-semibold text-md text-foreground">
                 {tabKey === "eligibleForTest" ? (
-                  <FileCheckIcon className="h-5 w-5 text-primary mr-2" />
+                  <FileCheckIcon className="w-5 h-5 mr-2 text-primary" />
                 ) : (
-                  <History className="h-5 w-5 text-primary mr-2" />
+                  <History className="w-5 h-5 mr-2 text-primary" />
                 )}
                 {title} ({data.length})
               </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
+              <CardDescription className="text-sm text-muted-foreground mt-0.5">
+                {description}
+              </CardDescription>
             </div>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 text-xs">
-                  <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
+                  <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View
+                  Columns
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[240px] p-3">
@@ -1123,10 +1406,12 @@ export default function LabTesting() {
                     <Button
                       variant="link"
                       size="sm"
-                      className="p-0 h-auto text-xs"
+                      className="h-auto p-0 text-xs"
                       onClick={() =>
                         handleSelectAllColumns(
-                          tabKey === "eligibleForTest" ? "eligible" : "recorded",
+                          tabKey === "eligibleForTest"
+                            ? "eligible"
+                            : "recorded",
                           columnsMeta,
                           true,
                         )
@@ -1134,14 +1419,16 @@ export default function LabTesting() {
                     >
                       Select All
                     </Button>
-                    <span className="text-gray-300 mx-1">|</span>
+                    <span className="mx-1 text-gray-300">|</span>
                     <Button
                       variant="link"
                       size="sm"
-                      className="p-0 h-auto text-xs"
+                      className="h-auto p-0 text-xs"
                       onClick={() =>
                         handleSelectAllColumns(
-                          tabKey === "eligibleForTest" ? "eligible" : "recorded",
+                          tabKey === "eligibleForTest"
+                            ? "eligible"
+                            : "recorded",
                           columnsMeta,
                           false,
                         )
@@ -1154,13 +1441,18 @@ export default function LabTesting() {
                     {columnsMeta
                       .filter((col) => col.toggleable)
                       .map((col) => (
-                        <div key={`toggle-${tabKey}-${col.dataKey}`} className="flex items-center space-x-2">
+                        <div
+                          key={`toggle-${tabKey}-${col.dataKey}`}
+                          className="flex items-center space-x-2"
+                        >
                           <Checkbox
                             id={`toggle-${tabKey}-${col.dataKey}`}
                             checked={!!visibilityState[col.dataKey]}
                             onCheckedChange={(checked) =>
                               handleToggleColumn(
-                                tabKey === "eligibleForTest" ? "eligible" : "recorded",
+                                tabKey === "eligibleForTest"
+                                  ? "eligible"
+                                  : "recorded",
                                 col.dataKey,
                                 Boolean(checked),
                               )
@@ -1172,7 +1464,11 @@ export default function LabTesting() {
                             className="text-xs font-normal cursor-pointer"
                           >
                             {col.header}{" "}
-                            {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
+                            {col.alwaysVisible && (
+                              <span className="text-gray-400 ml-0.5 text-xs">
+                                (Fixed)
+                              </span>
+                            )}
                           </Label>
                         </div>
                       ))}
@@ -1182,38 +1478,45 @@ export default function LabTesting() {
             </Popover>
           </div>
         </CardHeader>
-        <CardContent className="p-0 flex-1 flex flex-col">
+        <CardContent className="flex flex-col flex-1 p-0">
           {isLoading ? (
-            <div className="flex flex-col justify-center items-center py-10 flex-1">
-              <Loader2 className="h-8 w-8 text-primary animate-spin mb-3" />
+            <div className="flex flex-col items-center justify-center flex-1 py-10">
+              <Loader2 className="w-8 h-8 mb-3 text-primary animate-spin" />
               <p className="text-muted-foreground">Loading...</p>
             </div>
           ) : hasError ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1">
-              <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
+            <div className="flex flex-col items-center justify-center flex-1 px-4 py-10 mx-4 my-4 text-center border-2 border-dashed rounded-lg border-destructive-foreground bg-destructive/10">
+              <AlertTriangle className="w-10 h-10 mb-3 text-destructive" />
               <p className="font-medium text-destructive">Error Loading Data</p>
-              <p className="text-sm text-muted-foreground max-w-md">{errorData}</p>
+              <p className="max-w-md text-sm text-muted-foreground">
+                {errorData}
+              </p>
             </div>
           ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-              <Info className="h-12 w-12 text-green-500 mb-3" />
+            <div className="flex flex-col items-center justify-center flex-1 px-4 py-10 mx-4 my-4 text-center border-2 border-dashed rounded-lg border-green-200/50 bg-green-50/50">
+              <Info className="w-12 h-12 mb-3 text-green-500" />
               <p className="font-medium text-foreground">No Data Found</p>
-              <p className="text-sm text-muted-foreground text-center">
+              <p className="text-sm text-center text-muted-foreground">
                 {tabKey === "eligibleForTest"
                   ? "No materials are currently eligible for lab testing."
                   : "No lab tests have been recorded yet."}
                 {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                  <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
+                  <span className="block mt-1">
+                    (Filtered by firm: {user.firmName})
+                  </span>
                 )}
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-b-lg flex-1">
+            <div className="flex-1 overflow-x-auto rounded-b-lg">
               <Table>
-                <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                <TableHeader className="sticky top-0 z-10 bg-muted/50">
                   <TableRow>
                     {visibleCols.map((col) => (
-                      <TableHead key={col.dataKey} className="whitespace-nowrap text-xs">
+                      <TableHead
+                        key={col.dataKey}
+                        className="text-xs whitespace-nowrap"
+                      >
                         {col.header}
                       </TableHead>
                     ))}
@@ -1227,7 +1530,8 @@ export default function LabTesting() {
                           key={column.dataKey}
                           className={`whitespace-nowrap text-xs ${column.dataKey === "liftNo" ? "font-medium text-primary" : "text-gray-700"}`}
                         >
-                          {column.dataKey === "actionColumn" && tabKey === "eligibleForTest" ? (
+                          {column.dataKey === "actionColumn" &&
+                          tabKey === "eligibleForTest" ? (
                             <Button
                               variant="outline"
                               size="xs"
@@ -1249,58 +1553,86 @@ export default function LabTesting() {
           )}
         </CardContent>
       </Card>
-    )
-  }
+    );
+  };
 
   return (
-    <div className="space-y-6 p-4 md:p-6 bg-slate-50 min-h-screen">
-      <Card className="shadow-md border-none">
-        <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-lg">
+    <div className="min-h-screen p-4 space-y-6 md:p-6 bg-slate-50">
+      <Card className="border-none shadow-md">
+        <CardHeader className="rounded-t-lg bg-gradient-to-r from-green-50 to-emerald-50">
           <CardTitle className="flex items-center gap-2 text-gray-700">
             <Beaker className="h-6 w-6 text-[#7da23a]" />
             Step 7: Lab Testing - Is The Quality Good?
           </CardTitle>
           <CardDescription className="text-gray-600">
-            Record lab test results for received materials by updating LIFT-ACCOUNTS.
+            Record lab test results for received materials by updating
+            LIFT-ACCOUNTS.
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
+              <span className="ml-2 text-[#7da23a] font-medium">
+                • Filtered by: {user.firmName}
+              </span>
             )}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="p-4 sm:p-6 lg:p-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="flex flex-col flex-1"
+          >
             <TabsList className="grid w-full sm:w-[480px] grid-cols-2 mb-6">
-              <TabsTrigger value="eligibleForTest" className="flex items-center gap-2">
-                <FileCheckIcon className="h-4 w-4" /> Eligible for Test
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">
+              <TabsTrigger
+                value="eligibleForTest"
+                className="flex items-center gap-2"
+              >
+                <FileCheckIcon className="w-4 h-4" /> Eligible for Test
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 px-1.5 py-0.5 text-xs"
+                >
                   {receiptsAwaitingLabTest.length}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="recordedTests" className="flex items-center gap-2">
-                <History className="h-4 w-4" /> Recorded Tests
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">
+              <TabsTrigger
+                value="recordedTests"
+                className="flex items-center gap-2"
+              >
+                <History className="w-4 h-4" /> Recorded Tests
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 px-1.5 py-0.5 text-xs"
+                >
                   {recordedLabTests.length}
                 </Badge>
               </TabsTrigger>
             </TabsList>
 
             {/* Filter Section - START */}
-            <div className="mb-6 p-4 bg-green-50/50 rounded-lg border border-green-200">
+            <div className="p-4 mb-6 border border-green-200 rounded-lg bg-green-50/50">
               <div className="flex items-center gap-2 mb-4">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <Label className="text-sm font-medium text-gray-700">Filters</Label>
-                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white hover:bg-gray-50">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <Label className="text-sm font-medium text-gray-700">
+                  Filters
+                </Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="ml-auto bg-white hover:bg-gray-50"
+                >
                   Clear All
                 </Button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
                 {/* Vendor Name Filter */}
                 <div>
-                  <Label className="text-xs mb-1 block">Vendor Name</Label>
+                  <Label className="block mb-1 text-xs">Vendor Name</Label>
                   <SearchableSelect
                     value={filters.vendorName}
-                    onValueChange={(value) => handleFilterChange("vendorName", value)}
+                    onValueChange={(value) =>
+                      handleFilterChange("vendorName", value)
+                    }
                     options={uniqueFilterOptions.vendorName}
                     placeholder="Vendors"
                   />
@@ -1308,10 +1640,12 @@ export default function LabTesting() {
 
                 {/* Material Name Filter */}
                 <div>
-                  <Label className="text-xs mb-1 block">Material Name</Label>
+                  <Label className="block mb-1 text-xs">Material Name</Label>
                   <SearchableSelect
                     value={filters.materialName}
-                    onValueChange={(value) => handleFilterChange("materialName", value)}
+                    onValueChange={(value) =>
+                      handleFilterChange("materialName", value)
+                    }
                     options={uniqueFilterOptions.materialName}
                     placeholder="Materials"
                   />
@@ -1319,10 +1653,12 @@ export default function LabTesting() {
 
                 {/* Lift Type Filter */}
                 <div>
-                  <Label className="text-xs mb-1 block">Lift Type</Label>
+                  <Label className="block mb-1 text-xs">Lift Type</Label>
                   <SearchableSelect
                     value={filters.liftType}
-                    onValueChange={(value) => handleFilterChange("liftType", value)}
+                    onValueChange={(value) =>
+                      handleFilterChange("liftType", value)
+                    }
                     options={uniqueFilterOptions.liftType}
                     placeholder="Types"
                   />
@@ -1330,10 +1666,12 @@ export default function LabTesting() {
 
                 {/* Total Quantity Filter */}
                 <div>
-                  <Label className="text-xs mb-1 block">Total Quantity</Label>
+                  <Label className="block mb-1 text-xs">Total Quantity</Label>
                   <SearchableSelect
                     value={filters.totalQuantity}
-                    onValueChange={(value) => handleFilterChange("totalQuantity", value)}
+                    onValueChange={(value) =>
+                      handleFilterChange("totalQuantity", value)
+                    }
                     options={uniqueFilterOptions.totalQuantity}
                     placeholder="Quantities"
                   />
@@ -1341,10 +1679,12 @@ export default function LabTesting() {
 
                 {/* Order Number Filter */}
                 <div>
-                  <Label className="text-xs mb-1 block">Order Number</Label>
+                  <Label className="block mb-1 text-xs">Order Number</Label>
                   <SearchableSelect
                     value={filters.orderNumber}
-                    onValueChange={(value) => handleFilterChange("orderNumber", value)}
+                    onValueChange={(value) =>
+                      handleFilterChange("orderNumber", value)
+                    }
                     options={uniqueFilterOptions.orderNumber}
                     placeholder="Orders"
                   />
@@ -1353,7 +1693,10 @@ export default function LabTesting() {
             </div>
             {/* Filter Section - END */}
 
-            <TabsContent value="eligibleForTest" className="flex-1 flex flex-col mt-0">
+            <TabsContent
+              value="eligibleForTest"
+              className="flex flex-col flex-1 mt-0"
+            >
               {renderTableSection(
                 "eligibleForTest",
                 "Material Receipts Eligible for Lab Testing",
@@ -1363,7 +1706,10 @@ export default function LabTesting() {
                 visibleEligibleTestColumns,
               )}
             </TabsContent>
-            <TabsContent value="recordedTests" className="flex-1 flex flex-col mt-0">
+            <TabsContent
+              value="recordedTests"
+              className="flex flex-col flex-1 mt-0"
+            >
               {renderTableSection(
                 "recordedTests",
                 "All Recorded Lab Tests",
@@ -1379,25 +1725,32 @@ export default function LabTesting() {
 
       <Dialog open={isModalOpen} onOpenChange={handleModalClose}>
         <DialogContent className="sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-4 mb-4">
-            <DialogTitle className="text-lg md:text-xl text-foreground flex items-center gap-2">
+          <DialogHeader className="pb-4 mb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-lg md:text-xl text-foreground">
               <Beaker className="h-6 w-6 text-[#7da23a]" />
               Record Lab Test for Lift ID:{" "}
-              <span className="font-bold text-primary ml-1">{selectedReceiptForModal?.liftNo}</span>
+              <span className="ml-1 font-bold text-primary">
+                {selectedReceiptForModal?.liftNo}
+              </span>
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground mt-1 text-xs">
-              PO: {selectedReceiptForModal?.indentNo || "N/A"} | Party: {selectedReceiptForModal?.vendorName || "N/A"} |
-              Material: {selectedReceiptForModal?.rawMaterialName || "N/A"}
+            <DialogDescription className="mt-1 text-xs text-muted-foreground">
+              PO: {selectedReceiptForModal?.indentNo || "N/A"} | Party:{" "}
+              {selectedReceiptForModal?.vendorName || "N/A"} | Material:{" "}
+              {selectedReceiptForModal?.rawMaterialName || "N/A"}
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitLabTest} className="space-y-6 py-2 px-1">
+          <form onSubmit={handleSubmitLabTest} className="px-1 py-2 space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-4">
               <div>
-                <Label className="text-foreground text-xs" htmlFor="alStatus">
+                <Label className="text-xs text-foreground" htmlFor="alStatus">
                   AL: Status <span className="text-destructive">*</span>
                 </Label>
-                <Select name="alStatus" value={formData.alStatus || undefined} onValueChange={handleSelectChange("alStatus")}>
+                <Select
+                  name="alStatus"
+                  value={formData.alStatus || undefined}
+                  onValueChange={handleSelectChange("alStatus")}
+                >
                   <SelectTrigger
                     className={`w-full h-9 mt-1 rounded-md text-xs ${!formData.alStatus ? "text-muted-foreground" : ""} ${formErrors.alStatus ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                   >
@@ -1408,10 +1761,17 @@ export default function LabTesting() {
                     <SelectItem value="Rejected">Rejected</SelectItem>
                   </SelectContent>
                 </Select>
-                {formErrors.alStatus && <p className="mt-1 text-xs text-destructive">{formErrors.alStatus}</p>}
+                {formErrors.alStatus && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.alStatus}
+                  </p>
+                )}
               </div>
               <div>
-                <Label className="text-foreground text-xs" htmlFor="amDateOfTest">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="amDateOfTest"
+                >
                   Date Of Test <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1422,12 +1782,19 @@ export default function LabTesting() {
                   onChange={handleInputChange}
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.amDateOfTest ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.amDateOfTest && <p className="mt-1 text-xs text-destructive">{formErrors.amDateOfTest}</p>}
+                {formErrors.amDateOfTest && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.amDateOfTest}
+                  </p>
+                )}
               </div>
 
               {/* Moisture % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="anMoisturePercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="anMoisturePercent"
+                >
                   Moisture % <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1439,18 +1806,20 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.anMoisturePercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.anMoisturePercent && <p className="mt-1 text-xs text-destructive">{formErrors.anMoisturePercent}</p>}
+                {formErrors.anMoisturePercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.anMoisturePercent}
+                  </p>
+                )}
               </div>
 
               {/* BD % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="aoBdPercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="aoBdPercent"
+                >
                   BD % <span className="text-destructive">*</span>
-                  {selectedReceiptForModal?.indentNo && (
-                    <span className="ml-1 text-xs text-[#7da23a]">
-                      (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedBd || "N/A"})
-                    </span>
-                  )}
                 </Label>
                 <Input
                   type="text"
@@ -1461,18 +1830,20 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.aoBdPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.aoBdPercent && <p className="mt-1 text-xs text-destructive">{formErrors.aoBdPercent}</p>}
+                {formErrors.aoBdPercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.aoBdPercent}
+                  </p>
+                )}
               </div>
 
               {/* AP % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="apApPercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="apApPercent"
+                >
                   AP % <span className="text-destructive">*</span>
-                  {selectedReceiptForModal?.indentNo && (
-                    <span className="ml-1 text-xs text-[#7da23a]">
-                      (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedAp || "N/A"})
-                    </span>
-                  )}
                 </Label>
                 <Input
                   type="text"
@@ -1483,18 +1854,20 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.apApPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.apApPercent && <p className="mt-1 text-xs text-destructive">{formErrors.apApPercent}</p>}
+                {formErrors.apApPercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.apApPercent}
+                  </p>
+                )}
               </div>
 
-              {/* Alumina % Field with Expected Value */}
+              {/* Alumina % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="aqAluminaPercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="aqAluminaPercent"
+                >
                   Alumina % <span className="text-destructive">*</span>
-                  {selectedReceiptForModal?.indentNo && (
-                    <span className="ml-1 text-xs text-[#7da23a]">
-                      (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedAlumina || "N/A"})
-                    </span>
-                  )}
                 </Label>
                 <Input
                   type="text"
@@ -1505,18 +1878,20 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.aqAluminaPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.aqAluminaPercent && <p className="mt-1 text-xs text-destructive">{formErrors.aqAluminaPercent}</p>}
+                {formErrors.aqAluminaPercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.aqAluminaPercent}
+                  </p>
+                )}
               </div>
 
-              {/* Iron % Field with Expected Value */}
+              {/* Iron % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="arIronPercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="arIronPercent"
+                >
                   Iron % <span className="text-destructive">*</span>
-                  {selectedReceiptForModal?.indentNo && (
-                    <span className="ml-1 text-xs text-[#7da23a]">
-                      (Expected: {getExpectedValues(selectedReceiptForModal?.indentNo).expectedIron || "N/A"})
-                    </span>
-                  )}
                 </Label>
                 <Input
                   type="text"
@@ -1527,12 +1902,19 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.arIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.arIronPercent && <p className="mt-1 text-xs text-destructive">{formErrors.arIronPercent}</p>}
+                {formErrors.arIronPercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.arIronPercent}
+                  </p>
+                )}
               </div>
 
               {/* Sieve Analysis Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="asSieveAnalysis">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="asSieveAnalysis"
+                >
                   Sieve Analysis <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1544,12 +1926,19 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.asSieveAnalysis ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.asSieveAnalysis && <p className="mt-1 text-xs text-destructive">{formErrors.asSieveAnalysis}</p>}
+                {formErrors.asSieveAnalysis && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.asSieveAnalysis}
+                  </p>
+                )}
               </div>
 
               {/* LOI % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="atLoiPercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="atLoiPercent"
+                >
                   LOI % <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1561,12 +1950,19 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.atLoiPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.atLoiPercent && <p className="mt-1 text-xs text-destructive">{formErrors.atLoiPercent}</p>}
+                {formErrors.atLoiPercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.atLoiPercent}
+                  </p>
+                )}
               </div>
 
               {/* SiO2 % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="auSio2Percent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="auSio2Percent"
+                >
                   SiO2 % <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1578,12 +1974,19 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.auSio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.auSio2Percent && <p className="mt-1 text-xs text-destructive">{formErrors.auSio2Percent}</p>}
+                {formErrors.auSio2Percent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.auSio2Percent}
+                  </p>
+                )}
               </div>
 
               {/* CaO % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="avCaoPercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="avCaoPercent"
+                >
                   CaO % <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1595,12 +1998,19 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.avCaoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.avCaoPercent && <p className="mt-1 text-xs text-destructive">{formErrors.avCaoPercent}</p>}
+                {formErrors.avCaoPercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.avCaoPercent}
+                  </p>
+                )}
               </div>
 
               {/* MgO % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="awMgoPercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="awMgoPercent"
+                >
                   MgO % <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1612,12 +2022,19 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.awMgoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.awMgoPercent && <p className="mt-1 text-xs text-destructive">{formErrors.awMgoPercent}</p>}
+                {formErrors.awMgoPercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.awMgoPercent}
+                  </p>
+                )}
               </div>
 
               {/* TiO2 % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="axTio2Percent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="axTio2Percent"
+                >
                   TiO2 % <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1629,12 +2046,19 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.axTio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.axTio2Percent && <p className="mt-1 text-xs text-destructive">{formErrors.axTio2Percent}</p>}
+                {formErrors.axTio2Percent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.axTio2Percent}
+                  </p>
+                )}
               </div>
 
               {/* K2O+Na2O % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="ayKna2oPercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="ayKna2oPercent"
+                >
                   K2O+Na2O % <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1646,12 +2070,19 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.ayKna2oPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.ayKna2oPercent && <p className="mt-1 text-xs text-destructive">{formErrors.ayKna2oPercent}</p>}
+                {formErrors.ayKna2oPercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.ayKna2oPercent}
+                  </p>
+                )}
               </div>
 
               {/* Free Iron % Field */}
               <div>
-                <Label className="text-foreground text-xs" htmlFor="azFreeIronPercent">
+                <Label
+                  className="text-xs text-foreground"
+                  htmlFor="azFreeIronPercent"
+                >
                   Free Iron % <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -1663,12 +2094,16 @@ export default function LabTesting() {
                   placeholder=""
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.azFreeIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.azFreeIronPercent && <p className="mt-1 text-xs text-destructive">{formErrors.azFreeIronPercent}</p>}
+                {formErrors.azFreeIronPercent && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.azFreeIronPercent}
+                  </p>
+                )}
               </div>
 
               {/* Reason Field */}
               <div className="sm:col-span-2 md:col-span-3 lg:col-span-4">
-                <Label className="text-foreground text-xs" htmlFor="baReason">
+                <Label className="text-xs text-foreground" htmlFor="baReason">
                   Reason
                 </Label>
                 <Input
@@ -1680,12 +2115,20 @@ export default function LabTesting() {
                   placeholder="Enter reason if any..."
                   className={`h-9 mt-1 rounded-md text-xs ${formErrors.baReason ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
                 />
-                {formErrors.baReason && <p className="mt-1 text-xs text-destructive">{formErrors.baReason}</p>}
+                {formErrors.baReason && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {formErrors.baReason}
+                  </p>
+                )}
               </div>
             </div>
 
-            <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={handleModalClose}>
+            <DialogFooter className="flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleModalClose}
+              >
                 Cancel
               </Button>
               <Button
@@ -1695,7 +2138,7 @@ export default function LabTesting() {
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Recording...
                   </>
                 ) : (
@@ -1707,5 +2150,5 @@ export default function LabTesting() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

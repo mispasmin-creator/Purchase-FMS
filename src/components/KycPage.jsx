@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { UserCheck, Loader2, CheckCircle, XCircle, Briefcase, Store, Truck, Info } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs components for styling consistency
 import { Badge } from "@/components/ui/badge"; // Import Badge for consistent styling
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "../supabase";
 
 export default function KycPage() {
@@ -18,7 +19,11 @@ export default function KycPage() {
 
   // Form states
   const [productFormData, setProductFormData] = useState({ productName: "" });
-  const [transportationFormData, setTransportationFormData] = useState({ transporterName: "" });
+  const [transportationFormData, setTransportationFormData] = useState({
+    transporterName: "",
+    transportRateType: "",
+    transportRate: "",
+  });
   const [vendorFormData, setVendorFormData] = useState({
     vendorName: "",
     gstNumber: "",
@@ -44,6 +49,12 @@ export default function KycPage() {
         break;
       case 'transportation':
         if (!formData.transporterName.trim()) newErrors.transporterName = "Transporter Name is required.";
+        if (!formData.transportRateType.trim()) newErrors.transportRateType = "Transport Type is required.";
+        if (!String(formData.transportRate || "").trim()) {
+          newErrors.transportRate = "Rate is required.";
+        } else if (Number.isNaN(Number(formData.transportRate))) {
+          newErrors.transportRate = "Rate must be a valid number.";
+        }
         break;
       case 'vendor':
         if (!formData.vendorName.trim()) newErrors.vendorName = "Vendor Name is required.";
@@ -76,7 +87,7 @@ export default function KycPage() {
       case 'transportation':
         currentFormData = transportationFormData;
         formSetter = setTransportationFormData;
-        resetState = { transporterName: "" };
+        resetState = { transporterName: "", transportRateType: "", transportRate: "" };
         break;
       case 'vendor':
         currentFormData = vendorFormData;
@@ -108,7 +119,9 @@ export default function KycPage() {
       case 'transportation':
         dataToInsert = {
           "Type Of KYC Form": "Transportation",
-          "Transporter Name 2": String(currentFormData.transporterName || "")
+          "Transporter Name 2": String(currentFormData.transporterName || ""),
+          "Transport Rate Type": String(currentFormData.transportRateType || ""),
+          "Transport Rate": String(currentFormData.transportRate || "")
         };
         successMessage = `Transporter "${currentFormData.transporterName}" added to Master.`;
         break;
@@ -197,6 +210,41 @@ export default function KycPage() {
               className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.transporterName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
             />
             {errors.transporterName && <p className="text-red-500 text-xs mt-1">{errors.transporterName}</p>}
+          </div>
+          <div>
+            <Label className="block text-sm font-medium text-gray-700">Transport Type <span className="text-red-500">*</span></Label>
+            <Select
+              value={transportationFormData.transportRateType}
+              onValueChange={(value) => {
+                setTransportationFormData((prev) => ({ ...prev, transportRateType: value }));
+                setErrors((prev) => ({ ...prev, transportRateType: null }));
+              }}
+            >
+              <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${errors.transportRateType ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}>
+                <SelectValue placeholder="Select transport type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fixed">Fixed</SelectItem>
+                <SelectItem value="per mt">Per MT</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.transportRateType && <p className="text-red-500 text-xs mt-1">{errors.transportRateType}</p>}
+          </div>
+          <div>
+            <Label htmlFor="transportRate" className="block text-sm font-medium text-gray-700">Rate <span className="text-red-500">*</span></Label>
+            <Input
+              id="transportRate"
+              name="transportRate"
+              value={transportationFormData.transportRate}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9.]/g, "");
+                setTransportationFormData((prev) => ({ ...prev, transportRate: value }));
+                setErrors((prev) => ({ ...prev, transportRate: null }));
+              }}
+              placeholder="Enter rate"
+              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.transportRate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+            />
+            {errors.transportRate && <p className="text-red-500 text-xs mt-1">{errors.transportRate}</p>}
           </div>
           <div className="pt-4 flex justify-end">
             <Button type="submit" disabled={isSubmitting} className="bg-[#7da23a] hover:bg-[#6b8e2f]">

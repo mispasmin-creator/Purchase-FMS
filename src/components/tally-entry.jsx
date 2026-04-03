@@ -150,7 +150,7 @@ const formatSheetDateString = (dateValue) => {
 
 // Column Definitions
 const baseColumns = [
-  { header: "Indent ID", dataKey: "indentId", toggleable: true, alwaysVisible: true },
+  { header: "PO Number", dataKey: "indentId", toggleable: true, alwaysVisible: true },
   { header: "Planned", dataKey: "planned", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Delivery Order No.", dataKey: "deliveryOrderNo", toggleable: true },
@@ -213,31 +213,41 @@ export default function TallyEntry() {
       if (fetchError) throw fetchError;
 
       let parsedData = (data || [])
-        .map((row) => {
-          return {
+        .reduce((acc, row) => {
+          const poNumber = String(row.po_number || row["Indent Id."] || "");
+          const groupKey = cleanIndentId(poNumber);
+          if (!groupKey) return acc;
+          if (!acc[groupKey]) {
+            acc[groupKey] = {
             ...row,
-            _id: row.id || `po-entry-${row["Indent Id."]}-${row.Timestamp}`,
-            dbIndentId: row["Indent Id."], // Raw ID for database updates
-            indentId: cleanIndentId(row["Indent Id."]),
-            firmName: String(row["Firm Name"] || ""),
-            poNumber: String(row["Indent Id."] || ""), // or another column if available
-            deliveryOrderNo: String(row["Delivery Order No."] || ""),
-            vendorName: String(row["Vendor name"] || row["Vendor"] || ""),
-            rawMaterialName: String(row["Material"] || ""),
-            approvedQty: String(row["Total Quantity"] || row["Approved Qty"] || ""),
-            advanceAmount: String(row["To Be Paid Amount"] || ""),
-            typeOfIndent: String(row["Priority"] || ""), // No explicit indent type in schema
-            poCopyLink: String(row["PO Copy"] || ""),
-            notes: String(row["PO Notes"] || ""),
-            totalAmount: String(row["Total Amount"] || ""),
-            alumina: String(row["Alumina %"] || ""),
-            iron: String(row["Iron %"] || ""),
-            planned: formatSheetDateString(row["Planned3"]),
-            tallyEntryTimestamp: formatSheetDateString(row["Actual3"]),
-            rawActual3: row["Actual3"]
-          };
-        })
-        .filter((row) => row.indentId);
+              _id: row.id || `po-entry-${poNumber}-${row.Timestamp}`,
+              dbRowIds: [],
+              indentId: poNumber,
+              firmName: String(row["Firm Name"] || ""),
+              poNumber,
+              deliveryOrderNo: String(row["Delivery Order No."] || ""),
+              vendorName: String(row["Vendor name"] || row["Vendor"] || ""),
+              rawMaterialName: String(row["Material"] || ""),
+              approvedQty: String(row["Total Quantity"] || row["Approved Qty"] || ""),
+              advanceAmount: String(row["To Be Paid Amount"] || ""),
+              typeOfIndent: String(row["Priority"] || ""),
+              poCopyLink: String(row["PO Copy"] || ""),
+              notes: String(row["PO Notes"] || ""),
+              totalAmount: String(row["Total Amount"] || ""),
+              alumina: String(row["Alumina %"] || ""),
+              iron: String(row["Iron %"] || ""),
+              transportType: String(row["Transport Type"] || ""),
+              planned: formatSheetDateString(row["Planned3"]),
+              tallyEntryTimestamp: formatSheetDateString(row["Actual3"]),
+              rawActual3: row["Actual3"],
+              rawActualLogistics: row["ActualLogistics"],
+            };
+          }
+          acc[groupKey].dbRowIds.push(row.id);
+          return acc;
+        }, {});
+
+      parsedData = Object.values(parsedData).filter((row) => row.indentId);
 
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
@@ -285,9 +295,12 @@ export default function TallyEntry() {
     sheetData.forEach((row) => {
       const hasPlanned3 = row.planned && row.planned.trim() !== "";
       const hasActual3 = row.rawActual3 && row.rawActual3 !== null;
-      if (hasPlanned3 && !hasActual3) {
+      const isForTransport = String(row.transportType || "").trim().toUpperCase() === "FOR";
+      const hasCompletedLogistics =
+        !isForTransport || (row.rawActualLogistics && String(row.rawActualLogistics).trim() !== "");
+      if (hasCompletedLogistics && hasPlanned3 && !hasActual3) {
         pending.push(row);
-      } else if (hasPlanned3 && hasActual3) {
+      } else if (hasCompletedLogistics && hasPlanned3 && hasActual3) {
         completed.push(row);
       }
     });
@@ -307,7 +320,7 @@ export default function TallyEntry() {
   };
 
   const updateSupabase = async (entry, checked) => {
-    if (!entry?.dbIndentId) {
+    if (!entry?.dbRowIds?.length) {
       throw new Error("Cannot update: Entry database ID is missing.");
     }
 
@@ -320,7 +333,7 @@ export default function TallyEntry() {
     const { error: updateError } = await supabase
       .from("INDENT-PO")
       .update({ "Actual3": timestamp })
-      .eq('"Indent Id."', entry.dbIndentId);
+      .in("id", entry.dbRowIds);
 
     if (updateError) throw updateError;
     return { success: true };

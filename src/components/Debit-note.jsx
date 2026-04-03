@@ -204,21 +204,12 @@ export default function DebitNote() {
     setLoading(true);
     setError(null);
     try {
-      // Fetch Mismatch and LIFT-ACCOUNTS in parallel to get Type via join
-      const [{ data, error: fetchError }, { data: liftData, error: liftError }] = await Promise.all([
-        supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
-        supabase.from("LIFT-ACCOUNTS").select('"Lift No", "Type"'),
-      ]);
+      const { data, error: fetchError } = await supabase
+        .from("Mismatch")
+        .select("*")
+        .order("Timestamp", { ascending: false });
 
       if (fetchError) throw fetchError;
-      if (liftError) console.warn("Could not fetch LIFT-ACCOUNTS for type filter:", liftError.message);
-
-      // Build lift type lookup map: Lift No -> Type
-      const liftTypeMap = {};
-      (liftData || []).forEach(lift => {
-        const key = String(lift["Lift No"] || "").trim();
-        if (key) liftTypeMap[key] = String(lift["Type"] || "").trim();
-      });
 
       // Map to our data structure
       const formattedData = (data || []).map((row, index) => {
@@ -241,8 +232,6 @@ export default function DebitNote() {
           // Store raw values for updates
           _rawPlanned: row["Planned"],
           _rawActual: row["Actual"],
-          // Type from LIFT-ACCOUNTS via join
-          _liftType: liftTypeMap[liftId] || "",
         };
       });
 
@@ -254,11 +243,6 @@ export default function DebitNote() {
           (item) => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower,
         );
       }
-
-      // Show only Independent type lifts (joined from LIFT-ACCOUNTS)
-      filteredData = filteredData.filter(
-        (item) => String(item._liftType || "").toLowerCase() === "independent"
-      );
 
       setMismatchData(filteredData);
     } catch (error) {

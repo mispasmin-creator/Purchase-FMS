@@ -542,6 +542,8 @@ const POPdf = ({
   totalAmount = 416560.0,
   gstAmount = 74980.8,
   grandTotal = 491541.0,
+  advanceToBePaid = "no",
+  advanceAmount = 0,
   gstPercent = 18,
   discountPercent = 0,
   terms = [
@@ -662,6 +664,8 @@ const POPdf = ({
     Object.values(labDetails).some(
       (v) => v && String(v).trim() !== "" && v !== "null",
     );
+  const showAdvance = String(advanceToBePaid).toLowerCase() === "yes" && Number(advanceAmount) > 0;
+  const remainingAfterAdvance = Math.max(Number(grandTotal || 0) - Number(advanceAmount || 0), 0);
 
   return (
     <Document>
@@ -748,7 +752,7 @@ const POPdf = ({
             <Text style={styles.cellDesc}>Description</Text>
             <Text style={styles.cellQty}>Qty</Text>
             <Text style={styles.cellRate}>Rate</Text>
-            <Text style={styles.cellSpec}>Al₂O₃%</Text>
+            <Text style={styles.cellSpec}>Al2O3%</Text>
             <Text style={styles.cellSpec}>Fe%</Text>
             <Text style={styles.cellSpec}>SiO₂%</Text>
             <Text style={styles.cellSpec}>CaO%</Text>
@@ -836,6 +840,18 @@ const POPdf = ({
           <Text style={styles.totalLabel}>GRAND TOTAL</Text>
           <Text style={styles.totalValue}>{formatCurrency(grandTotal)}</Text>
         </View>
+        {showAdvance && (
+          <View style={styles.summarySection}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Advance Amount</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(advanceAmount)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Balance After Advance</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(remainingAfterAdvance)}</Text>
+            </View>
+          </View>
+        )}
 
         {/* ===== ITEM-WISE SPECIFICATIONS SECTION (Detailed View) ===== */}
         {/* This provides a cleaner, more detailed view of specs per material */}
@@ -854,13 +870,13 @@ const POPdf = ({
                 specs.alumina !== "0" &&
                 specs.alumina !== ""
               ) {
-                specItems.push({ label: "Al₂O₃", value: `${specs.alumina}%` });
+                specItems.push({ label: "Al2O3", value: `${specs.alumina}%` });
               }
               if (specs.iron && specs.iron !== "0" && specs.iron !== "") {
                 specItems.push({ label: "Fe", value: `${specs.iron}%` });
               }
               if (specs.sio2 && specs.sio2 !== "0" && specs.sio2 !== "") {
-                specItems.push({ label: "SiO₂", value: `${specs.sio2}%` });
+                specItems.push({ label: "SiO2", value: `${specs.sio2}%` });
               }
               if (specs.cao && specs.cao !== "0" && specs.cao !== "") {
                 specItems.push({ label: "CaO", value: `${specs.cao}%` });

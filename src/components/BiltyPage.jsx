@@ -206,14 +206,24 @@ export default function BiltyPage() {
           actualQty: String(row["Actual Quantity"] || "").trim(),
           indentNo: String(row["Indent no."] || "").trim(),
           billNo: String(row["Bill No."] || "").trim(),
-          firmName: String(row["Firm Name"] || "").trim(),
-          // Using Planned 3 and Actual 3 for filtering
-          planned3: formatTimestamp(row["Planned 3"]),
-          filterColPlanned3: row["Planned 3"],
-          filterColActual3: row["Actual 3"],
-          isPending: row["Planned 3"] && !row["Actual 3"],
-          isHistory: row["Planned 3"] && row["Actual 3"],
-          biltyNumber: String(row["Bilty No."] || "").trim(),
+            firmName: String(row["Firm Name"] || "").trim(),
+            unloadApprovalRequired: String(
+              row["Unload Approval Required"] || "",
+            ).trim(),
+            unloadApprovalStatus: String(
+              row["Unload Approval Status"] || "",
+            ).trim(),
+            // Using Planned 3 and Actual 3 for filtering
+            planned3: formatTimestamp(row["Planned 3"]),
+            filterColPlanned3: row["Planned 3"],
+            filterColActual3: row["Actual 3"],
+            isPending:
+              row["Planned 3"] &&
+              !row["Actual 3"] &&
+              (String(row["Unload Approval Required"] || "").trim().toLowerCase() !== "yes" ||
+                String(row["Unload Approval Status"] || "").trim().toLowerCase() === "approved"),
+            isHistory: row["Planned 3"] && row["Actual 3"],
+            biltyNumber: String(row["Bilty No."] || "").trim(),
           biltyImageUrl: String(row["Bilty Image"] || "").trim(),
           timestamp: formatTimestamp(row["Actual 3"]),
         };

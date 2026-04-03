@@ -401,18 +401,21 @@ export default function ReceiptCheck() {
             .from("LIFT-ACCOUNTS")
             .select("*")
             .order("Timestamp", { ascending: false }),
-          supabase.from("INDENT-PO").select('"Indent Id.", "Order Cancel Qty"'),
+          supabase.from("INDENT-PO").select('"Indent Id.", "Order Cancel Qty", po_number'),
         ]);
 
         if (fetchError) throw fetchError;
         if (poFetchError) throw poFetchError;
 
-        // Build map: indentNo -> Order Cancel Qty
+        // Build map: poNumber -> Order Cancel Qty
         const cancelQtyMap = {};
+        const indentToPoMap = {};
         (poData || []).forEach((row) => {
           const indent = String(row["Indent Id."] || "").trim();
-          if (indent)
-            cancelQtyMap[indent] = String(row["Order Cancel Qty"] || "").trim();
+          const poNumber = String(row.po_number || indent).trim();
+          if (indent) indentToPoMap[indent] = poNumber;
+          if (poNumber)
+            cancelQtyMap[poNumber] = String(row["Order Cancel Qty"] || "").trim();
         });
 
         // Helper to format date for display
@@ -445,7 +448,9 @@ export default function ReceiptCheck() {
             _dbId: row.id, // Store the Supabase row ID for updates
             id: String(row["Lift No"] || "").trim(),
             liftNo: String(row["Lift No"] || "").trim(),
-            indentNo: String(row["Indent no."] || "").trim(),
+            indentNo:
+              indentToPoMap[String(row["Indent no."] || "").trim()] ||
+              String(row["Indent no."] || "").trim(),
             vendorName: String(row["Vendor Name"] || "").trim(),
             rawMaterialName: String(row["Raw Material Name"] || "").trim(),
             billNo: String(row["Bill No."] || "").trim(),
@@ -486,7 +491,18 @@ export default function ReceiptCheck() {
             ).trim(),
             firmName: String(row["Firm Name"] || "").trim(),
             orderCancelQty:
-              cancelQtyMap[String(row["Indent no."] || "").trim()] || "",
+              cancelQtyMap[
+                indentToPoMap[String(row["Indent no."] || "").trim()] ||
+                  String(row["Indent no."] || "").trim()
+              ] || "",
+            // Unload Approval Fields
+            unloadApprovalRequired: String(row["Unload Approval Required"] || "").trim(),
+            unloadApprovalStatus: String(row["Unload Approval Status"] || "").trim(),
+            plannedUnloadApproval: row["Planned Unload Approval"] || null,
+            actualUnloadApproval: row["Actual Unload Approval"] || null,
+            unloadApprovalTrigger: row["Unload Approval Trigger"] || null,
+            unloadApprovalRemarks: row["Unload Approval Remarks"] || null,
+            unloadApprovalBy: row["Unload Approval By"] || null,
             // Helper property to check if quantities match
             _quantitiesMatch: checkQuantitiesMatch(
               row["Total Bill Quantity"],
@@ -506,11 +522,6 @@ export default function ReceiptCheck() {
               String(lift.firmName).toLowerCase() === userFirmNameLower,
           );
         }
-        // Show only Independent type lifts
-        processedData = processedData.filter(
-          (lift) =>
-            lift && String(lift.type || "").toLowerCase() === "independent",
-        );
         setAllLiftsData(processedData);
       } catch (err) {
         setErrorData(`Failed to load data: ${err.message}.`);
@@ -553,8 +564,13 @@ export default function ReceiptCheck() {
 
   const liftsAwaitingReceipt = useMemo(() => {
     return allLiftsData.filter((lift) => {
-      // Show when Planned 1 is not null AND Actual 1 is null
-      let matches = lift.filterColPlanned1 && !lift.filterColActual1;
+      // Show when Planned 1 is not null AND (Actual 1 is null OR it's pending/approved unload approval)
+      const isPendingApproval = lift.unloadApprovalStatus === "Pending";
+      const isApprovedButNotFinalized = 
+        lift.unloadApprovalStatus === "Approved" && 
+        lift.unloadApprovalRequired === "Yes";
+      
+      let matches = lift.filterColPlanned1 && (!lift.filterColActual1 || isPendingApproval || isApprovedButNotFinalized);
       if (filters.vendorName !== "all")
         matches = matches && lift.vendorName === filters.vendorName;
       if (filters.materialName !== "all")
@@ -574,7 +590,14 @@ export default function ReceiptCheck() {
   useEffect(() => {
     // Calculate total pending for the firm/user regardless of local filters
     const totalPending = allLiftsData.filter(
-      (lift) => lift.filterColPlanned1 && !lift.filterColActual1,
+      (lift) => {
+        const isPending = lift.filterColPlanned1 && !lift.filterColActual1;
+        const isPendingApproval = lift.unloadApprovalStatus === "Pending";
+        const isApprovedButNotFinalized = 
+          lift.unloadApprovalStatus === "Approved" && 
+          lift.unloadApprovalRequired === "Yes";
+        return isPending || isPendingApproval || isApprovedButNotFinalized;
+      }
     ).length;
     updateCount("receipt-check", totalPending);
   }, [allLiftsData, updateCount]);
@@ -582,8 +605,14 @@ export default function ReceiptCheck() {
   const derivedMaterialReceipts = useMemo(() => {
     return allLiftsData
       .filter((lift) => {
-        // Show when both Planned 1 and Actual 1 are not null
-        let matches = lift.filterColPlanned1 && lift.filterColActual1;
+        // Show when Actual 1 is set AND (no approval required OR rejected OR finalized)
+        const isRejected = lift.unloadApprovalStatus === "Rejected";
+        const isFinalized = lift.unloadApprovalStatus === "Completed";
+        const isApprovedNoRequirement = 
+          lift.unloadApprovalStatus === "Approved" && 
+          lift.unloadApprovalRequired !== "Yes";
+
+        let matches = lift.filterColActual1 && (isRejected || isFinalized || isApprovedNoRequirement);
         if (filters.vendorName !== "all")
           matches = matches && lift.vendorName === filters.vendorName;
         if (filters.materialName !== "all")
@@ -739,6 +768,19 @@ export default function ReceiptCheck() {
       const seconds = String(now.getSeconds()).padStart(2, "0");
 
       const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      const unloadApprovalTrigger = [
+        formData.physicalCondition === "Bad" ? "Condition Bad" : "",
+        formData.moisture === "Yes" ? "Moisture Present" : "",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      const needsUnloadApproval = Boolean(unloadApprovalTrigger);
+
+      const isReSubmittingApproved = 
+        selectedLift.unloadApprovalStatus === "Approved" && 
+        selectedLift.unloadApprovalRequired === "Yes";
+      const isFinalReceiptSubmission =
+        !needsUnloadApproval || isReSubmittingApproved;
 
       // Prepare update data for Supabase LIFT-ACCOUNTS
       const updateData = {
@@ -750,6 +792,16 @@ export default function ReceiptCheck() {
         Moisture: formData.moisture || null,
         "Physical Image Of Product": physicalImageUrl || null,
         "Image Of Weight Slip": weightSlipImageUrl || null,
+        "Unload Approval Required": needsUnloadApproval ? "Yes" : "No",
+        "Planned Unload Approval": (needsUnloadApproval && !isReSubmittingApproved) ? timestamp : (selectedLift.plannedUnloadApproval || null),
+        "Actual Unload Approval": isReSubmittingApproved ? selectedLift.actualUnloadApproval : null,
+        "Unload Approval Status": isReSubmittingApproved ? "Completed" : (needsUnloadApproval ? "Pending" : "Approved"),
+        "Unload Approval Trigger": unloadApprovalTrigger || selectedLift.unloadApprovalTrigger || null,
+        "Unload Approval Remarks": selectedLift.unloadApprovalRemarks || null,
+        "Unload Approval By": selectedLift.unloadApprovalBy || null,
+        "Planned 2": isFinalReceiptSubmission
+          ? (selectedLift["Planned 2"] || timestamp)
+          : (selectedLift["Planned 2"] || null),
       };
 
       console.log(
@@ -776,9 +828,6 @@ export default function ReceiptCheck() {
       const actualQty = parseFloat(formData.actualQuantity) || 0;
       const qtyDiff = Number((actualQty - totalBillQty).toFixed(2));
       const qtyDiffStatus = qtyDiff !== 0 ? "Mismatch" : "Match";
-
-      const isQualityMismatch =
-        formData.physicalCondition === "Bad" && formData.moisture === "Yes";
 
       const mismatchUpdatePayload = {
         "Quantity Difference": qtyDiff,
@@ -1059,9 +1108,10 @@ export default function ReceiptCheck() {
                               variant="outline"
                               size="xs"
                               onClick={() => handleOpenReceiptModal(item)}
+                              disabled={item.unloadApprovalStatus === "Pending"}
                               className="h-7 px-2.5 py-1 text-xs"
                             >
-                              Record Receipt
+                              {item.unloadApprovalStatus === "Pending" ? "Pending Approval" : "Record Receipt"}
                             </Button>
                           ) : (
                             renderCell(item, column)

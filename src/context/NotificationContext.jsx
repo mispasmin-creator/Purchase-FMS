@@ -14,6 +14,7 @@ export function NotificationProvider({ children }) {
     const [notificationCounts, setNotificationCounts] = useState({
         stock: 0,
         "generate-po": 0,
+        logistics: 0,
         "tally-entry": 0,
         "lift-material": 0,
         "receipt-check": 0,
@@ -29,6 +30,7 @@ export function NotificationProvider({ children }) {
         vendor: 0,
         factory: 0,
         management: 0,
+        "unload-management": 0,
     });
     const [loadingNotifications, setLoadingNotifications] = useState(false);
 
@@ -100,7 +102,8 @@ export function NotificationProvider({ children }) {
             const { data, error } = await supabase
                 .from("INDENT-PO")
                 .select("*")
-                .not("Planned3", "is", null);
+                .not("Planned3", "is", null)
+                .not("ActualLogistics", "is", null);
 
             if (error) throw error;
 
@@ -108,6 +111,7 @@ export function NotificationProvider({ children }) {
                 ...row,
                 planned: row["Planned3"],
                 actual: row["Actual3"],
+                actualLogistics: row["ActualLogistics"],
                 firmName: row["Firm Name"]
             }));
 
@@ -118,10 +122,36 @@ export function NotificationProvider({ children }) {
                 );
             }
 
-            const filtered = processedData.filter(item => item.planned && !item.actual);
+            const filtered = processedData.filter(
+                item => item.planned && item.actualLogistics && !item.actual,
+            );
             return filtered.length;
         } catch (error) {
             console.error("Error fetching pending tally entries:", error);
+            return 0;
+        }
+    }
+
+    async function getPendingLogistics(user, allowedSteps) {
+        try {
+            const { data, error } = await supabase
+                .from("INDENT-PO")
+                .select("*");
+
+            if (error) throw error;
+
+            let filtered = data.filter(item => item["PlannedLogistics"] && !item["ActualLogistics"]);
+
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(
+                    (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase().trim() === userFirmNameLower,
+                );
+            }
+
+            return filtered.length;
+        } catch (error) {
+            console.error("Error fetching pending logistics:", error);
             return 0;
         }
     }
@@ -196,7 +226,9 @@ export function NotificationProvider({ children }) {
             let filtered = data.filter((row) => {
                 const planned2 = row["Planned 2"];
                 const actual2 = row["Actual 2"];
-                return planned2 !== null && planned2 !== "" && (actual2 === null || actual2 === "");
+                const needsUnloadApproval = String(row["Unload Approval Required"] || "").trim().toLowerCase() === "yes";
+                const isUnloadApproved = String(row["Unload Approval Status"] || "").trim().toLowerCase() === "approved";
+                return planned2 !== null && planned2 !== "" && (actual2 === null || actual2 === "") && (!needsUnloadApproval || isUnloadApproved);
             });
             
             if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
@@ -331,7 +363,9 @@ export function NotificationProvider({ children }) {
             let filtered = data.filter((row) => {
                 const planned3 = row["Planned 3"];
                 const actual3 = row["Actual 3"];
-                return planned3 !== null && planned3 !== "" && (actual3 === null || actual3 === "");
+                const needsUnloadApproval = String(row["Unload Approval Required"] || "").trim().toLowerCase() === "yes";
+                const isUnloadApproved = String(row["Unload Approval Status"] || "").trim().toLowerCase() === "approved";
+                return planned3 !== null && planned3 !== "" && (actual3 === null || actual3 === "") && (!needsUnloadApproval || isUnloadApproved);
             });
             
             if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
@@ -491,6 +525,32 @@ export function NotificationProvider({ children }) {
         }
     }
 
+    async function getPendingUnloadApprovals(user, allowedSteps) {
+        try {
+            const { data, error } = await supabase
+                .from("LIFT-ACCOUNTS")
+                .select("*");
+
+            if (error) throw error;
+
+            let filtered = data.filter((row) =>
+                String(row["Unload Approval Required"] || "").trim().toLowerCase() === "yes" &&
+                String(row["Unload Approval Status"] || "").trim().toLowerCase() === "pending" &&
+                row["Actual 1"],
+            );
+
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
+            }
+
+            return filtered.length;
+        } catch (error) {
+            console.error("Error fetching pending unload approvals:", error);
+            return 0;
+        }
+    }
+
 
     const fetchNotificationCounts = useCallback(async () => {
         if (!isAuthenticated) return;
@@ -499,10 +559,11 @@ export function NotificationProvider({ children }) {
         try {
             // We run all fetches in parallel
             const [
-                stock, po, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, kitting, debitNotes, vendor, factory, management
+                stock, po, logistics, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, kitting, debitNotes, vendor, factory, management, unloadManagement
             ] = await Promise.all([
                 getPendingStockApprovals(user, allowedSteps),
                 getPendingPOs(user, allowedSteps),
+                getPendingLogistics(user, allowedSteps),
                 getPendingTallyEntries(user, allowedSteps),
                 getPendingLifts(user, allowedSteps),
                 getPendingReceipts(user, allowedSteps),
@@ -518,15 +579,16 @@ export function NotificationProvider({ children }) {
                 getPendingVendorRateUpdates(user, allowedSteps),
                 getPendingFactoryApprovals(user, allowedSteps),
                 getPendingManagementApprovals(user, allowedSteps),
+                getPendingUnloadApprovals(user, allowedSteps),
             ]);
 
             setNotificationCounts(prev => ({
                 ...prev,
-                stock, "generate-po": po, "tally-entry": tally, "lift-material": lift,
+                stock, "generate-po": po, logistics, "tally-entry": tally, "lift-material": lift,
                 "receipt-check": receipt, "lab-testing": lab, mismatch, "rectify-mistake": rectify,
                 "audit-data": audit, "original-bills": bills, "take-entry-tally": tally2,
                 bilty, fullkitting: kitting, "debit-note": debitNotes,
-                vendor, factory, management
+                vendor, factory, management, "unload-management": unloadManagement
             }));
         } catch (error) {
             console.error("Error fetching notification counts:", error);

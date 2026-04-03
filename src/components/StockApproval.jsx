@@ -406,6 +406,9 @@ export default function StockApproval() {
 
   const handleSelectRow = (id, isSelected) => {
     setSelectedRows((prev) => ({ ...prev, [id]: isSelected }));
+    if (isSelected) {
+      setApprovalStatuses((prev) => ({ ...prev, [id]: "Approved" }));
+    }
   };
 
   const handleApprovedQtyChange = (id, qty) => {

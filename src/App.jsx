@@ -30,6 +30,8 @@ import Mismatch from "./components/Mis-match";
 import DebitNote from "./components/Debit-note";
 import SaleOfRawMaterial from "./components/SaleOfRawMaterial";
 
+import PurchaseReturnPage from "./components/PurchaseReturnPage";
+
 import { useAuth } from "./context/AuthContext";
 import { useNotification } from "./context/NotificationContext"; // Import hook
 import { supabase } from "./supabase";
@@ -41,6 +43,8 @@ import VendorPaymentPage from "./components/VendorPaymentPage";
 import ThreeParty from "./components/ThreeParty";
 import FactoryApprovals from "./components/FactoryApprovals";
 import ManagementApprovals from "./components/ManagementApprovals";
+import ManagementUnloadApproval from "./components/ManagementUnloadApproval";
+import ArrangeLogistics from "./components/ArrangeLogistics";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -182,6 +186,17 @@ function App() {
       component: <GeneratePO />,
     },
     {
+      id: "arrange-logistics",
+      label: "Arrange Logistics",
+      path: "/arrange-logistics",
+      icon: <Truck size={20} />,
+      stepName: "Arrange Logistics",
+      showNotification: true,
+      countKey: "logistics",
+      countLabel: "Pending",
+      component: <ArrangeLogistics />,
+    },
+    {
       id: "tally-entry",
       label: "PO Entry",
       path: "/po-entry",
@@ -223,6 +238,17 @@ function App() {
       countKey: "receipt-check",
       countLabel: "Pending",
       component: <ReceiptCheck />,
+    },
+    {
+      id: "unload-management",
+      label: "Unload App.",
+      path: "/management-unload",
+      icon: <AlertTriangle size={20} />,
+      stepName: "management",
+      showNotification: true,
+      countKey: "unload-management",
+      countLabel: "Pending",
+      component: <ManagementUnloadApproval />,
     },
     {
       id: "lab-testing",
@@ -379,6 +405,16 @@ function App() {
       showNotification: false,
       component: <VendorPaymentPage />,
       hidden: true,
+    },
+    {
+      id: "purchase-return",
+      label: "Purchase Return",
+      path: "/purchase-return",
+      icon: <RotateCcw size={20} />,
+      stepName: "mismatch",
+      showNotification: false,
+      component: <PurchaseReturnPage />,
+      hidden: false,
     },
   ];
 

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useContext, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Loader2,
   AlertTriangle,
@@ -20,14 +21,37 @@ import {
   History,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AuthContext } from "../context/AuthContext";
 import { toast } from "sonner";
@@ -36,10 +60,20 @@ import { supabase } from "../supabase";
 // Rate Mismatch Columns Meta - ALL LIFT-ACCOUNTS + INDENT-PO columns
 const RATE_MISMATCH_COLUMNS_META = [
   // Core mismatch fields
-  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+  {
+    header: "Actions",
+    dataKey: "actions",
+    toggleable: false,
+    alwaysVisible: true,
+  },
 
   { header: "Stage", dataKey: "stage", toggleable: true, alwaysVisible: true },
-  { header: "Lift Number", dataKey: "liftIdDisplay", toggleable: true, alwaysVisible: true },
+  {
+    header: "Lift Number",
+    dataKey: "liftIdDisplay",
+    toggleable: true,
+    alwaysVisible: true,
+  },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true },
   { header: "Material Rate (Lift)", dataKey: "materialRate", toggleable: true },
   { header: "PO Rate (Original)", dataKey: "poRate", toggleable: true },
@@ -58,13 +92,39 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
   { header: "Type", dataKey: "liftType", toggleable: true },
   { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
-  { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
+  {
+    header: "Type Of Rate",
+    dataKey: "typeOfTransportingRate",
+    toggleable: true,
+  },
 
   { header: "Truck Qty", dataKey: "truckQty", toggleable: true },
-  { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
+  {
+    header: "Bill Image",
+    dataKey: "billImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Bilty Image",
+    dataKey: "biltyImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Weight Slip",
+    dataKey: "weightSlipImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Qty Diff Status",
+    dataKey: "qtyDifferenceStatus",
+    toggleable: true,
+  },
   { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
 
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
@@ -86,7 +146,11 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Quantity (PO)", dataKey: "poQuantity", toggleable: true },
   { header: "Current Stock", dataKey: "poCurrentStock", toggleable: true },
   { header: "Priority", dataKey: "poPriority", toggleable: true },
-  { header: "Delivery Order No.", dataKey: "poDeliveryOrderNo", toggleable: true },
+  {
+    header: "Delivery Order No.",
+    dataKey: "poDeliveryOrderNo",
+    toggleable: true,
+  },
   { header: "Notes (PO)", dataKey: "poNotes", toggleable: true },
   { header: "Approved Qty", dataKey: "poApprovedQty", toggleable: true },
   { header: "Approval Status", dataKey: "poApprovalStatus", toggleable: true },
@@ -94,11 +158,29 @@ const RATE_MISMATCH_COLUMNS_META = [
   { header: "Have To Make PO", dataKey: "poHaveToMake", toggleable: true },
 
   { header: "Lead Time (days)", dataKey: "poLeadTime", toggleable: true },
-  { header: "Total Quantity (PO)", dataKey: "poTotalQuantity", toggleable: true },
+  {
+    header: "Total Quantity (PO)",
+    dataKey: "poTotalQuantity",
+    toggleable: true,
+  },
   { header: "Total Amount", dataKey: "poTotalAmount", toggleable: true },
-  { header: "PO Copy", dataKey: "poCopyUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Advance To Be Paid", dataKey: "poAdvanceToBePaid", toggleable: true },
-  { header: "To Be Paid Amount", dataKey: "poToBePaidAmount", toggleable: true },
+  {
+    header: "PO Copy",
+    dataKey: "poCopyUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Advance To Be Paid",
+    dataKey: "poAdvanceToBePaid",
+    toggleable: true,
+  },
+  {
+    header: "To Be Paid Amount",
+    dataKey: "poToBePaidAmount",
+    toggleable: true,
+  },
   { header: "When To Be Paid", dataKey: "poWhenToBePaid", toggleable: true },
   { header: "PO Notes", dataKey: "poPONotes", toggleable: true },
   { header: "Alumina % (PO)", dataKey: "poAluminaPercent", toggleable: true },
@@ -106,21 +188,38 @@ const RATE_MISMATCH_COLUMNS_META = [
 
   // { header: "Order Cancel Qty", dataKey: "poOrderCancelQty", toggleable: true },
   // { header: "Status (PO)", dataKey: "poStatus", toggleable: true },
-
 ];
 
 // Quantity Mismatch Columns Meta - ALL LIFT-ACCOUNTS + INDENT-PO columns
 const QUANTITY_MISMATCH_COLUMNS_META = [
   // Core mismatch fields
-  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+  {
+    header: "Actions",
+    dataKey: "actions",
+    toggleable: false,
+    alwaysVisible: true,
+  },
   { header: "Stage", dataKey: "stage", toggleable: true, alwaysVisible: true },
-  { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
+  {
+    header: "Lift Number",
+    dataKey: "liftNo",
+    toggleable: true,
+    alwaysVisible: true,
+  },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "Billing Quantity (Column X)", dataKey: "totalBillQuantity", toggleable: true },
-  { header: "Actual Quantity (Column Y)", dataKey: "actualQuantityY", toggleable: true },
+  {
+    header: "Billing Quantity (Column X)",
+    dataKey: "totalBillQuantity",
+    toggleable: true,
+  },
+  {
+    header: "Actual Quantity (Column Y)",
+    dataKey: "actualQuantityY",
+    toggleable: true,
+  },
   { header: "Quantity Difference", dataKey: "qtyDifference", toggleable: true },
 
   // Additional LIFT-ACCOUNTS columns
@@ -134,15 +233,40 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
   { header: "Type", dataKey: "liftType", toggleable: true },
   { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
-  { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
+  {
+    header: "Type Of Rate",
+    dataKey: "typeOfTransportingRate",
+    toggleable: true,
+  },
   { header: "Rate", dataKey: "materialRate", toggleable: true },
   { header: "Truck Qty", dataKey: "truckQty", toggleable: true },
-  { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
+  {
+    header: "Bill Image",
+    dataKey: "billImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Bilty Image",
+    dataKey: "biltyImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Weight Slip",
+    dataKey: "weightSlipImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Qty Diff Status",
+    dataKey: "qtyDifferenceStatus",
+    toggleable: true,
+  },
   { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
-
 
   // INDENT-PO columns
   { header: "PO Timestamp", dataKey: "poTimestamp", toggleable: true },
@@ -150,18 +274,40 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
   { header: "Quantity (PO)", dataKey: "poQuantity", toggleable: true },
   { header: "Current Stock", dataKey: "poCurrentStock", toggleable: true },
   { header: "Priority", dataKey: "poPriority", toggleable: true },
-  { header: "Delivery Order No.", dataKey: "poDeliveryOrderNo", toggleable: true },
+  {
+    header: "Delivery Order No.",
+    dataKey: "poDeliveryOrderNo",
+    toggleable: true,
+  },
   { header: "Notes (PO)", dataKey: "poNotes", toggleable: true },
   { header: "Approved Qty", dataKey: "poApprovedQty", toggleable: true },
   { header: "Approval Status", dataKey: "poApprovalStatus", toggleable: true },
   { header: "Have To Make PO", dataKey: "poHaveToMake", toggleable: true },
   { header: "Rate (PO)", dataKey: "poRate", toggleable: true },
   { header: "Lead Time (days)", dataKey: "poLeadTime", toggleable: true },
-  { header: "Total Quantity (PO)", dataKey: "poTotalQuantity", toggleable: true },
+  {
+    header: "Total Quantity (PO)",
+    dataKey: "poTotalQuantity",
+    toggleable: true,
+  },
   { header: "Total Amount", dataKey: "poTotalAmount", toggleable: true },
-  { header: "PO Copy", dataKey: "poCopyUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Advance To Be Paid", dataKey: "poAdvanceToBePaid", toggleable: true },
-  { header: "To Be Paid Amount", dataKey: "poToBePaidAmount", toggleable: true },
+  {
+    header: "PO Copy",
+    dataKey: "poCopyUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Advance To Be Paid",
+    dataKey: "poAdvanceToBePaid",
+    toggleable: true,
+  },
+  {
+    header: "To Be Paid Amount",
+    dataKey: "poToBePaidAmount",
+    toggleable: true,
+  },
   { header: "When To Be Paid", dataKey: "poWhenToBePaid", toggleable: true },
   { header: "PO Notes", dataKey: "poPONotes", toggleable: true },
   { header: "Alumina % (PO)", dataKey: "poAluminaPercent", toggleable: true },
@@ -173,10 +319,25 @@ const QUANTITY_MISMATCH_COLUMNS_META = [
 
 const MATERIAL_MISMATCH_COLUMNS_META = [
   // Core mismatch fields
-  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+  {
+    header: "Actions",
+    dataKey: "actions",
+    toggleable: false,
+    alwaysVisible: true,
+  },
   { header: "Stage", dataKey: "stage", toggleable: true, alwaysVisible: true },
-  { header: "Lift Number", dataKey: "liftNo", toggleable: true, alwaysVisible: true },
-  { header: "Product Name", dataKey: "rawMaterialName", toggleable: true, alwaysVisible: true },
+  {
+    header: "Lift Number",
+    dataKey: "liftNo",
+    toggleable: true,
+    alwaysVisible: true,
+  },
+  {
+    header: "Product Name",
+    dataKey: "rawMaterialName",
+    toggleable: true,
+    alwaysVisible: true,
+  },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
 
@@ -194,7 +355,11 @@ const MATERIAL_MISMATCH_COLUMNS_META = [
   { header: "Lab BD %", dataKey: "liftBD", toggleable: true },
   { header: "BD Diff", dataKey: "bdDiff", toggleable: true },
 
-  { header: "Physical Condition", dataKey: "physicalCondition", toggleable: true },
+  {
+    header: "Physical Condition",
+    dataKey: "physicalCondition",
+    toggleable: true,
+  },
   { header: "Moisture", dataKey: "moisture", toggleable: true },
 
   // Additional LIFT-ACCOUNTS columns
@@ -208,16 +373,49 @@ const MATERIAL_MISMATCH_COLUMNS_META = [
   { header: "Type", dataKey: "liftType", toggleable: true },
   { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
   { header: "Rate", dataKey: "materialRate", toggleable: true },
-  { header: "Bill Image", dataKey: "billImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Bilty Image", dataKey: "biltyImageUrl", toggleable: true, isLink: true, linkText: "View" },
-  { header: "Weight Slip", dataKey: "weightSlipImageUrl", toggleable: true, isLink: true, linkText: "View" },
+  {
+    header: "Bill Image",
+    dataKey: "billImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Bilty Image",
+    dataKey: "biltyImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
+  {
+    header: "Weight Slip",
+    dataKey: "weightSlipImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
   { header: "Lab Status", dataKey: "status", toggleable: true },
 ];
 
 const HISTORY_COLUMNS_META = [
-  { header: "Date", dataKey: "Timestamp", toggleable: true, alwaysVisible: true },
-  { header: "Lift ID", dataKey: "Lift ID", toggleable: true, alwaysVisible: true },
-  { header: "Indent Number", dataKey: "Indent Number", toggleable: true, alwaysVisible: true },
+  {
+    header: "Date",
+    dataKey: "Timestamp",
+    toggleable: true,
+    alwaysVisible: true,
+  },
+  {
+    header: "Lift ID",
+    dataKey: "Lift ID",
+    toggleable: true,
+    alwaysVisible: true,
+  },
+  {
+    header: "Indent Number",
+    dataKey: "Indent Number",
+    toggleable: true,
+    alwaysVisible: true,
+  },
   { header: "Firm Name", dataKey: "Firm Name", toggleable: true },
   { header: "Party Name", dataKey: "Party Name", toggleable: true },
   { header: "Product Name", dataKey: "Product Name", toggleable: true },
@@ -230,22 +428,45 @@ const HISTORY_COLUMNS_META = [
   { header: "Qty", dataKey: "Qty", toggleable: true },
   { header: "Area Lifting", dataKey: "Area Lifting", toggleable: true },
   { header: "Truck No.", dataKey: "Truck No.", toggleable: true },
-  { header: "Bill Image", dataKey: "Bill Image", toggleable: true, isLink: true, linkText: "View" },
+  {
+    header: "Bill Image",
+    dataKey: "Bill Image",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
   { header: "Bilty No.", dataKey: "Bilty No.", toggleable: true },
   { header: "Type Of Rate", dataKey: "Type Of Rate", toggleable: true },
   { header: "Rate", dataKey: "Rate", toggleable: true },
   { header: "Truck Qty", dataKey: "Truck Qty", toggleable: true },
-  { header: "Bilty Image", dataKey: "Bilty Image", toggleable: true, isLink: true, linkText: "View" },
+  {
+    header: "Bilty Image",
+    dataKey: "Bilty Image",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
   { header: "Qty Diff Status", dataKey: "Qty Diff Status", toggleable: true },
   { header: "Diff Qty", dataKey: "Diff Qty", toggleable: true },
-  { header: "Weight Slip", dataKey: "Weight Slip", toggleable: true, isLink: true, linkText: "View" },
+  {
+    header: "Weight Slip",
+    dataKey: "Weight Slip",
+    toggleable: true,
+    isLink: true,
+    linkText: "View",
+  },
   { header: "Total Freight", dataKey: "Total Freight", toggleable: true },
-  { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+  {
+    header: "Actions",
+    dataKey: "actions",
+    toggleable: false,
+    alwaysVisible: true,
+  },
 ];
-
 
 export default function MismatchAnalysis() {
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [liftAccountsData, setLiftAccountsData] = useState([]);
   const [purchaseOrdersData, setPurchaseOrdersData] = useState([]);
   const [tlData, setTlData] = useState([]);
@@ -258,40 +479,19 @@ export default function MismatchAnalysis() {
   const [editingRow, setEditingRow] = useState(null);
   const [editingRowData, setEditingRowData] = useState(null); // Store full row data
   const [submitting, setSubmitting] = useState(false);
-  const [visibleRateMismatchColumns, setVisibleRateMismatchColumns] = useState({});
-  const [visibleQuantityMismatchColumns, setVisibleQuantityMismatchColumns] = useState({});
-  const [visibleMaterialMismatchColumns, setVisibleMaterialMismatchColumns] = useState({});
+  const [visibleRateMismatchColumns, setVisibleRateMismatchColumns] = useState(
+    {},
+  );
+  const [visibleQuantityMismatchColumns, setVisibleQuantityMismatchColumns] =
+    useState({});
+  const [visibleMaterialMismatchColumns, setVisibleMaterialMismatchColumns] =
+    useState({});
   const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({});
   const [mismatchSheetData, setMismatchSheetData] = useState([]);
   const [formData, setFormData] = useState({});
   const [submittedRows, setSubmittedRows] = useState(new Set());
-  const [activeModalTab, setActiveModalTab] = useState('mismatch');
-  const [approvalSubTab, setApprovalSubTab] = useState('pending'); // 'pending' | 'history'
-  const [approvalRecords, setApprovalRecords] = useState([]);
-  const [loadingApproval, setLoadingApproval] = useState(false);
-  const [historyRecords, setHistoryRecords] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [approvalActionRow, setApprovalActionRow] = useState(null);
-  const [approvalForm, setApprovalForm] = useState({ returnQty: '', photoUrl: '', weighslipUrl: '', photoFile: null, weighslipFile: null });
-  const [submittingApproval, setSubmittingApproval] = useState(false);
-  const [purchaseReturnForm, setPurchaseReturnForm] = useState({
-    purchaseReturnNo: '',
-    poNo: '',
-    actionType: '',
-    partyName: '',
-    productName: '',
-    qty: '',
-    returnReason: '',
-    transport: '',
-    typeOfTransport: '',
-    vehicleNo: '',
-    builtyNo: '',
-    rateType: '',
-    amount: '',
-    orgBillNo: '',
-    billNo: '',
-    billCopy: '',
-  });
+  const [actionType, setActionType] = useState("");
+  const [debitNoteFile, setDebitNoteFile] = useState(null);
 
   const [filters, setFilters] = useState({
     vendorName: "all",
@@ -329,65 +529,41 @@ export default function MismatchAnalysis() {
       });
       return visibility;
     };
-    setVisibleRateMismatchColumns(initializeVisibility(RATE_MISMATCH_COLUMNS_META));
-    setVisibleQuantityMismatchColumns(initializeVisibility(QUANTITY_MISMATCH_COLUMNS_META));
-    setVisibleMaterialMismatchColumns(initializeVisibility(MATERIAL_MISMATCH_COLUMNS_META));
+    setVisibleRateMismatchColumns(
+      initializeVisibility(RATE_MISMATCH_COLUMNS_META),
+    );
+    setVisibleQuantityMismatchColumns(
+      initializeVisibility(QUANTITY_MISMATCH_COLUMNS_META),
+    );
+    setVisibleMaterialMismatchColumns(
+      initializeVisibility(MATERIAL_MISMATCH_COLUMNS_META),
+    );
     setVisibleHistoryColumns(initializeVisibility(HISTORY_COLUMNS_META));
   }, []);
 
   // Initialize form data
-  const initializeFormData = async (rowId, rowData) => {
-    // Auto-generate PR number
-    let prNo = 'PR-01';
-    try {
-      const { count } = await supabase
-        .from('Purchase Returns')
-        .select('*', { count: 'exact', head: true });
-      const nextSeq = (count || 0) + 1;
-      prNo = `PR-${String(nextSeq).padStart(2, '0')}`;
-    } catch (e) {
-      prNo = 'PR-01';
-    }
+  const initializeFormData = (rowId, rowData) => {
     setFormData({
-      status: 'Credit Notes',
-      remarks: '',
-      debitAmount: ''
+      remarks: "",
+      debitAmount: "",
     });
-    setPurchaseReturnForm({
-      purchaseReturnNo: prNo,
-      poNo: rowData?.indentNo || '',
-      actionType: '',
-      partyName: rowData?.vendorName || '',
-      productName: rowData?.material || rowData?.rawMaterialName || '',
-      qty: '',
-      returnReason: '',
-      transport: '',
-      typeOfTransport: '',
-      vehicleNo: '',
-      builtyNo: '',
-      rateType: '',
-      amount: '',
-      orgBillNo: '',
-      billNo: rowData?.billNo || '',
-      billCopy: rowData?.billImageUrl || '',
-    });
+    setActionType("");
+    setDebitNoteFile(null);
   };
-
-
 
   // Handle form changes
   const handleFormChange = (field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   // Handle purchase return form changes
   const handlePurchaseReturnChange = (field, value) => {
-    setPurchaseReturnForm(prev => ({
+    setPurchaseReturnForm((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -396,16 +572,16 @@ export default function MismatchAnalysis() {
     const details = {
       rateMismatch: {
         title: "Rate Mismatch Details",
-        content: `Lift ID: ${item.id}\nMaterial Rate: ₹${item.materialRate}\nPO Rate: ₹${item.poRate}\nDifference: ₹${item.rateDifference}\nVendor: ${item.vendorName}\nMaterial: ${item.material}`
+        content: `Lift ID: ${item.id}\nMaterial Rate: ₹${item.materialRate}\nPO Rate: ₹${item.poRate}\nDifference: ₹${item.rateDifference}\nVendor: ${item.vendorName}\nMaterial: ${item.material}`,
       },
       quantityMismatch: {
         title: "Quantity Mismatch Details",
-        content: `Lift No: ${item.liftNo}\nBilling Quantity (Col J): ${item.liftedQty}\nActual Qty (Col Y): ${item.actualQuantityY}\nDifference: ${item.qtyDifference}\nVendor: ${item.vendorName}\nMaterial: ${item.rawMaterialName}`
+        content: `Lift No: ${item.liftNo}\nBilling Quantity (Col J): ${item.liftedQty}\nActual Qty (Col Y): ${item.actualQuantityY}\nDifference: ${item.qtyDifference}\nVendor: ${item.vendorName}\nMaterial: ${item.rawMaterialName}`,
       },
       materialMismatch: {
         title: "Material Properties Mismatch Details",
-        content: `Lift No: ${item.liftNo}\nRaw Material: ${item.rawMaterialName}\nAlumina: PO ${item.poAluminaPercent}% vs Lab ${item.liftAlumina}% (Diff: ${item.aluminaDiff}%)\nIron: PO ${item.poIronPercent}% vs Lab ${item.liftIron}% (Diff: ${item.ironDiff}%)`
-      }
+        content: `Lift No: ${item.liftNo}\nRaw Material: ${item.rawMaterialName}\nAlumina: PO ${item.poAluminaPercent}% vs Lab ${item.liftAlumina}% (Diff: ${item.aluminaDiff}%)\nIron: PO ${item.poIronPercent}% vs Lab ${item.liftIron}% (Diff: ${item.ironDiff}%)`,
+      },
     };
 
     toast.info(details[mismatchType].title, {
@@ -417,131 +593,14 @@ export default function MismatchAnalysis() {
   const handleCorrectData = (item, mismatchType) => {
     setEditingRow(item.liftNo || item.liftIdDisplay || item.id);
     setEditingRowData(item);
-    setActiveModalTab('mismatch');
-    setApprovalSubTab('pending');
-    setApprovalRecords([]);
-    setHistoryRecords([]);
-    setApprovalActionRow(null);
     initializeFormData(item.id || item.liftNo, item);
   };
 
-  // Fetch Pending records: Planned not null AND Actual null
-  const fetchApprovalRecords = async () => {
-    setLoadingApproval(true);
-    try {
-      const { data, error } = await supabase
-        .from('Purchase Returns')
-        .select('*')
-        .not('Planned', 'is', null)
-        .is('Actual', null);
-      if (error) throw error;
-      setApprovalRecords(data || []);
-    } catch (err) {
-      toast.error('Failed to load pending records: ' + err.message);
-      setApprovalRecords([]);
-    } finally {
-      setLoadingApproval(false);
-    }
-  };
-
-  // Fetch History records: Planned not null AND Actual not null
-  const fetchHistoryRecords = async () => {
-    setLoadingHistory(true);
-    try {
-      const { data, error } = await supabase
-        .from('Purchase Returns')
-        .select('*')
-        .not('Planned', 'is', null)
-        .not('Actual', 'is', null);
-      if (error) throw error;
-      setHistoryRecords(data || []);
-    } catch (err) {
-      toast.error('Failed to load history records: ' + err.message);
-      setHistoryRecords([]);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
-
-  // Submit approval action — upload files on Save, then update DB
-  const submitApprovalAction = async () => {
-    if (!approvalActionRow) return;
-    setSubmittingApproval(true);
-    try {
-      // Upload photo if a new file was selected
-      let photoUrl = approvalForm.photoUrl;
-      if (approvalForm.photoFile) {
-        const fileExt = approvalForm.photoFile.name.split('.').pop();
-        const fileName = `debit-notes/${approvalActionRow['Purchase Return No.']}_photo_${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from('image')
-          .upload(fileName, approvalForm.photoFile);
-        if (uploadError) throw uploadError;
-        const { data: publicUrlData } = supabase.storage
-          .from('image')
-          .getPublicUrl(fileName);
-        photoUrl = publicUrlData.publicUrl;
-      }
-
-      // Upload weighslip if a new file was selected
-      let weighslipUrl = approvalForm.weighslipUrl;
-      if (approvalForm.weighslipFile) {
-        const fileExt = approvalForm.weighslipFile.name.split('.').pop();
-        const fileName = `debit-notes/${approvalActionRow['Purchase Return No.']}_weighslip_${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from('image')
-          .upload(fileName, approvalForm.weighslipFile);
-        if (uploadError) throw uploadError;
-        const { data: publicUrlData } = supabase.storage
-          .from('image')
-          .getPublicUrl(fileName);
-        weighslipUrl = publicUrlData.publicUrl;
-      }
-
-      // Generate IST timestamp: YYYY-MM-DD HH:mm:ss.SSS
-      const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-      const yyyy = now.getUTCFullYear();
-      const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(now.getUTCDate()).padStart(2, '0');
-      const hh = String(now.getUTCHours()).padStart(2, '0');
-      const min = String(now.getUTCMinutes()).padStart(2, '0');
-      const ss = String(now.getUTCSeconds()).padStart(2, '0');
-      const ms = String(now.getUTCMilliseconds()).padStart(3, '0');
-      const actualTimestamp = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}.${ms}`;
-
-      const { error } = await supabase
-        .from('Purchase Returns')
-        .update({
-          'Return Qty': approvalForm.returnQty ? parseFloat(approvalForm.returnQty) : null,
-          'Photo of Loaded Material': photoUrl || null,
-          'Weighslip of Material': weighslipUrl || null,
-          'Actual': actualTimestamp,
-        })
-        .eq('ID', approvalActionRow['ID']);
-      if (error) throw error;
-      toast.success('✅ Approval details saved successfully!');
-      setApprovalActionRow(null);
-      setApprovalForm({ returnQty: '', photoUrl: '', weighslipUrl: '', photoFile: null, weighslipFile: null });
-      fetchApprovalRecords(); // refresh pending list
-    } catch (err) {
-      toast.error('❌ Failed to save: ' + err.message);
-    } finally {
-      setSubmittingApproval(false);
-    }
-  };
-
-  // Handle photo file select (no upload yet)
-  const handlePhotoUpload = (e) => {
+  // Handle debit note file select
+  const handleDebitNoteFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setApprovalForm(prev => ({ ...prev, photoFile: file }));
-  };
-
-  // Handle weighslip file select (no upload yet)
-  const handleWeighslipUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setApprovalForm(prev => ({ ...prev, weighslipFile: file }));
+    setDebitNoteFile(file);
   };
 
   const handleReportIssue = (item, mismatchType) => {
@@ -554,15 +613,17 @@ export default function MismatchAnalysis() {
   const handleExportData = (item, mismatchType) => {
     // Create CSV data for the specific item
     const csvData = Object.entries(item)
-      .filter(([key]) => !key.startsWith('_'))
+      .filter(([key]) => !key.startsWith("_"))
       .map(([key, value]) => `"${key}","${value}"`)
-      .join('\n');
+      .join("\n");
 
-    const blob = new Blob([`"Field","Value"\n${csvData}`], { type: 'text/csv' });
+    const blob = new Blob([`"Field","Value"\n${csvData}`], {
+      type: "text/csv",
+    });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `${mismatchType}_${item.id || item.liftNo}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `${mismatchType}_${item.id || item.liftNo}_${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -578,6 +639,55 @@ export default function MismatchAnalysis() {
   const submitFormData = async () => {
     if (!editingRow || !editingRowData) return;
 
+    // Validate action type is selected
+    if (!actionType) {
+      toast.error('Please select an Action Type.');
+      return;
+    }
+
+    // If Purchase Return, just update status in Mismatch (Creation is handled on PR page)
+    if (actionType === 'Purchase Return') {
+      setSubmitting(true);
+      try {
+        // ONLY update Mismatch status - the separate page will handle the record creation
+        const { error: updateError } = await supabase
+          .from("Mismatch")
+          .update({
+            "Status": "Purchase Return",
+            "Action Type": actionType,
+            "Remarks": formData.remarks || ''
+          })
+          .eq('Lift Number', editingRowData.liftNo);
+
+        if (updateError) throw updateError;
+
+        setSubmittedRows(prev => new Set([...prev, `mismatch_${editingRowData.liftNo}`]));
+        setEditingRow(null);
+        setEditingRowData(null);
+        setFormData({});
+        setActionType('');
+        toast.success(`✅ SUCCESS: Mismatch record marked for Purchase Return.`);
+
+        setTimeout(() => {
+          fetchMismatchSheetData();
+          fetchLiftAccountsData();
+        }, 500);
+
+      } catch (error) {
+        console.error('Submission error:', error);
+        toast.error(`❌ SUBMISSION FAILED: ${error.message}`);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Validate debit note fields
+    if (!formData.debitAmount) {
+      toast.error('Please enter a Debit Amount.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -585,25 +695,35 @@ export default function MismatchAnalysis() {
       if (!recordId) throw new Error("Missing Record ID for update");
 
       const currentDate = new Date();
-      const istOffset = 5.5 * 60 * 60 * 1000;
-      const istDate = new Date(Date.now() + istOffset);
-      const istTimestamp = istDate.toISOString().replace('Z', '+05:30');
 
-      // Prepare updates
-      let updates = {};
-      if (activeModalTab === 'purchase-return') {
-        updates = {
-          "Status": "Purchase Return",
-        };
-      } else {
-        updates = {
-          "Status": formData.status || 'Credit Notes',
-          "Remarks": formData.remarks || '',
-        };
-        // If Debit Note is Yes, also save Debit Amount
-        if ((formData.status || 'Credit Notes') === 'Credit Notes' && formData.debitAmount) {
-          updates["Debit Amount"] = parseFloat(formData.debitAmount) || null;
-        }
+      // Upload debit note image if provided
+      let debitNoteUrl = null;
+      if (debitNoteFile) {
+        const fileExt = debitNoteFile.name.split('.').pop();
+        const fileName = `debit-notes/${editingRowData.liftNo}_debit_${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('image')
+          .upload(fileName, debitNoteFile);
+        if (uploadError) throw uploadError;
+        const { data: publicUrlData } = supabase.storage
+          .from('image')
+          .getPublicUrl(fileName);
+        debitNoteUrl = publicUrlData.publicUrl;
+      }
+
+      // Determine status based on action type
+      const status = actionType === 'Debit Note for Transporter'
+        ? 'Credit Notes - Transporter'
+        : 'Credit Notes';
+
+      const updates = {
+        "Status": status,
+        "Action Type": actionType,
+        "Remarks": formData.remarks || '',
+        "Debit Amount": parseFloat(formData.debitAmount) || null,
+      };
+      if (debitNoteUrl) {
+        updates["Debit Note URL"] = debitNoteUrl;
       }
 
       // Update the existing record(s) in Mismatch table for this Lift
@@ -614,47 +734,20 @@ export default function MismatchAnalysis() {
 
       if (updateError) throw updateError;
 
-      // If Purchase Return tab was active, also insert into Purchase Returns table
-      if (activeModalTab === 'purchase-return') {
-        const isPaidByUs = purchaseReturnForm.typeOfTransport === 'Paid by Us';
-        const prPayload = {
-          "Time Stamp": istTimestamp,
-          "Purchase Return No.": purchaseReturnForm.purchaseReturnNo,
-          "Po No.": purchaseReturnForm.poNo,
-          "Action Type": purchaseReturnForm.actionType || null,
-          "Party Name": purchaseReturnForm.partyName || null,
-          "Product Name": purchaseReturnForm.productName || null,
-          "Qty": parseInt(purchaseReturnForm.qty) || 0,
-          "Return Reason": purchaseReturnForm.returnReason || null,
-          "Transport": isPaidByUs ? (purchaseReturnForm.transport || null) : null,
-          "Type of Transport": purchaseReturnForm.typeOfTransport || null,
-          "Vehicle No": purchaseReturnForm.vehicleNo || null,
-          "Builty No": purchaseReturnForm.builtyNo || null,
-          "Rate Type": isPaidByUs ? (purchaseReturnForm.rateType || null) : null,
-          "Amount": isPaidByUs && purchaseReturnForm.amount ? parseFloat(purchaseReturnForm.amount) : null,
-          "Org. Bill No": purchaseReturnForm.orgBillNo || null,
-          "Lift No": editingRowData.liftNo || null,
-        };
-        const { error: prError } = await supabase
-          .from('Purchase Returns')
-          .insert([prPayload]);
-        if (prError) throw prError;
-      }
-
       setSubmittedRows(prev => new Set([...prev, `mismatch_${editingRowData.liftNo}`]));
       setEditingRow(null);
       setEditingRowData(null);
       setFormData({});
-      setActiveModalTab('mismatch');
+      setActionType('');
+      setDebitNoteFile(null);
 
       const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
       toast.success(`✅ SUCCESS: Mismatch data corrected and resolved for: ${editingRow}\nUpdated at: ${actualDateTime}`);
 
-      // Refresh data to reflect changes immediately
+      // Refresh data
       setTimeout(() => {
         fetchMismatchSheetData();
         fetchLiftAccountsData();
-        fetchPurchaseOrdersData();
       }, 500);
 
     } catch (error) {
@@ -665,9 +758,12 @@ export default function MismatchAnalysis() {
     }
   };
 
-  // Modal render function
+  // Modal render
   const renderModal = () => {
     if (!editingRow) return null;
+
+    const isDebitNote = actionType === 'Debit Note for Purchaser' || actionType === 'Debit Note for Transporter';
+    const isPurchaseReturn = actionType === 'Purchase Return';
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -676,7 +772,7 @@ export default function MismatchAnalysis() {
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold text-gray-900">Submit Mismatch Correction</h3>
-              <button onClick={() => setEditingRow(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => { setEditingRow(null); setActionType(''); setDebitNoteFile(null); }} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -684,63 +780,50 @@ export default function MismatchAnalysis() {
             {/* Mismatch Details */}
             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
               <h4 className="font-medium text-gray-700 mb-2">Mismatch Details</h4>
-              <div className="grid grid-cols-1 gap-2 text-sm">
-                <div><span className="text-gray-600">Lift ID:</span> {editingRow}</div>
-                <div><span className="text-gray-600">Mismatch Type:</span> {activeTab}</div>
-                <div className="text-xs text-gray-500 mt-2">
-                  This will submit the complete lift data along with your status and remarks to the Mismatch sheet.
-                </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><span className="text-gray-500">Lift ID:</span> <span className="font-medium">{editingRow}</span></div>
+                <div><span className="text-gray-500">Mismatch Type:</span> <span className="font-medium">{activeTab === 'rateMismatch' ? 'Rate' : activeTab === 'quantityMismatch' ? 'Quantity' : 'Lab'}</span></div>
+                {editingRowData?.vendorName && <div><span className="text-gray-500">Party:</span> <span className="font-medium">{editingRowData.vendorName}</span></div>}
+                {editingRowData?.material && <div><span className="text-gray-500">Material:</span> <span className="font-medium">{editingRowData.material}</span></div>}
               </div>
             </div>
 
-            {/* ── TABS ── */}
-            <div className="flex border-b border-gray-200 mb-5">
-              <button
-                onClick={() => setActiveModalTab('mismatch')}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${activeModalTab === 'mismatch'
-                  ? 'border-green-600 text-[#7da23a] bg-green-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Mismatch Correction
-              </button>
-              <button
-                onClick={() => setActiveModalTab('purchase-return')}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${activeModalTab === 'purchase-return'
-                  ? 'border-green-600 text-[#7da23a] bg-green-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Purchase Return
-              </button>
-              <button
-                onClick={() => { setActiveModalTab('approval'); fetchApprovalRecords(); }}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${activeModalTab === 'approval'
-                  ? 'border-green-600 text-[#7da23a] bg-green-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Approval of Plant Executive
-              </button>
-            </div>
+            {/* Action Type Dropdown */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Action Type <span className="text-red-500">*</span></label>
+                <select
+                  value={actionType}
+                  onChange={(e) => setActionType(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
+                >
+                  <option value="">-- Select Action Type --</option>
+                  <option value="Debit Note for Purchaser">Debit Note for Purchaser</option>
+                  <option value="Debit Note for Transporter">Debit Note for Transporter</option>
+                  <option value="Purchase Return">Purchase Return</option>
+                </select>
+              </div>
 
-            {/* ── TAB: Mismatch Correction ── */}
-            {activeModalTab === 'mismatch' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Debite Note</label>
-                  <select
-                    value={formData.status || 'Credit Notes'}
-                    onChange={(e) => handleFormChange('status', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
-                  >
-                    <option value="Credit Notes">Yes</option>
-                    <option value="Others">No</option>
-                  </select>
+              {/* Purchase Return Info Banner */}
+              {isPurchaseReturn && (
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">Assign to Purchase Return</p>
+                      <p className="text-xs text-orange-600 mt-1">
+                        Click confirm to mark this mismatch for purchase return. You can then manage return details through the separate "Purchase Return" page in the sidebar.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                {(formData.status || 'Credit Notes') === 'Credit Notes' && (
+              )}
+
+              {/* Debit Note Fields - shown for both Purchaser and Transporter */}
+              {isDebitNote && (
+                <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Debit Amount</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Debit Amount <span className="text-red-500">*</span></label>
                     <input
                       type="number"
                       value={formData.debitAmount || ''}
@@ -749,417 +832,61 @@ export default function MismatchAnalysis() {
                       placeholder="Enter debit amount (e.g. 5000)"
                     />
                   </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
-                  <textarea
-                    value={formData.remarks || ''}
-                    onChange={(e) => handleFormChange('remarks', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm resize-none"
-                    placeholder="Enter correction details and notes..."
-                    rows={4}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* ── TAB: Purchase Return ── */}
-            {activeModalTab === 'purchase-return' && (
-              <div className="border border-green-100 rounded-lg p-4 bg-green-50 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Purchase Return No. */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Purchase Return No.</label>
-                    <input type="text" value={purchaseReturnForm.purchaseReturnNo} readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
-                  </div>
-                  {/* Po No. */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Po No.</label>
-                    <input type="text" value={purchaseReturnForm.poNo} readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
-                  </div>
-                  {/* Bill No. */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Bill No.</label>
-                    <input type="text" value={purchaseReturnForm.billNo} readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
-                  </div>
-                  {/* Bill Copy */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Bill Copy</label>
-                    {purchaseReturnForm.billCopy && String(purchaseReturnForm.billCopy).startsWith('http') ? (
-                      <a href={purchaseReturnForm.billCopy} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center px-3 py-2 text-xs text-[#7da23a] border border-green-200 rounded-lg bg-green-50 hover:bg-green-100 cursor-pointer">
-                        View Bill Copy
-                      </a>
-                    ) : (
-                      <input type="text" value={purchaseReturnForm.billCopy || 'N/A'} readOnly
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Debit Note Image</label>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleDebitNoteFileChange}
+                      className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 cursor-pointer"
+                    />
+                    {debitNoteFile && (
+                      <p className="mt-1 text-xs text-gray-500">📎 {debitNoteFile.name}</p>
                     )}
                   </div>
-                  {/* Type of Transport */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Type of Transport</label>
-                    <select value={purchaseReturnForm.typeOfTransport}
-                      onChange={(e) => handlePurchaseReturnChange('typeOfTransport', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] bg-white text-sm">
-                      <option value="">-- Select Type --</option>
-                      <option value="Paid by Us">Paid by Us</option>
-                      <option value="Paid by Party">Paid by Party</option>
-                    </select>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Reason / Remarks</label>
+                    <textarea
+                      value={formData.remarks || ''}
+                      onChange={(e) => handleFormChange('remarks', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm resize-none"
+                      placeholder="Enter correction details and notes..."
+                      rows={3}
+                    />
                   </div>
-                  {/* Action Type */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Action Type</label>
-                    <input type="text" value={purchaseReturnForm.actionType}
-                      onChange={(e) => handlePurchaseReturnChange('actionType', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
-                      placeholder="e.g. Full Return" />
-                  </div>
-                  {/* Party Name */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Party Name</label>
-                    <input type="text" value={purchaseReturnForm.partyName} readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
-                  </div>
-                  {/* Product Name */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Product Name</label>
-                    <input type="text" value={purchaseReturnForm.productName} readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm cursor-not-allowed" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Qty</label>
-                    <input type="number" value={purchaseReturnForm.qty}
-                      onChange={(e) => handlePurchaseReturnChange('qty', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      placeholder="Enter return qty" />
-                  </div>
-                  {/* Return Reason */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Return Reason</label>
-                    <input type="text" value={purchaseReturnForm.returnReason}
-                      onChange={(e) => handlePurchaseReturnChange('returnReason', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
-                      placeholder="Reason for return" />
-                  </div>
-                  {/* Transport */}
-                  {purchaseReturnForm.typeOfTransport === 'Paid by Us' && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Transport</label>
-                      <input type="text" value={purchaseReturnForm.transport}
-                        onChange={(e) => handlePurchaseReturnChange('transport', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
-                        placeholder="Transporter name" />
-                    </div>
-                  )}
-
-                  {/* Vehicle No */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Vehicle No</label>
-                    <input type="text" value={purchaseReturnForm.vehicleNo}
-                      onChange={(e) => handlePurchaseReturnChange('vehicleNo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
-                      placeholder="Vehicle number" />
-                  </div>
-                  {/* Builty No */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Builty No</label>
-                    <input type="text" value={purchaseReturnForm.builtyNo}
-                      onChange={(e) => handlePurchaseReturnChange('builtyNo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
-                      placeholder="Builty number" />
-                  </div>
-                  {/* Rate Type */}
-                  {purchaseReturnForm.typeOfTransport === 'Paid by Us' && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Rate Type</label>
-                      <select value={purchaseReturnForm.rateType}
-                        onChange={(e) => handlePurchaseReturnChange('rateType', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] bg-white text-sm">
-                        <option value="">-- Select Rate Type --</option>
-                        <option value="Fixed">Fixed</option>
-                        <option value="Per MT">Per MT</option>
-                      </select>
-                    </div>
-                  )}
-                  {/* Amount */}
-                  {purchaseReturnForm.typeOfTransport === 'Paid by Us' && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Amount</label>
-                      <input type="number" value={purchaseReturnForm.amount}
-                        onChange={(e) => handlePurchaseReturnChange('amount', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        placeholder="Enter amount" />
-                    </div>
-                  )}
-                  {/* Org. Bill No */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Org. Bill No</label>
-                    <input type="text" value={purchaseReturnForm.orgBillNo}
-                      onChange={(e) => handlePurchaseReturnChange('orgBillNo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm"
-                      placeholder="Original bill number" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── TAB: Approval of Plant Executive ── */}
-            {activeModalTab === 'approval' && (
-              <div>
-                {/* Sub-tabs: Pending / History */}
-                <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => { setApprovalSubTab('pending'); fetchApprovalRecords(); }}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${approvalSubTab === 'pending'
-                      ? 'bg-white text-orange-600 shadow-sm font-semibold'
-                      : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                  >
-                    Pending
-                  </button>
-                  <button
-                    onClick={() => { setApprovalSubTab('history'); fetchHistoryRecords(); }}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${approvalSubTab === 'history'
-                      ? 'bg-white text-[#7da23a] shadow-sm font-semibold'
-                      : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                  >
-                    History
-                  </button>
-                </div>
-                {/* Action mini-form overlay */}
-                {approvalActionRow && (
-                  <div className="mb-4 border border-green-200 rounded-lg p-4 bg-green-50">
-                    <h4 className="text-sm font-semibold text-green-800 mb-3">
-                      Plant Executive Approval — {approvalActionRow['Purchase Return No.']}
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Return Qty</label>
-                        <input
-                          type="number"
-                          value={approvalForm.returnQty}
-                          onChange={(e) => setApprovalForm(prev => ({ ...prev, returnQty: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          placeholder="Enter return qty"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Photo of Loaded Material</label>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          onChange={handlePhotoUpload}
-                          disabled={submittingApproval}
-                          className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-green-100 file:text-[#6b8e2f] hover:file:bg-green-200 cursor-pointer"
-                        />
-                        {approvalForm.photoFile && (
-                          <p className="mt-1 text-xs text-gray-500">📎 {approvalForm.photoFile.name}</p>
-                        )}
-                        {approvalForm.photoUrl && !approvalForm.photoFile && (
-                          <a href={approvalForm.photoUrl} target="_blank" rel="noopener noreferrer"
-                            className="inline-block mt-1 text-xs text-[#7da23a] underline">View Existing File</a>
-                        )}
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Weighslip of Material</label>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          onChange={handleWeighslipUpload}
-                          disabled={submittingApproval}
-                          className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-green-100 file:text-[#6b8e2f] hover:file:bg-green-200 cursor-pointer"
-                        />
-                        {approvalForm.weighslipFile && (
-                          <p className="mt-1 text-xs text-gray-500">📎 {approvalForm.weighslipFile.name}</p>
-                        )}
-                        {approvalForm.weighslipUrl && !approvalForm.weighslipFile && (
-                          <a href={approvalForm.weighslipUrl} target="_blank" rel="noopener noreferrer"
-                            className="inline-block mt-1 text-xs text-[#7da23a] underline">View Existing File</a>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        onClick={() => { setApprovalActionRow(null); setApprovalForm({ returnQty: '', photoUrl: '', weighslipUrl: '', photoFile: null, weighslipFile: null }); }}
-                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={submitApprovalAction}
-                        disabled={submittingApproval}
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg disabled:opacity-50"
-                      >
-                        {submittingApproval ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
-                        {submittingApproval ? 'Uploading & Saving...' : 'Save'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── PENDING sub-tab ── */}
-                {approvalSubTab === 'pending' && (
-                  <>
-                    {loadingApproval ? (
-                      <div className="flex items-center justify-center py-8">
-                        <RefreshCw className="w-5 h-5 animate-spin text-orange-400 mr-2" />
-                        <span className="text-sm text-gray-500">Loading pending records...</span>
-                      </div>
-                    ) : approvalRecords.length === 0 ? (
-                      <div className="text-center py-8 text-gray-400">
-                        <p className="text-sm">No pending Purchase Return records found.</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="w-full text-xs">
-                          <thead className="bg-orange-50">
-                            <tr>
-                              {['Action', 'PR No.', 'Po No.', 'Party Name', 'Product', 'Qty', 'Action Type', 'Return Reason', 'Transport', 'Type', 'Vehicle No', 'Builty No', 'Rate Type', 'Amount', 'Org. Bill No', 'Return Qty', 'Photo', 'Weighslip'].map(h => (
-                                <th key={h} className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap border-b border-gray-200">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {approvalRecords.map((rec, i) => (
-                              <tr key={rec.id || i} className="hover:bg-orange-50 border-b border-gray-100">
-                                <td className="px-2 py-1.5 whitespace-nowrap">
-                                  <button
-                                    onClick={() => {
-                                      setApprovalActionRow(rec);
-                                      setApprovalForm({
-                                        returnQty: rec['Return Qty'] != null ? String(rec['Return Qty']) : '',
-                                        photoUrl: rec['Photo of Loaded Material'] || '',
-                                        weighslipUrl: rec['Weighslip of Material'] || '',
-                                      });
-                                    }}
-                                    className="px-2 py-1 text-xs font-medium text-white bg-[#7da23a] hover:bg-[#6b8e2f] rounded-md whitespace-nowrap"
-                                  >
-                                    Fill Details
-                                  </button>
-                                </td>
-                                <td className="px-2 py-1.5 font-medium text-orange-700 whitespace-nowrap">{rec['Purchase Return No.'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Po No.'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Party Name'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Product Name'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Qty'] ?? '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Action Type'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Reason'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Transport'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Type of Transport'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Vehicle No'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Builty No'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Rate Type'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Amount'] != null ? `₹${rec['Amount']}` : '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Org. Bill No'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Qty'] ?? '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">
-                                  {rec['Photo of Loaded Material'] ? (
-                                    <a href={rec['Photo of Loaded Material']} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] underline text-xs">View</a>
-                                  ) : '—'}
-                                </td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">
-                                  {rec['Weighslip of Material'] ? (
-                                    <a href={rec['Weighslip of Material']} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] underline text-xs">View</a>
-                                  ) : '—'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* ── HISTORY sub-tab ── */}
-                {approvalSubTab === 'history' && (
-                  <>
-                    {loadingHistory ? (
-                      <div className="flex items-center justify-center py-8">
-                        <RefreshCw className="w-5 h-5 animate-spin text-green-500 mr-2" />
-                        <span className="text-sm text-gray-500">Loading history records...</span>
-                      </div>
-                    ) : historyRecords.length === 0 ? (
-                      <div className="text-center py-8 text-gray-400">
-                        <p className="text-sm">No history records found.</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="w-full text-xs">
-                          <thead className="bg-green-50">
-                            <tr>
-                              {['PR No.', 'Po No.', 'Party Name', 'Product', 'Qty', 'Action Type', 'Return Reason', 'Transport', 'Type', 'Vehicle No', 'Builty No', 'Rate Type', 'Amount', 'Org. Bill No', 'Return Qty', 'Photo', 'Weighslip'].map(h => (
-                                <th key={h} className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap border-b border-gray-200">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {historyRecords.map((rec, i) => (
-                              <tr key={rec.id || i} className="hover:bg-green-50 border-b border-gray-100">
-                                <td className="px-2 py-1.5 font-medium text-[#6b8e2f] whitespace-nowrap">{rec['Purchase Return No.'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Po No.'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Party Name'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Product Name'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Qty'] ?? '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Action Type'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Reason'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Transport'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Type of Transport'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Vehicle No'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Builty No'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Rate Type'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Amount'] != null ? `₹${rec['Amount']}` : '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Org. Bill No'] || '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">{rec['Return Qty'] ?? '—'}</td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">
-                                  {rec['Photo of Loaded Material'] ? (
-                                    <a href={rec['Photo of Loaded Material']} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] underline text-xs">View</a>
-                                  ) : '—'}
-                                </td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">
-                                  {rec['Weighslip of Material'] ? (
-                                    <a href={rec['Weighslip of Material']} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] underline text-xs">View</a>
-                                  ) : '—'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+                </>
+              )}
+            </div>
 
             {/* Footer */}
             <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
               <button
-                onClick={() => setEditingRow(null)}
+                onClick={() => { setEditingRow(null); setActionType(''); setDebitNoteFile(null); }}
                 disabled={submitting}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 transition-colors duration-200"
               >
                 Cancel
               </button>
-              {activeModalTab !== 'approval' && (
+              {actionType && (
                 <button
                   onClick={submitFormData}
                   disabled={submitting}
-                  className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md ${activeModalTab === 'purchase-return'
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-[#6b8e2f]'
-                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-[#6b8e2f]'
-                    }`}
+                  className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md ${
+                    isPurchaseReturn
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus:ring-blue-500'
+                      : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-[#6b8e2f]'
+                  }`}
                 >
                   {submitting ? (
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
                     <Save className="w-4 h-4 mr-2" />
                   )}
-                  {submitting ? 'Submitting...' : activeModalTab === 'purchase-return' ? 'Submit Purchase Return' : 'Submit to Mismatch Sheet'}
+                  {submitting
+                    ? 'Submitting...'
+                    : isPurchaseReturn
+                      ? 'Confirm Purchase Return'
+                      : 'Submit Debit Note'}
                 </button>
               )}
             </div>
@@ -1181,133 +908,148 @@ export default function MismatchAnalysis() {
 
       if (fetchError) throw fetchError;
 
-      let formattedData = (data || [])
-        .map((row) => {
-
-          // Format timestamp for display
-          let createdAt = "";
-          let timestamp = "";
-          if (row["Timestamp"]) {
-            try {
-              const d = new Date(row["Timestamp"]);
-              if (!isNaN(d.getTime())) {
-                createdAt = d
-                  .toLocaleString("en-GB", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: false,
-                  })
-                  .replace(",", "");
-                timestamp = createdAt;
-              }
-            } catch (e) {
-              createdAt = String(row["Timestamp"] || "");
+      let formattedData = (data || []).map((row) => {
+        // Format timestamp for display
+        let createdAt = "";
+        let timestamp = "";
+        if (row["Timestamp"]) {
+          try {
+            const d = new Date(row["Timestamp"]);
+            if (!isNaN(d.getTime())) {
+              createdAt = d
+                .toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                })
+                .replace(",", "");
               timestamp = createdAt;
             }
+          } catch (e) {
+            createdAt = String(row["Timestamp"] || "");
+            timestamp = createdAt;
           }
+        }
 
-          // Format dates
-          const formatDate = (dateValue) => {
-            if (!dateValue) return "";
-            try {
-              const d = new Date(dateValue);
-              if (!isNaN(d.getTime())) {
-                return d.toLocaleDateString("en-GB");
-              }
-            } catch (e) {
-              return String(dateValue);
+        // Format dates
+        const formatDate = (dateValue) => {
+          if (!dateValue) return "";
+          try {
+            const d = new Date(dateValue);
+            if (!isNaN(d.getTime())) {
+              return d.toLocaleDateString("en-GB");
             }
+          } catch (e) {
             return String(dateValue);
-          };
+          }
+          return String(dateValue);
+        };
 
-          return {
-            // Core fields
-            id: String(row["Lift No"] || "").trim(),
-            liftNo: String(row["Lift No"] || "").trim(),
-            indentNo: String(row["Indent no."] || "").trim(),
-            vendorName: String(row["Vendor Name"] || "").trim(),
-            quantity: String(row["Qty"] || "").trim(),
-            material: String(row["Raw Material Name"] || "").trim(),
-            rawMaterialName: String(row["Raw Material Name"] || "").trim(),
+        return {
+          // Core fields
+          id: String(row["Lift No"] || "").trim(),
+          liftNo: String(row["Lift No"] || "").trim(),
+          indentNo: String(row["Indent no."] || "").trim(),
+          vendorName: String(row["Vendor Name"] || "").trim(),
+          quantity: String(row["Qty"] || "").trim(),
+          material: String(row["Raw Material Name"] || "").trim(),
+          rawMaterialName: String(row["Raw Material Name"] || "").trim(),
 
-            // Stage tracking: Planned + Actual from LIFT-ACCOUNTS
-            planned1: row["Planned 1"] || null, actual1: row["Actual 1"] || null,
-            planned2: row["Planned 2"] || null, actual2: row["Actual 2"] || null,
-            planned3: row["Planned 3"] || null, actual3: row["Actual 3"] || null,
-            // Note: Full Kitting uses Planned7/Actual7 from Mismatch table directly
+          // Stage tracking: Planned + Actual from LIFT-ACCOUNTS
+          planned1: row["Planned 1"] || null,
+          actual1: row["Actual 1"] || null,
+          planned2: row["Planned 2"] || null,
+          actual2: row["Actual 2"] || null,
+          planned3: row["Planned 3"] || null,
+          actual3: row["Actual 3"] || null,
+          // Note: Full Kitting uses Planned7/Actual7 from Mismatch table directly
 
-            // LIFT-ACCOUNTS columns
-            billNo: String(row["Bill No."] || "").trim(),
-            areaLifting: String(row["Area lifting"] || "").trim(),
-            leadTimeToFactory: String(row["Lead Time To Reach Factory (days)"] || "").trim(),
-            liftingQty: String(row["Lifting Qty"] || "").trim(),
-            liftType: String(row["Type"] || "").trim(),
-            transporterName: String(row["Transporter Name"] || "").trim(),
-            truckNo: String(row["Truck No."] || "").trim(),
-            driverNo: String(row["Driver No."] || "").trim(),
-            biltyNo: String(row["Bilty No."] || "").trim(),
-            typeOfTransportingRate: String(row["Type Of Transporting Rate"] || "").trim(),
-            materialRate: String(row["Rate"] || "").trim(),
-            billImageUrl: String(row["Bill Image"] || "").trim(),
-            truckQty: String(row["Truck Qty"] || "").trim(),
-            dateOfReceiving: formatDate(row["Date Of Receiving"]),
-            totalBillQuantity: String(row["Total Bill Quantity"] || "").trim(),
-            actualQuantity: String(row["Actual Quantity"] || "").trim(),
-            actualQuantityY: String(row["Actual Quantity"] || "").trim(),
-            physicalCondition: String(row["Physical Condition"] || "").trim(),
-            moisture: String(row["Moisture"] || "").trim(),
-            physicalImageUrl: String(row["Physical Image Of Product"] || "").trim(),
-            weightSlipImageUrl: String(row["Image Of Weight Slip"] || "").trim(),
-            biltyNo2: String(row["Bilty No. 2"] || "").trim(),
-            biltyImageUrl: String(row["Bilty Image"] || "").trim(),
-            status: String(row["Status"] || "").trim(),
-            dateOfTest: formatDate(row["Date Of Test"]),
-            moisturePercent: String(row["Moisture Percent Age %"] || "").trim(),
-            bdPercent: String(row["BD Percent Age %"] || "").trim(),
-            apPercent: String(row["AP Percent Age %"] || "").trim(),
-            aluminaPercent: String(row["Alumina Percent Age %"] || "").trim(),
-            ironPercent: String(row["Iron Percent Age %"] || "").trim(),
-            sieveAnalysis: String(row["Sieve Analysis"] || "").trim(),
-            loiPercent: String(row["LOI %"] || "").trim(),
-            sio2Percent: String(row["SIO2 %"] || "").trim(),
-            caoPercent: String(row["CaO %"] || "").trim(),
-            mgoPercent: String(row["MgO %"] || "").trim(),
-            tio2Percent: String(row["TiO2 %"] || "").trim(),
-            k2oNa2oPercent: String(row["K2O + Na2O %"] || "").trim(),
-            freeIronPercent: String(row["Free Iron %"] || "").trim(),
-            firmName: String(row["Firm Name"] || "").trim(),
-            weightSlipQty: String(row["Weight Slip Qty"] || "").trim(),
-            transporterRate: String(row["Transporter Rate"] || "").trim(),
-            qtyDifferenceStatus: String(row["Qty Difference Status"] || "").trim(),
-            differenceQty: String(row["Difference Qty"] || "").trim(),
-            totalFreight: String(row["Total Freight"] || "").trim(),
+          // LIFT-ACCOUNTS columns
+          billNo: String(row["Bill No."] || "").trim(),
+          areaLifting: String(row["Area lifting"] || "").trim(),
+          leadTimeToFactory: String(
+            row["Lead Time To Reach Factory (days)"] || "",
+          ).trim(),
+          liftingQty: String(row["Lifting Qty"] || "").trim(),
+          liftType: String(row["Type"] || "").trim(),
+          transporterName: String(row["Transporter Name"] || "").trim(),
+          truckNo: String(row["Truck No."] || "").trim(),
+          driverNo: String(row["Driver No."] || "").trim(),
+          biltyNo: String(row["Bilty No."] || "").trim(),
+          typeOfTransportingRate: String(
+            row["Type Of Transporting Rate"] || "",
+          ).trim(),
+          materialRate: String(row["Rate"] || "").trim(),
+          billImageUrl: String(row["Bill Image"] || "").trim(),
+          truckQty: String(row["Truck Qty"] || "").trim(),
+          dateOfReceiving: formatDate(row["Date Of Receiving"]),
+          totalBillQuantity: String(row["Total Bill Quantity"] || "").trim(),
+          actualQuantity: String(row["Actual Quantity"] || "").trim(),
+          actualQuantityY: String(row["Actual Quantity"] || "").trim(),
+          physicalCondition: String(row["Physical Condition"] || "").trim(),
+          moisture: String(row["Moisture"] || "").trim(),
+          physicalImageUrl: String(
+            row["Physical Image Of Product"] || "",
+          ).trim(),
+          weightSlipImageUrl: String(row["Image Of Weight Slip"] || "").trim(),
+          biltyNo2: String(row["Bilty No. 2"] || "").trim(),
+          biltyImageUrl: String(row["Bilty Image"] || "").trim(),
+          status: String(row["Status"] || "").trim(),
+          dateOfTest: formatDate(row["Date Of Test"]),
+          moisturePercent: String(row["Moisture Percent Age %"] || "").trim(),
+          bdPercent: String(row["BD Percent Age %"] || "").trim(),
+          apPercent: String(row["AP Percent Age %"] || "").trim(),
+          aluminaPercent: String(row["Alumina Percent Age %"] || "").trim(),
+          ironPercent: String(row["Iron Percent Age %"] || "").trim(),
+          sieveAnalysis: String(row["Sieve Analysis"] || "").trim(),
+          loiPercent: String(row["LOI %"] || "").trim(),
+          sio2Percent: String(row["SIO2 %"] || "").trim(),
+          caoPercent: String(row["CaO %"] || "").trim(),
+          mgoPercent: String(row["MgO %"] || "").trim(),
+          tio2Percent: String(row["TiO2 %"] || "").trim(),
+          k2oNa2oPercent: String(row["K2O + Na2O %"] || "").trim(),
+          freeIronPercent: String(row["Free Iron %"] || "").trim(),
+          firmName: String(row["Firm Name"] || "").trim(),
+          weightSlipQty: String(row["Weight Slip Qty"] || "").trim(),
+          transporterRate: String(row["Transporter Rate"] || "").trim(),
+          qtyDifferenceStatus: String(
+            row["Qty Difference Status"] || "",
+          ).trim(),
+          differenceQty: String(row["Difference Qty"] || "").trim(),
+          totalFreight: String(row["Total Freight"] || "").trim(),
 
-            // Additional fields for existing functionality
-            createdAt: createdAt,
-            liftedQty: String(row["Lifting Qty"] || "").trim(),
-            dateOfReceiving_formatted: formatDate(row["Date Of Receiving"]),
-            physicalCondition_fromSheet: String(row["Physical Condition"] || "").trim(),
-            liftAlumina: String(row["Alumina Percent Age %"] || "").trim(),
-            liftIron: String(row["Iron Percent Age %"] || "").trim(),
-            liftAP: String(row["AP Percent Age %"] || "").trim(),
-            liftBD: String(row["BD Percent Age %"] || "").trim(),
-            timestamp: timestamp,
-          };
-        });
+          // Additional fields for existing functionality
+          createdAt: createdAt,
+          liftedQty: String(row["Lifting Qty"] || "").trim(),
+          dateOfReceiving_formatted: formatDate(row["Date Of Receiving"]),
+          physicalCondition_fromSheet: String(
+            row["Physical Condition"] || "",
+          ).trim(),
+          liftAlumina: String(row["Alumina Percent Age %"] || "").trim(),
+          liftIron: String(row["Iron Percent Age %"] || "").trim(),
+          liftAP: String(row["AP Percent Age %"] || "").trim(),
+          liftBD: String(row["BD Percent Age %"] || "").trim(),
+          timestamp: timestamp,
+        };
+      });
 
       // Filter by user's firm name if applicable
       if (user?.firmName && user.firmName.toLowerCase() !== "all") {
         const userFirmNameLower = user.firmName.toLowerCase();
         formattedData = formattedData.filter(
-          (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
+          (lift) =>
+            lift.firmName &&
+            String(lift.firmName).toLowerCase() === userFirmNameLower,
         );
       }
       // Show only Independent type lifts
-      formattedData = formattedData.filter((lift) => String(lift.liftType || "").toLowerCase() === "independent");
+      formattedData = formattedData.filter(
+        (lift) => String(lift.liftType || "").toLowerCase() === "independent",
+      );
 
       setLiftAccountsData(formattedData);
     } catch (err) {
@@ -1375,7 +1117,9 @@ export default function MismatchAnalysis() {
           poVendor: String(row["Vendor"] || "").trim(),
           poMaterial: String(row["Material"] || "").trim(),
           poQuantity: String(row["Quantity"] || "").trim(),
-          poCurrentStock: String(row["Current Stock As Per factory"] || "").trim(),
+          poCurrentStock: String(
+            row["Current Stock As Per factory"] || "",
+          ).trim(),
           poPriority: String(row["Priority"] || "").trim(),
           poDeliveryOrderNo: String(row["Delivery Order No."] || "").trim(),
           poNotes: String(row["Notes"] || "").trim(),
@@ -1411,7 +1155,11 @@ export default function MismatchAnalysis() {
 
       setPurchaseOrdersData(formattedData);
     } catch (error) {
-      setError(prev => prev ? `${prev}\nFailed to load PO data: ${error.message}` : `Failed to load PO data: ${error.message}`);
+      setError((prev) =>
+        prev
+          ? `${prev}\nFailed to load PO data: ${error.message}`
+          : `Failed to load PO data: ${error.message}`,
+      );
       setPurchaseOrdersData([]);
     } finally {
       setLoadingPOs(false);
@@ -1421,9 +1169,7 @@ export default function MismatchAnalysis() {
   const fetchTLData = useCallback(async () => {
     setLoadingTL(true);
     try {
-      const { data, error: fetchError } = await supabase
-        .from("TL")
-        .select("*");
+      const { data, error: fetchError } = await supabase.from("TL").select("*");
 
       if (fetchError) throw fetchError;
 
@@ -1431,20 +1177,36 @@ export default function MismatchAnalysis() {
         .map((row, index) => ({
           _id: `tl-${index}`,
           productName: String(row["NAME"] || "").trim(),
-          aluminaRange: row["TL Alumina"] !== null && row["TL Alumina"] !== undefined ? String(row["TL Alumina"]) : "",
-          ironRange: row["TL Iron"] !== null && row["TL Iron"] !== undefined ? String(row["TL Iron"]) : "",
-          apRange: row["AP%"] !== null && row["AP%"] !== undefined ? String(row["AP%"]) : "",
-          bdRange: row["BD%"] !== null && row["BD%"] !== undefined ? String(row["BD%"]) : "",
+          aluminaRange:
+            row["TL Alumina"] !== null && row["TL Alumina"] !== undefined
+              ? String(row["TL Alumina"])
+              : "",
+          ironRange:
+            row["TL Iron"] !== null && row["TL Iron"] !== undefined
+              ? String(row["TL Iron"])
+              : "",
+          apRange:
+            row["AP%"] !== null && row["AP%"] !== undefined
+              ? String(row["AP%"])
+              : "",
+          bdRange:
+            row["BD%"] !== null && row["BD%"] !== undefined
+              ? String(row["BD%"])
+              : "",
           tlAluminaMin: row["TL Alumina"],
           tlIronMax: row["TL Iron"],
           tlApMax: row["AP%"],
           tlBdMin: row["BD%"],
         }))
-        .filter(item => item.productName && item.productName !== "");
+        .filter((item) => item.productName && item.productName !== "");
 
       setTlData(formattedData);
     } catch (err) {
-      setError(prev => prev ? `${prev}\nFailed to load TL data: ${err.message}` : `Failed to load TL data: ${err.message}`);
+      setError((prev) =>
+        prev
+          ? `${prev}\nFailed to load TL data: ${err.message}`
+          : `Failed to load TL data: ${err.message}`,
+      );
       setTlData([]);
     } finally {
       setLoadingTL(false);
@@ -1456,7 +1218,12 @@ export default function MismatchAnalysis() {
     fetchPurchaseOrdersData();
     fetchTLData();
     fetchMismatchSheetData();
-  }, [fetchLiftAccountsData, fetchPurchaseOrdersData, fetchTLData, fetchMismatchSheetData]);
+  }, [
+    fetchLiftAccountsData,
+    fetchPurchaseOrdersData,
+    fetchTLData,
+    fetchMismatchSheetData,
+  ]);
 
   // Realtime subscription - auto-update Stage column when any module updates LIFT-ACCOUNTS
   useEffect(() => {
@@ -1467,7 +1234,7 @@ export default function MismatchAnalysis() {
         { event: "UPDATE", schema: "public", table: "LIFT-ACCOUNTS" },
         () => {
           fetchLiftAccountsData();
-        }
+        },
       )
       .subscribe();
 
@@ -1477,87 +1244,126 @@ export default function MismatchAnalysis() {
   }, [fetchLiftAccountsData]);
 
   // Calculate mismatch data (Hybrid: Differences from DB, Details from Source Tables)
-  const getHybridRow = useCallback((mismatchItem) => {
-    const lift = liftAccountsData.find(l =>
-      String(l.liftNo || "").trim() === String(mismatchItem["Lift Number"] || "").trim()
-    ) || {};
+  const getHybridRow = useCallback(
+    (mismatchItem) => {
+      const lift =
+        liftAccountsData.find(
+          (l) =>
+            String(l.liftNo || "").trim() ===
+            String(mismatchItem["Lift Number"] || "").trim(),
+        ) || {};
 
-    const po = purchaseOrdersData.find(p =>
-      String(p.indentNo || "").trim() === String(mismatchItem["Indent Number"] || "").trim()
-    ) || {};
+      const po =
+        purchaseOrdersData.find(
+          (p) =>
+            String(p.indentNo || "").trim() ===
+            String(mismatchItem["Indent Number"] || "").trim(),
+        ) || {};
 
-    // Match TL row by Product Name (from Mismatch table) or Raw Material Name (from LIFT-ACCOUNTS)
-    const productNameForTL = String(mismatchItem["Product Name"] || lift.rawMaterialName || "").trim().toLowerCase();
-    const tlRow = tlData.find(tl => String(tl.productName || "").trim().toLowerCase() === productNameForTL) || {};
+      // Match TL row by Product Name (from Mismatch table) or Raw Material Name (from LIFT-ACCOUNTS)
+      const productNameForTL = String(
+        mismatchItem["Product Name"] || lift.rawMaterialName || "",
+      )
+        .trim()
+        .toLowerCase();
+      const tlRow =
+        tlData.find(
+          (tl) =>
+            String(tl.productName || "")
+              .trim()
+              .toLowerCase() === productNameForTL,
+        ) || {};
 
-    // 4 Stages: Lift → Receipt → Lab → Mismatch
-    let liveStage;
-    if (lift.planned2 && !lift.actual2) {
-      liveStage = "Lab";
-    } else if (lift.planned1 && !lift.actual1) {
-      liveStage = "Receipt";
-    } else if (!lift.planned1) {
-      liveStage = "Lift";
-    } else {
-      liveStage = "Mismatch";
-    }
+      // 4 Stages: Lift → Receipt → Lab → Mismatch
+      let liveStage;
+      if (lift.planned2 && !lift.actual2) {
+        liveStage = "Lab";
+      } else if (lift.planned1 && !lift.actual1) {
+        liveStage = "Receipt";
+      } else if (!lift.planned1) {
+        liveStage = "Lift";
+      } else {
+        liveStage = "Mismatch";
+      }
 
-    return {
-      ...lift,
-      ...po,
-      // Map DB Mismatch columns to component props
-      id: mismatchItem.id,
-      liftIdDisplay: mismatchItem["Lift ID"],
-      // Core Identifiers
-      liftNo: mismatchItem["Lift Number"],
-      indentNo: mismatchItem["Indent Number"],
+      return {
+        ...lift,
+        ...po,
+        // Map DB Mismatch columns to component props
+        id: mismatchItem.id,
+        liftIdDisplay: mismatchItem["Lift ID"],
+        // Core Identifiers
+        liftNo: mismatchItem["Lift Number"],
+        indentNo: mismatchItem["Indent Number"],
 
-      // Differences from Mismatch Table (TL vs LIFT-ACCOUNTS)
-      rateDifference: mismatchItem["Rate Difference"],
-      qtyDifference: mismatchItem["Quantity Difference"],
-      qtyDifferenceStatus: mismatchItem["Qty Diff Status"],
-      differenceQty: mismatchItem["Diff Qty"],
-      aluminaDiff: mismatchItem["Alumina Difference"],
-      ironDiff: mismatchItem["Iron Difference"],
-      apDiff: mismatchItem["AP Difference"],
-      bdDiff: mismatchItem["BD Difference"],
+        // Differences from Mismatch Table (TL vs LIFT-ACCOUNTS)
+        rateDifference: mismatchItem["Rate Difference"],
+        qtyDifference: mismatchItem["Quantity Difference"],
+        qtyDifferenceStatus: mismatchItem["Qty Diff Status"],
+        differenceQty: mismatchItem["Diff Qty"],
+        aluminaDiff: mismatchItem["Alumina Difference"],
+        ironDiff: mismatchItem["Iron Difference"],
+        apDiff: mismatchItem["AP Difference"],
+        bdDiff: mismatchItem["BD Difference"],
 
-      // TL table tolerance values (shown instead of PO values in Lab Mismatch)
-      tlAlumina: tlRow.aluminaRange || "N/A",
-      tlIron: tlRow.ironRange || "N/A",
-      tlAP: tlRow.apRange || "N/A",
-      tlBD: tlRow.bdRange || "N/A",
+        // TL table tolerance values (shown instead of PO values in Lab Mismatch)
+        tlAlumina: tlRow.aluminaRange || "N/A",
+        tlIron: tlRow.ironRange || "N/A",
+        tlAP: tlRow.apRange || "N/A",
+        tlBD: tlRow.bdRange || "N/A",
 
-      // Fallback/Priority for shared fields
-      vendorName: mismatchItem["Party Name"] || lift.vendorName || po.vendorName,
-      rawMaterialName: mismatchItem["Product Name"] || lift.rawMaterialName || lift.material,
-      material: mismatchItem["Product Name"] || lift.material || po.materialName,
-      firmName: mismatchItem["Firm Name"] || lift.firmName || po.firmName,
-      timestamp: String(mismatchItem["Timestamp"] || "").replace('T', ' '),
+        // Fallback/Priority for shared fields
+        vendorName:
+          mismatchItem["Party Name"] || lift.vendorName || po.vendorName,
+        rawMaterialName:
+          mismatchItem["Product Name"] || lift.rawMaterialName || lift.material,
+        material:
+          mismatchItem["Product Name"] || lift.material || po.materialName,
+        firmName: mismatchItem["Firm Name"] || lift.firmName || po.firmName,
+        timestamp: String(mismatchItem["Timestamp"] || "").replace("T", " "),
 
-      // Live stage derived from LIFT-ACCOUNTS actual timestamps
-      stage: liveStage,
-    };
-  }, [liftAccountsData, purchaseOrdersData, tlData]);
+        // Live stage derived from LIFT-ACCOUNTS actual timestamps
+        stage: liveStage,
+      };
+    },
+    [liftAccountsData, purchaseOrdersData, tlData],
+  );
 
   const rateMismatchData = useMemo(() => {
     return mismatchSheetData
-      .filter(item => Math.abs(parseFloat(item["Rate Difference"] || 0)) > 0.001 && item["Status"] !== "Credit Notes" && item["Status"] !== "Others" && item["Status"] !== "Purchase Return")
+      .filter(
+        (item) =>
+          Math.abs(parseFloat(item["Rate Difference"] || 0)) > 0.001 &&
+          item["Status"] !== "Credit Notes" &&
+          item["Status"] !== "Others" &&
+          item["Status"] !== "Purchase Return",
+      )
       .map(getHybridRow);
   }, [mismatchSheetData, getHybridRow]);
 
   const quantityMismatchData = useMemo(() => {
     return mismatchSheetData
-      .filter(item => (Math.abs(parseFloat(item["Quantity Difference"] || 0)) > 0.001 || Math.abs(parseFloat(item["Diff Qty"] || 0) !== 0) || item["Qty Diff Status"] === "Mismatch") && item["Status"] !== "Credit Notes" && item["Status"] !== "Others" && item["Status"] !== "Purchase Return")
+      .filter(
+        (item) =>
+          (Math.abs(parseFloat(item["Quantity Difference"] || 0)) > 0.001 ||
+            Math.abs(parseFloat(item["Diff Qty"] || 0) !== 0) ||
+            item["Qty Diff Status"] === "Mismatch") &&
+          item["Status"] !== "Credit Notes" &&
+          item["Status"] !== "Others" &&
+          item["Status"] !== "Purchase Return",
+      )
       .map(getHybridRow);
   }, [mismatchSheetData, getHybridRow]);
 
   const materialMismatchData = useMemo(() => {
     return mismatchSheetData
-      .filter(item => {
-        const lift = liftAccountsData.find(l =>
-          String(l.liftNo || "").trim() === String(item["Lift Number"] || "").trim()
-        ) || {};
+      .filter((item) => {
+        const lift =
+          liftAccountsData.find(
+            (l) =>
+              String(l.liftNo || "").trim() ===
+              String(item["Lift Number"] || "").trim(),
+          ) || {};
 
         // Differences are already calculated against the TL ranges during lab testing.
         // A non-null, non-zero difference means it fell outside the range.
@@ -1566,20 +1372,27 @@ export default function MismatchAnalysis() {
         const apDiff = item["AP Difference"];
         const bdDiff = item["BD Difference"];
 
-        const hasAluminaMismatch = aluminaDiff !== null && Math.abs(parseFloat(aluminaDiff || 0)) > 0;
-        const hasIronMismatch = ironDiff !== null && Math.abs(parseFloat(ironDiff || 0)) > 0;
-        const hasApMismatch = apDiff !== null && Math.abs(parseFloat(apDiff || 0)) > 0;
-        const hasBdMismatch = bdDiff !== null && Math.abs(parseFloat(bdDiff || 0)) > 0;
+        const hasAluminaMismatch =
+          aluminaDiff !== null && Math.abs(parseFloat(aluminaDiff || 0)) > 0;
+        const hasIronMismatch =
+          ironDiff !== null && Math.abs(parseFloat(ironDiff || 0)) > 0;
+        const hasApMismatch =
+          apDiff !== null && Math.abs(parseFloat(apDiff || 0)) > 0;
+        const hasBdMismatch =
+          bdDiff !== null && Math.abs(parseFloat(bdDiff || 0)) > 0;
         const isRejected = lift.status?.toLowerCase() === "rejected";
 
         return (
-          hasAluminaMismatch ||
-          hasIronMismatch ||
-          hasApMismatch ||
-          hasBdMismatch ||
-          isRejected ||
-          (lift.physicalCondition === "Bad" && lift.moisture === "Yes")
-        ) && item["Status"] !== "Credit Notes" && item["Status"] !== "Others" && item["Status"] !== "Purchase Return";
+          (hasAluminaMismatch ||
+            hasIronMismatch ||
+            hasApMismatch ||
+            hasBdMismatch ||
+            isRejected ||
+            (lift.physicalCondition === "Bad" && lift.moisture === "Yes")) &&
+          item["Status"] !== "Credit Notes" &&
+          item["Status"] !== "Others" &&
+          item["Status"] !== "Purchase Return"
+        );
       })
       .map(getHybridRow);
   }, [mismatchSheetData, liftAccountsData, tlData, getHybridRow]);
@@ -1590,10 +1403,16 @@ export default function MismatchAnalysis() {
     const firms = new Set();
     const orders = new Set();
 
-    [...rateMismatchData, ...quantityMismatchData, ...materialMismatchData].forEach((item) => {
+    [
+      ...rateMismatchData,
+      ...quantityMismatchData,
+      ...materialMismatchData,
+    ].forEach((item) => {
       if (item.vendorName) vendors.add(item.vendorName);
       if (item.material || item.rawMaterialName || item.rawMaterial) {
-        materials.add(item.material || item.rawMaterialName || item.rawMaterial);
+        materials.add(
+          item.material || item.rawMaterialName || item.rawMaterial,
+        );
       }
       if (item.firmName) firms.add(item.firmName);
       if (item.indentNo) orders.add(item.indentNo);
@@ -1609,52 +1428,76 @@ export default function MismatchAnalysis() {
 
   // Apply filters (keeping existing logic unchanged)
   const filteredRateMismatchData = useMemo(() => {
-    let filtered = rateMismatchData.filter(item => !submittedRows.has(`mismatch_${item.liftNo}`));
+    let filtered = rateMismatchData.filter(
+      (item) => !submittedRows.has(`mismatch_${item.liftNo}`),
+    );
     if (filters.vendorName !== "all") {
-      filtered = filtered.filter((item) => item.vendorName === filters.vendorName);
+      filtered = filtered.filter(
+        (item) => item.vendorName === filters.vendorName,
+      );
     }
     if (filters.materialName !== "all") {
-      filtered = filtered.filter((item) => item.material === filters.materialName);
+      filtered = filtered.filter(
+        (item) => item.material === filters.materialName,
+      );
     }
     if (filters.firmName !== "all") {
       filtered = filtered.filter((item) => item.firmName === filters.firmName);
     }
     if (filters.orderNumber !== "all") {
-      filtered = filtered.filter((item) => item.indentNo === filters.orderNumber);
+      filtered = filtered.filter(
+        (item) => item.indentNo === filters.orderNumber,
+      );
     }
     return filtered;
   }, [rateMismatchData, filters, submittedRows]);
 
   const filteredQuantityMismatchData = useMemo(() => {
-    let filtered = quantityMismatchData.filter(item => !submittedRows.has(`mismatch_${item.liftNo}`));
+    let filtered = quantityMismatchData.filter(
+      (item) => !submittedRows.has(`mismatch_${item.liftNo}`),
+    );
     if (filters.vendorName !== "all") {
-      filtered = filtered.filter((item) => item.vendorName === filters.vendorName);
+      filtered = filtered.filter(
+        (item) => item.vendorName === filters.vendorName,
+      );
     }
     if (filters.materialName !== "all") {
-      filtered = filtered.filter((item) => item.rawMaterialName === filters.materialName);
+      filtered = filtered.filter(
+        (item) => item.rawMaterialName === filters.materialName,
+      );
     }
     if (filters.firmName !== "all") {
       filtered = filtered.filter((item) => item.firmName === filters.firmName);
     }
     if (filters.orderNumber !== "all") {
-      filtered = filtered.filter((item) => item.indentNo === filters.orderNumber);
+      filtered = filtered.filter(
+        (item) => item.indentNo === filters.orderNumber,
+      );
     }
     return filtered;
   }, [quantityMismatchData, filters, submittedRows]);
 
   const filteredMaterialMismatchData = useMemo(() => {
-    let filtered = materialMismatchData.filter(item => !submittedRows.has(`mismatch_${item.liftNo}`));
+    let filtered = materialMismatchData.filter(
+      (item) => !submittedRows.has(`mismatch_${item.liftNo}`),
+    );
     if (filters.vendorName !== "all") {
-      filtered = filtered.filter((item) => item.vendorName === filters.vendorName);
+      filtered = filtered.filter(
+        (item) => item.vendorName === filters.vendorName,
+      );
     }
     if (filters.materialName !== "all") {
-      filtered = filtered.filter((item) => item.rawMaterial === filters.materialName);
+      filtered = filtered.filter(
+        (item) => item.rawMaterial === filters.materialName,
+      );
     }
     if (filters.firmName !== "all") {
       filtered = filtered.filter((item) => item.firmName === filters.firmName);
     }
     if (filters.orderNumber !== "all") {
-      filtered = filtered.filter((item) => item.indentNo === filters.orderNumber);
+      filtered = filtered.filter(
+        (item) => item.indentNo === filters.orderNumber,
+      );
     }
     return filtered;
   }, [materialMismatchData, filters, submittedRows]);
@@ -1675,11 +1518,20 @@ export default function MismatchAnalysis() {
 
   const handleToggleColumn = (tab, dataKey, checked) => {
     if (tab === "rate") {
-      setVisibleRateMismatchColumns((prev) => ({ ...prev, [dataKey]: checked }));
+      setVisibleRateMismatchColumns((prev) => ({
+        ...prev,
+        [dataKey]: checked,
+      }));
     } else if (tab === "quantity") {
-      setVisibleQuantityMismatchColumns((prev) => ({ ...prev, [dataKey]: checked }));
+      setVisibleQuantityMismatchColumns((prev) => ({
+        ...prev,
+        [dataKey]: checked,
+      }));
     } else if (tab === "material") {
-      setVisibleMaterialMismatchColumns((prev) => ({ ...prev, [dataKey]: checked }));
+      setVisibleMaterialMismatchColumns((prev) => ({
+        ...prev,
+        [dataKey]: checked,
+      }));
     } else if (tab === "history") {
       setVisibleHistoryColumns((prev) => ({ ...prev, [dataKey]: checked }));
     }
@@ -1711,7 +1563,14 @@ export default function MismatchAnalysis() {
       if (activeTab === "materialMismatch") mismatchType = "materialMismatch";
 
       if (activeTab === "history") {
-        return <Badge variant="outline" className="bg-green-50 text-[#6b8e2f] border-green-200">Submitted</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="bg-green-50 text-[#6b8e2f] border-green-200"
+          >
+            Submitted
+          </Badge>
+        );
       }
 
       return (
@@ -1737,7 +1596,6 @@ export default function MismatchAnalysis() {
         >
           <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
         </a>
-
       ) : (
         <span className="text-gray-400 text-xs">N/A</span>
       );
@@ -1747,19 +1605,19 @@ export default function MismatchAnalysis() {
     if (column.dataKey === "stage") {
       const stageValue = String(value || "Lift");
       const stageConfig = {
-        "Lift": {
+        Lift: {
           className: "bg-orange-100 text-orange-800 border-orange-200",
           icon: "🚛",
         },
-        "Receipt": {
+        Receipt: {
           className: "bg-green-100 text-green-800 border-green-200",
           icon: "📦",
         },
-        "Lab": {
+        Lab: {
           className: "bg-green-100 text-green-800 border-green-200",
           icon: "🧪",
         },
-        "Mismatch": {
+        Mismatch: {
           className: "bg-red-100 text-red-800 border-red-200",
           icon: "⚠️",
         },
@@ -1777,12 +1635,23 @@ export default function MismatchAnalysis() {
     }
 
     // Highlight differences with color coding
-    if (column.dataKey === "rateDifference" || column.dataKey === "qtyDifference" ||
-      column.dataKey === "aluminaDiff" || column.dataKey === "ironDiff" ||
-      column.dataKey === "apDiff" || column.dataKey === "bdDiff") {
+    if (
+      column.dataKey === "rateDifference" ||
+      column.dataKey === "qtyDifference" ||
+      column.dataKey === "aluminaDiff" ||
+      column.dataKey === "ironDiff" ||
+      column.dataKey === "apDiff" ||
+      column.dataKey === "bdDiff"
+    ) {
       const numValue = parseFloat(value) || 0;
       return (
-        <span className={numValue < 0 ? "text-red-600 font-semibold" : "text-[#7da23a] font-semibold"}>
+        <span
+          className={
+            numValue < 0
+              ? "text-red-600 font-semibold"
+              : "text-[#7da23a] font-semibold"
+          }
+        >
           {numValue > 0 ? `+${value}` : value}
         </span>
       );
@@ -1791,10 +1660,23 @@ export default function MismatchAnalysis() {
     return value || <span className="text-gray-400 text-xs">N/A</span>;
   };
 
-  const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
-    const visibleCols = columnsMeta.filter((col) => visibilityState[col.dataKey]);
-    const isLoading = (tabKey === "rateMismatch" ? loadingLifts || loadingPOs :
-      tabKey === "materialMismatch" ? loadingLifts || loadingTL : loadingLifts) && data.length === 0;
+  const renderTableSection = (
+    tabKey,
+    title,
+    description,
+    data,
+    columnsMeta,
+    visibilityState,
+  ) => {
+    const visibleCols = columnsMeta.filter(
+      (col) => visibilityState[col.dataKey],
+    );
+    const isLoading =
+      (tabKey === "rateMismatch"
+        ? loadingLifts || loadingPOs
+        : tabKey === "materialMismatch"
+          ? loadingLifts || loadingTL
+          : loadingLifts) && data.length === 0;
     const hasError = error && data.length === 0;
 
     return (
@@ -1812,7 +1694,9 @@ export default function MismatchAnalysis() {
                 )}
                 {title} ({data.length})
               </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
+              <CardDescription className="text-sm text-muted-foreground mt-0.5">
+                {description}
+              </CardDescription>
             </div>
             <div className="flex gap-2">
               <Button
@@ -1830,8 +1714,13 @@ export default function MismatchAnalysis() {
               </Button>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 text-xs bg-white">
-                    <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs bg-white"
+                  >
+                    <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View
+                    Columns
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[240px] p-3">
@@ -1842,10 +1731,17 @@ export default function MismatchAnalysis() {
                         variant="link"
                         size="sm"
                         className="p-0 h-auto text-xs"
-                        onClick={() => handleSelectAllColumns(
-                          tabKey === "rateMismatch" ? "rate" :
-                            tabKey === "quantityMismatch" ? "quantity" : "material",
-                          columnsMeta, true)}
+                        onClick={() =>
+                          handleSelectAllColumns(
+                            tabKey === "rateMismatch"
+                              ? "rate"
+                              : tabKey === "quantityMismatch"
+                                ? "quantity"
+                                : "material",
+                            columnsMeta,
+                            true,
+                          )
+                        }
                       >
                         Select All
                       </Button>
@@ -1854,11 +1750,19 @@ export default function MismatchAnalysis() {
                         variant="link"
                         size="sm"
                         className="p-0 h-auto text-xs"
-                        onClick={() => handleSelectAllColumns(
-                          tabKey === "rateMismatch" ? "rate" :
-                            tabKey === "quantityMismatch" ? "quantity" :
-                              tabKey === "materialMismatch" ? "material" : "history",
-                          columnsMeta, false)}
+                        onClick={() =>
+                          handleSelectAllColumns(
+                            tabKey === "rateMismatch"
+                              ? "rate"
+                              : tabKey === "quantityMismatch"
+                                ? "quantity"
+                                : tabKey === "materialMismatch"
+                                  ? "material"
+                                  : "history",
+                            columnsMeta,
+                            false,
+                          )
+                        }
                       >
                         Deselect All
                       </Button>
@@ -1867,21 +1771,38 @@ export default function MismatchAnalysis() {
                       {columnsMeta
                         .filter((col) => col.toggleable)
                         .map((col) => (
-                          <div key={`toggle-${tabKey}-${col.dataKey}`} className="flex items-center space-x-2">
+                          <div
+                            key={`toggle-${tabKey}-${col.dataKey}`}
+                            className="flex items-center space-x-2"
+                          >
                             <Checkbox
                               id={`toggle-${tabKey}-${col.dataKey}`}
                               checked={!!visibilityState[col.dataKey]}
                               onCheckedChange={(checked) =>
                                 handleToggleColumn(
-                                  tabKey === "rateMismatch" ? "rate" :
-                                    tabKey === "quantityMismatch" ? "quantity" :
-                                      tabKey === "materialMismatch" ? "material" : "history",
-                                  col.dataKey, Boolean(checked))
+                                  tabKey === "rateMismatch"
+                                    ? "rate"
+                                    : tabKey === "quantityMismatch"
+                                      ? "quantity"
+                                      : tabKey === "materialMismatch"
+                                        ? "material"
+                                        : "history",
+                                  col.dataKey,
+                                  Boolean(checked),
+                                )
                               }
                               disabled={col.alwaysVisible}
                             />
-                            <Label htmlFor={`toggle-${tabKey}-${col.dataKey}`} className="text-xs font-normal cursor-pointer">
-                              {col.header} {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
+                            <Label
+                              htmlFor={`toggle-${tabKey}-${col.dataKey}`}
+                              className="text-xs font-normal cursor-pointer"
+                            >
+                              {col.header}{" "}
+                              {col.alwaysVisible && (
+                                <span className="text-gray-400 ml-0.5 text-xs">
+                                  (Fixed)
+                                </span>
+                              )}
                             </Label>
                           </div>
                         ))}
@@ -1896,7 +1817,9 @@ export default function MismatchAnalysis() {
           {isLoading ? (
             <div className="flex flex-col justify-center items-center py-10 flex-1">
               <Loader2 className="h-8 w-8 text-red-600 animate-spin mb-3" />
-              <p className="text-muted-foreground ml-2">Loading mismatch data...</p>
+              <p className="text-muted-foreground ml-2">
+                Loading mismatch data...
+              </p>
             </div>
           ) : hasError ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1">
@@ -1915,7 +1838,9 @@ export default function MismatchAnalysis() {
                     ? "All lifted quantities match their weight slip quantities."
                     : "All material properties match between TL and LIFT-ACCOUNTS sheets."}
                 {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                  <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
+                  <span className="block mt-1">
+                    (Filtered by firm: {user.firmName})
+                  </span>
                 )}
               </p>
             </div>
@@ -1925,7 +1850,10 @@ export default function MismatchAnalysis() {
                 <TableHeader className="bg-red-50 sticky top-0 z-10">
                   <TableRow>
                     {visibleCols.map((col) => (
-                      <TableHead key={col.dataKey} className={`whitespace-nowrap text-xs px-3 py-2 ${col.dataKey === "actions" ? "w-[150px]" : ""}`}>
+                      <TableHead
+                        key={col.dataKey}
+                        className={`whitespace-nowrap text-xs px-3 py-2 ${col.dataKey === "actions" ? "w-[150px]" : ""}`}
+                      >
                         {col.header}
                       </TableHead>
                     ))}
@@ -1940,12 +1868,15 @@ export default function MismatchAnalysis() {
                       {visibleCols.map((column) => (
                         <TableCell
                           key={`${item.id || item.liftNo}-${column.dataKey}`}
-                          className={`text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "liftNo" || column.dataKey === "liftIdDisplay"
-                            ? "font-medium text-primary"
-                            : column.dataKey === "actions"
-                              ? "w-[150px]"
-                              : "text-gray-700"
-                            }`}
+                          className={`text-xs px-3 py-2 ${
+                            column.dataKey === "id" ||
+                            column.dataKey === "liftNo" ||
+                            column.dataKey === "liftIdDisplay"
+                              ? "font-medium text-primary"
+                              : column.dataKey === "actions"
+                                ? "w-[150px]"
+                                : "text-gray-700"
+                          }`}
                         >
                           {renderCell(item, column)}
                         </TableCell>
@@ -1957,7 +1888,7 @@ export default function MismatchAnalysis() {
             </div>
           )}
         </CardContent>
-      </Card >
+      </Card>
     );
   };
 
@@ -1969,33 +1900,59 @@ export default function MismatchAnalysis() {
         <Card className="shadow-md border-none">
           <CardHeader className="p-4 border-b border-gray-200">
             <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-              <TrendingDown className="h-5 w-5 text-red-600" /> Mismatch Analysis Dashboard
+              <TrendingDown className="h-5 w-5 text-red-600" /> Mismatch
+              Analysis Dashboard
             </CardTitle>
             <CardDescription className="text-gray-500 text-sm">
-              Identify and analyze rate, quantity, and material property mismatches across sheets.
+              Identify and analyze rate, quantity, and material property
+              mismatches across sheets.
               {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                <span className="ml-2 text-red-600 font-medium">• Filtered by: {user.firmName}</span>
+                <span className="ml-2 text-red-600 font-medium">
+                  • Filtered by: {user.firmName}
+                </span>
               )}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="flex-1 flex flex-col"
+            >
               <TabsList className="grid w-full sm:w-[750px] grid-cols-3 mb-4">
-                <TabsTrigger value="rateMismatch" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="rateMismatch"
+                  className="flex items-center gap-2"
+                >
                   <DollarSign className="h-4 w-4" /> Rate Mismatches
-                  <Badge variant="destructive" className="ml-1.5 px-1.5 py-0.5 text-xs">
+                  <Badge
+                    variant="destructive"
+                    className="ml-1.5 px-1.5 py-0.5 text-xs"
+                  >
                     {filteredRateMismatchData.length}
                   </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="quantityMismatch" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="quantityMismatch"
+                  className="flex items-center gap-2"
+                >
                   <Package className="h-4 w-4" /> Quantity Mismatches
-                  <Badge variant="destructive" className="ml-1.5 px-1.5 py-0.5 text-xs">
+                  <Badge
+                    variant="destructive"
+                    className="ml-1.5 px-1.5 py-0.5 text-xs"
+                  >
                     {filteredQuantityMismatchData.length}
                   </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="materialMismatch" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="materialMismatch"
+                  className="flex items-center gap-2"
+                >
                   <Beaker className="h-4 w-4" /> Lab Mismatches
-                  <Badge variant="destructive" className="ml-1.5 px-1.5 py-0.5 text-xs">
+                  <Badge
+                    variant="destructive"
+                    className="ml-1.5 px-1.5 py-0.5 text-xs"
+                  >
                     {filteredMaterialMismatchData.length}
                   </Badge>
                 </TabsTrigger>
@@ -2006,12 +1963,22 @@ export default function MismatchAnalysis() {
                 <div className="flex items-center gap-2 mb-3">
                   <Filter className="h-4 w-4 text-gray-500" />
                   <Label className="text-sm font-medium">Filters</Label>
-                  <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="ml-auto bg-white"
+                  >
                     Clear All
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Select value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
+                  <Select
+                    value={filters.vendorName}
+                    onValueChange={(value) =>
+                      handleFilterChange("vendorName", value)
+                    }
+                  >
                     <SelectTrigger className="h-8 bg-white">
                       <SelectValue placeholder="All Vendors" />
                     </SelectTrigger>
@@ -2025,7 +1992,12 @@ export default function MismatchAnalysis() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={filters.materialName} onValueChange={(value) => handleFilterChange("materialName", value)}>
+                  <Select
+                    value={filters.materialName}
+                    onValueChange={(value) =>
+                      handleFilterChange("materialName", value)
+                    }
+                  >
                     <SelectTrigger className="h-8 bg-white">
                       <SelectValue placeholder="All Materials" />
                     </SelectTrigger>
@@ -2039,7 +2011,12 @@ export default function MismatchAnalysis() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={filters.firmName} onValueChange={(value) => handleFilterChange("firmName", value)}>
+                  <Select
+                    value={filters.firmName}
+                    onValueChange={(value) =>
+                      handleFilterChange("firmName", value)
+                    }
+                  >
                     <SelectTrigger className="h-8 bg-white">
                       <SelectValue placeholder="All Firms" />
                     </SelectTrigger>
@@ -2053,7 +2030,12 @@ export default function MismatchAnalysis() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={filters.orderNumber} onValueChange={(value) => handleFilterChange("orderNumber", value)}>
+                  <Select
+                    value={filters.orderNumber}
+                    onValueChange={(value) =>
+                      handleFilterChange("orderNumber", value)
+                    }
+                  >
                     <SelectTrigger className="h-8 bg-white">
                       <SelectValue placeholder="All Orders" />
                     </SelectTrigger>
@@ -2069,40 +2051,47 @@ export default function MismatchAnalysis() {
                 </div>
               </div>
 
-              <TabsContent value="rateMismatch" className="flex-1 flex flex-col mt-0">
+              <TabsContent
+                value="rateMismatch"
+                className="flex-1 flex flex-col mt-0"
+              >
                 {renderTableSection(
                   "rateMismatch",
                   "Rate Mismatches",
                   "Material rates from LIFT-ACCOUNTS (Column Q) that don't match PO rates from INDENT-PO (Column Y).",
                   filteredRateMismatchData,
                   RATE_MISMATCH_COLUMNS_META,
-                  visibleRateMismatchColumns
+                  visibleRateMismatchColumns,
                 )}
               </TabsContent>
 
-              <TabsContent value="quantityMismatch" className="flex-1 flex flex-col mt-0">
+              <TabsContent
+                value="quantityMismatch"
+                className="flex-1 flex flex-col mt-0"
+              >
                 {renderTableSection(
                   "quantityMismatch",
                   "Quantity Mismatches",
                   "Lifting quantities (Column J) that don't match Actual quantities (Column Y) in LIFT-ACCOUNTS.",
                   filteredQuantityMismatchData,
                   QUANTITY_MISMATCH_COLUMNS_META,
-                  visibleQuantityMismatchColumns
+                  visibleQuantityMismatchColumns,
                 )}
               </TabsContent>
 
-              <TabsContent value="materialMismatch" className="flex-1 flex flex-col mt-0">
+              <TabsContent
+                value="materialMismatch"
+                className="flex-1 flex flex-col mt-0"
+              >
                 {renderTableSection(
                   "materialMismatch",
                   "Lab Mismatches (Product Name Wise)",
                   "Alumina, Iron, AP, BD mismatches between TL tolerance ranges and LIFT-ACCOUNTS lab values, shown product name wise.",
                   filteredMaterialMismatchData,
                   MATERIAL_MISMATCH_COLUMNS_META,
-                  visibleMaterialMismatchColumns
+                  visibleMaterialMismatchColumns,
                 )}
               </TabsContent>
-
-
             </Tabs>
           </CardContent>
         </Card>
