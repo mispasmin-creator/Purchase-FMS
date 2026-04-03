@@ -193,7 +193,7 @@ export default function ArrangeLogistics() {
             actual2: row["Actual2"] || "",
             logisticsOptions: Array.isArray(row["LogisticsOptions"]) ? row["LogisticsOptions"] : [],
           }))
-          .filter((row) => row.plannedLogistics && !row.actualLogistics && row.actual2);
+          .filter((row) => row.plannedLogistics && !row.actualLogistics && !row.Planned9 && row.actual2);
 
         const history = groupedData
           .map(({ primaryRow: row, rowIds }) => ({
@@ -372,26 +372,17 @@ export default function ArrangeLogistics() {
         ...normalizeTransporterForm(transporter),
         cost: Number(transporter.cost || 0),
       }));
-      const actualLogistics = new Date().toISOString();
-      const updatePayload = {
-        ActualLogistics: actualLogistics,
-        Planned3: actualLogistics,
-        "Transporter Name": selectedTransporter.name,
-        "Transport Type": selectedTransporter.rateType || selectedIndent.transportType || "",
-        "Transporter Rate": Number(selectedTransporter.cost || 0),
-      };
-
       const { data: updatedRows, error: updateError } = await supabase
         .from("INDENT-PO")
         .update({
-          ...updatePayload,
+          Planned9: new Date().toISOString(),
           LogisticsOptions: normalizedTransporters,
           SelectedTransporter: selectedTransporter,
           SelectedTransporterIndex: normalizedTransporters.findIndex(
             (transporter) => transporter.name === selectedTransporter.name && Number(transporter.cost) === Number(selectedTransporter.cost),
           ),
         })
-        .select("id, ActualLogistics, Planned3")
+        .select("id, Planned9")
         .in("id", selectedIndent.rowIds || []);
 
       if (updateError) throw updateError;
@@ -512,7 +503,7 @@ export default function ArrangeLogistics() {
                 </div>
               </div>
 
-              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 px-6 flex justify-end gap-3 rounded-b-2xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"><Button variant="outline" onClick={closeDialog} className="px-6">Cancel</Button><Button onClick={onSubmit} disabled={isSubmitting || !transporterForms.some((item) => item.name)} className="px-6 bg-[#7da23a] hover:bg-[#6b8e2f] text-white">{isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Submit to Tally Entry</Button></div>
+              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 px-6 flex justify-end gap-3 rounded-b-2xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"><Button variant="outline" onClick={closeDialog} className="px-6">Cancel</Button><Button onClick={onSubmit} disabled={isSubmitting || !transporterForms.some((item) => item.name)} className="px-6 bg-[#7da23a] hover:bg-[#6b8e2f] text-white">{isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Submit for Approval</Button></div>
             </div>
           )}
 

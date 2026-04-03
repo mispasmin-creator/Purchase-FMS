@@ -207,6 +207,7 @@ export default function DebitNote() {
       const { data, error: fetchError } = await supabase
         .from("Mismatch")
         .select("*")
+        .eq("coordination_status", "COORDINATED")
         .order("Timestamp", { ascending: false });
 
       if (fetchError) throw fetchError;

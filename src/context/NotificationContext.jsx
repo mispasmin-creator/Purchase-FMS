@@ -31,6 +31,8 @@ export function NotificationProvider({ children }) {
         factory: 0,
         management: 0,
         "unload-management": 0,
+        "logistics-approval": 0,
+        "purchaser-coordinate": 0,
     });
     const [loadingNotifications, setLoadingNotifications] = useState(false);
 
@@ -140,7 +142,7 @@ export function NotificationProvider({ children }) {
 
             if (error) throw error;
 
-            let filtered = data.filter(item => item["PlannedLogistics"] && !item["ActualLogistics"]);
+            let filtered = data.filter(item => item["PlannedLogistics"] && !item["ActualLogistics"] && !item["Planned9"]);
 
             if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
                 const userFirmNameLower = user.firmName.toLowerCase();
@@ -152,6 +154,30 @@ export function NotificationProvider({ children }) {
             return filtered.length;
         } catch (error) {
             console.error("Error fetching pending logistics:", error);
+            return 0;
+        }
+    }
+
+    async function getPendingLogisticsApprovals(user, allowedSteps) {
+        try {
+            const { data, error } = await supabase
+                .from("INDENT-PO")
+                .select("*")
+                .not("Planned9", "is", null);
+
+            if (error) throw error;
+
+            let filtered = data.filter(item => item.Planned9 && !item.ActualLogistics);
+
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(
+                    (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase().trim() === userFirmNameLower,
+                );
+            }
+            return filtered.length;
+        } catch (error) {
+            console.error("Error fetching pending logistics approvals:", error);
             return 0;
         }
     }
@@ -552,6 +578,32 @@ export function NotificationProvider({ children }) {
     }
 
 
+    async function getPendingPurchaserCoordinates(user) {
+        try {
+            const { data, error } = await supabase
+                .from("purchaser_coordinates")
+                .select("*")
+                .eq("status", "PENDING");
+
+            if (error) throw error;
+
+            let filtered = data || [];
+
+            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
+                const userFirmNameLower = user.firmName.toLowerCase();
+                filtered = filtered.filter(
+                    (item) => item.firm_name && String(item.firm_name).toLowerCase() === userFirmNameLower,
+                );
+            }
+
+            return filtered.length;
+        } catch (error) {
+            console.error("Error fetching pending purchaser coordinates:", error);
+            return 0;
+        }
+    }
+
+
     const fetchNotificationCounts = useCallback(async () => {
         if (!isAuthenticated) return;
 
@@ -559,7 +611,7 @@ export function NotificationProvider({ children }) {
         try {
             // We run all fetches in parallel
             const [
-                stock, po, logistics, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, kitting, debitNotes, vendor, factory, management, unloadManagement
+                stock, po, logistics, tally, lift, receipt, lab, mismatch, rectify, audit, bills, tally2, bilty, kitting, debitNotes, vendor, factory, management, unloadManagement, logisticsApproval, purchaserCoordinate
             ] = await Promise.all([
                 getPendingStockApprovals(user, allowedSteps),
                 getPendingPOs(user, allowedSteps),
@@ -580,6 +632,8 @@ export function NotificationProvider({ children }) {
                 getPendingFactoryApprovals(user, allowedSteps),
                 getPendingManagementApprovals(user, allowedSteps),
                 getPendingUnloadApprovals(user, allowedSteps),
+                getPendingLogisticsApprovals(user, allowedSteps),
+                getPendingPurchaserCoordinates(user),
             ]);
 
             setNotificationCounts(prev => ({
@@ -588,7 +642,9 @@ export function NotificationProvider({ children }) {
                 "receipt-check": receipt, "lab-testing": lab, mismatch, "rectify-mistake": rectify,
                 "audit-data": audit, "original-bills": bills, "take-entry-tally": tally2,
                 bilty, fullkitting: kitting, "debit-note": debitNotes,
-                vendor, factory, management, "unload-management": unloadManagement
+                vendor, factory, management, "unload-management": unloadManagement,
+                "logistics-approval": logisticsApproval,
+                "purchaser-coordinate": purchaserCoordinate
             }));
         } catch (error) {
             console.error("Error fetching notification counts:", error);

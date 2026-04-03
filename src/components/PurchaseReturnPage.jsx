@@ -80,7 +80,8 @@ export default function PurchaseReturnPage() {
             const { data: mismatchData, error: mismatchError } = await supabase
                 .from("Mismatch")
                 .select("*")
-                .eq("Status", "Purchase Return");
+                .eq("Status", "Purchase Return")
+                .eq("coordination_status", "COORDINATED");
 
             if (mismatchError) throw mismatchError;
 

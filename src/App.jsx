@@ -29,7 +29,7 @@ import TolrancePage from "./components/Tolrance";
 import Mismatch from "./components/Mis-match";
 import DebitNote from "./components/Debit-note";
 import SaleOfRawMaterial from "./components/SaleOfRawMaterial";
-
+import PurchaserCoordinate from "./components/PurchaserCoordinate";
 import PurchaseReturnPage from "./components/PurchaseReturnPage";
 
 import { useAuth } from "./context/AuthContext";
@@ -45,6 +45,7 @@ import FactoryApprovals from "./components/FactoryApprovals";
 import ManagementApprovals from "./components/ManagementApprovals";
 import ManagementUnloadApproval from "./components/ManagementUnloadApproval";
 import ArrangeLogistics from "./components/ArrangeLogistics";
+import LogisticsApproval from "./components/LogisticsApproval";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -79,6 +80,7 @@ import {
   AlertTriangle,
   ShoppingBag,
   CheckCircle2,
+  PhoneCall,
 } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -197,6 +199,17 @@ function App() {
       component: <ArrangeLogistics />,
     },
     {
+      id: "logistics-approval",
+      label: "Logistics App.",
+      path: "/logistics-approval",
+      icon: <CheckCircle2 size={20} />,
+      stepName: "Logistics Approval",
+      showNotification: true,
+      countKey: "logistics-approval",
+      countLabel: "Pending",
+      component: <LogisticsApproval />,
+    },
+    {
       id: "tally-entry",
       label: "PO Entry",
       path: "/po-entry",
@@ -282,6 +295,17 @@ function App() {
       countKey: "mismatch",
       countLabel: "Issues",
       component: <Mismatch />,
+    },
+    {
+      id: "purchaser-coordinate",
+      label: "Purchaser Coord.",
+      path: "/purchaser-coordinate",
+      icon: <PhoneCall size={20} />,
+      stepName: "mismatch", // Coordination is closely tied to mismatch resolution roles
+      showNotification: true,
+      countKey: "purchaser-coordinate",
+      countLabel: "Pending",
+      component: <PurchaserCoordinate />,
     },
     {
       id: "debit-note",

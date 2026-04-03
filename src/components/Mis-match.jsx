@@ -762,7 +762,7 @@ export default function MismatchAnalysis() {
   const renderModal = () => {
     if (!editingRow) return null;
 
-    const isDebitNote = actionType === 'Debit Note for Purchaser' || actionType === 'Debit Note for Transporter';
+    const isDebitNote = actionType === 'Debit Note for Vendor' || actionType === 'Debit Note for Transporter';
     const isPurchaseReturn = actionType === 'Purchase Return';
 
     return (
@@ -798,7 +798,7 @@ export default function MismatchAnalysis() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
                 >
                   <option value="">-- Select Action Type --</option>
-                  <option value="Debit Note for Purchaser">Debit Note for Purchaser</option>
+                  <option value="Debit Note for Vendor">Debit Note for Vendor</option>
                   <option value="Debit Note for Transporter">Debit Note for Transporter</option>
                   <option value="Purchase Return">Purchase Return</option>
                 </select>

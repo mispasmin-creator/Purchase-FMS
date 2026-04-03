@@ -213,7 +213,9 @@ const toNumber = (value) => {
 const roundQuantity = (value) => Number(toNumber(value).toFixed(3));
 
 const normalizeTransportRateType = (value) => {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   if (normalized === "per mt") return "Per MT";
   if (normalized === "fixed") return "Fixed";
   return String(value || "").trim();
@@ -463,7 +465,8 @@ export default function LiftMaterial() {
         const poNumber = indentToPoMap[indent] || indent;
         const qty = parseFloat(row["Lifting Qty"]) || 0;
         const material = String(row["Raw Material Name"] || "").trim();
-        if (poNumber) liftedQtyMap[poNumber] = (liftedQtyMap[poNumber] || 0) + qty;
+        if (poNumber)
+          liftedQtyMap[poNumber] = (liftedQtyMap[poNumber] || 0) + qty;
         if (poNumber && material) {
           const itemKey = makeLiftItemKey(poNumber, material);
           liftedQtyByItem[itemKey] = (liftedQtyByItem[itemKey] || 0) + qty;
@@ -477,7 +480,9 @@ export default function LiftMaterial() {
           .trim()
           .toLowerCase();
         const planned4 = row["Planned4"];
-        const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
+        const poNumber = String(
+          row.po_number || row["Indent Id."] || "",
+        ).trim();
         const totalQty = parseFloat(
           row["Total Quantity"] || row["Quantity"] || 0,
         );
@@ -500,7 +505,9 @@ export default function LiftMaterial() {
       // Update global notification count with the count of pending lifts
       const groupedRows = Object.values(
         filteredRows.reduce((acc, row) => {
-          const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
+          const poNumber = String(
+            row.po_number || row["Indent Id."] || "",
+          ).trim();
           if (!poNumber) return acc;
           if (!acc[poNumber]) {
             acc[poNumber] = { primaryRow: row, dbRowIds: [] };
@@ -512,7 +519,9 @@ export default function LiftMaterial() {
       updateCount("lift-material", groupedRows.length);
 
       let formattedData = groupedRows.map(({ primaryRow: row, dbRowIds }) => {
-        const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
+        const poNumber = String(
+          row.po_number || row["Indent Id."] || "",
+        ).trim();
         const totalQty = parseFloat(
           row["Total Quantity"] || row["Quantity"] || 0,
         );
@@ -599,7 +608,9 @@ export default function LiftMaterial() {
           .order("Timestamp", { ascending: false }),
         supabase
           .from("INDENT-PO")
-          .select('id, "Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty", po_number'),
+          .select(
+            'id, "Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty", po_number',
+          ),
       ]);
 
       if (fetchError) throw fetchError;
@@ -609,7 +620,9 @@ export default function LiftMaterial() {
       const cancelQtyMap = {};
       const cancelReasonMap = {};
       (poData || []).forEach((row) => {
-        const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
+        const poNumber = String(
+          row.po_number || row["Indent Id."] || "",
+        ).trim();
         if (poNumber) {
           cancelQtyMap[poNumber] = String(row["Order Cancel Qty"] || "").trim();
           cancelReasonMap[poNumber] = String(
@@ -651,7 +664,9 @@ export default function LiftMaterial() {
 
         return {
           id: String(row["Lift No"] || "").trim(),
-          indentNo: indentToPoMap[String(row["Indent no."] || "").trim()] || String(row["Indent no."] || "").trim(),
+          indentNo:
+            indentToPoMap[String(row["Indent no."] || "").trim()] ||
+            String(row["Indent no."] || "").trim(),
           vendorName: String(row["Vendor Name"] || "").trim(),
           quantity: String(row["Qty"] || "").trim(),
           material: String(row["Raw Material Name"] || "").trim(),
@@ -674,9 +689,15 @@ export default function LiftMaterial() {
           firmName: String(row["Firm Name"] || "").trim(),
           transportRate: String(row["Transporter Rate"] || "").trim(),
           orderCancelQty:
-            cancelQtyMap[indentToPoMap[String(row["Indent no."] || "").trim()] || String(row["Indent no."] || "").trim()] || "0",
+            cancelQtyMap[
+              indentToPoMap[String(row["Indent no."] || "").trim()] ||
+                String(row["Indent no."] || "").trim()
+            ] || "0",
           cancelReason:
-            cancelReasonMap[indentToPoMap[String(row["Indent no."] || "").trim()] || String(row["Indent no."] || "").trim()] || "",
+            cancelReasonMap[
+              indentToPoMap[String(row["Indent no."] || "").trim()] ||
+                String(row["Indent no."] || "").trim()
+            ] || "",
         };
       });
 
@@ -984,7 +1005,10 @@ export default function LiftMaterial() {
         po.transportType?.toUpperCase() === "FOR"
           ? po.transporterName || transporterOptions[0]?.value || ""
           : po.transporterName || "",
-      rateType: po.transportRateType || "",
+      rateType:
+        po.transportType?.toUpperCase() === "FOR"
+          ? po.transportRateType || ""
+          : "",
       rate: String(po.rate || ""),
     });
     setFormErrors({});
@@ -2296,7 +2320,9 @@ export default function LiftMaterial() {
                       name: "TransporterName",
                       type: "select",
                       disabled:
-                        String(selectedPO?.transportType || "").trim().toUpperCase() === "FOR",
+                        String(selectedPO?.transportType || "")
+                          .trim()
+                          .toUpperCase() === "FOR",
                       options: [
                         { value: "", label: "Select transporter" },
                         ...transporterOptions,
@@ -2308,7 +2334,9 @@ export default function LiftMaterial() {
                       name: "rateType",
                       type: "select",
                       disabled:
-                        String(selectedPO?.transportType || "").trim().toUpperCase() === "FOR",
+                        String(selectedPO?.transportType || "")
+                          .trim()
+                          .toUpperCase() === "FOR",
                       options: [
                         { value: "", label: "Select rate type" },
                         ...rateTypeOptions,

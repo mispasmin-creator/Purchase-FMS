@@ -236,7 +236,7 @@ export default function BiltyPage() {
         );
       }
       // Show only Independent type lifts
-      processedRawRows = processedRawRows.filter((lift) => String(lift.liftType || "").toLowerCase() === "independent");
+
 
       setLiftData(processedRawRows);
 

@@ -178,8 +178,7 @@ export default function FullkittingTransportingPage() {
                     (item) => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower,
                 );
             }
-            // Show only Independent type lifts
-            parsedData = parsedData.filter((item) => String(item.liftRow?.["Type"] || "").toLowerCase() === "independent");
+
 
             setKittingData(parsedData);
         } catch (err) {
