@@ -651,15 +651,19 @@ export default function ReceiptCheck() {
       setFormData((prev) => {
         const updated = { ...prev, [name]: value };
         if (name === "actualQuantity" || name === "totalBillQuantity") {
+          const rawValue = parseFloat(value) || 0;
+          const sanitizedValue = name === "actualQuantity" ? Math.max(0, rawValue) : rawValue;
+          
           const billQty =
             parseFloat(
-              name === "totalBillQuantity" ? value : prev.totalBillQuantity,
+              name === "totalBillQuantity" ? sanitizedValue : prev.totalBillQuantity,
             ) || 0;
           const actualQty =
             parseFloat(
-              name === "actualQuantity" ? value : prev.actualQuantity,
+              name === "actualQuantity" ? sanitizedValue : prev.actualQuantity,
             ) || 0;
           updated.qtyDifference = (actualQty - billQty).toFixed(2);
+          if (name === "actualQuantity") updated.actualQuantity = sanitizedValue.toString();
         }
         return updated;
       });
@@ -689,8 +693,8 @@ export default function ReceiptCheck() {
         lift.dateOfReceiving_fromSheet ||
         new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
       totalBillQuantity: initialTotal.toString(),
-      actualQuantity: initialActual.toString(),
-      qtyDifference: (initialActual - initialTotal).toFixed(2),
+      actualQuantity: "",
+      qtyDifference: (-initialTotal).toFixed(2),
 
       physicalCondition: lift.physicalCondition_fromSheet || "Good",
       moisture: lift.moisture_fromSheet || "",
@@ -1388,7 +1392,8 @@ export default function ReceiptCheck() {
                 name="totalBillQuantity"
                 value={formData.totalBillQuantity}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b8e2f] focus:ring-[#6b8e2f] sm:text-sm"
+                readOnly
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 focus:border-[#6b8e2f] focus:ring-[#6b8e2f] sm:text-sm cursor-not-allowed"
               />
             </div>
             <div>
@@ -1401,6 +1406,7 @@ export default function ReceiptCheck() {
               <Input
                 type="number"
                 step="0.01"
+                min="0"
                 id="actualQuantity"
                 name="actualQuantity"
                 value={formData.actualQuantity}

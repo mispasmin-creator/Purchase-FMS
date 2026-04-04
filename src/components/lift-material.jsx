@@ -558,6 +558,7 @@ export default function LiftMaterial() {
             row["transpoter_rate_type"] || "",
           ),
           pendingQty: String(pendingQuantity),
+          transporterRate: String(row["Transporter Rate"] || "").trim(),
           planned: row["Planned4"]
             ? String(row["Planned4"]).trim().replace("T", " ")
             : "",
@@ -1010,6 +1011,10 @@ export default function LiftMaterial() {
           ? po.transportRateType || ""
           : "",
 
+      transportRate:
+        po.transportType?.toUpperCase() === "EX-FACTORY"
+          ? String(po.transporterRate || "")
+          : "",
       rate: String(po.rate || ""),
     });
     setFormErrors({});
@@ -2361,7 +2366,11 @@ export default function LiftMaterial() {
                       type: "text",
                       step: "any",
                       isRequired: true,
-                      readOnly: formData.rateType === "Per MT",
+                      readOnly:
+                        formData.rateType === "Per MT" ||
+                        String(selectedPO?.transportType || "")
+                          .trim()
+                          .toUpperCase() === "EX-FACTORY",
                     },
                     {
                       label: "Total Truck Billing Quantity",
