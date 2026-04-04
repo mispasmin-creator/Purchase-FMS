@@ -26,6 +26,8 @@ export function getVendorsFromRow(row) {
       bd: safeString(row[`BD ${slot}`]),
       fineness: safeString(row[`Fineness ${slot}`]),
       packaging: safeString(row[`Packaging ${slot}`]),
+      transportType: safeString(row[`Transport Type ${slot}`]) || "FOR",
+      expectedDate: safeString(row[`Expected Date ${slot}`]),
       quotationNumber: safeString(row[`Quotation Number ${slot}`]),
       quotationDate: safeString(row[`Quotation Date ${slot}`]),
       advancePercentage: safeString(row[`Advance Percentage ${slot}`]),
@@ -77,6 +79,8 @@ export function buildApprovedVendorUpdate(vendor) {
     "BD Percent Age %": numericOrNull(vendor.bd),
     Fineness: numericOrNull(vendor.fineness),
     Packaging: vendor.packaging || "",
+    "Transport Type 4": vendor.transportType || "FOR",
+    "Expected Date 4": vendor.expectedDate || null,
   };
 }
 

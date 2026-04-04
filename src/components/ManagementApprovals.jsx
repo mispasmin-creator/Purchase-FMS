@@ -57,6 +57,25 @@ const formatDateTime = (isoString) => {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
+const formatDate = (dateString) => {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  const day = date.getDate().toString().padStart(2, "0");
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const getDelayDays = (expectedVendor, required) => {
+  if (!expectedVendor || !required) return null;
+  const d1 = new Date(expectedVendor);
+  const d2 = new Date(required);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  const diffTime = d1 - d2;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
 const chemistryFields = [
   ["Al2O3", "alumina"],
   ["Fe2O3", "iron"],
@@ -130,6 +149,7 @@ export default function ManagementApprovals() {
             department: row["Type Of Indent"] || "",
             product: row["Material"] || "",
             planned8: row["Planned8"] || "",
+            expectedRequirementDate: row["expected_requierment_date"] || "",
             vendors,
           };
         })
@@ -310,8 +330,10 @@ export default function ManagementApprovals() {
                       <TableHead>Indent</TableHead>
                       <TableHead>Firm</TableHead>
                       <TableHead>Product</TableHead>
+                      <TableHead>Required On</TableHead>
+                      <TableHead>Timeline Info</TableHead>
                       <TableHead>Tagged Vendors</TableHead>
-                      <TableHead>Factory Submitted</TableHead>
+                      <TableHead>Factory Done</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -334,19 +356,38 @@ export default function ManagementApprovals() {
                         </TableCell>
                         <TableCell>{item.firmName}</TableCell>
                         <TableCell>{item.product}</TableCell>
+                        <TableCell className="text-xs font-medium text-blue-600">
+                          {formatDate(item.expectedRequirementDate)}
+                        </TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1.5">
+                          {(() => {
+                            const delays = item.vendors
+                              .map(v => getDelayDays(v.expectedDate, item.expectedRequirementDate))
+                              .filter(d => d !== null);
+                            const minDelay = Math.min(...delays);
+                            
+                            if (delays.length === 0) return <span className="text-gray-400">-</span>;
+                            
+                            return (
+                              <Badge className={`text-[10px] ${minDelay > 0 ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                                {minDelay > 0 ? `${minDelay}d Delay` : "On Time"}
+                              </Badge>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1.5 focus-within:z-10">
                             {item.vendors.map((vendor) => (
                               <Badge
                                 key={vendor.slot}
-                                className={getTagTone(vendor.technicalTag)}
+                                className={`${getTagTone(vendor.technicalTag)} px-1.5 py-0.5 text-[10px]`}
                               >
-                                {vendor.technicalTag} · {vendor.name}
+                                {vendor.technicalTag} · {vendor.name.split(' ').slice(0, 2).join(' ')}
                               </Badge>
                             ))}
                           </div>
                         </TableCell>
-                        <TableCell>{formatDateTime(item.planned8)}</TableCell>
+                        <TableCell className="text-[10px] text-gray-500 whitespace-nowrap">{formatDateTime(item.planned8)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -512,6 +553,32 @@ export default function ManagementApprovals() {
                               ? `${vendor.advancePercentage}%`
                               : "-"}
                           </span>
+                        </div>
+                        <div className="col-span-2 mt-2 pt-2 border-t border-slate-200">
+                          <span className="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                            Delivery Timeline
+                          </span>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] text-gray-500">Requirement</p>
+                              <p className="font-medium">{formatDate(selectedIndent.expectedRequirementDate)}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] text-gray-500">Vendor Commit</p>
+                              <p className="font-medium text-blue-600">{formatDate(vendor.expectedDate)}</p>
+                            </div>
+                          </div>
+                          {getDelayDays(vendor.expectedDate, selectedIndent.expectedRequirementDate) !== null && (
+                            <div className={`mt-2 text-center py-1 rounded text-[10px] font-bold uppercase ${
+                              getDelayDays(vendor.expectedDate, selectedIndent.expectedRequirementDate) > 0
+                                ? "bg-red-50 text-red-600"
+                                : "bg-green-50 text-green-600"
+                            }`}>
+                              {getDelayDays(vendor.expectedDate, selectedIndent.expectedRequirementDate) > 0
+                                ? `${getDelayDays(vendor.expectedDate, selectedIndent.expectedRequirementDate)} Days Delay`
+                                : "On Time / Early"}
+                            </div>
+                          )}
                         </div>
                       </div>
 
