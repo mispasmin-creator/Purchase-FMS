@@ -34,6 +34,7 @@ import {
   TrendingDown,
   ChevronsUpDown,
   Plus,
+  Trash,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
@@ -71,6 +72,15 @@ const formatDateTime = (isoString) => {
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
   return `${day}/${month}/${year} ${hours}:${minutes}`;
+};
+
+const money = (val) => {
+  const n = Number(val);
+  if (isNaN(n)) return "0.00";
+  return n.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 };
 
 const createEmptyTransporterForm = () => ({
@@ -470,61 +480,122 @@ export default function ArrangeLogistics() {
               <div className="flex-1 px-6 pb-4 overflow-y-auto">
                 <div className="grid gap-4 lg:grid-cols-3">
                   {transporterForms.map((currentTransporter, idx) => (
-                    <div key={idx} className="p-4 border rounded-xl bg-gray-50/30 space-y-4">
-                      <div className="flex items-center justify-between mb-2"><span className="text-sm font-semibold text-gray-700">Transporter {idx + 1}</span><div className="flex items-center gap-2">{selectedTransporterIndex === idx && <Badge className="text-green-700 bg-green-100">Selected</Badge>}{transporterForms.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => removeTransporterSlot(idx)}>Remove</Button>}</div></div>
-                      <div>
-                        <Label className="block mb-1 text-xs font-medium text-gray-600">Transporter Name</Label>
-                        <Popover open={transporterPopoverOpen[idx]} onOpenChange={(open) => setTransporterPopoverOpen((prev) => prev.map((value, index) => index === idx ? open : value))}>
-                          <PopoverTrigger asChild>
-                            <Button type="button" variant="outline" className="w-full justify-between text-sm border-gray-200 h-9 bg-white font-normal">
-                              <span className="truncate">{currentTransporter.name || "Select transporter"}</span>
-                              <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2">
-                            <Input 
-                              value={transporterSearchTerms[idx] || ""} 
-                              onChange={(e) => setTransporterSearchTerms((prev) => prev.map((term, index) => index === idx ? e.target.value : term))} 
-                              placeholder="Search transporter..." 
-                              className="mb-2 h-8 text-xs" 
-                            />
-                            <div className="max-h-60 overflow-y-auto">
-                              {transporterMasterOptions
-                                .filter((transporter) => transporter.name.toLowerCase().includes((transporterSearchTerms[idx] || "").trim().toLowerCase()))
-                                .map((transporter, transporterIndex) => (
-                                  <button 
-                                    key={`${idx}-${transporterIndex}`} 
-                                    type="button" 
-                                    onClick={() => { 
-                                      applyTransporterMasterSelection(idx, transporter.name); 
-                                      setTransporterSearchTerms((prev) => prev.map((term, index) => index === idx ? "" : term)); 
-                                      setTransporterPopoverOpen((prev) => prev.map((value, index) => index === idx ? false : value)); 
-                                    }} 
-                                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-slate-100"
-                                  >
-                                    <span>{transporter.name}</span>
-                                    {currentTransporter.name === transporter.name && <Check className="w-4 h-4 text-primary" />}
-                                  </button>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
+                    <div 
+                      key={idx} 
+                      onClick={() => setSelectedTransporterIndex(idx)}
+                      className={`p-4 border rounded-xl transition-all cursor-pointer ${
+                        selectedTransporterIndex === idx 
+                          ? "border-[#7da23a] bg-green-50 shadow-sm ring-1 ring-[#7da23a]" 
+                          : "border-gray-200 bg-gray-50/30 hover:border-gray-300"
+                      } space-y-4`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-gray-700">Transporter {idx + 1}</span>
+                        {selectedTransporterIndex === idx && <Badge className="text-white bg-[#7da23a] hover:bg-[#7da23a]">Selected</Badge>}
+                        {transporterForms.length > 1 && (
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={(e) => { e.stopPropagation(); removeTransporterSlot(idx); }}
+                            className="h-7 w-7 p-0 text-red-400 hover:text-red-500 hover:bg-red-50"
+                          >
+                            <Trash size={16} className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
-                      <div>
-                        <Label className="block mb-1 text-xs font-medium text-gray-600">Transport Type</Label>
-                        <Select value={currentTransporter.rateType || undefined} onValueChange={(value) => updateTransporterForm(idx, "rateType", value)}>
-                          <SelectTrigger className="text-sm border-gray-200 h-9 bg-white">
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="fixed">Fixed</SelectItem>
-                            <SelectItem value="per mt">Per MT</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      
+                      {/* Transporter Name Popover */}
+                      <Popover open={transporterPopoverOpen[idx]} onOpenChange={(open) => setTransporterPopoverOpen((prev) => prev.map((value, index) => index === idx ? open : value))}>
+                        <PopoverTrigger asChild>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="w-full justify-between text-sm border-gray-200 h-9 bg-white font-normal"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className="truncate">{currentTransporter.name || "Select transporter"}</span>
+                            <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2">
+                          <Input 
+                            value={transporterSearchTerms[idx] || ""} 
+                            onChange={(e) => setTransporterSearchTerms((prev) => prev.map((term, index) => index === idx ? e.target.value : term))} 
+                            placeholder="Search transporter..." 
+                            className="mb-2 h-8 text-xs" 
+                          />
+                          <div className="max-h-60 overflow-y-auto">
+                            {transporterMasterOptions
+                              .filter((transporter) => transporter.name.toLowerCase().includes((transporterSearchTerms[idx] || "").trim().toLowerCase()))
+                              .map((transporter, transporterIndex) => (
+                                <button 
+                                  key={`${idx}-${transporterIndex}`} 
+                                  type="button" 
+                                  onClick={(e) => { 
+                                    e.stopPropagation();
+                                    applyTransporterMasterSelection(idx, transporter.name); 
+                                    setTransporterSearchTerms((prev) => prev.map((term, index) => index === idx ? "" : term)); 
+                                    setTransporterPopoverOpen((prev) => prev.map((value, index) => index === idx ? false : value)); 
+                                  }} 
+                                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                >
+                                  <span>{transporter.name}</span>
+                                  {currentTransporter.name === transporter.name && <Check className="w-4 h-4 text-primary" />}
+                                </button>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="block mb-1 text-[10px] font-medium text-gray-400 uppercase tracking-wider">Rate Type</Label>
+                          <Select value={currentTransporter.rateType || undefined} onValueChange={(value) => updateTransporterForm(idx, "rateType", value)}>
+                            <SelectTrigger className="text-sm border-gray-200 h-9 bg-white" onClick={(e) => e.stopPropagation()}>
+                              <SelectValue placeholder="Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fixed">Fixed</SelectItem>
+                              <SelectItem value="per mt">Per MT</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="block mb-1 text-[10px] font-medium text-gray-400 uppercase tracking-wider">Entered Rate</Label>
+                          <Input 
+                            value={currentTransporter.cost} 
+                            onChange={(e) => updateTransporterForm(idx, "cost", e.target.value)} 
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sm border-gray-200 h-9 bg-white" 
+                            placeholder="0.00" 
+                          />
+                        </div>
                       </div>
-                      <div><Label className="block mb-1 text-xs font-medium text-gray-600">Rate</Label><Input value={currentTransporter.cost} onChange={(e) => updateTransporterForm(idx, "cost", e.target.value)} className="text-sm border-gray-200 h-9 bg-white" placeholder="0.00" /></div>
-                      <div className="p-3 rounded-lg bg-green-50 border border-green-200"><div className="flex items-center justify-between"><span className="text-xs font-medium text-green-700">Estimated Cost</span><span className="text-xl font-bold text-green-700">Rs {currentTransporter.cost || 0}</span></div></div>
-                      <Button type="button" variant={selectedTransporterIndex === idx ? "default" : "outline"} className="w-full" onClick={() => setSelectedTransporterIndex(idx)}>{selectedTransporterIndex === idx ? "Selected Transporter" : "Choose This Transporter"}</Button>
+
+                      <div className="pt-3 border-t border-gray-100 space-y-2">
+                        {(() => {
+                          const qty = Number(selectedIndent?.totalQuantity) || 1;
+                          const entered = Number(currentTransporter.cost) || 0;
+                          const isFixed = currentTransporter.rateType === "fixed";
+                          
+                          const totalCost = isFixed ? entered : entered * qty;
+                          const ratePerMt = isFixed ? (entered / qty) : entered;
+
+                          return (
+                            <>
+                              <div className="flex justify-between items-center p-2 rounded-lg bg-[#7da23a]/10 border border-[#7da23a]/20">
+                                <span className="text-xs font-medium text-[#7da23a]">Rate per MT:</span>
+                                <span className="text-base font-bold text-[#7da23a]">₹{money(ratePerMt)}</span>
+                              </div>
+                              <div className="flex justify-between items-center px-2 text-xs">
+                                <span className="text-gray-500 italic">Total Est. Cost:</span>
+                                <span className="font-semibold text-gray-700">₹{money(totalCost)}</span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                   ))}
                 </div>
