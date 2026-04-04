@@ -275,13 +275,13 @@ const formatDateString = (dateValue) => {
   return dateValue;
 };
 
-// Helper function to check if quantities match (Total Bill Qty vs Actual Qty only)
+// Helper function to check if quantities match (no shortage: actual >= billed)
 const checkQuantitiesMatch = (totalBillQty, actualQty) => {
   const bill = parseFloat(totalBillQty) || 0;
   const actual = parseFloat(actualQty) || 0;
 
-  // Check if Total Bill Qty equals Actual Qty only
-  return bill === actual;
+  // Return true if no shortage (actual >= billed), false if shortage (actual < billed)
+  return actual >= bill;
 };
 
 // ReceiptFormModal Component
@@ -295,8 +295,8 @@ function ReceiptFormModal({ isOpen, onClose, liftData, children }) {
         className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto"
         aria-describedby="dialog-description"
       >
-        <DialogHeader className="border-b pb-4 mb-4">
-          <DialogTitle className="text-lg leading-6 font-medium text-gray-900 flex items-center">
+        <DialogHeader className="pb-4 mb-4 border-b">
+          <DialogTitle className="flex items-center text-lg font-medium leading-6 text-gray-900">
             <FileUp className="h-6 w-6 text-[#7da23a] mr-3" /> Record Receipt
             for Lift ID:{" "}
             <span className="font-bold text-[#7da23a] ml-1">
@@ -401,7 +401,9 @@ export default function ReceiptCheck() {
             .from("LIFT-ACCOUNTS")
             .select("*")
             .order("Timestamp", { ascending: false }),
-          supabase.from("INDENT-PO").select('"Indent Id.", "Order Cancel Qty", po_number'),
+          supabase
+            .from("INDENT-PO")
+            .select('"Indent Id.", "Order Cancel Qty", po_number'),
         ]);
 
         if (fetchError) throw fetchError;
@@ -415,7 +417,9 @@ export default function ReceiptCheck() {
           const poNumber = String(row.po_number || indent).trim();
           if (indent) indentToPoMap[indent] = poNumber;
           if (poNumber)
-            cancelQtyMap[poNumber] = String(row["Order Cancel Qty"] || "").trim();
+            cancelQtyMap[poNumber] = String(
+              row["Order Cancel Qty"] || "",
+            ).trim();
         });
 
         // Helper to format date for display
@@ -496,8 +500,12 @@ export default function ReceiptCheck() {
                   String(row["Indent no."] || "").trim()
               ] || "",
             // Unload Approval Fields
-            unloadApprovalRequired: String(row["Unload Approval Required"] || "").trim(),
-            unloadApprovalStatus: String(row["Unload Approval Status"] || "").trim(),
+            unloadApprovalRequired: String(
+              row["Unload Approval Required"] || "",
+            ).trim(),
+            unloadApprovalStatus: String(
+              row["Unload Approval Status"] || "",
+            ).trim(),
             plannedUnloadApproval: row["Planned Unload Approval"] || null,
             actualUnloadApproval: row["Actual Unload Approval"] || null,
             unloadApprovalTrigger: row["Unload Approval Trigger"] || null,
@@ -566,11 +574,15 @@ export default function ReceiptCheck() {
     return allLiftsData.filter((lift) => {
       // Show when Planned 1 is not null AND (Actual 1 is null OR it's pending/approved unload approval)
       const isPendingApproval = lift.unloadApprovalStatus === "Pending";
-      const isApprovedButNotFinalized = 
-        lift.unloadApprovalStatus === "Approved" && 
+      const isApprovedButNotFinalized =
+        lift.unloadApprovalStatus === "Approved" &&
         lift.unloadApprovalRequired === "Yes";
-      
-      let matches = lift.filterColPlanned1 && (!lift.filterColActual1 || isPendingApproval || isApprovedButNotFinalized);
+
+      let matches =
+        lift.filterColPlanned1 &&
+        (!lift.filterColActual1 ||
+          isPendingApproval ||
+          isApprovedButNotFinalized);
       if (filters.vendorName !== "all")
         matches = matches && lift.vendorName === filters.vendorName;
       if (filters.materialName !== "all")
@@ -589,16 +601,14 @@ export default function ReceiptCheck() {
   // Update Notification Context
   useEffect(() => {
     // Calculate total pending for the firm/user regardless of local filters
-    const totalPending = allLiftsData.filter(
-      (lift) => {
-        const isPending = lift.filterColPlanned1 && !lift.filterColActual1;
-        const isPendingApproval = lift.unloadApprovalStatus === "Pending";
-        const isApprovedButNotFinalized = 
-          lift.unloadApprovalStatus === "Approved" && 
-          lift.unloadApprovalRequired === "Yes";
-        return isPending || isPendingApproval || isApprovedButNotFinalized;
-      }
-    ).length;
+    const totalPending = allLiftsData.filter((lift) => {
+      const isPending = lift.filterColPlanned1 && !lift.filterColActual1;
+      const isPendingApproval = lift.unloadApprovalStatus === "Pending";
+      const isApprovedButNotFinalized =
+        lift.unloadApprovalStatus === "Approved" &&
+        lift.unloadApprovalRequired === "Yes";
+      return isPending || isPendingApproval || isApprovedButNotFinalized;
+    }).length;
     updateCount("receipt-check", totalPending);
   }, [allLiftsData, updateCount]);
 
@@ -608,11 +618,13 @@ export default function ReceiptCheck() {
         // Show when Actual 1 is set AND (no approval required OR rejected OR finalized)
         const isRejected = lift.unloadApprovalStatus === "Rejected";
         const isFinalized = lift.unloadApprovalStatus === "Completed";
-        const isApprovedNoRequirement = 
-          lift.unloadApprovalStatus === "Approved" && 
+        const isApprovedNoRequirement =
+          lift.unloadApprovalStatus === "Approved" &&
           lift.unloadApprovalRequired !== "Yes";
 
-        let matches = lift.filterColActual1 && (isRejected || isFinalized || isApprovedNoRequirement);
+        let matches =
+          lift.filterColActual1 &&
+          (isRejected || isFinalized || isApprovedNoRequirement);
         if (filters.vendorName !== "all")
           matches = matches && lift.vendorName === filters.vendorName;
         if (filters.materialName !== "all")
@@ -768,16 +780,25 @@ export default function ReceiptCheck() {
       const seconds = String(now.getSeconds()).padStart(2, "0");
 
       const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+      // Calculate quantity difference first
+      const totalBillQty = parseFloat(formData.totalBillQuantity) || 0;
+      const actualQty = parseFloat(formData.actualQuantity) || 0;
+      const qtyDiff = Number((actualQty - totalBillQty).toFixed(2));
+
       const unloadApprovalTrigger = [
         formData.physicalCondition === "Bad" ? "Condition Bad" : "",
         formData.moisture === "Yes" ? "Moisture Present" : "",
+        qtyDiff < 0 ? "Quantity Shortage" : "",
       ]
         .filter(Boolean)
         .join(", ");
-      const needsUnloadApproval = Boolean(unloadApprovalTrigger);
 
-      const isReSubmittingApproved = 
-        selectedLift.unloadApprovalStatus === "Approved" && 
+      // Highest priority: If quantity shortage, always require unload approval regardless of other conditions
+      const needsUnloadApproval = qtyDiff < 0 || Boolean(unloadApprovalTrigger);
+
+      const isReSubmittingApproved =
+        selectedLift.unloadApprovalStatus === "Approved" &&
         selectedLift.unloadApprovalRequired === "Yes";
       const isFinalReceiptSubmission =
         !needsUnloadApproval || isReSubmittingApproved;
@@ -793,15 +814,25 @@ export default function ReceiptCheck() {
         "Physical Image Of Product": physicalImageUrl || null,
         "Image Of Weight Slip": weightSlipImageUrl || null,
         "Unload Approval Required": needsUnloadApproval ? "Yes" : "No",
-        "Planned Unload Approval": (needsUnloadApproval && !isReSubmittingApproved) ? timestamp : (selectedLift.plannedUnloadApproval || null),
-        "Actual Unload Approval": isReSubmittingApproved ? selectedLift.actualUnloadApproval : null,
-        "Unload Approval Status": isReSubmittingApproved ? "Completed" : (needsUnloadApproval ? "Pending" : "Approved"),
-        "Unload Approval Trigger": unloadApprovalTrigger || selectedLift.unloadApprovalTrigger || null,
+        "Planned Unload Approval":
+          needsUnloadApproval && !isReSubmittingApproved
+            ? timestamp
+            : selectedLift.plannedUnloadApproval || null,
+        "Actual Unload Approval": isReSubmittingApproved
+          ? selectedLift.actualUnloadApproval
+          : null,
+        "Unload Approval Status": isReSubmittingApproved
+          ? "Completed"
+          : needsUnloadApproval
+            ? "Pending"
+            : "Approved",
+        "Unload Approval Trigger":
+          unloadApprovalTrigger || selectedLift.unloadApprovalTrigger || null,
         "Unload Approval Remarks": selectedLift.unloadApprovalRemarks || null,
         "Unload Approval By": selectedLift.unloadApprovalBy || null,
         "Planned 2": isFinalReceiptSubmission
-          ? (selectedLift["Planned 2"] || timestamp)
-          : (selectedLift["Planned 2"] || null),
+          ? selectedLift["Planned 2"] || timestamp
+          : selectedLift["Planned 2"] || null,
       };
 
       console.log(
@@ -823,30 +854,29 @@ export default function ReceiptCheck() {
         );
       }
 
-      // Calculate quantity difference and update Mismatch table
-      const totalBillQty = parseFloat(formData.totalBillQuantity) || 0;
-      const actualQty = parseFloat(formData.actualQuantity) || 0;
-      const qtyDiff = Number((actualQty - totalBillQty).toFixed(2));
-      const qtyDiffStatus = qtyDiff !== 0 ? "Mismatch" : "Match";
+      // Calculate quantity difference and update Mismatch table only for shortages (actual < billed)
+      if (qtyDiff < 0) {
+        const qtyDiffStatus = "Mismatch";
 
-      const mismatchUpdatePayload = {
-        "Quantity Difference": qtyDiff,
-        "Diff Qty": qtyDiff,
-        "Qty Diff Status": qtyDiffStatus,
-      };
+        const mismatchUpdatePayload = {
+          "Quantity Difference": qtyDiff,
+          "Diff Qty": qtyDiff,
+          "Qty Diff Status": qtyDiffStatus,
+        };
 
-      mismatchUpdatePayload["Status"] = "Pending";
+        mismatchUpdatePayload["Status"] = "Pending";
 
-      const { error: mismatchUpdateError } = await supabase
-        .from("Mismatch")
-        .update(mismatchUpdatePayload)
-        .eq('"Lift ID"', selectedLift.id);
+        const { error: mismatchUpdateError } = await supabase
+          .from("Mismatch")
+          .update(mismatchUpdatePayload)
+          .eq('"Lift ID"', selectedLift.id);
 
-      if (mismatchUpdateError) {
-        console.error(
-          "Failed to update Mismatch table with qty difference:",
-          mismatchUpdateError,
-        );
+        if (mismatchUpdateError) {
+          console.error(
+            "Failed to update Mismatch table with qty difference:",
+            mismatchUpdateError,
+          );
+        }
       }
 
       toast.success("Success!", {
@@ -931,13 +961,13 @@ export default function ReceiptCheck() {
           rel="noopener noreferrer"
           className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-xs"
         >
-          <ExternalLink className="h-3 w-3 mr-1" /> {column.linkText || "View"}
+          <ExternalLink className="w-3 h-3 mr-1" /> {column.linkText || "View"}
         </a>
       ) : (
-        <span className="text-gray-400 text-xs">N/A</span>
+        <span className="text-xs text-gray-400">N/A</span>
       );
     }
-    return value || <span className="text-gray-400 text-xs">N/A</span>;
+    return value || <span className="text-xs text-gray-400">N/A</span>;
   };
 
   const renderTableSection = (
@@ -954,11 +984,11 @@ export default function ReceiptCheck() {
     const isLoading = loadingData && data.length === 0;
     const hasError = errorData && data.length === 0 && activeTab === tabKey;
     return (
-      <Card className="shadow-sm border border-border flex-1 flex-col">
-        <CardHeader className="py-3 px-4 bg-muted/30">
-          <div className="flex justify-between items-center">
+      <Card className="flex-col flex-1 border shadow-sm border-border">
+        <CardHeader className="px-4 py-3 bg-muted/30">
+          <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center text-md font-semibold text-foreground">
+              <CardTitle className="flex items-center font-semibold text-md text-foreground">
                 {tabKey === "awaitingReceipt" ? (
                   <PackageOpen className="h-5 w-5 text-[#7da23a] mr-2" />
                 ) : (
@@ -988,7 +1018,7 @@ export default function ReceiptCheck() {
                     <Button
                       variant="link"
                       size="sm"
-                      className="p-0 h-auto text-xs"
+                      className="h-auto p-0 text-xs"
                       onClick={() =>
                         handleSelectAllColumns(
                           tabKey === "awaitingReceipt"
@@ -1043,25 +1073,25 @@ export default function ReceiptCheck() {
             </Popover>
           </div>
         </CardHeader>
-        <CardContent className="p-0 flex-1 flex-col">
+        <CardContent className="flex-col flex-1 p-0">
           {isLoading ? (
-            <div className="flex flex-col justify-center items-center py-10 flex-1">
+            <div className="flex flex-col items-center justify-center flex-1 py-10">
               <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
-              <p className="text-muted-foreground ml-2">Loading...</p>
+              <p className="ml-2 text-muted-foreground">Loading...</p>
             </div>
           ) : hasError ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1">
-              <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
+            <div className="flex flex-col items-center justify-center flex-1 px-4 py-10 mx-4 my-4 text-center border-2 border-dashed rounded-lg border-destructive-foreground bg-destructive/10">
+              <AlertTriangle className="w-10 h-10 mb-3 text-destructive" />
               <p className="font-medium text-destructive">Error Loading Data</p>
-              <p className="text-sm text-muted-foreground max-w-md">
+              <p className="max-w-md text-sm text-muted-foreground">
                 {errorData}
               </p>
             </div>
           ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-              <Info className="h-12 w-12 text-green-500 mb-3" />
+            <div className="flex flex-col items-center justify-center flex-1 px-4 py-10 mx-4 my-4 text-center border-2 border-dashed rounded-lg border-green-200/50 bg-green-50/50">
+              <Info className="w-12 h-12 mb-3 text-green-500" />
               <p className="font-medium text-foreground">No Data Found</p>
-              <p className="text-sm text-muted-foreground text-center">
+              <p className="text-sm text-center text-muted-foreground">
                 {tabKey === "awaitingReceipt"
                   ? "No lifts are currently awaiting receipt."
                   : "No processed lifts match the criteria."}
@@ -1073,14 +1103,14 @@ export default function ReceiptCheck() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-b-lg flex-1">
+            <div className="flex-1 overflow-x-auto rounded-b-lg">
               <Table>
-                <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                <TableHeader className="sticky top-0 z-10 bg-muted/50">
                   <TableRow>
                     {visibleCols.map((col) => (
                       <TableHead
                         key={col.dataKey}
-                        className="whitespace-nowrap text-xs px-3 py-2"
+                        className="px-3 py-2 text-xs whitespace-nowrap"
                       >
                         {col.header}
                       </TableHead>
@@ -1111,7 +1141,9 @@ export default function ReceiptCheck() {
                               disabled={item.unloadApprovalStatus === "Pending"}
                               className="h-7 px-2.5 py-1 text-xs"
                             >
-                              {item.unloadApprovalStatus === "Pending" ? "Pending Approval" : "Record Receipt"}
+                              {item.unloadApprovalStatus === "Pending"
+                                ? "Pending Approval"
+                                : "Record Receipt"}
                             </Button>
                           ) : (
                             renderCell(item, column)
@@ -1130,14 +1162,14 @@ export default function ReceiptCheck() {
   };
 
   return (
-    <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen">
-      <Card className="shadow-md border-none">
+    <div className="min-h-screen p-4 space-y-4 md:p-6 bg-slate-50">
+      <Card className="border-none shadow-md">
         <CardHeader className="p-4 border-b border-gray-200">
-          <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
+          <CardTitle className="flex items-center gap-2 text-lg text-gray-700">
             <PackageOpen className="h-5 w-5 text-[#7da23a]" /> Step 6: Receipt
             Of Material / Physical Quality Check
           </CardTitle>
-          <CardDescription className="text-gray-500 text-sm">
+          <CardDescription className="text-sm text-gray-500">
             Record receipt details and perform quality checks for incoming
             materials.
             {user?.firmName && user.firmName.toLowerCase() !== "all" && (
@@ -1151,14 +1183,14 @@ export default function ReceiptCheck() {
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
-            className="flex-1 flex flex-col"
+            className="flex flex-col flex-1"
           >
             <TabsList className="grid w-full sm:w-[480px] grid-cols-2 mb-4">
               <TabsTrigger
                 value="awaitingReceipt"
                 className="flex items-center gap-2"
               >
-                <FileCheckIcon className="h-4 w-4" /> Awaiting Receipt
+                <FileCheckIcon className="w-4 h-4" /> Awaiting Receipt
                 <Badge
                   variant="secondary"
                   className="ml-1.5 px-1.5 py-0.5 text-xs"
@@ -1170,7 +1202,7 @@ export default function ReceiptCheck() {
                 value="processedReceipts"
                 className="flex items-center gap-2"
               >
-                <History className="h-4 w-4" /> Processed Lifts
+                <History className="w-4 h-4" /> Processed Lifts
                 <Badge
                   variant="secondary"
                   className="ml-1.5 px-1.5 py-0.5 text-xs"
@@ -1179,9 +1211,9 @@ export default function ReceiptCheck() {
                 </Badge>
               </TabsTrigger>
             </TabsList>
-            <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
+            <div className="p-4 mb-4 rounded-lg bg-green-50/50">
               <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-4 w-4 text-gray-500" />
+                <Filter className="w-4 h-4 text-gray-500" />
                 <Label className="text-sm font-medium">Filters</Label>
                 <Button
                   variant="outline"
@@ -1192,7 +1224,7 @@ export default function ReceiptCheck() {
                   Clear All
                 </Button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
                 <Select
                   value={filters.vendorName}
                   onValueChange={(value) =>
@@ -1287,7 +1319,7 @@ export default function ReceiptCheck() {
             </div>
             <TabsContent
               value="awaitingReceipt"
-              className="flex-1 flex flex-col mt-0"
+              className="flex flex-col flex-1 mt-0"
             >
               {renderTableSection(
                 "awaitingReceipt",
@@ -1300,7 +1332,7 @@ export default function ReceiptCheck() {
             </TabsContent>
             <TabsContent
               value="processedReceipts"
-              className="flex-1 flex flex-col mt-0"
+              className="flex flex-col flex-1 mt-0"
             >
               {renderTableSection(
                 "processedReceipts",
@@ -1320,7 +1352,7 @@ export default function ReceiptCheck() {
         liftData={selectedLift}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <Label
                 htmlFor="dateOfReceiving"
@@ -1337,7 +1369,7 @@ export default function ReceiptCheck() {
                 className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${formErrors.dateOfReceiving ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
               />
               {formErrors.dateOfReceiving && (
-                <p className="text-red-500 text-xs mt-1">
+                <p className="mt-1 text-xs text-red-500">
                   {formErrors.dateOfReceiving}
                 </p>
               )}
@@ -1390,7 +1422,7 @@ export default function ReceiptCheck() {
                 name="qtyDifference"
                 value={formData.qtyDifference}
                 readOnly
-                className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm sm:text-sm"
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm bg-gray-50 sm:text-sm"
               />
             </div>
             <div>
@@ -1417,7 +1449,7 @@ export default function ReceiptCheck() {
                 </SelectContent>
               </Select>
               {formErrors.physicalCondition && (
-                <p className="text-red-500 text-xs mt-1">
+                <p className="mt-1 text-xs text-red-500">
                   {formErrors.physicalCondition}
                 </p>
               )}
@@ -1446,7 +1478,7 @@ export default function ReceiptCheck() {
                 </SelectContent>
               </Select>
               {formErrors.moisture && (
-                <p className="text-red-500 text-xs mt-1">
+                <p className="mt-1 text-xs text-red-500">
                   {formErrors.moisture}
                 </p>
               )}
@@ -1467,12 +1499,12 @@ export default function ReceiptCheck() {
                 className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 ${formErrors.physicalImageFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
               />
               {formData.physicalImageFile && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Selected: {formData.physicalImageFile.name}
                 </p>
               )}
               {formData.physicalImageUrl && !formData.physicalImageFile && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Existing:{" "}
                   <a
                     href={formData.physicalImageUrl}
@@ -1485,7 +1517,7 @@ export default function ReceiptCheck() {
                 </p>
               )}
               {formErrors.physicalImageFile && (
-                <p className="text-red-500 text-xs mt-1">
+                <p className="mt-1 text-xs text-red-500">
                   {formErrors.physicalImageFile}
                 </p>
               )}
@@ -1506,12 +1538,12 @@ export default function ReceiptCheck() {
                 className={`mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 ${formErrors.weightSlipFile ? "border-red-500 ring-1 ring-red-500 rounded-md" : ""}`}
               />
               {formData.weightSlipFile && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Selected: {formData.weightSlipFile.name}
                 </p>
               )}
               {formData.weightSlipImageUrl && !formData.weightSlipFile && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Existing:{" "}
                   <a
                     href={formData.weightSlipImageUrl}
@@ -1524,7 +1556,7 @@ export default function ReceiptCheck() {
                 </p>
               )}
               {formErrors.weightSlipFile && (
-                <p className="text-red-500 text-xs mt-1">
+                <p className="mt-1 text-xs text-red-500">
                   {formErrors.weightSlipFile}
                 </p>
               )}
@@ -1533,7 +1565,7 @@ export default function ReceiptCheck() {
 
           {/* Quantity Comparison Warning Removed */}
 
-          <div className="pt-5 sm:pt-6 flex flex-col sm:flex-row-reverse gap-3 sm:gap-0 sm:justify-start">
+          <div className="flex flex-col gap-3 pt-5 sm:pt-6 sm:flex-row-reverse sm:gap-0 sm:justify-start">
             <Button
               type="submit"
               disabled={isSubmitting}

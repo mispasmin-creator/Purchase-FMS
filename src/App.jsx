@@ -914,8 +914,9 @@ function countQuantityMismatches(lifts) {
       lift.actualQuantityY <= 0
     )
       return;
-    const qtyDifference = Math.abs(lift.liftedQty - lift.actualQuantityY);
-    if (qtyDifference >= 0.01) count++;
+    const qtyDifference = lift.actualQuantityY - lift.liftedQty;
+    // Only count as mismatch if actual < billed (shortage)
+    if (qtyDifference < -0.01) count++;
   });
   return count;
 }

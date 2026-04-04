@@ -322,6 +322,8 @@ export default function CreatePO() {
     if (!formData.notes) next.notes = "PO notes are required";
     if (!formData.indents.length)
       next.indents = "At least one item is required";
+    if (!formData.transportType)
+      next.transportType = "Transport type is required";
     if (formData.advanceToBePaid === "yes" && !formData.toBePaidAmount)
       next.toBePaidAmount = "Advance amount is required";
     if (formData.advanceToBePaid === "yes" && !formData.whenToBePaid)
@@ -678,7 +680,9 @@ export default function CreatePO() {
                   />
                 </div>
                 <div>
-                  <Label className="block mb-2">Transport Type</Label>
+                  <Label className="block mb-2">
+                    Transport Type <span className="text-red-500">*</span>
+                  </Label>
                   <Select
                     value={formData.transportType || ""}
                     onValueChange={(value) => setField("transportType", value)}
@@ -694,6 +698,11 @@ export default function CreatePO() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.transportType && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.transportType}
+                    </p>
+                  )}
                 </div>
               </div>
 

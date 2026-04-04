@@ -641,40 +641,43 @@ export default function MismatchAnalysis() {
 
     // Validate action type is selected
     if (!actionType) {
-      toast.error('Please select an Action Type.');
+      toast.error("Please select an Action Type.");
       return;
     }
 
     // If Purchase Return, just update status in Mismatch (Creation is handled on PR page)
-    if (actionType === 'Purchase Return') {
+    if (actionType === "Purchase Return") {
       setSubmitting(true);
       try {
         // ONLY update Mismatch status - the separate page will handle the record creation
         const { error: updateError } = await supabase
           .from("Mismatch")
           .update({
-            "Status": "Purchase Return",
+            Status: "Purchase Return",
             "Action Type": actionType,
-            "Remarks": formData.remarks || ''
+            Remarks: formData.remarks || "",
           })
-          .eq('Lift Number', editingRowData.liftNo);
+          .eq("Lift Number", editingRowData.liftNo);
 
         if (updateError) throw updateError;
 
-        setSubmittedRows(prev => new Set([...prev, `mismatch_${editingRowData.liftNo}`]));
+        setSubmittedRows(
+          (prev) => new Set([...prev, `mismatch_${editingRowData.liftNo}`]),
+        );
         setEditingRow(null);
         setEditingRowData(null);
         setFormData({});
-        setActionType('');
-        toast.success(`✅ SUCCESS: Mismatch record marked for Purchase Return.`);
+        setActionType("");
+        toast.success(
+          `✅ SUCCESS: Mismatch record marked for Purchase Return.`,
+        );
 
         setTimeout(() => {
           fetchMismatchSheetData();
           fetchLiftAccountsData();
         }, 500);
-
       } catch (error) {
-        console.error('Submission error:', error);
+        console.error("Submission error:", error);
         toast.error(`❌ SUBMISSION FAILED: ${error.message}`);
       } finally {
         setSubmitting(false);
@@ -684,7 +687,7 @@ export default function MismatchAnalysis() {
 
     // Validate debit note fields
     if (!formData.debitAmount) {
-      toast.error('Please enter a Debit Amount.');
+      toast.error("Please enter a Debit Amount.");
       return;
     }
 
@@ -699,27 +702,28 @@ export default function MismatchAnalysis() {
       // Upload debit note image if provided
       let debitNoteUrl = null;
       if (debitNoteFile) {
-        const fileExt = debitNoteFile.name.split('.').pop();
+        const fileExt = debitNoteFile.name.split(".").pop();
         const fileName = `debit-notes/${editingRowData.liftNo}_debit_${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
-          .from('image')
+          .from("image")
           .upload(fileName, debitNoteFile);
         if (uploadError) throw uploadError;
         const { data: publicUrlData } = supabase.storage
-          .from('image')
+          .from("image")
           .getPublicUrl(fileName);
         debitNoteUrl = publicUrlData.publicUrl;
       }
 
       // Determine status based on action type
-      const status = actionType === 'Debit Note for Transporter'
-        ? 'Credit Notes - Transporter'
-        : 'Credit Notes';
+      const status =
+        actionType === "Debit Note for Transporter"
+          ? "Credit Notes - Transporter"
+          : "Credit Notes";
 
       const updates = {
-        "Status": status,
+        Status: status,
         "Action Type": actionType,
-        "Remarks": formData.remarks || '',
+        Remarks: formData.remarks || "",
         "Debit Amount": parseFloat(formData.debitAmount) || null,
       };
       if (debitNoteUrl) {
@@ -730,28 +734,33 @@ export default function MismatchAnalysis() {
       const { error: updateError } = await supabase
         .from("Mismatch")
         .update(updates)
-        .eq('Lift Number', editingRowData.liftNo);
+        .eq("Lift Number", editingRowData.liftNo);
 
       if (updateError) throw updateError;
 
-      setSubmittedRows(prev => new Set([...prev, `mismatch_${editingRowData.liftNo}`]));
+      setSubmittedRows(
+        (prev) => new Set([...prev, `mismatch_${editingRowData.liftNo}`]),
+      );
       setEditingRow(null);
       setEditingRowData(null);
       setFormData({});
-      setActionType('');
+      setActionType("");
       setDebitNoteFile(null);
 
-      const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
-      toast.success(`✅ SUCCESS: Mismatch data corrected and resolved for: ${editingRow}\nUpdated at: ${actualDateTime}`);
+      const actualDateTime = currentDate
+        .toLocaleString("en-GB", { hour12: false })
+        .replace(",", "");
+      toast.success(
+        `✅ SUCCESS: Mismatch data corrected and resolved for: ${editingRow}\nUpdated at: ${actualDateTime}`,
+      );
 
       // Refresh data
       setTimeout(() => {
         fetchMismatchSheetData();
         fetchLiftAccountsData();
       }, 500);
-
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error("Submission error:", error);
       toast.error(`❌ SUBMISSION FAILED: ${error.message}`);
     } finally {
       setSubmitting(false);
@@ -762,8 +771,10 @@ export default function MismatchAnalysis() {
   const renderModal = () => {
     if (!editingRow) return null;
 
-    const isDebitNote = actionType === 'Debit Note for Vendor' || actionType === 'Debit Note for Transporter';
-    const isPurchaseReturn = actionType === 'Purchase Return';
+    const isDebitNote =
+      actionType === "Debit Note for Vendor" ||
+      actionType === "Debit Note for Transporter";
+    const isPurchaseReturn = actionType === "Purchase Return";
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -771,35 +782,78 @@ export default function MismatchAnalysis() {
           <div className="p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Submit Mismatch Correction</h3>
-              <button onClick={() => { setEditingRow(null); setActionType(''); setDebitNoteFile(null); }} className="text-gray-400 hover:text-gray-600">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Submit Mismatch Correction
+              </h3>
+              <button
+                onClick={() => {
+                  setEditingRow(null);
+                  setActionType("");
+                  setDebitNoteFile(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <X className="w-6 h-6" />
               </button>
             </div>
 
             {/* Mismatch Details */}
             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-gray-700 mb-2">Mismatch Details</h4>
+              <h4 className="font-medium text-gray-700 mb-2">
+                Mismatch Details
+              </h4>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><span className="text-gray-500">Lift ID:</span> <span className="font-medium">{editingRow}</span></div>
-                <div><span className="text-gray-500">Mismatch Type:</span> <span className="font-medium">{activeTab === 'rateMismatch' ? 'Rate' : activeTab === 'quantityMismatch' ? 'Quantity' : 'Lab'}</span></div>
-                {editingRowData?.vendorName && <div><span className="text-gray-500">Party:</span> <span className="font-medium">{editingRowData.vendorName}</span></div>}
-                {editingRowData?.material && <div><span className="text-gray-500">Material:</span> <span className="font-medium">{editingRowData.material}</span></div>}
+                <div>
+                  <span className="text-gray-500">Lift ID:</span>{" "}
+                  <span className="font-medium">{editingRow}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Mismatch Type:</span>{" "}
+                  <span className="font-medium">
+                    {activeTab === "rateMismatch"
+                      ? "Rate"
+                      : activeTab === "quantityMismatch"
+                        ? "Quantity"
+                        : "Lab"}
+                  </span>
+                </div>
+                {editingRowData?.vendorName && (
+                  <div>
+                    <span className="text-gray-500">Party:</span>{" "}
+                    <span className="font-medium">
+                      {editingRowData.vendorName}
+                    </span>
+                  </div>
+                )}
+                {editingRowData?.material && (
+                  <div>
+                    <span className="text-gray-500">Material:</span>{" "}
+                    <span className="font-medium">
+                      {editingRowData.material}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Action Type Dropdown */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Action Type <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Action Type <span className="text-red-500">*</span>
+                </label>
                 <select
                   value={actionType}
                   onChange={(e) => setActionType(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
                 >
                   <option value="">-- Select Action Type --</option>
-                  <option value="Debit Note for Vendor">Debit Note for Vendor</option>
-                  <option value="Debit Note for Transporter">Debit Note for Transporter</option>
+                  <option value="Debit Note for Vendor">
+                    Debit Note for Vendor
+                  </option>
+                  <option value="Debit Note for Transporter">
+                    Debit Note for Transporter
+                  </option>
                   <option value="Purchase Return">Purchase Return</option>
                 </select>
               </div>
@@ -810,9 +864,13 @@ export default function MismatchAnalysis() {
                   <div className="flex items-start gap-3">
                     <Info className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-orange-800">Assign to Purchase Return</p>
+                      <p className="text-sm font-medium text-orange-800">
+                        Assign to Purchase Return
+                      </p>
                       <p className="text-xs text-orange-600 mt-1">
-                        Click confirm to mark this mismatch for purchase return. You can then manage return details through the separate "Purchase Return" page in the sidebar.
+                        Click confirm to mark this mismatch for purchase return.
+                        You can then manage return details through the separate
+                        "Purchase Return" page in the sidebar.
                       </p>
                     </div>
                   </div>
@@ -823,17 +881,23 @@ export default function MismatchAnalysis() {
               {isDebitNote && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Debit Amount <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Debit Amount <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="number"
-                      value={formData.debitAmount || ''}
-                      onChange={(e) => handleFormChange('debitAmount', e.target.value)}
+                      value={formData.debitAmount || ""}
+                      onChange={(e) =>
+                        handleFormChange("debitAmount", e.target.value)
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="Enter debit amount (e.g. 5000)"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Debit Note Image</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Debit Note Image
+                    </label>
                     <input
                       type="file"
                       accept="image/*,application/pdf"
@@ -841,14 +905,20 @@ export default function MismatchAnalysis() {
                       className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 cursor-pointer"
                     />
                     {debitNoteFile && (
-                      <p className="mt-1 text-xs text-gray-500">📎 {debitNoteFile.name}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        📎 {debitNoteFile.name}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Reason / Remarks</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Reason / Remarks
+                    </label>
                     <textarea
-                      value={formData.remarks || ''}
-                      onChange={(e) => handleFormChange('remarks', e.target.value)}
+                      value={formData.remarks || ""}
+                      onChange={(e) =>
+                        handleFormChange("remarks", e.target.value)
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm resize-none"
                       placeholder="Enter correction details and notes..."
                       rows={3}
@@ -861,7 +931,11 @@ export default function MismatchAnalysis() {
             {/* Footer */}
             <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
               <button
-                onClick={() => { setEditingRow(null); setActionType(''); setDebitNoteFile(null); }}
+                onClick={() => {
+                  setEditingRow(null);
+                  setActionType("");
+                  setDebitNoteFile(null);
+                }}
                 disabled={submitting}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 transition-colors duration-200"
               >
@@ -873,8 +947,8 @@ export default function MismatchAnalysis() {
                   disabled={submitting}
                   className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md ${
                     isPurchaseReturn
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus:ring-blue-500'
-                      : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-[#6b8e2f]'
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus:ring-blue-500"
+                      : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-[#6b8e2f]"
                   }`}
                 >
                   {submitting ? (
@@ -883,10 +957,10 @@ export default function MismatchAnalysis() {
                     <Save className="w-4 h-4 mr-2" />
                   )}
                   {submitting
-                    ? 'Submitting...'
+                    ? "Submitting..."
                     : isPurchaseReturn
-                      ? 'Confirm Purchase Return'
-                      : 'Submit Debit Note'}
+                      ? "Confirm Purchase Return"
+                      : "Submit Debit Note"}
                 </button>
               )}
             </div>
@@ -1345,9 +1419,10 @@ export default function MismatchAnalysis() {
     return mismatchSheetData
       .filter(
         (item) =>
-          (Math.abs(parseFloat(item["Quantity Difference"] || 0)) > 0.001 ||
-            Math.abs(parseFloat(item["Diff Qty"] || 0) !== 0) ||
-            item["Qty Diff Status"] === "Mismatch") &&
+          (parseFloat(item["Quantity Difference"] || 0) < -0.001 ||
+            parseFloat(item["Diff Qty"] || 0) < -0.001 ||
+            (item["Qty Diff Status"] === "Mismatch" &&
+              parseFloat(item["Quantity Difference"] || 0) < 0)) &&
           item["Status"] !== "Credit Notes" &&
           item["Status"] !== "Others" &&
           item["Status"] !== "Purchase Return",
