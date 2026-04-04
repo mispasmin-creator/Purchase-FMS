@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -90,6 +92,9 @@ const createEmptyVendorForm = () => ({
   bd: "",
   fineness: "",
   packaging: "",
+  transportType: "FOR",
+  notes: "",
+  expectedDate: "",
 });
 
 const normalizeVendorForm = (vendor = {}) => ({
@@ -204,6 +209,9 @@ export default function ThreeParty() {
                 bd: row["BD 1"] || "",
                 fineness: row["Fineness 1"] || "",
                 packaging: row["Packaging 1"] || "",
+                transportType: row["Transport Type 1"] || "FOR",
+                notes: row["Notes 1"] || "",
+                expectedDate: row["Expected Date 1"] || "",
               },
               {
                 name: row["Vendor Name 2"] || "",
@@ -228,6 +236,9 @@ export default function ThreeParty() {
                 bd: row["BD 2"] || "",
                 fineness: row["Fineness 2"] || "",
                 packaging: row["Packaging 2"] || "",
+                transportType: row["Transport Type 2"] || "FOR",
+                notes: row["Notes 2"] || "",
+                expectedDate: row["Expected Date 2"] || "",
               },
               {
                 name: row["Vendor Name 3"] || "",
@@ -252,6 +263,9 @@ export default function ThreeParty() {
                 bd: row["BD 3"] || "",
                 fineness: row["Fineness 3"] || "",
                 packaging: row["Packaging 3"] || "",
+                transportType: row["Transport Type 3"] || "FOR",
+                notes: row["Notes 3"] || "",
+                expectedDate: row["Expected Date 3"] || "",
               },
             ],
           }));
@@ -466,6 +480,9 @@ export default function ThreeParty() {
           bd: numericOrNull(v.bd),
           fineness: numericOrNull(v.fineness),
           packaging: v.packaging || "",
+          transportType: v.transportType || "FOR",
+          notes: v.notes || "",
+          expectedDate: v.expectedDate || null,
         };
       };
 
@@ -539,6 +556,15 @@ export default function ThreeParty() {
           "AP 3": v3.ap,
           "BD 3": v3.bd,
           "Fineness 3": v3.fineness,
+          "Transport Type 1": v1.transportType,
+          "Transport Type 2": v2.transportType,
+          "Transport Type 3": v3.transportType,
+          "Notes 1": v1.notes,
+          "Notes 2": v2.notes,
+          "Notes 3": v3.notes,
+          "Expected Date 1": v1.expectedDate,
+          "Expected Date 2": v2.expectedDate,
+          "Expected Date 3": v3.expectedDate,
           Planned7: new Date().toISOString(),
         })
         .eq("id", selectedIndent.id);
@@ -1253,6 +1279,38 @@ export default function ThreeParty() {
                               placeholder="vendor@email.com"
                             />
                           </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="block mb-1 text-[10px] text-gray-500">Transport Type</Label>
+                            <Select value={currentVendor.transportType} onValueChange={(v) => updateVendorForm(idx, "transportType", v)}>
+                              <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
+                                <SelectValue placeholder="Select Type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="FOR">FOR</SelectItem>
+                                <SelectItem value="ex-factory">ex-factory</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="block mb-1 text-[10px] text-gray-500">Expected Date</Label>
+                            <Input
+                              type="date"
+                              value={currentVendor.expectedDate || ""}
+                              onChange={(e) => updateVendorForm(idx, "expectedDate", e.target.value)}
+                              className="h-8 text-xs bg-white border-gray-200"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="block mb-1 text-[10px] text-gray-500">Notes</Label>
+                          <Textarea
+                            value={currentVendor.notes || ""}
+                            onChange={(e) => updateVendorForm(idx, "notes", e.target.value)}
+                            className="text-xs bg-white border-gray-200 min-h-[60px]"
+                            placeholder="Additional notes for this vendor..."
+                          />
                         </div>
                         <div>
                           <Label className="block mb-2 text-xs font-medium text-gray-600">Chemical Analysis (%)</Label>
