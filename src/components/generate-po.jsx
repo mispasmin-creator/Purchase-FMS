@@ -397,9 +397,18 @@ export default function CreatePO() {
       const { url } = await uploadFileToStorage(file, "image", "po-files");
       const now = new Date();
       const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      const isExFac = normalize(formData.transportType) === "ex-factory";
       const updates = {
         Actual2: stamp,
         PlannedLogistics: stamp,
+        ...(isExFac
+          ? {}
+          : {
+              ActualLogistics: stamp,
+              Planned9: stamp,
+              Actual9: stamp,
+              Planned3: stamp,
+            }),
         po_number: formData.poNumber,
         "Vendor name": formData.supplierName,
         Rate: Number(formData.indents[0]?.rate) || 0,
@@ -1020,7 +1029,7 @@ export default function CreatePO() {
                 {formData.terms.map((term, index) => {
                   const writable = termEditIndex === index;
                   return (
-                    <div className="flex items-center" key={`${term}-${index}`}>
+                    <div className="flex items-center" key={index}>
                       <span className="px-3">{index + 1}.</span>
                       <Input
                         className={`h-6 rounded-xs border-transparent shadow-none ${writable ? "border-b border-b-foreground" : ""}`}

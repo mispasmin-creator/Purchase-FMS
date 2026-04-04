@@ -82,7 +82,7 @@ const createEmptyTransporterForm = () => ({
 const normalizeTransporterForm = (transporter = {}) => ({
   ...createEmptyTransporterForm(),
   ...transporter,
-  rateType: transporter.rateType || transporter.vehicleType || "",
+  rateType: String(transporter.rateType || transporter.vehicleType || "").toLowerCase(),
 });
 
 export default function ArrangeLogistics() {
@@ -162,7 +162,10 @@ export default function ArrangeLogistics() {
               String(row["Firm Name"]).toLowerCase() === user.firmName.toLowerCase(),
           );
         }
-        filteredData = filteredData.filter((row) => row["Transport Type"] === "FOR");
+        filteredData = filteredData.filter(
+          (row) =>
+            String(row["Transport Type"]).trim().toLowerCase() === "ex-factory",
+        );
 
         const groupedData = Object.values(
           filteredData.reduce((acc, row) => {
@@ -471,21 +474,45 @@ export default function ArrangeLogistics() {
                       <div className="flex items-center justify-between mb-2"><span className="text-sm font-semibold text-gray-700">Transporter {idx + 1}</span><div className="flex items-center gap-2">{selectedTransporterIndex === idx && <Badge className="text-green-700 bg-green-100">Selected</Badge>}{transporterForms.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => removeTransporterSlot(idx)}>Remove</Button>}</div></div>
                       <div>
                         <Label className="block mb-1 text-xs font-medium text-gray-600">Transporter Name</Label>
-                        {String(selectedIndent?.transportType || "").trim().toUpperCase() === "EX-FACTORY" ? (
-                          <Input value={currentTransporter.name} onChange={(e) => updateTransporterForm(idx, "name", e.target.value)} className="text-sm border-gray-200 h-9 bg-white" placeholder="Enter transporter name" />
-                        ) : (
-                          <Popover open={transporterPopoverOpen[idx]} onOpenChange={(open) => setTransporterPopoverOpen((prev) => prev.map((value, index) => index === idx ? open : value))}>
-                            <PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between text-sm border-gray-200 h-9 bg-white font-normal"><span className="truncate">{currentTransporter.name || "Select transporter"}</span><ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" /></Button></PopoverTrigger>
-                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2">
-                              <Input value={transporterSearchTerms[idx] || ""} onChange={(e) => setTransporterSearchTerms((prev) => prev.map((term, index) => index === idx ? e.target.value : term))} placeholder="Search transporter..." className="mb-2 h-8 text-xs" />
-                              <div className="max-h-60 overflow-y-auto">{transporterMasterOptions.filter((transporter) => transporter.name.toLowerCase().includes((transporterSearchTerms[idx] || "").trim().toLowerCase())).map((transporter, transporterIndex) => <button key={`${idx}-${transporterIndex}`} type="button" onClick={() => { applyTransporterMasterSelection(idx, transporter.name); setTransporterSearchTerms((prev) => prev.map((term, index) => index === idx ? "" : term)); setTransporterPopoverOpen((prev) => prev.map((value, index) => index === idx ? false : value)); }} className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-slate-100"><span>{transporter.name}</span>{currentTransporter.name === transporter.name && <Check className="w-4 h-4 text-primary" />}</button>)}</div>
-                            </PopoverContent>
-                          </Popover>
-                        )}
+                        <Popover open={transporterPopoverOpen[idx]} onOpenChange={(open) => setTransporterPopoverOpen((prev) => prev.map((value, index) => index === idx ? open : value))}>
+                          <PopoverTrigger asChild>
+                            <Button type="button" variant="outline" className="w-full justify-between text-sm border-gray-200 h-9 bg-white font-normal">
+                              <span className="truncate">{currentTransporter.name || "Select transporter"}</span>
+                              <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2">
+                            <Input 
+                              value={transporterSearchTerms[idx] || ""} 
+                              onChange={(e) => setTransporterSearchTerms((prev) => prev.map((term, index) => index === idx ? e.target.value : term))} 
+                              placeholder="Search transporter..." 
+                              className="mb-2 h-8 text-xs" 
+                            />
+                            <div className="max-h-60 overflow-y-auto">
+                              {transporterMasterOptions
+                                .filter((transporter) => transporter.name.toLowerCase().includes((transporterSearchTerms[idx] || "").trim().toLowerCase()))
+                                .map((transporter, transporterIndex) => (
+                                  <button 
+                                    key={`${idx}-${transporterIndex}`} 
+                                    type="button" 
+                                    onClick={() => { 
+                                      applyTransporterMasterSelection(idx, transporter.name); 
+                                      setTransporterSearchTerms((prev) => prev.map((term, index) => index === idx ? "" : term)); 
+                                      setTransporterPopoverOpen((prev) => prev.map((value, index) => index === idx ? false : value)); 
+                                    }} 
+                                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                  >
+                                    <span>{transporter.name}</span>
+                                    {currentTransporter.name === transporter.name && <Check className="w-4 h-4 text-primary" />}
+                                  </button>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div>
                         <Label className="block mb-1 text-xs font-medium text-gray-600">Transport Type</Label>
-                        <Select value={currentTransporter.rateType || ""} onValueChange={(value) => updateTransporterForm(idx, "rateType", value)}>
+                        <Select value={currentTransporter.rateType || undefined} onValueChange={(value) => updateTransporterForm(idx, "rateType", value)}>
                           <SelectTrigger className="text-sm border-gray-200 h-9 bg-white">
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
