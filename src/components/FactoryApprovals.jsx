@@ -78,7 +78,7 @@ const VendorCard = ({ vendor, tag }) => {
         : "With Tax";
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md transition-all hover:shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -97,20 +97,34 @@ const VendorCard = ({ vendor, tag }) => {
           </Badge>
         )}
       </div>
-      <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-          Rate
-        </span>
-        <span className="text-lg font-bold text-gray-900">₹{vendor.rate}</span>
+
+      {/* Lab Details Section */}
+      <div className="mt-3 grid grid-cols-3 gap-1.5 rounded-lg bg-slate-50 p-2 border border-slate-100">
+        {[
+          { label: "Alumina", value: vendor.alumina, unit: "%" },
+          { label: "Iron", value: vendor.iron, unit: "%" },
+          { label: "SiO2", value: vendor.sio2, unit: "%" },
+          { label: "CaO", value: vendor.cao, unit: "%" },
+          { label: "AP", value: vendor.ap, unit: "%" },
+          { label: "BD", value: vendor.bd, unit: "%" },
+        ].filter(item => item.value && item.value !== "0").map((item, i) => (
+          <div key={i} className="text-center">
+            <p className="text-[9px] font-medium text-gray-500 uppercase tracking-tighter">{item.label}</p>
+            <p className="text-[11px] font-bold text-gray-800">{item.value}{item.unit}</p>
+          </div>
+        ))}
+        {vendor.fineness && (
+          <div className="col-span-3 border-t border-slate-200 mt-1 pt-1">
+            <p className="text-[9px] font-medium text-gray-500 text-center">FINENESS: {vendor.fineness}</p>
+          </div>
+        )}
       </div>
+
       <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-gray-500">
-        <span>{gstNote}</span>
-        {vendor.packaging ? <span>{vendor.packaging}</span> : null}
+        <span className="flex items-center gap-1 bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 font-medium">{gstNote}</span>
+        {vendor.packaging ? <span className="flex items-center gap-1 bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{vendor.packaging}</span> : null}
         {vendor.advancePercentage ? (
-          <span>Advance {vendor.advancePercentage}%</span>
-        ) : null}
-        {vendor.quotationNumber ? (
-          <span>Quote {vendor.quotationNumber}</span>
+          <span className="text-amber-600 font-medium">Adv. {vendor.advancePercentage}%</span>
         ) : null}
       </div>
     </div>
@@ -399,38 +413,39 @@ export default function FactoryApprovals() {
                 <Table>
                   <TableHeader className="bg-gray-50">
                     <TableRow>
+                      <TableHead className="w-[100px]">Action</TableHead>
                       <TableHead>Indent</TableHead>
                       <TableHead>Firm</TableHead>
                       <TableHead>Product</TableHead>
                       <TableHead>Vendors</TableHead>
                       <TableHead>Three Party Done</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPendingData.map((item) => (
                       <TableRow key={item.id}>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            className="bg-[#7da23a] hover:bg-[#6b8e2f] h-8"
+                            onClick={() => openCategorizationDialog(item)}
+                          >
+                            Categorise
+                          </Button>
+                        </TableCell>
                         <TableCell className="font-medium">{item.indentId}</TableCell>
                         <TableCell>{item.firmName}</TableCell>
                         <TableCell>{item.product}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1.5">
                             {item.vendors.map((vendor) => (
-                              <Badge key={vendor.slot} variant="outline">
+                              <Badge key={vendor.slot} variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-200 border-0">
                                 {vendor.name}
                               </Badge>
                             ))}
                           </div>
                         </TableCell>
-                        <TableCell>{formatDateTime(item.planned7)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            className="bg-[#7da23a] hover:bg-[#6b8e2f]"
-                            onClick={() => openCategorizationDialog(item)}
-                          >
-                            Categorise
-                          </Button>
-                        </TableCell>
+                        <TableCell className="text-xs text-gray-500 whitespace-nowrap">{formatDateTime(item.planned7)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
