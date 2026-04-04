@@ -1002,11 +1002,11 @@ export default function LiftMaterial() {
       material: po.rawMaterialName,
       totalQuantity: po.quantity,
       TransporterName:
-        po.transportType?.toUpperCase() === "FOR"
+        po.transportType?.toUpperCase() === "EX-FACTORY"
           ? po.transporterName || transporterOptions[0]?.value || ""
           : po.transporterName || "",
       rateType:
-        po.transportType?.toUpperCase() === "FOR" || po.transportRateType
+        po.transportType?.toUpperCase() === "EX-FACTORY" || po.transportRateType
           ? po.transportRateType || ""
           : "",
 
@@ -2323,7 +2323,7 @@ export default function LiftMaterial() {
                       disabled:
                         String(selectedPO?.transportType || "")
                           .trim()
-                          .toUpperCase() === "FOR",
+                          .toUpperCase() === "EX-FACTORY",
                       options: [
                         { value: "", label: "Select transporter" },
                         ...transporterOptions,
@@ -2337,7 +2337,7 @@ export default function LiftMaterial() {
                       disabled:
                         String(selectedPO?.transportType || "")
                           .trim()
-                          .toUpperCase() === "FOR",
+                          .toUpperCase() === "EX-FACTORY",
                       options: [
                         { value: "", label: "Select rate type" },
                         ...rateTypeOptions,
