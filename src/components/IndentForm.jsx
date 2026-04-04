@@ -50,6 +50,7 @@ export default function IndentForm() {
     priority: "",
     typeOfIndent: "",
     uom: "",
+    expectedRequirementDate: "",
   });
   const [errors, setErrors] = useState({});
   const [dropdownOptions, setDropdownOptions] = useState({
@@ -192,6 +193,8 @@ export default function IndentForm() {
     if (!formData.firmName) newErrors.firmName = "Firm Name is required.";
     if (!formData.rawMaterialName)
       newErrors.rawMaterialName = "Raw Material Name is required.";
+    if (!formData.expectedRequirementDate)
+      newErrors.expectedRequirementDate = "Expected Requirement Date is required.";
 
     // Stricter check for Quantity
     if (!formData.quantity) {
@@ -290,6 +293,7 @@ export default function IndentForm() {
           "Delivery Order No.": formData.deliveryOrderNo || null, // Send null if empty
           Notes: formData.notes,
           UOM: formData.uom,
+          expected_requierment_date: formData.expectedRequirementDate,
         },
       ]);
 
@@ -317,6 +321,7 @@ export default function IndentForm() {
         priority: "",
         typeOfIndent: "",
         uom: "",
+        expectedRequirementDate: "",
       });
       setErrors({});
     } catch (error) {
@@ -595,7 +600,6 @@ export default function IndentForm() {
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Regular">Regular</SelectItem>
                     <SelectItem value="Urgent">Urgent</SelectItem>
                     <SelectItem value="Planned">Planned</SelectItem>
                   </SelectContent>
@@ -633,6 +637,23 @@ export default function IndentForm() {
                   <p className="mt-1 text-xs text-red-500">
                     {errors.typeOfIndent}
                   </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="expectedRequirementDate">
+                  Expected Requirement Date <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="expectedRequirementDate"
+                  type="date"
+                  name="expectedRequirementDate"
+                  value={formData.expectedRequirementDate}
+                  onChange={handleChange}
+                  className={`mt-1 ${errors.expectedRequirementDate ? "border-red-500" : ""}`}
+                />
+                {errors.expectedRequirementDate && (
+                  <p className="mt-1 text-xs text-red-500">{errors.expectedRequirementDate}</p>
                 )}
               </div>
 
