@@ -971,7 +971,7 @@ export default function ThreeParty() {
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="sm:max-w-[1400px] p-0 overflow-hidden rounded-2xl">
           {selectedIndent && (
-            <div className="flex flex-col h-full max-h-[85vh]">
+            <div className="flex flex-col h-full max-h-[100vh]">
               {/* Header with Indent Info */}
               <DialogHeader className="px-6 pt-6 pb-3 border-b border-gray-100">
                 <DialogTitle className="text-lg font-semibold text-gray-800">

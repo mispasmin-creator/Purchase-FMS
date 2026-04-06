@@ -208,7 +208,7 @@ export default function ManageUsers() {
     try {
       const pagesValue = formData.permissions.includes("admin")
         ? "all"
-        : JSON.stringify(formData.permissions);
+        : formData.permissions;
 
       const payload = {
         "User Name": formData.username,
