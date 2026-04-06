@@ -297,7 +297,7 @@ export default function TallyEntry() {
       const hasActual3 = row.rawActual3 && row.rawActual3 !== null;
       const isForTransport = String(row.transportType || "").trim().toUpperCase() === "FOR";
       const hasCompletedLogistics =
-        !isForTransport || (row.rawActualLogistics && String(row.rawActualLogistics).trim() !== "");
+        isForTransport || (row.rawActualLogistics && String(row.rawActualLogistics).trim() !== "");
       if (hasCompletedLogistics && hasPlanned3 && !hasActual3) {
         pending.push(row);
       } else if (hasCompletedLogistics && hasPlanned3 && hasActual3) {
