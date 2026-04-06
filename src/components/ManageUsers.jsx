@@ -46,7 +46,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { toast } from "sonner";
+
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 
@@ -84,6 +92,8 @@ const ALL_PAGES = [
   "KYC",
   "Vendor Payment",
 ];
+
+const FIRMS = ["Pmmpl", "Purab", "Rkl"];
 
 export default function ManageUsers() {
   const { user: currentUser } = useAuth();
@@ -490,24 +500,23 @@ export default function ManageUsers() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="firm"
-                    className="text-sm font-semibold text-gray-700"
+                  <Label htmlFor="firm" className="text-sm font-semibold text-gray-700">Organization / Firm Name</Label>
+                  <Select 
+                    value={formData.firmName} 
+                    onValueChange={(value) => setFormData({...formData, firmName: value})}
                   >
-                    Organization / Firm Name
-                  </Label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="firm"
-                      placeholder="e.g. Acme Corp"
-                      className="pl-10"
-                      value={formData.firmName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, firmName: e.target.value })
-                      }
-                    />
-                  </div>
+                    <SelectTrigger className="w-full bg-white border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-gray-400" />
+                        <SelectValue placeholder="Select Organization" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FIRMS.map(firm => (
+                        <SelectItem key={firm} value={firm}>{firm}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">

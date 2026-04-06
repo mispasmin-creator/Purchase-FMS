@@ -900,7 +900,7 @@ export default function CreatePO() {
                       <TableHead>GST (%)</TableHead>
                       <TableHead>Discount (%)</TableHead>
                       <TableHead>Amount</TableHead>
-                      <TableHead></TableHead>
+
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -948,38 +948,23 @@ export default function CreatePO() {
                             type="number"
                             className="w-16 text-center h-9 bg-gray-50"
                             value={item.gstPercent || 0}
-                            onChange={(e) =>
-                              updateIndent(index, "gstPercent", e.target.value)
-                            }
+                            readOnly
                           />
+
                         </TableCell>
                         <TableCell>
                           <Input
                             type="number"
                             className="w-16 text-center h-9 bg-gray-50"
                             value={item.discountPercent || 0}
-                            onChange={(e) =>
-                              updateIndent(
-                                index,
-                                "discountPercent",
-                                e.target.value,
-                              )
-                            }
+                            readOnly
                           />
+
                         </TableCell>
                         <TableCell className="font-medium">
                           Rs. {money(lineTotal(item))}
                         </TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeIndent(index)}
-                          >
-                            <Trash size={16} className="text-red-500" />
-                          </Button>
-                        </TableCell>
+
                       </TableRow>
                     ))}
                   </TableBody>
