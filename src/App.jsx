@@ -31,6 +31,8 @@ import DebitNote from "./components/Debit-note";
 import SaleOfRawMaterial from "./components/SaleOfRawMaterial";
 import PurchaserCoordinate from "./components/PurchaserCoordinate";
 import PurchaseReturnPage from "./components/PurchaseReturnPage";
+import ManageUsers from "./components/ManageUsers";
+
 
 import { useAuth } from "./context/AuthContext";
 import { useNotification } from "./context/NotificationContext"; // Import hook
@@ -81,7 +83,9 @@ import {
   ShoppingBag,
   CheckCircle2,
   PhoneCall,
+  Users,
 } from "lucide-react";
+
 import { Toaster } from "@/components/ui/sonner";
 
 function App() {
@@ -440,7 +444,18 @@ function App() {
       component: <PurchaseReturnPage />,
       hidden: false,
     },
+    {
+      id: "manage-users",
+      label: "Manage Users",
+      path: "/manage-users",
+      icon: <Users size={20} />,
+      stepName: "admin",
+      showNotification: false,
+      component: <ManageUsers />,
+      hidden: false,
+    },
   ];
+
 
   const accessibleTabs = allTabs.filter((tab) => {
     // Always show dashboard

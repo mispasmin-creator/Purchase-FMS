@@ -762,7 +762,10 @@ export default function FactoryApprovals() {
                       Technical Categorisation
                     </DialogTitle>
                     <DialogDescription className="text-xs text-gray-500 mt-0.5">
-                      Assigning for <span className="font-semibold text-gray-900">{selectedIndent.indentId}</span>
+                      Assigning for{" "}
+                      <span className="font-semibold text-gray-900">
+                        {selectedIndent.indentId}
+                      </span>
                     </DialogDescription>
                   </div>
                 </div>
@@ -773,9 +776,14 @@ export default function FactoryApprovals() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-[#7da23a] animate-pulse" />
-                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Categorisation Progress</span>
+                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      Categorisation Progress
+                    </span>
                   </div>
-                  <Badge variant="outline" className="text-[10px] font-bold border-gray-200">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-bold border-gray-200"
+                  >
                     {assignedCount} / {totalVendors} Vendors Assigned
                   </Badge>
                 </div>
@@ -787,14 +795,15 @@ export default function FactoryApprovals() {
                 </div>
                 <p className="text-[10px] text-gray-500 mt-2 italic flex items-center gap-1">
                   <Info className="h-3 w-3" />
-                  Drag vendors from the pool to assign them to T1, T2, or T3 buckets.
+                  Drag vendors from the pool to assign them to T1, T2, or T3
+                  buckets.
                 </p>
               </div>
 
               {/* scrollable Body */}
               <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden bg-white">
                 {/* Unassigned Pool - Independent Scroll */}
-                <div 
+                <div
                   className={`w-full lg:w-1/3 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-100 transition-colors duration-300 ${dragOverPool ? "bg-emerald-50/30" : "bg-white"}`}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -804,7 +813,9 @@ export default function FactoryApprovals() {
                   onDrop={handleDropToPool}
                 >
                   <div className="p-3 pb-2 border-b border-gray-50 bg-gray-50/30 flex items-center justify-between flex-shrink-0">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Unassigned Pool</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                      Unassigned Pool
+                    </span>
                     <Badge className="bg-gray-800 text-white text-[9px] h-4">
                       {selectedUnassignedVendors.length}
                     </Badge>
@@ -828,8 +839,12 @@ export default function FactoryApprovals() {
                     ) : (
                       <div className="h-32 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-emerald-100 bg-emerald-50/50 p-4 text-center">
                         <CheckCircle2 className="h-6 w-6 text-emerald-500 mb-2 opacity-60" />
-                        <p className="text-[11px] font-bold text-emerald-700">All Assigned</p>
-                        <p className="text-[9px] text-emerald-600/70">Ready to save</p>
+                        <p className="text-[11px] font-bold text-emerald-700">
+                          All Assigned
+                        </p>
+                        <p className="text-[9px] text-emerald-600/70">
+                          Ready to save
+                        </p>
                       </div>
                     )}
                   </div>
@@ -838,14 +853,17 @@ export default function FactoryApprovals() {
                 {/* Technical Buckets - Independent Scroll */}
                 <div className="flex-1 flex flex-col bg-slate-50/20">
                   <div className="p-3 pb-2 border-b border-gray-50 bg-gray-50/30 flex-shrink-0">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Evaluation Buckets</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">
+                      Evaluation Buckets
+                    </span>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 lg:p-6 custom-scrollbar overscroll-contain">
                     <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                       {TECHNICAL_TAGS.map((tag) => {
                         const assignedSlot = technicalAssignments[tag];
                         const vendor = selectedIndent.vendors.find(
-                          (currentVendor) => currentVendor.slot === assignedSlot,
+                          (currentVendor) =>
+                            currentVendor.slot === assignedSlot,
                         );
                         const isDragOver = dragOverTag === tag;
 
@@ -878,7 +896,7 @@ export default function FactoryApprovals() {
                             className={`flex flex-col min-h-[160px] rounded-2xl border-2 p-4 transition-all duration-300 ${
                               isDragOver
                                 ? `bg-gradient-to-br ${config.gradient} ${config.border} shadow-lg scale-[1.03] ring-2 ring-emerald-400/20`
-                                : vendor 
+                                : vendor
                                   ? `bg-white ${config.border} shadow-sm`
                                   : `bg-gradient-to-br ${config.gradient} ${config.border} border-dashed`
                             }`}
@@ -898,16 +916,28 @@ export default function FactoryApprovals() {
                           >
                             <div className="mb-4 flex items-start justify-between">
                               <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-xl ${
-                                  tag === "T1" ? "bg-emerald-100" : 
-                                  tag === "T2" ? "bg-blue-100" : "bg-amber-100"
-                                }`}>
-                                  <IconComponent className={`h-4 w-4 ${
-                                    tag === "T1" ? "text-emerald-700" : 
-                                    tag === "T2" ? "text-blue-700" : "text-amber-700"
-                                  }`} />
+                                <div
+                                  className={`p-2 rounded-xl ${
+                                    tag === "T1"
+                                      ? "bg-emerald-100"
+                                      : tag === "T2"
+                                        ? "bg-blue-100"
+                                        : "bg-amber-100"
+                                  }`}
+                                >
+                                  <IconComponent
+                                    className={`h-4 w-4 ${
+                                      tag === "T1"
+                                        ? "text-emerald-700"
+                                        : tag === "T2"
+                                          ? "text-blue-700"
+                                          : "text-amber-700"
+                                    }`}
+                                  />
                                 </div>
-                                <span className="text-sm font-bold text-gray-900">{tag}</span>
+                                <span className="text-sm font-bold text-gray-900">
+                                  {tag}
+                                </span>
                               </div>
                               {vendor && (
                                 <Button
@@ -925,7 +955,9 @@ export default function FactoryApprovals() {
                               {vendor ? (
                                 <div
                                   draggable
-                                  onDragStart={() => setDraggedSlot(vendor.slot)}
+                                  onDragStart={() =>
+                                    setDraggedSlot(vendor.slot)
+                                  }
                                   onDragEnd={() => setDraggedSlot(null)}
                                   className="active:cursor-grabbing"
                                 >
@@ -937,8 +969,12 @@ export default function FactoryApprovals() {
                                 </div>
                               ) : (
                                 <div className="flex-1 flex flex-col items-center justify-center text-center p-3">
-                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Drop Vendor</p>
-                                  <p className="text-[9px] text-gray-400">to assign this rank</p>
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                                    Drop Vendor
+                                  </p>
+                                  <p className="text-[9px] text-gray-400">
+                                    to assign this rank
+                                  </p>
                                 </div>
                               )}
                             </div>
@@ -955,21 +991,27 @@ export default function FactoryApprovals() {
                 <DialogFooter className="sm:justify-between items-center gap-4">
                   <div className="flex items-center gap-3 sm:gap-6">
                     <div className="hidden md:flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                      <span className="w-6 h-4 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">1</span>
-                      <span className="w-6 h-4 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">2</span>
-                      <span className="w-6 h-4 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">3</span>
+                      <span className="w-6 h-4 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">
+                        1
+                      </span>
+                      <span className="w-6 h-4 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">
+                        2
+                      </span>
+                      <span className="w-6 h-4 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">
+                        3
+                      </span>
                       Quick Assign
                     </div>
                     {assignedCount === totalVendors ? (
-                        <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Categorisation Complete
-                        </div>
+                      <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Categorisation Complete
+                      </div>
                     ) : (
-                        <div className="flex items-center gap-1.5 text-amber-600 text-xs font-bold bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
-                          <Info className="h-3.5 w-3.5 animate-pulse" />
-                          {totalVendors - assignedCount} Vendors Pending
-                        </div>
+                      <div className="flex items-center gap-1.5 text-amber-600 text-xs font-bold bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
+                        <Info className="h-3.5 w-3.5 animate-pulse" />
+                        {totalVendors - assignedCount} Vendors Pending
+                      </div>
                     )}
                   </div>
                   <div className="flex gap-3">
