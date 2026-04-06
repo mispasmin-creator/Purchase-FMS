@@ -680,17 +680,14 @@ export default function FactoryApprovals() {
                           T1: {
                             icon: Award,
                             color: "emerald",
-                            label: "Best Rate",
                           },
                           T2: {
                             icon: TrendingDown,
                             color: "blue",
-                            label: "Medium",
                           },
                           T3: {
                             icon: AlertTriangle,
                             color: "amber",
-                            label: "Worst",
                           },
                         };
                         const config = tagConfigs[tag];
@@ -720,9 +717,6 @@ export default function FactoryApprovals() {
                               <div>
                                 <p className="text-xs font-bold text-gray-900">
                                   {tag}
-                                </p>
-                                <p className="text-[10px] text-gray-500">
-                                  {config.label}
                                 </p>
                               </div>
                             </div>
@@ -758,52 +752,50 @@ export default function FactoryApprovals() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[1000px] p-0 rounded-2xl overflow-hidden">
+        <DialogContent className="sm:max-w-[1100px] p-0 rounded-xl overflow-hidden h-[90vh] sm:h-[85vh] flex flex-col">
           {selectedIndent && (
             <>
-              <DialogHeader className="p-6 pb-4 bg-gradient-to-r from-slate-50/50 to-transparent border-b border-gray-200">
-                <DialogTitle className="text-xl font-bold text-gray-900">
-                  Technical Categorisation
-                </DialogTitle>
-                <DialogDescription className="text-sm text-gray-600 mt-2">
-                  Drag vendors into{" "}
-                  <span className="font-semibold text-emerald-700">T1</span>,{" "}
-                  <span className="font-semibold text-blue-700">T2</span>, and{" "}
-                  <span className="font-semibold text-amber-700">T3</span>{" "}
-                  buckets for{" "}
-                  <span className="font-semibold text-gray-900">
-                    {selectedIndent.indentId}
-                  </span>
-                </DialogDescription>
+              <DialogHeader className="p-4 py-3 border-b border-gray-100 flex-shrink-0 bg-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <DialogTitle className="text-lg font-bold text-gray-900">
+                      Technical Categorisation
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-gray-500 mt-0.5">
+                      Assigning for <span className="font-semibold text-gray-900">{selectedIndent.indentId}</span>
+                    </DialogDescription>
+                  </div>
+                </div>
               </DialogHeader>
 
-              {/* Animated Progress Bar */}
-              <div className="px-6 pt-4 pb-2">
+              {/* Progress Summary Area */}
+              <div className="px-5 py-3 bg-slate-50/50 border-b border-gray-100 flex-shrink-0">
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-xs font-semibold text-gray-700">
-                    Assignment Progress
-                  </Label>
-                  <span className="text-xs font-semibold text-emerald-700">
-                    {assignedCount} / {totalVendors}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-[#7da23a] animate-pulse" />
+                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Categorisation Progress</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-bold border-gray-200">
+                    {assignedCount} / {totalVendors} Vendors Assigned
+                  </Badge>
                 </div>
-                <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-green-500 rounded-full transition-all duration-500 ease-out shadow-sm"
+                    className="h-full bg-[#7da23a] transition-all duration-500 ease-out shadow-sm"
                     style={{ width: `${progressPercentage}%` }}
                   />
                 </div>
+                <p className="text-[10px] text-gray-500 mt-2 italic flex items-center gap-1">
+                  <Info className="h-3 w-3" />
+                  Drag vendors from the pool to assign them to T1, T2, or T3 buckets.
+                </p>
               </div>
 
-              {/* Main Grid */}
-              <div className="grid gap-4 px-6 py-4 lg:grid-cols-[280px,1fr]">
-                {/* Unassigned Vendors Pool */}
-                <div
-                  className={`rounded-xl border-2 p-4 transition-all duration-300 ${
-                    dragOverPool
-                      ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-400 shadow-lg scale-[1.02]"
-                      : "border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100/30"
-                  }`}
+              {/* scrollable Body */}
+              <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden bg-white">
+                {/* Unassigned Pool - Independent Scroll */}
+                <div 
+                  className={`w-full lg:w-1/3 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-100 transition-colors duration-300 ${dragOverPool ? "bg-emerald-50/30" : "bg-white"}`}
                   onDragOver={(e) => {
                     e.preventDefault();
                     setDragOverPool(true);
@@ -811,15 +803,13 @@ export default function FactoryApprovals() {
                   onDragLeave={() => setDragOverPool(false)}
                   onDrop={handleDropToPool}
                 >
-                  <div className="mb-3 flex items-center justify-between">
-                    <Label className="text-xs font-bold text-gray-800 uppercase tracking-wide">
-                      Unassigned
-                    </Label>
-                    <Badge className="bg-gray-600 text-white text-[10px]">
+                  <div className="p-3 pb-2 border-b border-gray-50 bg-gray-50/30 flex items-center justify-between flex-shrink-0">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Unassigned Pool</span>
+                    <Badge className="bg-gray-800 text-white text-[9px] h-4">
                       {selectedUnassignedVendors.length}
                     </Badge>
                   </div>
-                  <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar overscroll-contain">
                     {selectedUnassignedVendors.length > 0 ? (
                       selectedUnassignedVendors.map((vendor) => (
                         <div
@@ -827,6 +817,7 @@ export default function FactoryApprovals() {
                           draggable
                           onDragStart={() => setDraggedSlot(vendor.slot)}
                           onDragEnd={() => setDraggedSlot(null)}
+                          className="active:scale-[0.98] transition-transform"
                         >
                           <VendorCard
                             vendor={vendor}
@@ -835,173 +826,163 @@ export default function FactoryApprovals() {
                         </div>
                       ))
                     ) : (
-                      <div className="rounded-lg border-2 border-dashed border-emerald-200 bg-emerald-50 p-4 text-center">
-                        <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-500 mb-2" />
-                        <p className="text-xs font-medium text-emerald-700">
-                          All assigned!
-                        </p>
+                      <div className="h-32 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-emerald-100 bg-emerald-50/50 p-4 text-center">
+                        <CheckCircle2 className="h-6 w-6 text-emerald-500 mb-2 opacity-60" />
+                        <p className="text-[11px] font-bold text-emerald-700">All Assigned</p>
+                        <p className="text-[9px] text-emerald-600/70">Ready to save</p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Technical Buckets */}
-                <div className="grid gap-4 md:grid-cols-3">
-                  {TECHNICAL_TAGS.map((tag) => {
-                    const assignedSlot = technicalAssignments[tag];
-                    const vendor = selectedIndent.vendors.find(
-                      (currentVendor) => currentVendor.slot === assignedSlot,
-                    );
-                    const isDragOver = dragOverTag === tag;
+                {/* Technical Buckets - Independent Scroll */}
+                <div className="flex-1 flex flex-col bg-slate-50/20">
+                  <div className="p-3 pb-2 border-b border-gray-50 bg-gray-50/30 flex-shrink-0">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Evaluation Buckets</span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 lg:p-6 custom-scrollbar overscroll-contain">
+                    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                      {TECHNICAL_TAGS.map((tag) => {
+                        const assignedSlot = technicalAssignments[tag];
+                        const vendor = selectedIndent.vendors.find(
+                          (currentVendor) => currentVendor.slot === assignedSlot,
+                        );
+                        const isDragOver = dragOverTag === tag;
 
-                    const tagConfigs = {
-                      T1: {
-                        icon: Award,
-                        color: "emerald",
-                        gradient: "from-emerald-50 to-emerald-100/30",
-                        border: "border-emerald-200",
-                        description: "Best Rate",
-                      },
-                      T2: {
-                        icon: TrendingDown,
-                        color: "blue",
-                        gradient: "from-blue-50 to-blue-100/30",
-                        border: "border-blue-200",
-                        description: "Medium Rate",
-                      },
-                      T3: {
-                        icon: AlertTriangle,
-                        color: "amber",
-                        gradient: "from-amber-50 to-amber-100/30",
-                        border: "border-amber-200",
-                        description: "Worst Rate",
-                      },
-                    };
-                    const config = tagConfigs[tag];
-                    const IconComponent = config.icon;
+                        const tagConfigs = {
+                          T1: {
+                            icon: Award,
+                            color: "emerald",
+                            gradient: "from-emerald-50/50 to-emerald-100/20",
+                            border: "border-emerald-200",
+                          },
+                          T2: {
+                            icon: TrendingDown,
+                            color: "blue",
+                            gradient: "from-blue-50/50 to-blue-100/20",
+                            border: "border-blue-200",
+                          },
+                          T3: {
+                            icon: AlertTriangle,
+                            color: "amber",
+                            gradient: "from-amber-50/50 to-amber-100/20",
+                            border: "border-amber-200",
+                          },
+                        };
+                        const config = tagConfigs[tag];
+                        const IconComponent = config.icon;
 
-                    return (
-                      <div
-                        key={tag}
-                        className={`rounded-xl border-2 p-4 transition-all duration-300 ${
-                          isDragOver
-                            ? `bg-gradient-to-br ${config.gradient} ${config.border} shadow-lg scale-[1.02]`
-                            : `bg-gradient-to-br ${config.gradient} ${config.border}`
-                        }`}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setDragOverTag(tag);
-                        }}
-                        onDragLeave={() => setDragOverTag(null)}
-                        onDrop={() => {
-                          if (draggedSlot) {
-                            assignVendorToTag(draggedSlot, tag);
-                            toast.success(`Assigned to ${tag}`);
-                          }
-                          setDraggedSlot(null);
-                          setDragOverTag(null);
-                        }}
-                      >
-                        <div className="mb-3 flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`p-2 rounded-lg ${
-                                tag === "T1"
-                                  ? "bg-emerald-100"
-                                  : tag === "T2"
-                                    ? "bg-blue-100"
-                                    : "bg-amber-100"
-                              }`}
-                            >
-                              <IconComponent
-                                className={`h-4 w-4 ${
-                                  tag === "T1"
-                                    ? "text-emerald-700"
-                                    : tag === "T2"
-                                      ? "text-blue-700"
-                                      : "text-amber-700"
-                                }`}
-                              />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-gray-900">
-                                {tag}
-                              </p>
-                              <p className="text-[10px] text-gray-500">
-                                {config.description}
-                              </p>
-                            </div>
-                          </div>
-                          {vendor && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => clearTag(tag)}
-                              className="h-7 px-2 text-xs hover:bg-white/50"
-                            >
-                              Clear
-                            </Button>
-                          )}
-                        </div>
-
-                        {vendor ? (
+                        return (
                           <div
-                            draggable
-                            onDragStart={() => setDraggedSlot(vendor.slot)}
-                            onDragEnd={() => setDraggedSlot(null)}
+                            key={tag}
+                            className={`flex flex-col min-h-[160px] rounded-2xl border-2 p-4 transition-all duration-300 ${
+                              isDragOver
+                                ? `bg-gradient-to-br ${config.gradient} ${config.border} shadow-lg scale-[1.03] ring-2 ring-emerald-400/20`
+                                : vendor 
+                                  ? `bg-white ${config.border} shadow-sm`
+                                  : `bg-gradient-to-br ${config.gradient} ${config.border} border-dashed`
+                            }`}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setDragOverTag(tag);
+                            }}
+                            onDragLeave={() => setDragOverTag(null)}
+                            onDrop={() => {
+                              if (draggedSlot) {
+                                assignVendorToTag(draggedSlot, tag);
+                                toast.success(`Assigned to ${tag}`);
+                              }
+                              setDraggedSlot(null);
+                              setDragOverTag(null);
+                            }}
                           >
-                            <VendorCard
-                              vendor={vendor}
-                              tag={tag}
-                              isDragging={draggedSlot === vendor.slot}
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex min-h-[140px] items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white/50 p-3 text-center">
-                            <div>
-                              <p className="text-xs font-medium text-gray-500">
-                                Drop vendor here
-                              </p>
-                              <p className="text-[10px] text-gray-400 mt-1">
-                                {tag === "T1" && "← Best option"}
-                                {tag === "T2" && "← Middle option"}
-                                {tag === "T3" && "← Alternative"}
-                              </p>
+                            <div className="mb-4 flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-xl ${
+                                  tag === "T1" ? "bg-emerald-100" : 
+                                  tag === "T2" ? "bg-blue-100" : "bg-amber-100"
+                                }`}>
+                                  <IconComponent className={`h-4 w-4 ${
+                                    tag === "T1" ? "text-emerald-700" : 
+                                    tag === "T2" ? "text-blue-700" : "text-amber-700"
+                                  }`} />
+                                </div>
+                                <span className="text-sm font-bold text-gray-900">{tag}</span>
+                              </div>
+                              {vendor && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => clearTag(tag)}
+                                  className="h-7 w-7 p-0 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors"
+                                >
+                                  ×
+                                </Button>
+                              )}
+                            </div>
+
+                            <div className="flex-1 flex flex-col">
+                              {vendor ? (
+                                <div
+                                  draggable
+                                  onDragStart={() => setDraggedSlot(vendor.slot)}
+                                  onDragEnd={() => setDraggedSlot(null)}
+                                  className="active:cursor-grabbing"
+                                >
+                                  <VendorCard
+                                    vendor={vendor}
+                                    tag={tag}
+                                    isDragging={draggedSlot === vendor.slot}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex-1 flex flex-col items-center justify-center text-center p-3">
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Drop Vendor</p>
+                                  <p className="text-[9px] text-gray-400">to assign this rank</p>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Sticky Footer */}
-              <div className="sticky bottom-0 border-t border-gray-200 bg-gradient-to-r from-slate-50/50 to-white p-6">
-                <DialogFooter className="sm:justify-between gap-3">
-                  <div className="text-xs text-gray-500 hidden sm:block font-medium">
-                    💡 Keyboard shortcut: Press{" "}
-                    <kbd className="px-2 py-1 bg-gray-200 rounded text-gray-700">
-                      1
-                    </kbd>{" "}
-                    <kbd className="px-2 py-1 bg-gray-200 rounded text-gray-700">
-                      2
-                    </kbd>{" "}
-                    <kbd className="px-2 py-1 bg-gray-200 rounded text-gray-700">
-                      3
-                    </kbd>
+              {/* Status Footer */}
+              <div className="px-6 py-4 border-t border-gray-100 bg-white flex-shrink-0">
+                <DialogFooter className="sm:justify-between items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-6">
+                    <div className="hidden md:flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                      <span className="w-6 h-4 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">1</span>
+                      <span className="w-6 h-4 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">2</span>
+                      <span className="w-6 h-4 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600">3</span>
+                      Quick Assign
+                    </div>
+                    {assignedCount === totalVendors ? (
+                        <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Categorisation Complete
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5 text-amber-600 text-xs font-bold bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
+                          <Info className="h-3.5 w-3.5 animate-pulse" />
+                          {totalVendors - assignedCount} Vendors Pending
+                        </div>
+                    )}
                   </div>
                   <div className="flex gap-3">
                     <Button
                       variant="outline"
                       onClick={() => setOpenDialog(false)}
                       size="sm"
-                      className="px-4"
+                      className="px-6 text-xs h-9 font-semibold hover:bg-gray-50 transition-colors"
                     >
                       Cancel
                     </Button>
                     <Button
-                      className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 h-9 px-6 text-sm font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                      className="bg-[#7da23a] hover:bg-[#6b8e2f] h-9 px-8 text-xs font-bold shadow-sm transition-all disabled:opacity-50"
                       disabled={isSubmitting || assignedCount !== totalVendors}
                       onClick={onSubmit}
                     >
