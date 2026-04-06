@@ -56,10 +56,30 @@ export function AuthProvider({ children }) {
       }
 
       const userRecord = data[0]
-      const stepsString = (userRecord["Pages"] || "").trim()
-      const userRoles = stepsString.toLowerCase() === "all"
-        ? ["admin"]
-        : stepsString.split(",").map((step) => step.trim().toLowerCase()).filter(Boolean)
+      let userRoles = [];
+      const rawPages = userRecord["Pages"];
+      
+      if (Array.isArray(rawPages)) {
+        userRoles = rawPages.map(p => p.trim().toLowerCase()).filter(Boolean);
+      } else if (typeof rawPages === "string") {
+        const stepsString = rawPages.trim();
+        if (stepsString.toLowerCase() === "all" || stepsString.toLowerCase() === "admin") {
+          userRoles = ["admin"];
+        } else {
+          try {
+            const parsed = JSON.parse(stepsString);
+            if (Array.isArray(parsed)) {
+              userRoles = parsed.map(p => p.trim().toLowerCase()).filter(Boolean);
+            } else {
+              throw new Error("Not an array");
+            }
+          } catch (e) {
+            // Fallback to CSV for old records
+            userRoles = stepsString.split(",").map((step) => step.trim().toLowerCase()).filter(Boolean);
+          }
+        }
+      }
+
 
       const userFirm = (userRecord["Firm Name"] || "").trim()
 
@@ -116,10 +136,30 @@ export function AuthProvider({ children }) {
         }
 
         // Extract user data
-        const stepsString = (userRecord["Pages"] || "").trim()
-        const userFoundRoles = stepsString.toLowerCase() === "all"
-          ? ["admin"]
-          : stepsString.split(",").map((step) => step.trim().toLowerCase()).filter(Boolean)
+        let userFoundRoles = [];
+        const rawFoundPages = userRecord["Pages"];
+
+        if (Array.isArray(rawFoundPages)) {
+          userFoundRoles = rawFoundPages.map(p => p.trim().toLowerCase()).filter(Boolean);
+        } else if (typeof rawFoundPages === "string") {
+          const stepsString = rawFoundPages.trim();
+          if (stepsString.toLowerCase() === "all") {
+            userFoundRoles = ["admin"];
+          } else {
+            try {
+              const parsed = JSON.parse(stepsString);
+              if (Array.isArray(parsed)) {
+                userFoundRoles = parsed.map(p => p.trim().toLowerCase()).filter(Boolean);
+              } else {
+                throw new Error("Not an array");
+              }
+            } catch (e) {
+              // Fallback for CSV
+              userFoundRoles = stepsString.split(",").map((step) => step.trim().toLowerCase()).filter(Boolean);
+            }
+          }
+        }
+
 
         const userFoundFirm = (userRecord["Firm Name"] || "").trim()
 

@@ -46,12 +46,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
@@ -93,7 +93,26 @@ const ALL_PAGES = [
   "Vendor Payment",
 ];
 
-const FIRMS = ["Pmmpl", "Purab", "Rkl"];
+const FIRMS = ["Pmmpl", "Purab", "Rkl", "all"];
+
+const parsePermissions = (pages) => {
+  if (!pages) return [];
+  if (Array.isArray(pages)) return pages;
+  if (typeof pages !== "string") return [];
+
+  const trimmed = pages.trim();
+  if (trimmed === "") return [];
+  if (trimmed.toLowerCase() === "all" || trimmed.toLowerCase() === "admin") return ["admin"];
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed;
+  } catch (e) {
+    // Fallback for older CSV-formatted records
+    return trimmed.split(",").map((p) => p.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 
 export default function ManageUsers() {
   const { user: currentUser } = useAuth();
@@ -147,14 +166,7 @@ export default function ManageUsers() {
 
   const handleOpenEditDialog = (user) => {
     setEditingUser(user);
-    const pagesStr = (user["Pages"] || "").trim();
-    const userPermissions =
-      pagesStr.toLowerCase() === "all"
-        ? ["admin"]
-        : pagesStr
-            .split(",")
-            .map((p) => p.trim())
-            .filter(Boolean);
+    const userPermissions = parsePermissions(user["Pages"]);
 
     setFormData({
       username: user["User Name"] || "",
@@ -162,6 +174,7 @@ export default function ManageUsers() {
       firmName: user["Firm Name"] || "",
       permissions: userPermissions,
     });
+
     setIsDialogOpen(true);
   };
 
@@ -185,16 +198,17 @@ export default function ManageUsers() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.username || !formData.password) {
-      toast.error("Username and Password are required");
+    if (!formData.username || !formData.password || !formData.firmName) {
+      toast.error("Username, Password, and Firm Name are required");
       return;
     }
+
 
     setIsSubmitting(true);
     try {
       const pagesValue = formData.permissions.includes("admin")
         ? "all"
-        : formData.permissions.join(", ");
+        : JSON.stringify(formData.permissions);
 
       const payload = {
         "User Name": formData.username,
@@ -202,6 +216,7 @@ export default function ManageUsers() {
         "Firm Name": formData.firmName,
         Pages: pagesValue,
       };
+
 
       if (editingUser) {
         const { error } = await supabase
@@ -338,14 +353,9 @@ export default function ManageUsers() {
                     ))
                 ) : filteredUsers.length > 0 ? (
                   filteredUsers.map((user) => {
-                    const pagesStr = (user["Pages"] || "").trim().toLowerCase();
-                    const isAdmin = pagesStr === "all";
-                    const perms = isAdmin
-                      ? []
-                      : pagesStr
-                          .split(",")
-                          .map((p) => p.trim())
-                          .filter(Boolean);
+                    const userPermsArray = parsePermissions(user["Pages"]);
+                    const isAdmin = userPermsArray.includes("admin");
+                    const perms = isAdmin ? [] : userPermsArray;
 
                     return (
                       <TableRow
@@ -455,7 +465,7 @@ export default function ManageUsers() {
                     htmlFor="username"
                     className="text-sm font-semibold text-gray-700"
                   >
-                    User Identification (Username)
+                    User Identification (Username) <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -482,7 +492,7 @@ export default function ManageUsers() {
                     htmlFor="password"
                     className="text-sm font-semibold text-gray-700"
                   >
-                    Access Key (Password)
+                    Access Key (Password) <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
                     <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -500,10 +510,17 @@ export default function ManageUsers() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="firm" className="text-sm font-semibold text-gray-700">Organization / Firm Name</Label>
-                  <Select 
-                    value={formData.firmName} 
-                    onValueChange={(value) => setFormData({...formData, firmName: value})}
+                  <Label
+                    htmlFor="firm"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    Organization / Firm Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.firmName}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, firmName: value })
+                    }
                   >
                     <SelectTrigger className="w-full bg-white border-gray-200">
                       <div className="flex items-center gap-2">
@@ -512,8 +529,10 @@ export default function ManageUsers() {
                       </div>
                     </SelectTrigger>
                     <SelectContent>
-                      {FIRMS.map(firm => (
-                        <SelectItem key={firm} value={firm}>{firm}</SelectItem>
+                      {FIRMS.map((firm) => (
+                        <SelectItem key={firm} value={firm}>
+                          {firm}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
