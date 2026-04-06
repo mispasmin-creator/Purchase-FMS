@@ -185,7 +185,13 @@ export default function ManagementUnloadApproval() {
         })
         .eq("id", selectedRow.id);
       if (updateError) throw updateError;
-      toast.success(`Unload ${status.toLowerCase()} for ${selectedRow.liftNo}`);
+      if (status === "Rejected") {
+        toast.success(`Unload Rejected for ${selectedRow.liftNo}`, {
+          description: "A Purchase Return entry has been automatically created in the Mismatch section.",
+        });
+      } else {
+        toast.success(`Unload Approved for ${selectedRow.liftNo}`);
+      }
       setSelectedRow(null);
       setDecisionNotes("");
       fetchData();
