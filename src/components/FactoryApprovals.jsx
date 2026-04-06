@@ -89,9 +89,8 @@ const VendorCard = ({
     { label: "CaO", value: vendor.cao, unit: "%" },
     { label: "AP", value: vendor.ap, unit: "%" },
     { label: "BD", value: vendor.bd, unit: "%" },
-  ].filter((item) => item.value && item.value !== "0");
-
-  const visibleMetrics = isExpanded ? labMetrics : labMetrics.slice(0, 3);
+    { label: "FN", value: vendor.fineness, unit: "" },
+  ].filter((item) => item.value && item.value !== "0" && item.value !== "");
 
   // Tag styling based on technical category
   const tagStyles = {
@@ -156,23 +155,43 @@ const VendorCard = ({
         )}
       </div>
 
-      {/* Lab Metrics - Enhanced Grid */}
+      {/* Lab Metrics - Enhanced Grid (Expandable on hover) */}
       {labMetrics.length > 0 && (
-        <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-white/60 p-2 border border-white/80">
-          {visibleMetrics.map((item, i) => (
-            <div
-              key={i}
-              className="text-center rounded-md bg-white/80 py-1.5 px-1"
-            >
-              <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">
-                {item.label}
-              </p>
-              <p className="text-xs font-semibold text-gray-900 mt-0.5">
-                {item.value}
-                <span className="text-[9px] text-gray-600">{item.unit}</span>
+        <div className="mt-3 overflow-hidden rounded-lg bg-white/60 p-2 border border-white/80 transition-all duration-500 ease-in-out group-hover:bg-white/90 group-hover:shadow-inner group-hover:border-[#7da23a]/30">
+          <div className="grid grid-cols-3 gap-2">
+            {labMetrics.map((item, i) => (
+              <div
+                key={i}
+                className={`text-center rounded-md bg-white/80 py-1.5 px-1 transition-all duration-500 ease-out transform ${
+                  i >= 3 && !isExpanded
+                    ? "opacity-0 invisible max-h-0 scale-95 -translate-y-4 group-hover:opacity-100 group-hover:visible group-hover:max-h-[80px] group-hover:scale-100 group-hover:translate-y-0"
+                    : "opacity-100 visible max-h-[80px] scale-100 translate-y-0"
+                }`}
+                style={{
+                  transitionDelay: i >= 3 && !isExpanded ? `${(i - 3) * 75}ms` : "0ms",
+                }}
+              >
+                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">
+                  {item.label}
+                </p>
+                <p className="text-xs font-semibold text-gray-900 mt-0.5">
+                  {item.value}
+                  <span className="text-[9px] text-gray-600 ml-0.5">
+                    {item.unit}
+                  </span>
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {labMetrics.length > 3 && !isExpanded && (
+            <div className="mt-2 text-center py-0.5 overflow-hidden transition-all duration-500 ease-in-out max-h-12 opacity-100 group-hover:max-h-0 group-hover:opacity-0 group-hover:mt-0">
+              <p className="text-[9px] font-medium text-[#7da23a] flex items-center justify-center gap-1">
+                <Info className="h-2.5 w-2.5 animate-pulse" />
+                Hover to see {labMetrics.length - 3} more specs
               </p>
             </div>
-          ))}
+          )}
         </div>
       )}
 
