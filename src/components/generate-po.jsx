@@ -93,8 +93,12 @@ const money = (value) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-const generatePoNumber = (rows) =>
-  `PMMPL/PO/25-26/${(rows?.filter((row) => row.poFile)?.length || 2554) + 1}`;
+const generatePoNumber = (rows, firm) => {
+  const prefix = firm?.po_prefix || "PMMPL/PO/25-26/";
+  const baseCount = firm?.last_po_id || 2554;
+  const firmRows = rows?.filter((row) => row.poFile)?.length || 0;
+  return `${prefix}${baseCount + firmRows + 1}`;
+};
 
 const mapRow = (row) => ({
   id: row["Indent Id."],
@@ -154,8 +158,32 @@ export default function CreatePO() {
   const [termEditIndex, setTermEditIndex] = useState(-1);
   const [editDestination, setEditDestination] = useState(false);
   const [formData, setFormData] = useState(defaultForm());
+  const [firms, setFirms] = useState([]);
+  const [selectedFirm, setSelectedFirm] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Fetch Firms data
+  useEffect(() => {
+    async function fetchFirms() {
+      const { data, error } = await supabase.from("Firms").select("*");
+      if (error) {
+        console.error("Error fetching firms:", error);
+        return;
+      }
+      setFirms(data || []);
+      
+      // Auto-select firm based on user
+      const userFirmPath = user?.firmName;
+      if (userFirmPath && userFirmPath !== "all") {
+        const found = data.find(f => 
+          normalize(f.firm_name) === normalize(userFirmPath) || 
+          normalize(f.data_name) === normalize(userFirmPath)
+        );
+        if (found) setSelectedFirm(found);
+      }
+    }
+    fetchFirms();
+  }, [user]);
 
   useEffect(() => {
     async function load() {
@@ -167,16 +195,32 @@ export default function CreatePO() {
           .not("Planned2", "is", null);
         if (error) throw error;
         const mapped = (data || []).map(mapRow);
-        const firm = normalize(user?.firmName);
-        const filtered =
-          firm && firm !== "all"
-            ? mapped.filter((item) => normalize(item.firmName) === firm)
-            : mapped;
+        
+        // Debug info: Log available firm names in data
+        const availableFirmsInData = Array.from(new Set(mapped.map(i => i.firmName))).filter(Boolean);
+        console.log("Available firms in INDENT-PO data:", availableFirmsInData);
+        if (selectedFirm) {
+          console.log("Currently selected firm:", selectedFirm.firm_name);
+        }
+
+        // Filter rows by the current selected firm
+        let filtered = mapped;
+        if (selectedFirm) {
+          // Use data_name (short key like 'Pmmpl') if it exists, otherwise fall back to firm_name
+          const filterKey = normalize(selectedFirm.data_name || selectedFirm.firm_name);
+          filtered = mapped.filter(item => normalize(item.firmName) === filterKey);
+        } else if (user?.firmName && user.firmName !== "all") {
+          filtered = mapped.filter(item => normalize(item.firmName) === normalize(user.firmName));
+        }
+
         setRows(filtered);
-        setFormData((prev) => ({
-          ...prev,
-          poNumber: generatePoNumber(filtered),
-        }));
+        
+        if (selectedFirm) {
+          setFormData((prev) => ({
+            ...prev,
+            poNumber: generatePoNumber(filtered, selectedFirm),
+          }));
+        }
       } catch (error) {
         console.error(error);
         toast.error("Failed to load purchase order data");
@@ -185,7 +229,7 @@ export default function CreatePO() {
       }
     }
     load();
-  }, [user?.firmName, refreshTrigger]);
+  }, [user?.firmName, refreshTrigger, selectedFirm]);
 
   // Realtime: Listen for changes in INDENT-PO and refresh
   useRealtime("INDENT-PO", () => {
@@ -218,7 +262,7 @@ export default function CreatePO() {
     const first = currentGroup.indents[0] || {};
     setFormData((prev) => ({
       ...prev,
-      poNumber: prev.poNumber || generatePoNumber(rows),
+      poNumber: prev.poNumber || generatePoNumber(rows, selectedFirm),
       supplierName: currentGroup.vendorName,
       supplierAddress: first.supplierAddress || prev.supplierAddress,
       gstin: first.supplierGstin || prev.gstin,
@@ -315,7 +359,7 @@ export default function CreatePO() {
     setErrors({});
     setTermEditIndex(-1);
     setEditDestination(false);
-    setFormData({ ...defaultForm(), poNumber: generatePoNumber(rows) });
+    setFormData({ ...defaultForm(), poNumber: generatePoNumber(rows, selectedFirm) });
   };
 
   const validateForm = () => {
@@ -343,12 +387,12 @@ export default function CreatePO() {
   };
 
   const buildPdfProps = () => ({
-    companyName: "Passary Minerals Madhya Pvt Ltd",
-    companyPhone: "771-4001598",
-    companyGstin: "22AAHCP9274B1ZI",
-    companyPan: "AAHCP9274B",
-    companyAddress: "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
-    billingAddress: "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+    companyName: selectedFirm?.firm_name || "Passary Minerals Madhya Pvt Ltd",
+    companyPhone: selectedFirm?.phone || "771-4001598",
+    companyGstin: selectedFirm?.gstin || "22AAHCP9274B1ZI",
+    companyPan: selectedFirm?.pan || "AAHCP9274B",
+    companyAddress: selectedFirm?.address || "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+    billingAddress: selectedFirm?.billing_address || "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
     destinationAddress: formData.destination,
     supplierName: formData.supplierName,
     supplierAddress: formData.supplierAddress,
@@ -525,6 +569,36 @@ export default function CreatePO() {
 
         <form onSubmit={handleSubmit} className="flex flex-col items-center">
           <div className="w-full p-4 space-y-4 bg-white rounded-sm shadow-md">
+            {user?.firmName === "all" && (
+              <div className="flex flex-col items-center justify-center p-4 mb-4 border rounded-md bg-blue-50/50 border-primary/20">
+                <Label className="mb-2 text-lg font-bold text-primary">Choose Firm for PO</Label>
+                <div className="w-full max-w-md">
+                  <Select
+                    value={selectedFirm?.id || ""}
+                    onValueChange={(value) => {
+                      const firm = firms.find((f) => f.id === value);
+                      setSelectedFirm(firm);
+                      resetForm();
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-12 text-lg bg-white border-2 border-primary/30">
+                      <SelectValue placeholder="Select the firm to generate PO for" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {firms.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.firm_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {!selectedFirm && (
+                  <p className="mt-2 text-sm text-red-500 font-medium">Please select a firm before proceeding</p>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-center gap-4 p-2 rounded h-25">
               <img
                 src={logo}
@@ -532,15 +606,26 @@ export default function CreatePO() {
                 className="object-contain w-40"
               />
               <div className="text-center">
-                <h1 className="text-2xl font-bold">
-                  Passary Mineral Madhya Pvt.Ltd
+                <h1 className="text-2xl font-bold uppercase tracking-tight text-primary">
+                  {selectedFirm?.firm_name || "Passary Minerals Madhya Pvt Ltd"}
                 </h1>
-                <p className="text-sm">
-                  Shri Ram Business Park , Block - C, 2nd floor , Room No. 212
+                <p className="text-sm font-medium text-muted-foreground">
+                  {selectedFirm?.address || "Shri Ram Business Park , Block - C, 2nd floor , Room No. 212"}
                 </p>
-                <p className="text-sm">Phone No: +91 7223844007</p>
+                <p className="text-sm font-semibold text-primary/80">Phone No: {selectedFirm?.phone || "+91 7223844007"}</p>
               </div>
             </div>
+
+            {selectedFirm && rows.length === 0 && (
+              <div className="p-4 mx-4 text-center border-2 border-red-200 border-dashed rounded-lg bg-red-50/50">
+                <p className="text-sm font-bold text-red-600">
+                  No pending indents found for "{selectedFirm.firm_name}"
+                </p>
+                <p className="mt-1 text-xs text-red-500">
+                  Please verify that the Firm Name in your indents matches the name in your Firms table exactly.
+                </p>
+              </div>
+            )}
 
             <hr />
             <h2 className="text-lg font-bold text-center">Purchase Order</h2>
@@ -788,10 +873,10 @@ export default function CreatePO() {
                 <CardContent className="p-5 text-sm">
                   <p>
                     <span className="font-semibold">GSTIN:</span>{" "}
-                    22AAHCP9274B1ZI
+                    {selectedFirm?.gstin || "22AAHCP9274B1ZI"}
                   </p>
                   <p>
-                    <span className="font-semibold">Pan No.</span> AAHCP9274B
+                    <span className="font-semibold">Pan No.</span> {selectedFirm?.pan || "AAHCP9274B"}
                   </p>
                 </CardContent>
               </Card>
@@ -800,18 +885,7 @@ export default function CreatePO() {
                   <CardTitle className="text-center">Billing Address</CardTitle>
                 </CardHeader>
                 <CardContent className="p-5 text-sm">
-                  {formData.supplierName ? (
-                    <>
-                      <p className="text-xs font-semibold">
-                        Passary Minerals Madhya Pvt Ltd
-                      </p>
-                      <p className="text-xs">
-                        Kh No 297/2, Akoli, Block Dharsiwa, Raipur
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-center text-gray-400">Select Supplier</p>
-                  )}
+                  <p>{selectedFirm?.billing_address || "Kh No 297/2, Akoli, Block Dharsiwa, Raipur"}</p>
                 </CardContent>
               </Card>
               <Card className="gap-0 rounded-[3px] p-0 shadow-xs">
