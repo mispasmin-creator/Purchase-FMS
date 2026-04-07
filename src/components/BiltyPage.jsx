@@ -1,4 +1,3 @@
-// src/components/BiltyPage.jsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
@@ -21,29 +20,7 @@ import { toast } from "sonner";
 import { AuthContext } from "../context/AuthContext";
 import { supabase } from "../supabase";
 import { uploadFileToStorage } from "../utils/storageUtils";
-
-// --- Constants ---
-const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
-const LIFT_ACCOUNTS_SHEET = "LIFT-ACCOUNTS";
-const API_URL = "https://script.google.com/macros/s/AKfycbylQZLstOi0LyDisD6Z6KKC97pU5YJY2dDYVw2gtnW1fxZq9kz7wHBei4aZ8Ed-XKhKEA/exec";
-const BILTY_IMAGE_FOLDER_ID = "1K3ymzKKielcDbg0j3y1qQ1UiIOPViZo7"; // Folder for Bilty images
-const DATA_START_ROW_LIFTS = 6;
-
-// --- Column Indices (0-based) from 'Copy of LIFT-ACCOUNTS' sheet ---
-const LIFT_ID_COL = 1; // B
-const VENDOR_NAME_COL = 3; // D
-const RAW_MATERIAL_COL = 5; // F
-const LIFT_TYPE_COL = 10; // K
-const ORIGINAL_QTY_COL = 6; // G
-const TOTAL_BILL_QUANTITY_COL_X = 23; // X
-const ACTUAL_QTY_COL_Y = 24; // Y
-const INDENT_NO_COL = 2; // C
-const BILL_NO_COL = 7; // H
-const NOT_NULL_CONDITION_COL = 29; // AD: Planned 2
-const TIMESTAMP_COL = 30; // AE: Actual 2
-const BILTY_NUMBER_COL = 32; // AG: Bilty No.
-const BILTY_IMAGE_COL = 33; // AH: Bilty Image
-const FIRM_NAME_COL = 55; // Column BD for Firm Name
+import { useRealtime } from "../hooks/useRealtime";
 
 // --- Column Definitions for Tables ---
 const PENDING_BILTY_COLUMNS_META = [
@@ -57,52 +34,13 @@ const PENDING_BILTY_COLUMNS_META = [
 
 const BILTY_HISTORY_COLUMNS_META = [
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
-  { header: "Timestamp (AE)", dataKey: "timestamp", toggleable: true },
+  { header: "Timestamp", dataKey: "timestamp", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
-  { header: "Bilty Number (AG)", dataKey: "biltyNumber", toggleable: true },
-  { header: "Bilty Image (AH)", dataKey: "biltyImageUrl", isLink: true, linkText: "View Bilty" },
+  { header: "Bilty Number", dataKey: "biltyNumber", toggleable: true },
+  { header: "Bilty Image", dataKey: "biltyImageUrl", isLink: true, linkText: "View Bilty" },
 ];
-
-// --- Helper Functions ---
-const parseGvizResponse = (text, sheetNameForError) => {
-  if (!text || !text.includes("google.visualization.Query.setResponse")) {
-    console.error(`Invalid or empty gviz response for ${sheetNameForError}:`, text ? text.substring(0, 500) : "Response was null/empty");
-    throw new Error(`Invalid response format from Google Sheets for ${sheetNameForError}.`);
-  }
-  const jsonStart = text.indexOf("{");
-  const jsonEnd = text.lastIndexOf("}");
-  if (jsonStart === -1 || jsonEnd === -1) {
-    throw new Error(`Could not parse JSON from Google Sheets response for ${sheetNameForError}.`);
-  }
-  const jsonString = text.substring(jsonStart, jsonEnd + 1);
-  const data = JSON.parse(jsonString);
-  if (data.status === 'error') {
-    throw new Error(`Google Sheets API Error: ${data.errors?.[0]?.detailed_message || "Unknown error"}`);
-  }
-  if (!data.table || !data.table.cols) {
-    console.warn(`No data.table or cols in ${sheetNameForError} or sheet is empty`);
-    return { cols: [], rows: [] };
-  }
-  if (!data.table.rows) data.table.rows = [];
-  return data.table;
-};
-
-const formatDateString = (dateValue) => {
-  if (!dateValue || typeof dateValue !== 'string' || !dateValue.trim()) return "";
-  const gvizMatch = dateValue.match(/^Date\((\d+),(\d+),(\d+)(,(\d+),(\d+),(\d+))?\)/);
-  if (gvizMatch) {
-    const [, year, month, day, hours, minutes, seconds] = gvizMatch.map(Number);
-    const d = new Date(year, month, day, hours || 0, minutes || 0, seconds || 0);
-    return d.toLocaleString("en-GB", { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/,/g, "");
-  }
-  const d = new Date(dateValue);
-  if (!isNaN(d.getTime())) {
-    return d.toLocaleString("en-GB", { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/,/g, "");
-  }
-  return dateValue;
-};
 
 export default function BiltyPage() {
   const { user } = useContext(AuthContext);
@@ -112,7 +50,6 @@ export default function BiltyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [error, setError] = useState(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const [formData, setFormData] = useState({
     biltyNumber: "",
@@ -129,7 +66,6 @@ export default function BiltyPage() {
     vendorName: "all",
     materialName: "all",
     liftType: "all",
-    totalQuantity: "all",
     orderNumber: "all",
   });
 
@@ -142,7 +78,6 @@ export default function BiltyPage() {
       vendorName: "all",
       materialName: "all",
       liftType: "all",
-      totalQuantity: "all",
       orderNumber: "all",
     });
   };
@@ -163,7 +98,6 @@ export default function BiltyPage() {
     setLoading(true);
     setError(null);
     try {
-      // Fetch from Supabase LIFT-ACCOUNTS table
       const { data, error: fetchError } = await supabase
         .from("LIFT-ACCOUNTS")
         .select("*")
@@ -171,7 +105,6 @@ export default function BiltyPage() {
 
       if (fetchError) throw fetchError;
 
-      // Helper to format date for display
       const formatTimestamp = (dateValue) => {
         if (!dateValue) return "";
         try {
@@ -196,7 +129,7 @@ export default function BiltyPage() {
       let processedRawRows = (data || []).map((row) => {
         return {
           _id: `lift-${row.id}-${row["Lift No"] || ''}`,
-          _dbId: row.id, // Store Supabase row ID for updates
+          _dbId: row.id,
           id: String(row["Lift No"] || "").trim(),
           vendorName: String(row["Vendor Name"] || "").trim(),
           rawMaterialName: String(row["Raw Material Name"] || "").trim(),
@@ -206,24 +139,15 @@ export default function BiltyPage() {
           actualQty: String(row["Actual Quantity"] || "").trim(),
           indentNo: String(row["Indent no."] || "").trim(),
           billNo: String(row["Bill No."] || "").trim(),
-            firmName: String(row["Firm Name"] || "").trim(),
-            unloadApprovalRequired: String(
-              row["Unload Approval Required"] || "",
-            ).trim(),
-            unloadApprovalStatus: String(
-              row["Unload Approval Status"] || "",
-            ).trim(),
-            // Using Planned 3 and Actual 3 for filtering
-            planned3: formatTimestamp(row["Planned 3"]),
-            filterColPlanned3: row["Planned 3"],
-            filterColActual3: row["Actual 3"],
-            isPending:
-              row["Planned 3"] &&
-              !row["Actual 3"] &&
-              (String(row["Unload Approval Required"] || "").trim().toLowerCase() !== "yes" ||
-                String(row["Unload Approval Status"] || "").trim().toLowerCase() === "approved"),
-            isHistory: row["Planned 3"] && row["Actual 3"],
-            biltyNumber: String(row["Bilty No."] || "").trim(),
+          firmName: String(row["Firm Name"] || "").trim(),
+          unloadApprovalRequired: String(row["Unload Approval Required"] || "").trim(),
+          unloadApprovalStatus: String(row["Unload Approval Status"] || "").trim(),
+          planned3: formatTimestamp(row["Planned 3"]),
+          isPending: row["Planned 3"] && !row["Actual 3"] && 
+                    (String(row["Unload Approval Required"] || "").trim().toLowerCase() !== "yes" || 
+                     String(row["Unload Approval Status"] || "").trim().toLowerCase() === "approved"),
+          isHistory: row["Planned 3"] && row["Actual 3"],
+          biltyNumber: String(row["Bilty No."] || "").trim(),
           biltyImageUrl: String(row["Bilty Image"] || "").trim(),
           timestamp: formatTimestamp(row["Actual 3"]),
         };
@@ -235,32 +159,31 @@ export default function BiltyPage() {
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
         );
       }
-      // Show only Independent type lifts
-
 
       setLiftData(processedRawRows);
-
     } catch (err) {
       console.error("Error fetching lift data:", err);
       setError(`Failed to load lifts data: ${err.message}`);
-      toast.error("Data Load Error", { description: err.message, icon: <X className="h-4 w-4" /> });
     } finally {
       setLoading(false);
     }
-  }, [refreshTrigger, user]);
-
-
+  }, [user]);
 
   useEffect(() => {
     fetchLiftData();
   }, [fetchLiftData]);
 
-  // Memoized lists for tabs
+  useRealtime(["LIFT-ACCOUNTS"], () => {
+    console.log("[Realtime] Bilty Page refreshing due to LIFT-ACCOUNTS table change");
+    fetchLiftData();
+  });
+
   const pendingBilty = useMemo(() => {
     let filtered = liftData.filter(lift => lift.isPending);
     if (filters.vendorName !== "all") filtered = filtered.filter(lift => lift.vendorName === filters.vendorName);
     if (filters.materialName !== "all") filtered = filtered.filter(lift => lift.rawMaterialName === filters.materialName);
-    // ... add other filters
+    if (filters.liftType !== "all") filtered = filtered.filter(lift => lift.liftType === filters.liftType);
+    if (filters.orderNumber !== "all") filtered = filtered.filter(lift => lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
     return filtered;
   }, [liftData, filters]);
 
@@ -268,7 +191,8 @@ export default function BiltyPage() {
     let filtered = liftData.filter(lift => lift.isHistory);
     if (filters.vendorName !== "all") filtered = filtered.filter(lift => lift.vendorName === filters.vendorName);
     if (filters.materialName !== "all") filtered = filtered.filter(lift => lift.rawMaterialName === filters.materialName);
-    // ... add other filters
+    if (filters.liftType !== "all") filtered = filtered.filter(lift => lift.liftType === filters.liftType);
+    if (filters.orderNumber !== "all") filtered = filtered.filter(lift => lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
     return filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }, [liftData, filters]);
 
@@ -276,16 +200,12 @@ export default function BiltyPage() {
     const vendors = new Set();
     const materials = new Set();
     const types = new Set();
-    const quantities = new Set();
     const orders = new Set();
 
     liftData.forEach(lift => {
       if (lift.vendorName) vendors.add(lift.vendorName);
       if (lift.rawMaterialName) materials.add(lift.rawMaterialName);
       if (lift.liftType) types.add(lift.liftType);
-      if (lift.originalQty) quantities.add(lift.originalQty);
-      if (lift.totalBillQuantity) quantities.add(lift.totalBillQuantity);
-      if (lift.actualQty) quantities.add(lift.actualQty);
       if (lift.indentNo) orders.add(lift.indentNo);
       if (lift.billNo) orders.add(lift.billNo);
     });
@@ -294,7 +214,6 @@ export default function BiltyPage() {
       vendorName: [...vendors].sort(),
       materialName: [...materials].sort(),
       liftType: [...types].sort(),
-      totalQuantity: [...quantities].sort((a, b) => parseFloat(a) - parseFloat(b)),
       orderNumber: [...orders].sort(),
     };
   }, [liftData]);
@@ -313,17 +232,14 @@ export default function BiltyPage() {
     setFormErrors({});
   };
 
-  // Upload file to Supabase Storage
   const uploadFileToSupabase = async (file) => {
-    if (!file || !(file instanceof File)) {
-      throw new Error("Invalid file provided for upload.");
-    }
+    if (!file || !(file instanceof File)) throw new Error("Invalid file provided.");
     try {
       const { url } = await uploadFileToStorage(file, 'image', 'bilty-images');
       return url;
     } catch (error) {
       console.error("Error uploading bilty image:", error);
-      throw new Error(`Failed to upload bilty image: ${error.message}`);
+      throw new Error(`Failed to upload image: ${error.message}`);
     }
   };
 
@@ -334,84 +250,52 @@ export default function BiltyPage() {
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
-    if (formErrors[name]) {
-      setFormErrors((prev) => ({ ...prev, [name]: null }));
-    }
+    if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: null }));
   };
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.biltyNumber.trim()) {
-      newErrors.biltyNumber = "Bilty Number is required.";
-    }
-    if (!formData.biltyImageFile) {
-      newErrors.biltyImageFile = "Bilty Image is required.";
-    }
+    if (!formData.biltyNumber.trim()) newErrors.biltyNumber = "Bilty Number is required.";
+    if (!formData.biltyImageFile && !selectedLift?.biltyImageUrl) newErrors.biltyImageFile = "Bilty Image is required.";
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm() || !selectedLift) {
-      toast.error("Validation Error", { description: "Please fill all required fields or select a lift." });
-      return;
-    }
+    if (!validateForm() || !selectedLift) return;
+    
     setIsSubmitting(true);
-    toast.loading("Submitting Bilty details...", { id: "bilty-submit" });
+    const toastId = toast.loading("Submitting Bilty details...");
 
     try {
-      let biltyImageUrl = "";
+      let biltyImageUrl = selectedLift.biltyImageUrl || "";
       if (formData.biltyImageFile) {
         biltyImageUrl = await uploadFileToSupabase(formData.biltyImageFile);
       }
 
       const now = new Date();
-      // Format as YYYY-MM-DD HH:mm:ss (IST)
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-      const year = now.getFullYear();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
 
-      const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
-      // Update data for Supabase LIFT-ACCOUNTS
-      // Using user-specified schema: Planned 3 and Actual 3 logic
-      // We are setting Actual 3 when Bilty is entered
       const updateData = {
         "Actual 3": timestamp,
         "Bilty No.": formData.biltyNumber,
         "Bilty Image": biltyImageUrl,
       };
 
-      console.log("Updating LIFT-ACCOUNTS record:", selectedLift._dbId, updateData);
-
-      // Update the LIFT-ACCOUNTS record in Supabase
       const { error: updateError } = await supabase
         .from("LIFT-ACCOUNTS")
         .update(updateData)
         .eq("id", selectedLift._dbId);
 
-      if (updateError) {
-        console.error("LIFT-ACCOUNTS update failed:", updateError);
-        throw new Error(`Failed to update LIFT-ACCOUNTS: ${updateError.message}`);
-      }
+      if (updateError) throw updateError;
 
-      toast.success("Success!", {
-        id: "bilty-submit",
-        description: `Bilty for Lift ID ${selectedLift.id} submitted successfully.`,
-      });
-
-      setRefreshTrigger((p) => p + 1);
+      toast.success("Bilty submitted successfully!", { id: toastId });
+      fetchLiftData();
       handleClosePopup();
     } catch (error) {
       console.error("Error submitting bilty:", error);
-      toast.error("Submission Failed", {
-        id: "bilty-submit",
-        description: error.message,
-      });
+      toast.error(`Submission Failed: ${error.message}`, { id: toastId });
     } finally {
       setIsSubmitting(false);
     }
@@ -450,9 +334,6 @@ export default function BiltyPage() {
   };
 
   const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
-    const isLocalLoading = loading && data.length === 0;
-    const hasLocalError = error && data.length === 0 && activeTab === tabKey;
-
     return (
       <Card className="shadow-sm border border-border flex-1 flex flex-col">
         <CardHeader className="py-3 px-4 bg-muted/30">
@@ -488,7 +369,7 @@ export default function BiltyPage() {
                           disabled={col.alwaysVisible}
                         />
                         <Label htmlFor={`toggle-${tabKey}-${col.dataKey}`} className="text-xs font-normal cursor-pointer">
-                          {col.header} {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
+                          {col.header}
                         </Label>
                       </div>
                     ))}
@@ -499,20 +380,12 @@ export default function BiltyPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0 flex-1 flex flex-col">
-          {isLocalLoading ? (
+          {loading ? (
             <div className="flex flex-col justify-center items-center py-10 flex-1"><Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" /><p className="text-muted-foreground">Loading...</p></div>
-          ) : hasLocalError ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1"><AlertTriangle className="h-10 w-10 text-destructive mb-3" /><p className="font-medium text-destructive">Error Loading Data</p><p className="text-sm text-muted-foreground max-w-md">{error}</p></div>
           ) : data.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
               <Info className="h-12 w-12 text-green-500 mb-3" />
               <p className="font-medium text-foreground">No Data Found</p>
-              <p className="text-sm text-muted-foreground text-center">
-                No lifts match the criteria for this view.
-                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-                  <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
-                )}
-              </p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-b-lg flex-1">
@@ -530,7 +403,7 @@ export default function BiltyPage() {
                       {columnsMeta.filter(col => visibilityState[col.dataKey]).map(column => (
                         <TableCell key={column.dataKey} className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === 'id' ? 'font-medium text-primary' : 'text-gray-700'}`}>
                           {column.dataKey === "actionColumn" ? (
-                            <Button onClick={() => handleLiftSelect(item)} size="xs" variant="outline" className="text-xs h-7 px-2 py-1">Enter Bilty</Button>
+                            <Button onClick={() => handleLiftSelect(item)} size="sm" variant="outline" className="text-xs h-7 px-2">Enter Bilty</Button>
                           ) : renderCell(item, column)}
                         </TableCell>
                       ))}
@@ -555,9 +428,6 @@ export default function BiltyPage() {
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Manage bilty details for material lifts.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
-            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
@@ -565,64 +435,37 @@ export default function BiltyPage() {
             <TabsList className="grid w-full sm:w-[450px] grid-cols-2 mb-4">
               <TabsTrigger value="pendingBilty" className="flex items-center gap-2">
                 <FileCheck className="h-4 w-4" /> Pending Bilty
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">{pendingBilty.length}</Badge>
+                <Badge variant="secondary" className="ml-1.5">{pendingBilty.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="biltyHistory" className="flex items-center gap-2">
                 <History className="h-4 w-4" /> Bilty History
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">{biltyHistory.length}</Badge>
+                <Badge variant="secondary" className="ml-1.5">{biltyHistory.length}</Badge>
               </TabsTrigger>
             </TabsList>
-            <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <Label className="text-sm font-medium">Filters</Label>
-                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-                  Clear All
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Select value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
-                  <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Vendors" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Vendors</SelectItem>
-                    {uniqueFilterOptions.vendorName.map((vendor) => (<SelectItem key={vendor} value={vendor}>{vendor}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                <Select value={filters.materialName} onValueChange={(value) => handleFilterChange("materialName", value)}>
-                  <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Materials" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Materials</SelectItem>
-                    {uniqueFilterOptions.materialName.map((material) => (<SelectItem key={material} value={material}>{material}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                <Select value={filters.liftType} onValueChange={(value) => handleFilterChange("liftType", value)}>
-                  <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Types" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {uniqueFilterOptions.liftType.map((type) => (<SelectItem key={type} value={type}>{type}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                <Select value={filters.totalQuantity} onValueChange={(value) => handleFilterChange("totalQuantity", value)}>
-                  <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Quantities" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Quantities</SelectItem>
-                    {uniqueFilterOptions.totalQuantity.map((qty) => (<SelectItem key={qty} value={qty}>{qty}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                <Select value={filters.orderNumber} onValueChange={(value) => handleFilterChange("orderNumber", value)}>
-                  <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Orders" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Orders</SelectItem>
-                    {uniqueFilterOptions.orderNumber.map((order) => (<SelectItem key={order} value={order}>{order}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
+            
+            <div className="mb-4 p-4 bg-green-50/50 rounded-lg grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Select value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
+                <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Vendors" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Vendors</SelectItem>
+                  {uniqueFilterOptions.vendorName.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filters.materialName} onValueChange={(value) => handleFilterChange("materialName", value)}>
+                <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Materials" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Materials</SelectItem>
+                  {uniqueFilterOptions.materialName.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={clearAllFilters}>Clear Filters</Button>
             </div>
-            <TabsContent value="pendingBilty" className="flex-1 flex flex-col mt-0">
-              {renderTableSection("pendingBilty", "Lifts Pending Bilty", "Filtered: Column AD is filled & Column AE is empty.", pendingBilty, PENDING_BILTY_COLUMNS_META, visiblePendingColumns)}
+
+            <TabsContent value="pendingBilty" className="mt-0">
+              {renderTableSection("pendingBilty", "Lifts Pending Bilty", "Awaiting Bilty Number and Image.", pendingBilty, PENDING_BILTY_COLUMNS_META, visiblePendingColumns)}
             </TabsContent>
-            <TabsContent value="biltyHistory" className="flex-1 flex flex-col mt-0">
-              {renderTableSection("biltyHistory", "Bilty History", "Sorted from latest to oldest recorded bilty.", biltyHistory, BILTY_HISTORY_COLUMNS_META, visibleHistoryColumns)}
+            <TabsContent value="biltyHistory" className="mt-0">
+              {renderTableSection("biltyHistory", "Bilty History", "Completed Bilty entries.", biltyHistory, BILTY_HISTORY_COLUMNS_META, visibleHistoryColumns)}
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -631,48 +474,23 @@ export default function BiltyPage() {
       <Dialog open={showPopup} onOpenChange={handleClosePopup}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-6 w-6 text-[#7da23a]" />
-              Enter Bilty for <span className="text-[#7da23a] font-bold">{selectedLift?.id}</span>
-            </DialogTitle>
-            <DialogDescription>
-              Fill in the details below. Required fields are marked with an asterisk (*).
-            </DialogDescription>
+            <DialogTitle>Enter Bilty for {selectedLift?.id}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="biltyNumber" className="font-medium">
-                Bilty Number <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="biltyNumber"
-                name="biltyNumber"
-                value={formData.biltyNumber}
-                onChange={handleInputChange}
-                className={`mt-1 ${formErrors.biltyNumber ? "border-red-500" : ""}`}
-                placeholder="Enter Bilty Number"
-              />
-              {formErrors.biltyNumber && <p className="mt-1 text-xs text-red-600">{formErrors.biltyNumber}</p>}
+              <Label>Bilty Number *</Label>
+              <Input name="biltyNumber" value={formData.biltyNumber} onChange={handleInputChange} />
+              {formErrors.biltyNumber && <p className="text-red-500 text-xs">{formErrors.biltyNumber}</p>}
             </div>
             <div>
-              <Label htmlFor="biltyImageFile" className="font-medium">
-                Upload Bilty Image <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="biltyImageFile"
-                name="biltyImageFile"
-                type="file"
-                onChange={handleInputChange}
-                className={`mt-1 file:text-sm file:font-medium file:bg-green-50 file:text-[#6b8e2f] hover:file:bg-green-100 ${formErrors.biltyImageFile ? "border-red-500" : ""}`}
-                accept=".pdf,.jpg,.jpeg,.png"
-              />
-              {formData.biltyImageFile && <p className="text-xs text-gray-500 mt-1">Selected: {formData.biltyImageFile.name}</p>}
-              {formErrors.biltyImageFile && <p className="mt-1 text-xs text-red-600">{formErrors.biltyImageFile}</p>}
+              <Label>Bilty Image *</Label>
+              <Input name="biltyImageFile" type="file" onChange={handleInputChange} accept="image/*,.pdf" />
+              {formErrors.biltyImageFile && <p className="text-red-500 text-xs">{formErrors.biltyImageFile}</p>}
             </div>
-            <DialogFooter className="pt-4">
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClosePopup}>Cancel</Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-[#7da23a] hover:bg-[#6b8e2f]">
-                {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Submit Bilty"}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Submitting..." : "Submit Bilty"}
               </Button>
             </DialogFooter>
           </form>

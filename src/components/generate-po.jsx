@@ -30,6 +30,8 @@ import POPdf from "./POPdf";
 import { AuthContext } from "../context/AuthContext";
 import { supabase } from "../supabase";
 import { uploadFileToStorage } from "../utils/storageUtils";
+import { useRealtime } from "../hooks/useRealtime";
+
 import logo from "../assets/logo.jpeg";
 
 const DEFAULT_TERMS = [
@@ -152,6 +154,8 @@ export default function CreatePO() {
   const [termEditIndex, setTermEditIndex] = useState(-1);
   const [editDestination, setEditDestination] = useState(false);
   const [formData, setFormData] = useState(defaultForm());
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
 
   useEffect(() => {
     async function load() {
@@ -181,7 +185,13 @@ export default function CreatePO() {
       }
     }
     load();
-  }, [user?.firmName]);
+  }, [user?.firmName, refreshTrigger]);
+
+  // Realtime: Listen for changes in INDENT-PO and refresh
+  useRealtime("INDENT-PO", () => {
+    setRefreshTrigger((prev) => prev + 1);
+  });
+
 
   const pendingGroups = useMemo(
     () =>

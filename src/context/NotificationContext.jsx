@@ -655,28 +655,42 @@ export function NotificationProvider({ children }) {
 
 
     useEffect(() => {
-        if (isAuthenticated) {
-            fetchNotificationCounts();
-            const interval = setInterval(fetchNotificationCounts, 30000);
+        if (!isAuthenticated) return;
 
-            // Real-time subscription for Mismatch updates (affecting Debit Note count)
-            const channel = supabase
-                .channel('mismatch-changes-global')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'Mismatch' },
-                    () => {
-                        console.log('Mismatch table changed, refreshing counts...');
-                        fetchNotificationCounts();
-                    }
-                )
-                .subscribe();
+        // Initial load
+        fetchNotificationCounts();
 
-            return () => {
-                clearInterval(interval);
-                supabase.removeChannel(channel);
-            };
-        }
+        // Realtime subscriptions across all core tables
+        // This replaces the old 30-second polling interval
+        const WATCHED_TABLES = [
+            "INDENT-PO",
+            "LIFT-ACCOUNTS",
+            "Mismatch",
+            "purchaser_coordinates",
+        ];
+
+        const channel = supabase.channel("notification-counts-global");
+
+        WATCHED_TABLES.forEach((table) => {
+            channel.on(
+                "postgres_changes",
+                { event: "*", schema: "public", table },
+                () => {
+                    console.log(`[Realtime] ${table} changed — refreshing notification counts`);
+                    fetchNotificationCounts();
+                }
+            );
+        });
+
+        channel.subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+                console.log("[Realtime] Notification channel subscribed");
+            }
+        });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [isAuthenticated, fetchNotificationCounts]);
 
 

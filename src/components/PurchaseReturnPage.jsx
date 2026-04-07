@@ -29,6 +29,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { AuthContext } from "../context/AuthContext";
+import { useRealtime } from "../hooks/useRealtime";
 
 const EMPTY_FORM = {
     purchaseReturnNo: "",
@@ -116,6 +117,12 @@ export default function PurchaseReturnPage() {
     useEffect(() => {
         fetchRecords();
     }, [fetchRecords]);
+
+    // Live sync
+    useRealtime(["Purchase Returns", "Mismatch"], () => {
+        console.log("[Realtime] PR Page refreshing due to table change");
+        fetchRecords();
+    });
 
     // ── Auto-generate PR No. ───────────────────────────────────────────────
     const generatePRNumber = async () => {

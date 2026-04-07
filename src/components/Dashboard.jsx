@@ -89,6 +89,8 @@ import {
 } from "recharts";
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
+import { useRealtime } from "../hooks/useRealtime";
+
 
 // --- Constants ---
 // Enhanced color palette
@@ -389,6 +391,13 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Realtime: Listen for changes in core tables and refresh dashboard
+  useRealtime(["INDENT-PO", "LIFT-ACCOUNTS", "Mismatch"], () => {
+    console.log("[Realtime] Dashboard refreshing due to table change");
+    fetchData();
+  });
+
 
   // Filter Options
   const { vendorOptions, materialOptions, firmOptions } = useMemo(() => {

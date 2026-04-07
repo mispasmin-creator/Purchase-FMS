@@ -34,6 +34,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
+import { useRealtime } from "../hooks/useRealtime";
+
 import {
   Dialog,
   DialogContent,
@@ -395,6 +397,12 @@ export default function FactoryApprovals() {
   useEffect(() => {
     fetchData();
   }, [fetchData, refreshData]);
+
+  // Realtime: Listen for changes in INDENT-PO and refresh
+  useRealtime("INDENT-PO", () => {
+    setRefreshData((prev) => !prev);
+  });
+
 
   useEffect(() => {
     const query = searchQuery.trim().toLowerCase();

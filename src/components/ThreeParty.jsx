@@ -41,6 +41,8 @@ import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { fetchMasterData } from "../utils/masterDataUtils";
+import { useRealtime } from "../hooks/useRealtime";
+
 import {
   Select,
   SelectContent,
@@ -320,6 +322,12 @@ export default function ThreeParty() {
 
     fetchData();
   }, [refreshData, user, updateCount]);
+
+  // Realtime: refresh data whenever INDENT-PO changes
+  useRealtime("INDENT-PO", () => {
+    setRefreshData((prev) => !prev);
+  });
+
 
   // Filter pending data
   useEffect(() => {

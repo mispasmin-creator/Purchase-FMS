@@ -49,6 +49,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
+import { useRealtime } from "../hooks/useRealtime";
+
 
 // Helper function to clean remarks - extract only the user text
 const cleanRemark = (remark) => {
@@ -324,6 +326,11 @@ export default function StockApproval() {
 
     fetchIndentsData();
   }, [refreshData, user]);
+
+  // Realtime: refresh data whenever INDENT-PO changes
+  useRealtime("INDENT-PO", () => {
+    setRefreshData((prev) => !prev);
+  });
 
   // Get unique values for filters
   const getUniqueValues = useCallback(

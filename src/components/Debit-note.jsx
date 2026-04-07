@@ -33,6 +33,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AuthContext } from "../context/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
+import { useRealtime } from "../hooks/useRealtime";
 
 // Column configuration
 const DEBIT_NOTE_COLUMNS_META = [
@@ -188,8 +189,8 @@ export default function DebitNote() {
       const hasActual = isValidTimestamp(item.actual);
       const statusLower = (item.status || "").toLowerCase();
 
-      // Pending: Planned exists OR Status is Credit Notes (and actual is not set)
-      if ((hasPlanned || statusLower.includes('credit')) && !hasActual) {
+      // Pending: Planned exists OR Status is Credit Notes (and actual is not set, and not a return)
+      if ((hasPlanned || statusLower.includes('credit')) && !hasActual && !statusLower.includes('return')) {
         pending.push(item);
       } else if (hasActual) {
         history.push(item);
@@ -259,6 +260,12 @@ export default function DebitNote() {
   useEffect(() => {
     fetchMismatchData();
   }, [fetchMismatchData]);
+
+  // Subscribe to real-time updates
+  useRealtime(["Mismatch"], () => {
+    console.log("[Realtime] Debit Note page refreshing due to Mismatch table change");
+    fetchMismatchData();
+  });
 
   // Categorize data
   const { pending, history } = useMemo(() => {
