@@ -115,9 +115,27 @@ export default function PurchaserCoordinate() {
       if (coordError) throw coordError;
 
       // 2. Update Mismatch table status
+      let mismatchStatus = "Pending";
+      let actionType = null;
+      
+      if (selectedCoord.type === 'DEBIT_NOTE_VENDOR') {
+        mismatchStatus = "Credit Notes";
+        actionType = "Debit Note for Vendor";
+      } else if (selectedCoord.type === 'DEBIT_NOTE_TRANSPORTER') {
+        mismatchStatus = "Credit Notes - Transporter";
+        actionType = "Debit Note for Transporter";
+      } else if (selectedCoord.type === 'PURCHASE_RETURN') {
+        mismatchStatus = "Purchase Return";
+        actionType = "Purchase Return";
+      }
+
       const { error: mismatchError } = await supabase
         .from("Mismatch")
-        .update({ coordination_status: "COORDINATED" })
+        .update({ 
+          coordination_status: "COORDINATED",
+          "Status": mismatchStatus,
+          "Action Type": actionType
+        })
         .eq("id", selectedCoord.mismatch_id);
 
       if (mismatchError) {
