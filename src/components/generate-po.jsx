@@ -20,6 +20,11 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { ScrollArea } from "./ui/scroll-area";
+import { Search } from "lucide-react";
+
+
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Label } from "./ui/label";
@@ -128,7 +133,13 @@ const mapRow = (row) => ({
   toBePaidAmount: row["To Be Paid Amount"] || "",
   whenToBePaid: toDateInput(row["When To Be Paid Amount"]),
   transportType: row["Transport Type"] || "",
+  dest: row["destination"] || "",
+  poDate: toDateInput(row["Actual2"]),
+  deliveryDate: toDateInput(row["Lead Time To Lift (days)"]),
+  poNumber: row["po_number"] || "",
 });
+
+
 
 const groupByVendor = (rows) => {
   const groups = rows.reduce((acc, row) => {
@@ -161,6 +172,8 @@ export default function CreatePO() {
   const [firms, setFirms] = useState([]);
   const [selectedFirm, setSelectedFirm] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [poPopoverOpen, setPoPopoverOpen] = useState(false);
+
 
   // Fetch Firms data
   useEffect(() => {
@@ -248,14 +261,31 @@ export default function CreatePO() {
     [rows],
   );
   const vendorGroups = mode === "create" ? pendingGroups : createdGroups;
-  const currentGroup = useMemo(
-    () =>
-      vendorGroups.find(
-        (group) =>
-          normalize(group.vendorName) === normalize(formData.supplierName),
-      ) || null,
-    [vendorGroups, formData.supplierName],
-  );
+  const [poSearch, setPoSearch] = useState("");
+
+  const poNumbers = useMemo(() => {
+    return Array.from(new Set(rows.filter((r) => r.poTimestamp && r.poNumber).map((r) => r.poNumber))).sort();
+  }, [rows]);
+
+
+  const currentGroup = useMemo(() => {
+    if (mode === "create") {
+      return (
+        vendorGroups.find(
+          (group) => normalize(group.vendorName) === normalize(formData.supplierName),
+        ) || null
+      );
+    } else {
+      if (!formData.poNumber) return null;
+      const poRows = rows.filter((r) => r.poNumber === formData.poNumber);
+      if (poRows.length === 0) return null;
+      return {
+        vendorName: poRows[0].vendorName,
+        indents: poRows,
+      };
+    }
+  }, [mode, vendorGroups, rows, formData.supplierName, formData.poNumber]);
+
 
   useEffect(() => {
     if (!currentGroup) return;
@@ -263,6 +293,8 @@ export default function CreatePO() {
     setFormData((prev) => ({
       ...prev,
       poNumber: prev.poNumber || generatePoNumber(rows, selectedFirm),
+      poDate: mode === "revise" ? first.poDate || prev.poDate : prev.poDate,
+      deliveryDate: mode === "revise" ? first.deliveryDate || prev.deliveryDate : prev.deliveryDate,
       supplierName: currentGroup.vendorName,
       supplierAddress: first.supplierAddress || prev.supplierAddress,
       gstin: first.supplierGstin || prev.gstin,
@@ -270,7 +302,7 @@ export default function CreatePO() {
       quotationNumber: first.quotationNumber || prev.quotationNumber,
       quotationDate: first.quotationDate || prev.quotationDate,
       notes: prev.notes || first.notes || "",
-      destination: first.firmName || prev.destination,
+      destination: first.dest || first.firmName || prev.destination,
       advanceToBePaid:
         normalize(first.advanceToBePaid) === "yes"
           ? "yes"
@@ -278,6 +310,7 @@ export default function CreatePO() {
       toBePaidAmount: first.toBePaidAmount || prev.toBePaidAmount,
       whenToBePaid: first.whenToBePaid || prev.whenToBePaid,
       transportType: first.transportType || prev.transportType,
+
       indents: currentGroup.indents.map((indent) => ({
         id: indent.id,
         indentNumber: String(indent.id || ""),
@@ -635,17 +668,67 @@ export default function CreatePO() {
               <div className="grid grid-cols-2 gap-x-5">
                 <div>
                   <Label className="block mb-2">PO Number</Label>
-                  <Input
-                    className="h-9"
-                    value={formData.poNumber}
-                    onChange={(e) => setField("poNumber", e.target.value)}
-                    readOnly={mode === "create"}
-                  />
+                  {mode === "create" ? (
+                    <Input
+                      className="h-9"
+                      value={formData.poNumber}
+                      onChange={(e) => setField("poNumber", e.target.value)}
+                      readOnly
+                    />
+                  ) : (
+                    <Popover open={poPopoverOpen} onOpenChange={setPoPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between h-9 px-3 font-normal overflow-hidden"
+                        >
+                          <span className="truncate">{formData.poNumber || "Search PO Number..."}</span>
+                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <div className="flex items-center border-b px-3 p-2">
+                          <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                          <Input
+                            placeholder="Search code..."
+                            className="h-8 border-none focus-visible:ring-0 text-xs"
+                            value={poSearch}
+                            onChange={(e) => setPoSearch(e.target.value)}
+                          />
+                        </div>
+                        <ScrollArea className="h-60">
+                          <div className="p-1">
+                            {poNumbers
+                              .filter((po) => po.toLowerCase().includes(poSearch.toLowerCase()))
+                              .map((po) => (
+                                <button
+                                  key={po}
+                                  type="button"
+                                  className="w-full text-left px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm"
+                                  onClick={() => {
+                                    setField("poNumber", po);
+                                    setPoPopoverOpen(false);
+                                  }}
+                                >
+                                  {po}
+                                </button>
+                              ))}
+                            {poNumbers.filter((po) => po.toLowerCase().includes(poSearch.toLowerCase())).length === 0 && (
+                              <p className="p-2 text-xs text-center text-gray-500">No PO found</p>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                  )}
                   {errors.poNumber && (
                     <p className="mt-1 text-xs text-red-500">
                       {errors.poNumber}
                     </p>
                   )}
+
                 </div>
                 <div>
                   <Label className="block mb-2">PO Date</Label>
@@ -669,7 +752,9 @@ export default function CreatePO() {
                   <Select
                     value={formData.supplierName || undefined}
                     onValueChange={(value) => setField("supplierName", value)}
+                    disabled={mode === "revise"}
                   >
+
                     <SelectTrigger className="w-full h-9">
                       <SelectValue
                         placeholder={
