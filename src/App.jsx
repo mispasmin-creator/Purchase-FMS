@@ -32,6 +32,8 @@ import SaleOfRawMaterial from "./components/SaleOfRawMaterial";
 import PurchaserCoordinate from "./components/PurchaserCoordinate";
 import PurchaseReturnPage from "./components/PurchaseReturnPage";
 import ManageUsers from "./components/ManageUsers";
+import POHistory from "./components/POHistory";
+
 
 
 import { useAuth } from "./context/AuthContext";
@@ -84,6 +86,7 @@ import {
   CheckCircle2,
   PhoneCall,
   Users,
+  History,
 } from "lucide-react";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -191,6 +194,16 @@ function App() {
       countLabel: "Pending",
       component: <GeneratePO />,
     },
+    {
+      id: "po-history",
+      label: "PO History",
+      path: "/po-history",
+      icon: <History size={20} />,
+      stepName: "Generate Purchase Order", // Same step name as Make PO so they have similar access
+      showNotification: false,
+      component: <POHistory />,
+    },
+
     {
       id: "arrange-logistics",
       label: "Arrange Logistics",
