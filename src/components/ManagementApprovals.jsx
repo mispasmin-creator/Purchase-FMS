@@ -485,11 +485,13 @@ export default function ManagementApprovals() {
             <>
               <DialogHeader>
                 <DialogTitle>Management Vendor Review</DialogTitle>
-                <DialogDescription>
-                  Factory has already tagged the vendors. Review them and choose
-                  one final vendor for{" "}
-                  <span className="font-medium">{selectedIndent.indentId}</span>
-                  .
+                <DialogDescription className="flex items-center flex-wrap">
+                  Review tagged vendors and approve one for{" "}
+                  <span className="font-bold text-gray-900 mx-1">{selectedIndent.indentId}</span>
+                  {" "}at{" "}
+                  <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200 font-bold px-3 py-1 shadow-sm">
+                    {selectedIndent.firmName}
+                  </Badge>
                 </DialogDescription>
               </DialogHeader>
 
