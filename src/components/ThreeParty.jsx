@@ -328,7 +328,6 @@ export default function ThreeParty() {
     setRefreshData((prev) => !prev);
   });
 
-
   // Filter pending data
   useEffect(() => {
     let filtered = [...pendingData];
@@ -405,9 +404,7 @@ export default function ThreeParty() {
   const updateVendorForm = (index, field, value) => {
     if (field === "whatsapp") value = value.replace(/\D/g, "").slice(0, 10);
     if (
-      ["alumina", "iron", "sio2", "cao", "ap", "bd", "fineness"].includes(
-        field,
-      )
+      ["alumina", "iron", "sio2", "cao", "ap", "bd", "fineness"].includes(field)
     )
       value = value.replace(/[^0-9.]/g, "");
     if (field === "advancePercentage")
@@ -782,7 +779,9 @@ export default function ThreeParty() {
                           setSelectedIndent(indent);
                           setSelectedHistory(null);
                           setOpenDialog(true);
-                          setVendorForms(indent.vendors.map(normalizeVendorForm));
+                          setVendorForms(
+                            indent.vendors.map(normalizeVendorForm),
+                          );
                           setVendorSearchTerms(["", "", ""]);
                           setVendorPopoverOpen([false, false, false]);
                           setSelectedVendorIndex(0);
@@ -795,7 +794,9 @@ export default function ThreeParty() {
                               setSelectedIndent(indent);
                               setSelectedHistory(null);
                               setOpenDialog(true);
-                              setVendorForms(indent.vendors.map(normalizeVendorForm));
+                              setVendorForms(
+                                indent.vendors.map(normalizeVendorForm),
+                              );
                               setVendorSearchTerms(["", "", ""]);
                               setVendorPopoverOpen([false, false, false]);
                               setSelectedVendorIndex(0);
@@ -1060,15 +1061,24 @@ export default function ThreeParty() {
                 {/* Vendor Forms */}
                 <div className="grid gap-4 lg:grid-cols-3">
                   {vendorForms.map((currentVendor, idx) => (
-                    <div key={idx} className="p-4 border rounded-xl bg-gray-50/30 space-y-4">
+                    <div
+                      key={idx}
+                      className="p-4 border rounded-xl bg-gray-50/30 space-y-4"
+                    >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-gray-700">Vendor {idx + 1} Details</span>
+                        <span className="text-sm font-semibold text-gray-700">
+                          Vendor {idx + 1} Details
+                        </span>
                         {selectedVendorIndex === idx && (
-                          <Badge className="text-green-700 bg-green-100">Selected</Badge>
+                          <Badge className="text-green-700 bg-green-100">
+                            Selected
+                          </Badge>
                         )}
                       </div>
                       <div>
-                        <Label className="block mb-1 text-xs font-medium text-gray-600">Vendor Name</Label>
+                        <Label className="block mb-1 text-xs font-medium text-gray-600">
+                          Vendor Name
+                        </Label>
                         <Popover
                           open={vendorPopoverOpen[idx]}
                           onOpenChange={(open) =>
@@ -1148,20 +1158,35 @@ export default function ThreeParty() {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="block mb-1 text-xs font-medium text-gray-600">Rate (₹)</Label>
+                          <Label className="block mb-1 text-xs font-medium text-gray-600">
+                            Rate (₹)
+                          </Label>
                           <Input
                             type="number"
                             min="0"
                             onWheel={noScroll}
                             value={currentVendor.rate || ""}
-                            onChange={(e) => updateVendorForm(idx, "rate", Math.max(0, parseFloat(e.target.value) || 0))}
+                            onChange={(e) =>
+                              updateVendorForm(
+                                idx,
+                                "rate",
+                                Math.max(0, parseFloat(e.target.value) || 0),
+                              )
+                            }
                             className="text-sm border-gray-200 h-9 bg-white"
                             placeholder="0.00"
                           />
                         </div>
                         <div>
-                          <Label className="block mb-1 text-xs font-medium text-gray-600">Rate Type</Label>
-                          <Select value={currentVendor.rateType} onValueChange={(v) => updateVendorForm(idx, "rateType", v)}>
+                          <Label className="block mb-1 text-xs font-medium text-gray-600">
+                            Rate Type
+                          </Label>
+                          <Select
+                            value={currentVendor.rateType}
+                            onValueChange={(v) =>
+                              updateVendorForm(idx, "rateType", v)
+                            }
+                          >
                             <SelectTrigger className="text-sm border-gray-200 h-9 bg-white">
                               <SelectValue />
                             </SelectTrigger>
@@ -1174,10 +1199,14 @@ export default function ThreeParty() {
                       </div>
                       {currentVendor.rateType === "basic" && (
                         <div>
-                          <Label className="block mb-1 text-[10px] text-gray-500">GST %</Label>
+                          <Label className="block mb-1 text-[10px] text-gray-500">
+                            GST %
+                          </Label>
                           <Select
                             value={currentVendor.gstPercent?.toString() || "0"}
-                            onValueChange={(v) => updateVendorForm(idx, "gstPercent", parseInt(v))}
+                            onValueChange={(v) =>
+                              updateVendorForm(idx, "gstPercent", parseInt(v))
+                            }
                           >
                             <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
                               <SelectValue placeholder="Tax %" />
@@ -1194,72 +1223,124 @@ export default function ThreeParty() {
                       )}
                       <div className="p-3 rounded-lg bg-green-50 border border-green-200">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-green-700">Final Rate (with GST)</span>
+                          <span className="text-xs font-medium text-green-700">
+                            Final Rate (with GST)
+                          </span>
                           <span className="text-xl font-bold text-green-700">
                             ₹
                             {currentVendor.rateType === "basic"
-                              ? currentVendor.rate + (currentVendor.rate * currentVendor.gstPercent) / 100
+                              ? currentVendor.rate +
+                                (currentVendor.rate *
+                                  currentVendor.gstPercent) /
+                                  100
                               : currentVendor.rate}
                           </span>
                         </div>
                       </div>
                       <div className="space-y-3">
-                        <div className="py-2 text-xs font-medium text-gray-600">Advanced Details</div>
+                        <div className="py-2 text-xs font-medium text-gray-600">
+                          Advanced Details
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <Label className="block mb-1 text-[10px] text-gray-500">Packaging</Label>
-                            <Select value={currentVendor.packaging} onValueChange={(v) => updateVendorForm(idx, "packaging", v)}>
+                            <Label className="block mb-1 text-[10px] text-gray-500">
+                              Packaging
+                            </Label>
+                            <Select
+                              value={currentVendor.packaging}
+                              onValueChange={(v) =>
+                                updateVendorForm(idx, "packaging", v)
+                              }
+                            >
                               <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Ton Bag">Ton Bag</SelectItem>
                                 <SelectItem value="50 kg">50 kg</SelectItem>
+                                <SelectItem value="Loose">Loose</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                           <div>
-                            <Label className="block mb-1 text-[10px] text-gray-500">Payment Term</Label>
-                            <Select value={currentVendor.paymentTerm} onValueChange={(v) => updateVendorForm(idx, "paymentTerm", v)}>
+                            <Label className="block mb-1 text-[10px] text-gray-500">
+                              Payment Term
+                            </Label>
+                            <Select
+                              value={currentVendor.paymentTerm}
+                              onValueChange={(v) =>
+                                updateVendorForm(idx, "paymentTerm", v)
+                              }
+                            >
                               <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
                                 <SelectValue placeholder="Select term" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Advance">Advance</SelectItem>
-                                <SelectItem value="After Delivery">After Delivery</SelectItem>
-                                <SelectItem value="Credit 30 Days">Credit 30 Days</SelectItem>
-                                <SelectItem value="Credit 60 Days">Credit 60 Days</SelectItem>
+                                <SelectItem value="After Delivery">
+                                  After Delivery
+                                </SelectItem>
+                                <SelectItem value="Credit 30 Days">
+                                  Credit 30 Days
+                                </SelectItem>
+                                <SelectItem value="Credit 60 Days">
+                                  Credit 60 Days
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <Label className="block mb-1 text-[10px] text-gray-500">Quotation Number</Label>
+                            <Label className="block mb-1 text-[10px] text-gray-500">
+                              Quotation Number
+                            </Label>
                             <Input
                               value={currentVendor.quotationNumber || ""}
-                              onChange={(e) => updateVendorForm(idx, "quotationNumber", e.target.value)}
+                              onChange={(e) =>
+                                updateVendorForm(
+                                  idx,
+                                  "quotationNumber",
+                                  e.target.value,
+                                )
+                              }
                               className="h-8 text-xs bg-white border-gray-200"
                               placeholder="Enter quotation no."
                             />
                           </div>
                           <div>
-                            <Label className="block mb-1 text-[10px] text-gray-500">Quotation Date</Label>
+                            <Label className="block mb-1 text-[10px] text-gray-500">
+                              Quotation Date
+                            </Label>
                             <Input
                               type="date"
                               value={currentVendor.quotationDate || ""}
-                              onChange={(e) => updateVendorForm(idx, "quotationDate", e.target.value)}
+                              onChange={(e) =>
+                                updateVendorForm(
+                                  idx,
+                                  "quotationDate",
+                                  e.target.value,
+                                )
+                              }
                               className="h-8 text-xs bg-white border-gray-200"
                             />
                           </div>
                         </div>
                         {currentVendor.paymentTerm === "Advance" && (
                           <div>
-                            <Label className="block mb-1 text-[10px] text-gray-500">Advance Percentage</Label>
+                            <Label className="block mb-1 text-[10px] text-gray-500">
+                              Advance Percentage
+                            </Label>
                             <Input
                               inputMode="decimal"
                               value={currentVendor.advancePercentage || ""}
-                              onChange={(e) => updateVendorForm(idx, "advancePercentage", e.target.value)}
+                              onChange={(e) =>
+                                updateVendorForm(
+                                  idx,
+                                  "advancePercentage",
+                                  e.target.value,
+                                )
+                              }
                               className="h-8 text-xs bg-white border-gray-200"
                               placeholder="Enter advance %"
                             />
@@ -1267,22 +1348,34 @@ export default function ThreeParty() {
                         )}
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <Label className="block mb-1 text-[10px] text-gray-500">WhatsApp</Label>
+                            <Label className="block mb-1 text-[10px] text-gray-500">
+                              WhatsApp
+                            </Label>
                             <Input
                               inputMode="numeric"
                               maxLength={10}
                               value={currentVendor.whatsapp || ""}
-                              onChange={(e) => updateVendorForm(idx, "whatsapp", e.target.value)}
+                              onChange={(e) =>
+                                updateVendorForm(
+                                  idx,
+                                  "whatsapp",
+                                  e.target.value,
+                                )
+                              }
                               className="h-8 text-xs bg-white border-gray-200"
                               placeholder="10-digit number"
                             />
                           </div>
                           <div>
-                            <Label className="block mb-1 text-[10px] text-gray-500">Email</Label>
+                            <Label className="block mb-1 text-[10px] text-gray-500">
+                              Email
+                            </Label>
                             <Input
                               type="email"
                               value={currentVendor.email || ""}
-                              onChange={(e) => updateVendorForm(idx, "email", e.target.value)}
+                              onChange={(e) =>
+                                updateVendorForm(idx, "email", e.target.value)
+                              }
                               className="h-8 text-xs bg-white border-gray-200"
                               placeholder="vendor@email.com"
                             />
@@ -1290,39 +1383,64 @@ export default function ThreeParty() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <Label className="block mb-1 text-[10px] text-gray-500">Transport Type</Label>
-                            <Select value={currentVendor.transportType} onValueChange={(v) => updateVendorForm(idx, "transportType", v)}>
+                            <Label className="block mb-1 text-[10px] text-gray-500">
+                              Transport Type
+                            </Label>
+                            <Select
+                              value={currentVendor.transportType}
+                              onValueChange={(v) =>
+                                updateVendorForm(idx, "transportType", v)
+                              }
+                            >
                               <SelectTrigger className="text-xs border-gray-200 h-8 bg-white">
                                 <SelectValue placeholder="Select Type" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="FOR">FOR</SelectItem>
-                                <SelectItem value="ex-factory">ex-factory</SelectItem>
+                                <SelectItem value="ex-factory">
+                                  ex-factory
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                           <div>
-                            <Label className="block mb-1 text-[10px] text-gray-500">Expected Date</Label>
+                            <Label className="block mb-1 text-[10px] text-gray-500">
+                              Expected Date
+                            </Label>
                             <Input
                               type="date"
                               value={currentVendor.expectedDate || ""}
-                              onChange={(e) => updateVendorForm(idx, "expectedDate", e.target.value)}
+                              onChange={(e) =>
+                                updateVendorForm(
+                                  idx,
+                                  "expectedDate",
+                                  e.target.value,
+                                )
+                              }
                               className="h-8 text-xs bg-white border-gray-200"
                             />
                           </div>
                         </div>
                         <div>
-                          <Label className="block mb-1 text-[10px] text-gray-500">Notes</Label>
+                          <Label className="block mb-1 text-[10px] text-gray-500">
+                            Notes
+                          </Label>
                           <Textarea
                             value={currentVendor.notes || ""}
-                            onChange={(e) => updateVendorForm(idx, "notes", e.target.value)}
+                            onChange={(e) =>
+                              updateVendorForm(idx, "notes", e.target.value)
+                            }
                             className="text-xs bg-white border-gray-200 min-h-[60px]"
                             placeholder="Additional notes for this vendor..."
                           />
                         </div>
                         <div>
-                          <Label className="block mb-2 text-xs font-medium text-gray-600">Chemical Analysis (%)</Label>
-                          <p className="mb-2 text-[10px] text-gray-400">Optional</p>
+                          <Label className="block mb-2 text-xs font-medium text-gray-600">
+                            Chemical Analysis (%)
+                          </Label>
+                          <p className="mb-2 text-[10px] text-gray-400">
+                            Optional
+                          </p>
                           <div className="grid grid-cols-3 gap-2">
                             {[
                               ["alumina", "Al₂O₃"],
@@ -1333,11 +1451,15 @@ export default function ThreeParty() {
                               ["bd", "BD"],
                             ].map(([field, label]) => (
                               <div key={field}>
-                                <Label className="block mb-1 text-[9px] text-gray-500">{label}</Label>
+                                <Label className="block mb-1 text-[9px] text-gray-500">
+                                  {label}
+                                </Label>
                                 <Input
                                   type="text"
                                   value={currentVendor[field]}
-                                  onChange={(e) => updateVendorForm(idx, field, e.target.value)}
+                                  onChange={(e) =>
+                                    updateVendorForm(idx, field, e.target.value)
+                                  }
                                   className="h-7 text-[10px] border-gray-200"
                                   placeholder="0.00"
                                 />
@@ -1345,11 +1467,19 @@ export default function ThreeParty() {
                             ))}
                           </div>
                           <div className="mt-2">
-                            <Label className="block mb-1 text-[9px] text-gray-500">Fineness</Label>
+                            <Label className="block mb-1 text-[9px] text-gray-500">
+                              Fineness
+                            </Label>
                             <Input
                               type="text"
                               value={currentVendor.fineness}
-                              onChange={(e) => updateVendorForm(idx, "fineness", e.target.value)}
+                              onChange={(e) =>
+                                updateVendorForm(
+                                  idx,
+                                  "fineness",
+                                  e.target.value,
+                                )
+                              }
                               className="h-7 text-[10px] border-gray-200"
                               placeholder="Details"
                             />
