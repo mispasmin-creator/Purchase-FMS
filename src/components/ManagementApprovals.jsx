@@ -33,6 +33,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { useRealtime } from "../hooks/useRealtime";
+import { canViewFirm } from "../utils/firmFilter";
 
 import {
   Dialog,
@@ -122,12 +123,9 @@ export default function ManagementApprovals() {
       if (fetchError) throw fetchError;
 
       let filteredData = data;
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        filteredData = data.filter(
-          (row) =>
-            row["Firm Name"] &&
-            String(row["Firm Name"]).toLowerCase() ===
-              user.firmName.toLowerCase(),
+      if (user?.firmName) {
+        filteredData = data.filter((row) =>
+          canViewFirm(user.firmName, row["Firm Name"]),
         );
       }
 
@@ -289,6 +287,18 @@ export default function ManagementApprovals() {
         <CardDescription className="text-sm text-gray-500">
           Review the factory technical tags and approve one final vendor.
         </CardDescription>
+        {user?.firmName && (
+          <p className="border-t border-gray-100 mt-2 pt-2 text-[#7da23a] text-xs font-medium">
+            Showing data for: {" "}
+            <span className="font-bold">
+              {user.firmName === "all"
+                ? "All Firms"
+                : Array.isArray(user.firmName)
+                  ? user.firmName.join(", ")
+                  : user.firmName}
+            </span>
+          </p>
+        )}
       </CardHeader>
 
       <CardContent className="p-4">

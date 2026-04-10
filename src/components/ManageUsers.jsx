@@ -113,6 +113,28 @@ const parsePermissions = (pages) => {
   return [];
 };
 
+const parseFirms = (firmName) => {
+  if (!firmName) return [];
+  if (Array.isArray(firmName)) return firmName;
+  if (typeof firmName !== "string") return [];
+
+  const trimmed = firmName.trim();
+  if (trimmed === "") return [];
+  if (trimmed.toLowerCase() === "all") return ["all"];
+  
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed;
+  } catch (e) {
+    // Fallback for older records or CSV
+    if (trimmed.includes(",")) {
+      return trimmed.split(",").map((f) => f.trim()).filter(Boolean);
+    }
+    return [trimmed];
+  }
+  return [];
+};
+
 
 export default function ManageUsers() {
   const { user: currentUser } = useAuth();
@@ -127,7 +149,7 @@ export default function ManageUsers() {
   const [formData, setFormData] = useState({
     username: "",
     password: "",
-    firmName: "",
+    firmName: [],
     permissions: [],
   });
 
@@ -158,7 +180,7 @@ export default function ManageUsers() {
     setFormData({
       username: "",
       password: "",
-      firmName: "",
+      firmName: [],
       permissions: [],
     });
     setIsDialogOpen(true);
@@ -171,7 +193,7 @@ export default function ManageUsers() {
     setFormData({
       username: user["User Name"] || "",
       password: user["Password"] || "",
-      firmName: user["Firm Name"] || "",
+      firmName: parseFirms(user["Firm Name"]),
       permissions: userPermissions,
     });
 
@@ -196,6 +218,23 @@ export default function ManageUsers() {
     });
   };
 
+  const handleToggleFirm = (firm) => {
+    setFormData((prev) => {
+      let newFirms;
+      if (firm === "all") {
+        newFirms = prev.firmName.includes("all") ? [] : ["all"];
+      } else {
+        const filtered = prev.firmName.filter((f) => f !== "all");
+        if (filtered.includes(firm)) {
+          newFirms = filtered.filter((f) => f !== firm);
+        } else {
+          newFirms = [...filtered, firm];
+        }
+      }
+      return { ...prev, firmName: newFirms };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.username || !formData.password || !formData.firmName) {
@@ -209,11 +248,15 @@ export default function ManageUsers() {
       const pagesValue = formData.permissions.includes("admin")
         ? "all"
         : formData.permissions;
+      
+      const firmsValue = formData.firmName.includes("all")
+        ? "all"
+        : formData.firmName;
 
       const payload = {
         "User Name": formData.username,
         Password: formData.password,
-        "Firm Name": formData.firmName,
+        "Firm Name": firmsValue,
         Pages: pagesValue,
       };
 
@@ -510,32 +553,46 @@ export default function ManageUsers() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="firm"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    Organization / Firm Name <span className="text-red-500">*</span>
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center justify-between">
+                    Assigned Firms <span className="text-red-500">*</span>
+                    <Badge variant="outline" className="text-[10px] uppercase font-bold">
+                      {formData.firmName.includes("all") ? "All Firms" : `${formData.firmName.length} Selected`}
+                    </Badge>
                   </Label>
-                  <Select
-                    value={formData.firmName}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, firmName: value })
-                    }
-                  >
-                    <SelectTrigger className="w-full bg-white border-gray-200">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-gray-400" />
-                        <SelectValue placeholder="Select Organization" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FIRMS.map((firm) => (
-                        <SelectItem key={firm} value={firm}>
-                          {firm}
-                        </SelectItem>
+                  
+                  <div className="border border-gray-100 rounded-xl p-3 bg-slate-50/30 space-y-2">
+                    <div className="flex items-center space-x-3 p-2 bg-blue-50 rounded-lg border border-blue-100 group cursor-pointer">
+                      <Checkbox
+                        id="firm-all"
+                        checked={formData.firmName.includes("all")}
+                        onCheckedChange={() => handleToggleFirm("all")}
+                        className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                      />
+                      <Label htmlFor="firm-all" className="text-sm font-bold text-blue-900 cursor-pointer flex items-center flex-1">
+                        <Building2 className="h-3 w-3 mr-1.5" /> All Firms Access
+                      </Label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      {FIRMS.filter(f => f !== "all").map((firm) => (
+                        <div key={firm} className="flex items-center space-x-2 p-1.5 hover:bg-white rounded-md transition-colors border border-transparent hover:border-gray-50 group">
+                          <Checkbox
+                            id={`firm-${firm}`}
+                            checked={formData.firmName.includes(firm) || formData.firmName.includes("all")}
+                            onCheckedChange={() => handleToggleFirm(firm)}
+                            disabled={formData.firmName.includes("all")}
+                            className="data-[state=checked]:bg-[#7da23a] data-[state=checked]:border-[#7da23a]"
+                          />
+                          <Label
+                            htmlFor={`firm-${firm}`}
+                            className={`text-xs cursor-pointer flex-1 ${formData.firmName.includes("all") ? "text-gray-400" : "text-gray-700"}`}
+                          >
+                            {firm}
+                          </Label>
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AuthContext } from "../context/AuthContext" // Import AuthContext
+import { canViewFirm } from "../utils/firmFilter"
 
 // --- Google Sheet Configuration ---
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
@@ -200,10 +201,9 @@ export default function FinalTallyEntry() {
         .filter((entry) => entry !== null)
 
       // Apply firm-based filtering
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase()
-        parsedEntries = parsedEntries.filter(
-          (entry) => entry && entry.firmName && String(entry.firmName).toLowerCase() === userFirmNameLower,
+      if (user?.firmName) {
+        parsedEntries = parsedEntries.filter((entry) =>
+          canViewFirm(user.firmName, entry.firmName),
         )
       }
 
@@ -452,8 +452,15 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Mark purchase orders as entered in Tally accounting system after final checks.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
+            {user?.firmName && (
+              <span className="ml-2 text-[#7da23a] font-medium">
+                • Filtered by:{" "}
+                {user.firmName === "all"
+                  ? "All"
+                  : Array.isArray(user.firmName)
+                    ? user.firmName.join(", ")
+                    : user.firmName}
+              </span>
             )}
           </CardDescription>
         </CardHeader>

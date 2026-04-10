@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { AuthContext } from "../context/AuthContext";
 import { useRealtime } from "../hooks/useRealtime";
+import { canViewFirm } from "../utils/firmFilter";
 
 const EMPTY_FORM = {
     purchaseReturnNo: "",
@@ -94,13 +95,12 @@ export default function PurchaseReturnPage() {
             fetchedMismatches = fetchedMismatches.filter(m => !existingMismatchIds.has(m.id));
 
             // Role-based filtering
-            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmLower = user.firmName.toLowerCase();
-                fetchedReturns = fetchedReturns.filter(
-                    (rec) => rec["Firm Name"] && String(rec["Firm Name"]).toLowerCase().trim() === userFirmLower
+            if (user?.firmName) {
+                fetchedReturns = fetchedReturns.filter((rec) =>
+                    canViewFirm(user.firmName, rec["Firm Name"])
                 );
-                fetchedMismatches = fetchedMismatches.filter(
-                    (rec) => rec["Firm Name"] && String(rec["Firm Name"]).toLowerCase().trim() === userFirmLower
+                fetchedMismatches = fetchedMismatches.filter((rec) =>
+                    canViewFirm(user.firmName, rec["Firm Name"])
                 );
             }
 

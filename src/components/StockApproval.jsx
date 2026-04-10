@@ -50,6 +50,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { useRealtime } from "../hooks/useRealtime";
+import { canViewFirm } from "../utils/firmFilter";
 
 
 // Helper function to clean remarks - extract only the user text
@@ -290,12 +291,9 @@ export default function StockApproval() {
           remark_original: cleanRemark(row["Remarks"] || ""),
         }));
 
-        if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-          const userFirmNameLower = user.firmName.toLowerCase();
-          processedIndents = processedIndents.filter(
-            (indent) =>
-              indent.firmName &&
-              String(indent.firmName).toLowerCase() === userFirmNameLower,
+        if (user?.firmName) {
+          processedIndents = processedIndents.filter((indent) =>
+            canViewFirm(user.firmName, indent.firmName),
           );
         }
 
@@ -656,10 +654,16 @@ export default function StockApproval() {
         <CardDescription className="text-gray-500 text-sm">
           Review and manage raw material indent approvals.
         </CardDescription>
-        {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+        {user?.firmName && (
           <p className="text-[#7da23a] text-xs mt-1">
             Showing data for:{" "}
-            <span className="font-semibold">{user.firmName}</span>
+            <span className="font-semibold">
+              {user.firmName === "all"
+                ? "All"
+                : Array.isArray(user.firmName)
+                  ? user.firmName.join(", ")
+                  : user.firmName}
+            </span>
           </p>
         )}
       </CardHeader>

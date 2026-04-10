@@ -42,6 +42,7 @@ import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { fetchMasterData } from "../utils/masterDataUtils";
 import { useRealtime } from "../hooks/useRealtime";
+import { canViewFirm } from "../utils/firmFilter";
 
 import {
   Select,
@@ -160,13 +161,8 @@ export default function ThreeParty() {
 
         // Filter by firm name
         let filteredData = data;
-        if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-          filteredData = data.filter(
-            (row) =>
-              row["Firm Name"] &&
-              String(row["Firm Name"]).toLowerCase() ===
-                user.firmName.toLowerCase(),
-          );
+        if (user?.firmName) {
+          filteredData = data.filter((row) => canViewFirm(user.firmName, row["Firm Name"]));
         }
 
         // Process pending data (Planned6 is not null and Actual6 is null)
@@ -644,12 +640,12 @@ export default function ThreeParty() {
         <CardDescription className="mt-1 text-sm text-gray-500">
           Compare vendors and submit for factory approval
         </CardDescription>
-        {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+        {user?.firmName && (
           <Badge
             variant="outline"
             className="mt-2 text-green-700 border-green-200 bg-green-50"
           >
-            {user.firmName}
+            {user.firmName === "all" ? "All Firms" : Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
           </Badge>
         )}
       </CardHeader>

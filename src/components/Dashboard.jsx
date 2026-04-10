@@ -90,6 +90,7 @@ import {
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { useRealtime } from "../hooks/useRealtime";
+import { canViewFirm } from "../utils/firmFilter";
 
 
 // --- Constants ---
@@ -361,21 +362,17 @@ export default function Dashboard() {
         .filter((a) => a && a.rlNo);
 
       // Apply firm filtering
-      // Firm filtering removed as per user request (Dashboard shows all data)
-      /*
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase()
-        processedIndentPoData = processedIndentPoData.filter(
-          (po) => po.firmName && String(po.firmName).toLowerCase() === userFirmNameLower
-        )
-        processedLiftAccountData = processedLiftAccountData.filter(
-          (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower
-        )
-        processedAccountsData = processedAccountsData.filter(
-          (acc) => acc.firmName && String(acc.firmName).toLowerCase().trim() === userFirmNameLower
-        )
+      if (user?.firmName) {
+        processedIndentPoData = processedIndentPoData.filter((po) =>
+          canViewFirm(user.firmName, po.firmName),
+        );
+        processedLiftAccountData = processedLiftAccountData.filter((lift) =>
+          canViewFirm(user.firmName, lift.firmName),
+        );
+        processedAccountsData = processedAccountsData.filter((acc) =>
+          canViewFirm(user.firmName, acc.firmName),
+        );
       }
-      */
 
       setAllPurchaseData(processedIndentPoData);
       setAllLiftAccountData(processedLiftAccountData);
@@ -838,12 +835,16 @@ export default function Dashboard() {
                   <CardDescription className="text-green-100 text-base">
                     Real-time insights into your purchase operations and
                     material logistics
-                    {user?.firmName &&
-                      user.firmName.toLowerCase() !== "all" && (
-                        <span className="ml-2 text-white font-semibold">
-                          • Filtered by: {user.firmName}
-                        </span>
-                      )}
+                    {user?.firmName && (
+                      <span className="ml-2 text-white font-semibold">
+                        • Filtered by:{" "}
+                        {user.firmName === "all"
+                          ? "All"
+                          : Array.isArray(user.firmName)
+                            ? user.firmName.join(", ")
+                            : user.firmName}
+                      </span>
+                    )}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-3">

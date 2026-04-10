@@ -56,6 +56,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AuthContext } from "../context/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
+import { canViewFirm } from "../utils/firmFilter";
 
 const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
@@ -712,12 +713,9 @@ export default function MismatchAnalysis() {
       });
 
       // Filter by user's firm name if applicable
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
-        formattedData = formattedData.filter(
-          (lift) =>
-            lift.firmName &&
-            String(lift.firmName).toLowerCase() === userFirmNameLower,
+      if (user?.firmName) {
+        formattedData = formattedData.filter((lift) =>
+          canViewFirm(user.firmName, lift.firmName),
         );
       }
       // Show only Independent type lifts

@@ -65,6 +65,7 @@ import {
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
 import { supabase } from "../supabase";
+import { canViewFirm } from "../utils/firmFilter";
 
 // --- Constants for Google Sheets and Apps Script ---
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
@@ -720,13 +721,9 @@ export default function LabTesting() {
         });
 
         // Filter by firm name
-        if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-          const userFirmNameLower = user.firmName.toLowerCase();
-          processedData = processedData.filter(
-            (lift) =>
-              lift &&
-              lift.firmName &&
-              String(lift.firmName).toLowerCase() === userFirmNameLower,
+        if (user?.firmName) {
+          processedData = processedData.filter((lift) =>
+            canViewFirm(user.firmName, lift.firmName),
           );
         }
         setAllLiftsData(processedData);
@@ -1500,9 +1497,15 @@ export default function LabTesting() {
                 {tabKey === "eligibleForTest"
                   ? "No materials are currently eligible for lab testing."
                   : "No lab tests have been recorded yet."}
-                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                {user?.firmName && (
                   <span className="block mt-1">
-                    (Filtered by firm: {user.firmName})
+                    (Filtered by firm:{" "}
+                    {user.firmName === "all"
+                      ? "All"
+                      : Array.isArray(user.firmName)
+                        ? user.firmName.join(", ")
+                        : user.firmName}
+                    )
                   </span>
                 )}
               </p>
@@ -1567,9 +1570,14 @@ export default function LabTesting() {
           <CardDescription className="text-gray-600">
             Record lab test results for received materials by updating
             LIFT-ACCOUNTS.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+            {user?.firmName && (
               <span className="ml-2 text-[#7da23a] font-medium">
-                • Filtered by: {user.firmName}
+                • Filtered by:{" "}
+                {user.firmName === "all"
+                  ? "All"
+                  : Array.isArray(user.firmName)
+                    ? user.firmName.join(", ")
+                    : user.firmName}
               </span>
             )}
           </CardDescription>

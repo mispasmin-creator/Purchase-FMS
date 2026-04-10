@@ -35,6 +35,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabase";
 import { fetchMasterData } from "../utils/masterDataUtils";
+import { canViewFirm } from "../utils/firmFilter";
 
 export default function IndentForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,10 +117,16 @@ export default function IndentForm() {
       // Fetch data from Supabase Master table
       const masterData = await fetchMasterData();
 
+      // Filter firm options based on user's access
+      let firmOptions = masterData.firmNameOptions || [];
+      if (user?.firmName && user.firmName !== "all") {
+        firmOptions = firmOptions.filter(option => canViewFirm(user.firmName, option));
+      }
+
       let options = {
         generatedBy: masterData.generatedByOptions,
         vendorName: masterData.vendorOptions,
-        firmName: masterData.firmNameOptions,
+        firmName: firmOptions,
         rawMaterialName: masterData.materialOptions,
         indentType: masterData.indentTypeOptions,
         firmNameMapping: masterData.firmNameMapping || {},
@@ -127,6 +134,11 @@ export default function IndentForm() {
       };
 
       setDropdownOptions(options);
+
+      // Auto-set firm if user has exactly one firm assigned and form is empty
+      if (!formData.firmName && firmOptions.length === 1) {
+        setFormData(prev => ({ ...prev, firmName: firmOptions[0] }));
+      }
     } catch (error) {
       console.error("Error fetching master data:", error);
       toast.error("Failed to load initial form data.", {
@@ -310,7 +322,7 @@ export default function IndentForm() {
         generatedBy: "",
         vendorName: "",
         firmName:
-          user?.firmName && user.firmName.toLowerCase() !== "all"
+          user?.firmName && !Array.isArray(user.firmName) && user.firmName.toLowerCase() !== "all"
             ? user.firmName
             : "",
         rawMaterialName: "",
@@ -360,10 +372,12 @@ export default function IndentForm() {
           <CardDescription className="text-gray-600">
             Fill out the form to generate a new entry with an RI Number
           </CardDescription>
-          {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+          {user?.firmName && (
             <p className="mt-1 text-sm text-primary">
-              Creating entry for:{" "}
-              <span className="font-semibold">{user.firmName}</span>
+              Authorized firms:{" "}
+              <span className="font-semibold">
+                {user.firmName === "all" ? "All" : Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+              </span>
             </p>
           )}
         </CardHeader>

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
+import { canViewFirm } from "../utils/firmFilter";
 import { toast } from "sonner";
 
 const formatDate = (dateString) => {
@@ -89,10 +90,8 @@ export default function POHistory() {
       let result = Object.values(groupedPOs);
 
       // Filter by firm if user is restricted
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        result = result.filter(po => 
-          po.firmName && po.firmName.toLowerCase() === user.firmName.toLowerCase()
-        );
+      if (user?.firmName) {
+        result = result.filter((po) => canViewFirm(user.firmName, po.firmName));
       }
 
       setPoList(result);

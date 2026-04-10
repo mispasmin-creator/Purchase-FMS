@@ -81,7 +81,23 @@ export function AuthProvider({ children }) {
       }
 
 
-      const userFirm = (userRecord["Firm Name"] || "").trim()
+      const rawFirm = (userRecord["Firm Name"] || "").trim()
+      let userFirm = rawFirm
+      
+      // Parse multi-firm access if not "all"
+      if (rawFirm.toLowerCase() !== "all" && rawFirm !== "") {
+        try {
+          const parsed = JSON.parse(rawFirm)
+          if (Array.isArray(parsed)) {
+            userFirm = parsed
+          }
+        } catch (e) {
+          // Fallback for CSV for old records
+          if (rawFirm.includes(",")) {
+            userFirm = rawFirm.split(",").map((f) => f.trim()).filter(Boolean)
+          }
+        }
+      }
 
       const currentUserData = JSON.parse(localStorage.getItem("user") || "{}")
       const updatedUserData = { ...currentUserData, firmName: userFirm }
@@ -161,7 +177,23 @@ export function AuthProvider({ children }) {
         }
 
 
-        const userFoundFirm = (userRecord["Firm Name"] || "").trim()
+        const rawFoundFirm = (userRecord["Firm Name"] || "").trim()
+        let userFoundFirm = rawFoundFirm
+
+        // Parse multi-firm access if not "all"
+        if (rawFoundFirm.toLowerCase() !== "all" && rawFoundFirm !== "") {
+          try {
+            const parsed = JSON.parse(rawFoundFirm)
+            if (Array.isArray(parsed)) {
+              userFoundFirm = parsed
+            }
+          } catch (e) {
+            // Fallback for CSV for old records
+            if (rawFoundFirm.includes(",")) {
+              userFoundFirm = rawFoundFirm.split(",").map((f) => f.trim()).filter(Boolean)
+            }
+          }
+        }
 
         // Save to localStorage
         const userData = { username, firmName: userFoundFirm }

@@ -57,6 +57,7 @@ import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { fetchMasterDataForSelects } from "../utils/masterDataUtils";
 import { uploadFileToStorage } from "../utils/storageUtils";
+import { canViewFirm } from "../utils/firmFilter";
 
 function formatTimestamp(timestampStr) {
   if (!timestampStr || typeof timestampStr !== "string") {
@@ -576,12 +577,9 @@ export default function LiftMaterial() {
         };
       });
 
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
-        formattedData = formattedData.filter(
-          (po) =>
-            po.firmName &&
-            String(po.firmName).toLowerCase() === userFirmNameLower,
+      if (user?.firmName) {
+        formattedData = formattedData.filter((po) =>
+          canViewFirm(user.firmName, po.firmName),
         );
       }
 
@@ -703,12 +701,9 @@ export default function LiftMaterial() {
       });
 
       // Filter by user's firm name if applicable
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
-        formattedData = formattedData.filter(
-          (lift) =>
-            lift.firmName &&
-            String(lift.firmName).toLowerCase() === userFirmNameLower,
+      if (user?.firmName) {
+        formattedData = formattedData.filter((lift) =>
+          canViewFirm(user.firmName, lift.firmName),
         );
       }
 

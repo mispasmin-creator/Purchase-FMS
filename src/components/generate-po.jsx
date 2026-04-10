@@ -36,6 +36,7 @@ import { AuthContext } from "../context/AuthContext";
 import { supabase } from "../supabase";
 import { uploadFileToStorage } from "../utils/storageUtils";
 import { useRealtime } from "../hooks/useRealtime";
+import { canViewFirm } from "../utils/firmFilter";
 
 import logo from "../assets/logo.jpeg";
 
@@ -188,9 +189,12 @@ export default function CreatePO() {
       // Auto-select firm based on user
       const userFirmPath = user?.firmName;
       if (userFirmPath && userFirmPath !== "all") {
+        // Find if user has exactly one firm assigned or use the first one if multiple
+        const firstUserFirm = Array.isArray(userFirmPath) ? userFirmPath[0] : userFirmPath;
+        
         const found = data.find(f => 
-          normalize(f.firm_name) === normalize(userFirmPath) || 
-          normalize(f.data_name) === normalize(userFirmPath)
+          normalize(f.firm_name) === normalize(firstUserFirm) || 
+          normalize(f.data_name) === normalize(firstUserFirm)
         );
         if (found) setSelectedFirm(found);
       }
@@ -220,10 +224,10 @@ export default function CreatePO() {
         let filtered = mapped;
         if (selectedFirm) {
           // Use data_name (short key like 'Pmmpl') if it exists, otherwise fall back to firm_name
-          const filterKey = normalize(selectedFirm.data_name || selectedFirm.firm_name);
-          filtered = mapped.filter(item => normalize(item.firmName) === filterKey);
-        } else if (user?.firmName && user.firmName !== "all") {
-          filtered = mapped.filter(item => normalize(item.firmName) === normalize(user.firmName));
+          const filterKey = selectedFirm.data_name || selectedFirm.firm_name;
+          filtered = mapped.filter(item => canViewFirm(filterKey, item.firmName));
+        } else if (user?.firmName) {
+          filtered = mapped.filter(item => canViewFirm(user.firmName, item.firmName));
         }
 
         setRows(filtered);
@@ -544,10 +548,9 @@ export default function CreatePO() {
         .not("Planned2", "is", null);
       if (error) throw error;
       const mapped = (data || []).map(mapRow);
-      const firm = normalize(user?.firmName);
       setRows(
-        firm && firm !== "all"
-          ? mapped.filter((item) => normalize(item.firmName) === firm)
+        user?.firmName
+          ? mapped.filter((item) => canViewFirm(user.firmName, item.firmName))
           : mapped,
       );
       setShowPreview(false);

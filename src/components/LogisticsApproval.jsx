@@ -37,6 +37,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { useRealtime } from "../hooks/useRealtime";
+import { canViewFirm } from "../utils/firmFilter";
 
 import {
   Dialog,
@@ -87,12 +88,9 @@ export default function LogisticsApproval() {
       if (fetchError) throw fetchError;
 
       let filteredData = data || [];
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        filteredData = filteredData.filter(
-          (row) =>
-            row["Firm Name"] &&
-            String(row["Firm Name"]).toLowerCase() ===
-              user.firmName.toLowerCase(),
+      if (user?.firmName) {
+        filteredData = filteredData.filter((row) =>
+          canViewFirm(user.firmName, row["Firm Name"]),
         );
       }
 

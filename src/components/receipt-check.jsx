@@ -60,6 +60,7 @@ import { useNotification } from "../context/NotificationContext";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { uploadFileToStorage } from "../utils/storageUtils";
+import { canViewFirm } from "../utils/firmFilter";
 
 // Constants for Google Sheets and Apps Script
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
@@ -521,13 +522,11 @@ export default function ReceiptCheck() {
         });
 
         // Filter by user's firm name if applicable
-        if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-          const userFirmNameLower = user.firmName.toLowerCase();
+        if (user?.firmName) {
           processedData = processedData.filter(
             (lift) =>
               lift &&
-              lift.firmName &&
-              String(lift.firmName).toLowerCase() === userFirmNameLower,
+              canViewFirm(user.firmName, lift.firmName),
           );
         }
         setAllLiftsData(processedData);
