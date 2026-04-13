@@ -112,6 +112,7 @@ export default function POHistory() {
       const searchMatch = 
         po.poId.toLowerCase().includes(searchQuery.toLowerCase()) ||
         po.vendorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (po.firmName && po.firmName.toLowerCase().includes(searchQuery.toLowerCase())) ||
         po.items.join(", ").toLowerCase().includes(searchQuery.toLowerCase());
       
       const dateMatch = !dateFilter || (po.date && po.date.startsWith(dateFilter));
@@ -177,6 +178,7 @@ export default function POHistory() {
                 <TableRow>
                   <TableHead className="font-bold">PO ID</TableHead>
                   <TableHead className="font-bold">Creation Date</TableHead>
+                  <TableHead className="font-bold">Firm Name</TableHead>
                   <TableHead className="font-bold">Vendor Name</TableHead>
                   <TableHead className="font-bold">Items</TableHead>
                   <TableHead className="font-bold">Amount</TableHead>
@@ -189,6 +191,7 @@ export default function POHistory() {
                   <TableRow key={po.id} className="hover:bg-slate-50 transition-colors">
                     <TableCell className="font-medium text-blue-600">{po.poId}</TableCell>
                     <TableCell className="text-gray-600">{formatDate(po.date)}</TableCell>
+                    <TableCell className="text-gray-700 font-medium">{po.firmName || "N/A"}</TableCell>
                     <TableCell className="font-semibold text-gray-800">{po.vendorName}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
