@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+﻿import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Filter, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabase';
 import { AuthContext } from '../context/AuthContext';
@@ -236,8 +236,8 @@ const AccountsAudit = () => {
 
 
       // Filter by Firm Name
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         filteredData = filteredData.filter(
           (item) => item.firmName && String(item.firmName).toLowerCase().trim() === userFirmNameLower
         );

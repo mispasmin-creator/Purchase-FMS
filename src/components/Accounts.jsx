@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useContext } from 'react';
+﻿import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { Search, X, Settings, Eye, Download, RefreshCw } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
@@ -199,8 +199,8 @@ const formatDate = (dateString) => {
   const filteredData = useMemo(() => {
     let baseData = accountsData;
     
-    if (user?.firmName && user.firmName.toLowerCase() !== 'all') {
-      const userFirmNameLower = user.firmName.toLowerCase();
+    if (user?.firmName && String(user.firmName).toLowerCase() !== 'all') {
+      const userFirmNameLower = String(user.firmName).toLowerCase();
       baseData = baseData.filter(item => 
         item.firmName && String(item.firmName).toLowerCase().trim() === userFirmNameLower
       );

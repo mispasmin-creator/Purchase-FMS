@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+﻿import React, { useState, useEffect, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Image, Filter } from 'lucide-react';
 import { supabase } from '../supabase';
 import { AuthContext } from '../context/AuthContext';
@@ -167,8 +167,8 @@ const TakeEntryTallyPage = () => {
       }));
 
       // Filter by Firm Name
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         parsedData = parsedData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
@@ -328,7 +328,7 @@ const TakeEntryTallyPage = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Take Entry By Tally</h1>
                 <p className="text-sm text-gray-600 mt-1">Record entries using tally verification</p>
-                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
                   <span className="text-sm text-[#7da23a] font-medium">Filtered by: {user.firmName}</span>
                 )}
               </div>

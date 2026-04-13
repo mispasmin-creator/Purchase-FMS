@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -249,8 +249,8 @@ export default function TallyEntry() {
 
       parsedData = Object.values(parsedData).filter((row) => row.indentId);
 
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         parsedData = parsedData.filter(
           (item) => (item.firmName || "").toLowerCase().trim() === userFirmNameLower
         );
@@ -538,7 +538,7 @@ export default function TallyEntry() {
               <p className="font-semibold">{type === "approve" ? "No Pending Entries" : "No Completed Entries"}</p>
               <p className="text-sm text-muted-foreground mt-1">
                 {type === "approve" ? "All eligible entries have been processed." : "Completed entries will appear here."}
-                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
                   <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
                 )}
               </p>
@@ -606,7 +606,7 @@ export default function TallyEntry() {
           </CardTitle>
           <CardDescription className="text-gray-500 mt-1 text-sm">
             Mark purchase orders as entered in the Tally accounting system.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
               <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
             )}
           </CardDescription>

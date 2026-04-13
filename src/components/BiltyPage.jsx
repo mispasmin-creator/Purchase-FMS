@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter } from "lucide-react";
@@ -153,8 +153,8 @@ export default function BiltyPage() {
         };
       }).filter(row => row && row.id);
 
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         processedRawRows = processedRawRows.filter(
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
         );

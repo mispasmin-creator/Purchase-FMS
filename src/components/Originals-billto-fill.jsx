@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -234,8 +234,8 @@ export default function OriginalBillsFiledPage() {
         })
         .filter((row) => row.indentId);
 
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         parsedData = parsedData.filter(
           (item) => (item.firmName || "").toLowerCase().trim() === userFirmNameLower
         );
@@ -583,7 +583,7 @@ export default function OriginalBillsFiledPage() {
           </CardTitle>
           <CardDescription className="text-gray-500 mt-1 text-sm">
             Manage advance payments for purchase orders (Stage 5).
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
               <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
             )}
           </CardDescription>

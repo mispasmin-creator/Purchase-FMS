@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useContext, useMemo } from "react";
 import {
@@ -239,8 +239,8 @@ export default function DebitNote() {
 
       // Filter by user's firm if applicable
       let filteredData = formattedData;
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         filteredData = formattedData.filter(
           (item) => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower,
         );
@@ -688,7 +688,7 @@ export default function DebitNote() {
             </CardTitle>
             <CardDescription className="text-gray-500 text-sm">
               Manage and update remarks for mismatch entries. Add remarks to track debit note status.
-              {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+              {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
                 <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
               )}
             </CardDescription>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback } from "react";
 import {
   Card,
@@ -315,7 +315,7 @@ export default function IndentForm() {
         generatedBy: "",
         vendorName: "",
         firmName:
-          user?.firmName && !Array.isArray(user.firmName) && user.firmName.toLowerCase() !== "all"
+          user?.firmName && !Array.isArray(user.firmName) && String(user.firmName).toLowerCase() !== "all"
             ? user.firmName
             : "",
         rawMaterialName: "",

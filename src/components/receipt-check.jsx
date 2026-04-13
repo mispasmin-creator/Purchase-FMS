@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useContext, useMemo, useEffect } from "react";
 import {
   PackageOpen,
@@ -1098,7 +1098,7 @@ export default function ReceiptCheck() {
                 {tabKey === "awaitingReceipt"
                   ? "No lifts are currently awaiting receipt."
                   : "No processed lifts match the criteria."}
-                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
                   <span className="block mt-1">
                     (Filtered by firm: {user.firmName})
                   </span>
@@ -1175,7 +1175,7 @@ export default function ReceiptCheck() {
           <CardDescription className="text-sm text-gray-500">
             Record receipt details and perform quality checks for incoming
             materials.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
               <span className="ml-2 text-[#7da23a] font-medium">
                 • Filtered by: {user.firmName}
               </span>

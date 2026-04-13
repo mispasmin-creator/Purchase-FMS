@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -1368,7 +1368,7 @@ export default function MismatchAnalysis() {
                   : tabKey === "quantityMismatch"
                     ? "All lifted quantities match their weight slip quantities."
                     : "All material properties match between TL and LIFT-ACCOUNTS sheets."}
-                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
                   <span className="block mt-1">
                     (Filtered by firm: {user.firmName})
                   </span>
@@ -1437,7 +1437,7 @@ export default function MismatchAnalysis() {
             <CardDescription className="text-gray-500 text-sm">
               Identify and analyze rate, quantity, and material property
               mismatches across sheets.
-              {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+              {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
                 <span className="ml-2 text-red-600 font-medium">
                   • Filtered by: {user.firmName}
                 </span>

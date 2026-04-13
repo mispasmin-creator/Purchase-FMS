@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+﻿import React, { useState, useEffect, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Image, Filter } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
@@ -341,8 +341,8 @@ const RectifyMistake2Page = () => {
       }).filter(Boolean);
 
       // Apply Firm Name filtering
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         parsedData = parsedData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
@@ -473,7 +473,7 @@ const RectifyMistake2Page = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Rectify The Mistake 2</h1>
                 <p className="text-sm text-gray-600 mt-1">Secondary correction and verification process</p>
-                {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+                {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
                   <span className="text-sm text-[#7da23a] font-medium">Filtered by: {user.firmName}</span>
                 )}
               </div>

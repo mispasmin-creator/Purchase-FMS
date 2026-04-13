@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useContext } from "react";
+﻿import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { PackageSearch, PlusCircle, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { useAuth } from "../context/AuthContext";
@@ -172,8 +172,8 @@ export default function FullkittingTransportingPage() {
             });
 
             // Filter by firm name
-            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 parsedData = parsedData.filter(
                     (item) => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower,
                 );
@@ -220,7 +220,7 @@ export default function FullkittingTransportingPage() {
 
         // Apply firm-based filter first
         if (!hasAllFirmAccess && user?.firmName) {
-            const userFirmNameLower = user.firmName.toLowerCase();
+            const userFirmNameLower = String(user.firmName).toLowerCase();
             baseData = baseData.filter(
                 item => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower
             );

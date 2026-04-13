@@ -1556,7 +1556,7 @@ export default function LiftMaterial() {
           </CardTitle>
           <CardDescription className="text-sm text-gray-500">
             Record material lifting details for purchase orders.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
               <span className="ml-2 text-[#7da23a] font-medium">
                 • Filtered by: {user.firmName}
               </span>
@@ -1823,7 +1823,7 @@ export default function LiftMaterial() {
                         Pending lift records appear here until every product
                         quantity is fully lifted or cancelled.
                         {user?.firmName &&
-                          user.firmName.toLowerCase() !== "all" && (
+                          String(user.firmName).toLowerCase() !== "all" && (
                             <span className="block mt-1">
                               (Filtered by firm: {user.firmName})
                             </span>
@@ -2054,7 +2054,7 @@ export default function LiftMaterial() {
                       <p className="text-sm text-center text-muted-foreground">
                         Create lifts from the 'Available POs' tab.
                         {user?.firmName &&
-                          user.firmName.toLowerCase() !== "all" && (
+                          String(user.firmName).toLowerCase() !== "all" && (
                             <span className="block mt-1">
                               (Filtered by firm: {user.firmName})
                             </span>

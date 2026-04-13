@@ -57,8 +57,8 @@ export function NotificationProvider({ children }) {
 
             let filtered = data.filter(item => item.Planned1 && !item.Actual1);
 
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(
                     (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase() === userFirmNameLower,
                 );
@@ -86,8 +86,8 @@ export function NotificationProvider({ children }) {
                 firmName: row["Firm Name"]
             }));
 
-            if (user?.firmName && user.firmName.toLowerCase() !== 'all') {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (user?.firmName && String(user.firmName).toLowerCase() !== 'all') {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 processedData = processedData.filter(item => (item.firmName || "").toLowerCase().trim() === userFirmNameLower);
             }
 
@@ -117,8 +117,8 @@ export function NotificationProvider({ children }) {
                 firmName: row["Firm Name"]
             }));
 
-            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 processedData = processedData.filter(
                     (indent) => indent.firmName && String(indent.firmName).toLowerCase().trim() === userFirmNameLower,
                 );
@@ -144,8 +144,8 @@ export function NotificationProvider({ children }) {
 
             let filtered = data.filter(item => item["PlannedLogistics"] && !item["ActualLogistics"] && !item["Planned9"]);
 
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(
                     (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase().trim() === userFirmNameLower,
                 );
@@ -169,8 +169,8 @@ export function NotificationProvider({ children }) {
 
             let filtered = data.filter(item => item.Planned9 && !item.ActualLogistics);
 
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(
                     (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase().trim() === userFirmNameLower,
                 );
@@ -201,8 +201,8 @@ export function NotificationProvider({ children }) {
                     (actual4 === null || actual4 === "");
             });
             
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
             }
             return filtered.length;
@@ -227,8 +227,8 @@ export function NotificationProvider({ children }) {
                 return planned1 !== null && planned1 !== "" && (actual1 === null || actual1 === "");
             });
             
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
             }
             filtered = filtered.filter(row => String(row["Type"] || "").toLowerCase() === "independent");
@@ -257,8 +257,8 @@ export function NotificationProvider({ children }) {
                 return planned2 !== null && planned2 !== "" && (actual2 === null || actual2 === "") && (!needsUnloadApproval || isUnloadApproved);
             });
             
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
             }
             filtered = filtered.filter(row => String(row["Type"] || "").toLowerCase() === "independent");
@@ -333,8 +333,8 @@ export function NotificationProvider({ children }) {
                 firmName: row["Firm Name"]
             }));
 
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 processedData = processedData.filter(
                     (indent) => indent.firmName && String(indent.firmName).toLowerCase().trim() === userFirmNameLower,
                 );
@@ -394,8 +394,8 @@ export function NotificationProvider({ children }) {
                 return planned3 !== null && planned3 !== "" && (actual3 === null || actual3 === "") && (!needsUnloadApproval || isUnloadApproved);
             });
             
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
             }
             filtered = filtered.filter(row => String(row["Type"] || "").toLowerCase() === "independent");
@@ -420,8 +420,8 @@ export function NotificationProvider({ children }) {
 
             let filtered = data;
 
-            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(
                     (item) => item["Firm Name"] && String(item["Firm Name"]).toLowerCase() === userFirmNameLower,
                 );
@@ -457,8 +457,8 @@ export function NotificationProvider({ children }) {
             let filtered = data;
 
             // Filter by Firm Name if applicable
-            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(
                     (item) => item["Firm Name"] && String(item["Firm Name"]).toLowerCase() === userFirmNameLower,
                 );
@@ -489,8 +489,8 @@ export function NotificationProvider({ children }) {
 
             let filtered = data.filter(item => item.Planned6 && !item.Actual6);
 
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(
                     (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase() === userFirmNameLower,
                 );
@@ -514,8 +514,8 @@ export function NotificationProvider({ children }) {
 
             let filtered = data.filter(item => item.Planned7 && !item.Actual7);
 
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(
                     (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase() === userFirmNameLower,
                 );
@@ -538,8 +538,8 @@ export function NotificationProvider({ children }) {
 
             let filtered = data.filter(item => item.Planned8 && !item.Actual8);
 
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(
                     (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase() === userFirmNameLower,
                 );
@@ -565,8 +565,8 @@ export function NotificationProvider({ children }) {
                 row["Actual 1"],
             );
 
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
             }
 
@@ -589,8 +589,8 @@ export function NotificationProvider({ children }) {
 
             let filtered = data || [];
 
-            if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-                const userFirmNameLower = user.firmName.toLowerCase();
+            if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+                const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(
                     (item) => item.firm_name && String(item.firm_name).toLowerCase() === userFirmNameLower,
                 );

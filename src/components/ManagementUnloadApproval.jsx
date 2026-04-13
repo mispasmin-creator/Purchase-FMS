@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, History, Info, Loader2, Search } from "lucide-react";
@@ -106,8 +106,8 @@ export default function ManagementUnloadApproval() {
         unloadApprovalBy: String(row["Unload Approval By"] || "").trim(),
       }));
 
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const firm = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const firm = String(user.firmName).toLowerCase();
         rows = rows.filter((row) => row.firmName.toLowerCase() === firm);
       }
 

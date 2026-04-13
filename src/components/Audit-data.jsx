@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+﻿import React, { useState, useEffect, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
@@ -956,8 +956,8 @@ const CallTrackerPage = () => {
 
       // Filter by Firm Name
       let finalAuditData = filteredData;
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         finalAuditData = finalAuditData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
@@ -1035,8 +1035,8 @@ const CallTrackerPage = () => {
 
       // Filter by Firm Name
       let finalTallyData = filteredData;
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         finalTallyData = finalTallyData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
@@ -1114,8 +1114,8 @@ const CallTrackerPage = () => {
 
       // Filter by Firm Name
       let finalBillData = filteredData;
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         finalBillData = finalBillData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
@@ -1193,8 +1193,8 @@ const CallTrackerPage = () => {
 
       // Filter by Firm Name
       let finalRectifyData = filteredData;
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         finalRectifyData = finalRectifyData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
@@ -1272,8 +1272,8 @@ const CallTrackerPage = () => {
 
       // Filter by Firm Name
       let finalReAuditData = filteredData;
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         finalReAuditData = finalReAuditData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );
@@ -1366,8 +1366,8 @@ const CallTrackerPage = () => {
       });
 
       // Filter by Firm Name
-      if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-        const userFirmNameLower = user.firmName.toLowerCase();
+      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+        const userFirmNameLower = String(user.firmName).toLowerCase();
         filteredData = filteredData.filter(
           (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
         );

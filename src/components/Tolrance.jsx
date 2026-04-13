@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useCallback, useContext } from "react"
 import { Scale, Loader2, AlertTriangle, FileText, Search, Filter } from "lucide-react"
@@ -95,8 +95,8 @@ export default function TolerancePage() {
   // Filter data based on search term and column filter
   const filteredData = toleranceData.filter((record) => {
     // Stage 1: Filter by user's firmName if not "all"
-    if (user?.firmName && user.firmName.toLowerCase() !== "all") {
-      const userFirmNameLower = user.firmName.toLowerCase();
+    if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+      const userFirmNameLower = String(user.firmName).toLowerCase();
       const recordFirmName = String(record["Firm Name"] || "").toLowerCase().trim();
       if (recordFirmName !== userFirmNameLower) return false;
     }
@@ -129,7 +129,7 @@ export default function TolerancePage() {
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Material tolerance specifications and parameters.
-            {user?.firmName && user.firmName.toLowerCase() !== "all" && (
+            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
               <span className="ml-2 text-[#7da23a] font-medium">• User: {user.firmName}</span>
             )}
           </CardDescription>
