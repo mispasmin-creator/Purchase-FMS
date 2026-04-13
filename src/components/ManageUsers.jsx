@@ -67,6 +67,7 @@ const ALL_PAGES = [
   "Factory App.",
   "Mgmt App.",
   "Make PO",
+  "PO History",
   "Arrange Logistics",
   "Logistics App.",
   "PO Entry",
