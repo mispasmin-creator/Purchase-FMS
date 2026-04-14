@@ -138,6 +138,7 @@ const mapRow = (row) => ({
   poDate: toDateInput(row["Actual2"]),
   deliveryDate: toDateInput(row["Lead Time To Lift (days)"]),
   poNumber: row["po_number"] || "",
+  uom: row["UOM"] || "MT",
 });
 
 
@@ -332,7 +333,7 @@ export default function CreatePO() {
           .filter(Boolean)
           .join(", "),
         quantity: indent.approvedQty,
-        unit: "MT",
+        unit: indent.uom || "MT",
         rate: indent.approvedRate,
         gstPercent: 18,
         discountPercent: 0,
