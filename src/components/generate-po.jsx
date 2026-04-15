@@ -101,9 +101,16 @@ const money = (value) =>
   });
 const generatePoNumber = (rows, firm) => {
   const prefix = firm?.po_prefix || "PMMPL/PO/25-26/";
-  const baseCount = firm?.last_po_id || 2554;
-  const firmRows = rows?.filter((row) => row.poFile)?.length || 0;
-  return `${prefix}${baseCount + firmRows + 1}`;
+  const baseCount = Number(firm?.last_po_id) || 2554;
+  
+  // Count unique existing PO numbers for this firm in the current data
+  const uniquePoNumbers = new Set(
+    rows
+      ?.filter((row) => row.poFile && row.poNumber)
+      .map((row) => row.poNumber)
+  );
+
+  return `${prefix}${baseCount + uniquePoNumbers.size + 1}`;
 };
 
 const mapRow = (row) => ({
@@ -397,7 +404,8 @@ export default function CreatePO() {
     setErrors({});
     setTermEditIndex(-1);
     setEditDestination(false);
-    setFormData({ ...defaultForm(), poNumber: generatePoNumber(rows, selectedFirm) });
+    setFormData(defaultForm());
+    // The poNumber will be recalculated by the useEffect that watches refreshTrigger
   };
 
   const validateForm = () => {
@@ -487,8 +495,13 @@ export default function CreatePO() {
         { type: "application/pdf" },
       );
       const { url } = await uploadFileToStorage(file, "image", "po-files");
+      
       const now = new Date();
-      const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+      // Use the PO Date from the form if available, adding the current time
+      const datePart = formData.poDate || now.toISOString().split("T")[0];
+      const timePart = now.toTimeString().split(" ")[0];
+      const stamp = `${datePart} ${timePart}`;
+      
       const isExFac = normalize(formData.transportType) === "ex-factory";
       const updates = {
         Actual2: stamp,
@@ -531,29 +544,63 @@ export default function CreatePO() {
           specs: { ...(item.specs || {}), packaging: item.packaging || "" },
         })),
       };
-      for (const indent of currentGroup.indents) {
+
+      // 1. Update/Set indents that are in the form
+      for (const indent of formData.indents) {
         const { error } = await supabase
           .from("INDENT-PO")
           .update(updates)
           .eq('"Indent Id."', indent.id);
         if (error) throw error;
       }
-      toast.success("PO created successfully", {
+
+      // 2. If revising, clear PO info from indents that were removed from the form
+      if (mode === "revise") {
+        const formIds = new Set(formData.indents.map(i => i.id));
+        const removedIndents = currentGroup.indents.filter(i => !formIds.has(i.id));
+        
+        if (removedIndents.length > 30) {
+           toast.error("Safety check: Too many removals. Please verify your selection.");
+           return;
+        }
+
+        for (const indent of removedIndents) {
+          const { error } = await supabase
+            .from("INDENT-PO")
+            .update({
+              Actual2: null,
+              PlannedLogistics: null,
+              ActualLogistics: null,
+              Planned9: null,
+              Actual9: null,
+              Planned3: null,
+              po_number: null,
+              "PO Copy": null,
+              "Advance To Be Paid": null,
+              "To Be Paid Amount": null,
+              "When To Be Paid Amount": null,
+              Status5: null,
+              "PO Notes": null,
+              Packaging: null,
+              "Transport Type": null,
+              "PO Items": null,
+              Rate: null,
+              "Total Quantity": null,
+              "Total Amount": null
+            })
+            .eq('"Indent Id."', indent.id);
+          if (error) throw error;
+        }
+      }
+
+      toast.success(mode === "revise" ? "PO revised successfully" : "PO created successfully", {
         id: "create-po",
-        description: `${currentGroup.vendorName} processed for ${currentGroup.indents.length} indents`,
+        description: `${formData.supplierName} processed for ${formData.indents.length} items`,
       });
+      
+      // Trigger a full refresh which will also recalculate the next PO number correctly
+      setRefreshTrigger((prev) => prev + 1);
       resetForm();
-      const { data, error } = await supabase
-        .from("INDENT-PO")
-        .select("*")
-        .not("Planned2", "is", null);
-      if (error) throw error;
-      const mapped = (data || []).map(mapRow);
-      setRows(
-        user?.firmName
-          ? mapped.filter((item) => canViewFirm(user.firmName, item.firmName))
-          : mapped,
-      );
       setShowPreview(false);
     } catch (error) {
       console.error(error);
@@ -1073,7 +1120,7 @@ export default function CreatePO() {
                       <TableHead>GST (%)</TableHead>
                       <TableHead>Discount (%)</TableHead>
                       <TableHead>Amount</TableHead>
-
+                      <TableHead className="text-center">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1111,9 +1158,9 @@ export default function CreatePO() {
                         <TableCell>
                           <Input
                             type="number"
-                            className="w-24 text-center h-9 bg-gray-50"
+                            className="w-24 text-center h-9"
                             value={item.rate || 0}
-                            readOnly
+                            onChange={(e) => updateIndent(index, "rate", e.target.value)}
                           />
                         </TableCell>
                         <TableCell>
@@ -1137,7 +1184,18 @@ export default function CreatePO() {
                         <TableCell className="font-medium">
                           Rs. {money(lineTotal(item))}
                         </TableCell>
-
+                        <TableCell className="text-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-8 h-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => removeIndent(index)}
+                            disabled={formData.indents.length <= 1}
+                          >
+                            <Trash size={14} />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
