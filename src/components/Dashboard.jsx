@@ -738,11 +738,19 @@ export default function Dashboard() {
         error = response.error;
       } else if (dropdownFormData.type === "Raw Material") {
         const insertData = {
-          "Product name": dropdownFormData.rawMaterialName.trim() || null,
-          "Alumina Range": dropdownFormData.aluminaRange?.trim() || null,
-          "Iron Range": dropdownFormData.ironRange?.trim() || null,
-          "Ap Range": dropdownFormData.apRange?.trim() || null,
-          "Bd Range": dropdownFormData.bdRange?.trim() || null,
+          NAME: dropdownFormData.rawMaterialName.trim() || null,
+          "TL Alumina": dropdownFormData.aluminaRange
+            ? parseFloat(dropdownFormData.aluminaRange)
+            : null,
+          "TL Iron": dropdownFormData.ironRange
+            ? parseFloat(dropdownFormData.ironRange)
+            : null,
+          "AP%": dropdownFormData.apRange
+            ? parseFloat(dropdownFormData.apRange)
+            : null,
+          "BD%": dropdownFormData.bdRange
+            ? parseFloat(dropdownFormData.bdRange)
+            : null,
         };
 
         const response = await supabase.from("TL").insert([insertData]);
