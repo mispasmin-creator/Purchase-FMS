@@ -580,7 +580,7 @@ const POPdf = ({
   grandTotal = 491541.0,
   advanceToBePaid = "no",
   advanceAmount = 0,
-  gstPercent = 18,
+  gstPercent = 5,
   discountPercent = 0,
   terms = [
     "Price is ex factory",

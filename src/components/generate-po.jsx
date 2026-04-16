@@ -342,7 +342,7 @@ export default function CreatePO() {
         quantity: indent.approvedQty,
         unit: indent.uom || "MT",
         rate: indent.approvedRate,
-        gstPercent: 18,
+        gstPercent: 5,
         discountPercent: 0,
         specs: {
           alumina: indent.alumina || "",
@@ -464,7 +464,7 @@ export default function CreatePO() {
     grandTotal,
     advanceToBePaid: formData.advanceToBePaid,
     advanceAmount: Number(formData.toBePaidAmount) || 0,
-    gstPercent: 18,
+    gstPercent: 5,
     discountPercent: 0,
     terms: formData.terms.filter(Boolean),
     paymentTerms: formData.paymentTerms || "1 DAY",
