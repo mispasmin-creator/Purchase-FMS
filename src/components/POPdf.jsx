@@ -503,6 +503,42 @@ const styles = StyleSheet.create({
   footerText: {
     marginBottom: 1,
   },
+
+  // ===== LEGACY SPECS (Missing styles) =====
+  specsSection: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 6,
+    marginBottom: 6,
+    backgroundColor: "#fafafa",
+  },
+  specsTitle: {
+    fontSize: 8,
+    fontWeight: "bold",
+    marginBottom: 2,
+    color: "#333",
+  },
+  specsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  specItem: {
+    flexDirection: "row",
+    width: "30%",
+    marginBottom: 2,
+  },
+  specLabel: {
+    fontSize: 7,
+    fontWeight: "bold",
+    color: "#555",
+    width: "45%",
+  },
+  specValue: {
+    fontSize: 7,
+    color: "#000",
+    width: "55%",
+  },
 });
 
 const POPdf = ({
