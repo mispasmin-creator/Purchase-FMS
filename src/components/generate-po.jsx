@@ -173,8 +173,6 @@ export default function CreatePO() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewData, setPreviewData] = useState(null);
   const [termEditIndex, setTermEditIndex] = useState(-1);
   const [editDestination, setEditDestination] = useState(false);
   const [formData, setFormData] = useState(defaultForm());
@@ -182,7 +180,6 @@ export default function CreatePO() {
   const [selectedFirm, setSelectedFirm] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [poPopoverOpen, setPoPopoverOpen] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
 
@@ -483,12 +480,8 @@ export default function CreatePO() {
       const blob = await pdf(<POPdf {...props} />).toBlob();
       const url = URL.createObjectURL(blob);
       
-      // Clean up old URL if it exists
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-      
-      setPdfUrl(url);
-      setPreviewData(props);
-      setShowPreview(true);
+      // Open the generated PDF natively in a new tab
+      window.open(url, "_blank");
     } catch (err) {
       console.error("Preview failed:", err);
       toast.error("Failed to generate PDF preview");
@@ -620,7 +613,6 @@ export default function CreatePO() {
       // Trigger a full refresh which will also recalculate the next PO number correctly
       setRefreshTrigger((prev) => prev + 1);
       resetForm();
-      setShowPreview(false);
     } catch (error) {
       console.error(error);
       toast.error(error.message || "Failed to save purchase order", {
@@ -1349,39 +1341,8 @@ export default function CreatePO() {
           </div>
         </form>
 
-        <Dialog 
-          open={showPreview} 
-          onOpenChange={(open) => {
-            setShowPreview(open);
-            if (!open && pdfUrl) {
-              URL.revokeObjectURL(pdfUrl);
-              setPdfUrl(null);
-            }
-          }}
-        >
-          <DialogContent className="h-[95vh] w-[95vw] max-w-[95vw] gap-0 p-0">
-            <DialogHeader className="px-6 py-4 border-b">
-              <DialogTitle>PO Preview</DialogTitle>
-            </DialogHeader>
-            <div className="h-[calc(95vh-70px)] w-full">
-              {pdfUrl ? (
-                <iframe
-                  src={pdfUrl}
-                  width="100%"
-                  height="100%"
-                  title="PO Preview"
-                  style={{ border: "none" }}
-                />
-              ) : (
-                <div className="flex items-center justify-center w-full h-full">
-                  <Loader size={40} color="#3b82f6" />
-                  <span className="ml-3 text-lg font-medium">Generating Preview...</span>
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
+
     </div>
   );
 }
