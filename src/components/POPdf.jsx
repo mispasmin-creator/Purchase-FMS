@@ -10,6 +10,8 @@ import {
 
 import logo from "../assets/logo.jpeg";
 
+//Re-Commit To See Changes
+
 const styles = StyleSheet.create({
   page: {
     padding: 25,
@@ -700,8 +702,13 @@ const POPdf = ({
     Object.values(labDetails).some(
       (v) => v && String(v).trim() !== "" && v !== "null",
     );
-  const showAdvance = String(advanceToBePaid).toLowerCase() === "yes" && Number(advanceAmount) > 0;
-  const remainingAfterAdvance = Math.max(Number(grandTotal || 0) - Number(advanceAmount || 0), 0);
+  const showAdvance =
+    String(advanceToBePaid).toLowerCase() === "yes" &&
+    Number(advanceAmount) > 0;
+  const remainingAfterAdvance = Math.max(
+    Number(grandTotal || 0) - Number(advanceAmount || 0),
+    0,
+  );
 
   return (
     <Document>
@@ -880,11 +887,15 @@ const POPdf = ({
           <View style={styles.summarySection}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Advance Amount</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(advanceAmount)}</Text>
+              <Text style={styles.summaryValue}>
+                {formatCurrency(advanceAmount)}
+              </Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Balance After Advance</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(remainingAfterAdvance)}</Text>
+              <Text style={styles.summaryValue}>
+                {formatCurrency(remainingAfterAdvance)}
+              </Text>
             </View>
           </View>
         )}
