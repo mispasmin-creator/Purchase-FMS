@@ -1194,7 +1194,6 @@ export default function CreatePO() {
                             size="sm"
                             className="w-8 h-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                             onClick={() => removeIndent(index)}
-                            disabled={formData.indents.length <= 1}
                           >
                             <Trash size={14} />
                           </Button>
