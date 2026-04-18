@@ -150,6 +150,7 @@ export default function ManagementApprovals() {
             product: row["Material"] || "",
             planned8: row["Planned8"] || "",
             expectedRequirementDate: row["expected_requierment_date"] || "",
+            currentStock: row["Current Stock"] || "0",
             vendors,
           };
         })
@@ -495,13 +496,19 @@ export default function ManagementApprovals() {
             <>
               <DialogHeader>
                 <DialogTitle>Management Vendor Review</DialogTitle>
-                <DialogDescription className="flex items-center flex-wrap">
-                  Review tagged vendors and approve one for{" "}
+                <DialogDescription className="flex items-center flex-wrap gap-y-2 mt-2">
+                  <span>Review tagged vendors and approve one for</span>
                   <span className="font-bold text-gray-900 mx-1">{selectedIndent.indentId}</span>
-                  {" "}at{" "}
+                  <span>at</span>
                   <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200 font-bold px-3 py-1 shadow-sm">
                     {selectedIndent.firmName}
                   </Badge>
+                  <span className="mx-2 text-gray-300">|</span>
+                  <span className="font-medium text-gray-700">Product:</span>
+                  <span className="font-bold text-gray-900 ml-1">{selectedIndent.product}</span>
+                  <span className="mx-2 text-gray-300">|</span>
+                  <span className="font-medium text-gray-700">Stock:</span>
+                  <span className="font-bold text-gray-900 ml-1">{selectedIndent.currentStock}</span>
                 </DialogDescription>
               </DialogHeader>
 
