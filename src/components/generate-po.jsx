@@ -24,7 +24,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { ScrollArea } from "./ui/scroll-area";
 import { Search } from "lucide-react";
 
-
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Label } from "./ui/label";
@@ -102,12 +101,12 @@ const money = (value) =>
 const generatePoNumber = (rows, firm) => {
   const prefix = firm?.po_prefix || "PMMPL/PO/25-26/";
   const baseCount = Number(firm?.last_po_id) || 2554;
-  
+
   // Count unique existing PO numbers for this firm in the current data
   const uniquePoNumbers = new Set(
     rows
       ?.filter((row) => row.poFile && row.poNumber)
-      .map((row) => row.poNumber)
+      .map((row) => row.poNumber),
   );
 
   return `${prefix}${baseCount + uniquePoNumbers.size + 1}`;
@@ -148,8 +147,6 @@ const mapRow = (row) => ({
   uom: row["UOM"] || "MT",
 });
 
-
-
 const groupByVendor = (rows) => {
   const groups = rows.reduce((acc, row) => {
     const key = row.vendorName || "Unknown Vendor";
@@ -183,7 +180,6 @@ export default function CreatePO() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [poDropdownOpen, setPoDropdownOpen] = useState(false);
 
-
   // Fetch Firms data
   useEffect(() => {
     async function fetchFirms() {
@@ -193,16 +189,19 @@ export default function CreatePO() {
         return;
       }
       setFirms(data || []);
-      
+
       // Auto-select firm based on user
       const userFirmPath = user?.firmName;
       if (userFirmPath && userFirmPath !== "all") {
         // Find if user has exactly one firm assigned or use the first one if multiple
-        const firstUserFirm = Array.isArray(userFirmPath) ? userFirmPath[0] : userFirmPath;
-        
-        const found = data.find(f => 
-          normalize(f.firm_name) === normalize(firstUserFirm) || 
-          normalize(f.data_name) === normalize(firstUserFirm)
+        const firstUserFirm = Array.isArray(userFirmPath)
+          ? userFirmPath[0]
+          : userFirmPath;
+
+        const found = data.find(
+          (f) =>
+            normalize(f.firm_name) === normalize(firstUserFirm) ||
+            normalize(f.data_name) === normalize(firstUserFirm),
         );
         if (found) setSelectedFirm(found);
       }
@@ -220,9 +219,11 @@ export default function CreatePO() {
           .not("Planned2", "is", null);
         if (error) throw error;
         const mapped = (data || []).map(mapRow);
-        
+
         // Debug info: Log available firm names in data
-        const availableFirmsInData = Array.from(new Set(mapped.map(i => i.firmName))).filter(Boolean);
+        const availableFirmsInData = Array.from(
+          new Set(mapped.map((i) => i.firmName)),
+        ).filter(Boolean);
         console.log("Available firms in INDENT-PO data:", availableFirmsInData);
         if (selectedFirm) {
           console.log("Currently selected firm:", selectedFirm.firm_name);
@@ -233,17 +234,23 @@ export default function CreatePO() {
         if (selectedFirm) {
           // Use data_name (short key like 'Pmmpl') if it exists, otherwise fall back to firm_name
           const filterKey = selectedFirm.data_name || selectedFirm.firm_name;
-          filtered = mapped.filter(item => canViewFirm(filterKey, item.firmName));
+          filtered = mapped.filter((item) =>
+            canViewFirm(filterKey, item.firmName),
+          );
         } else if (user?.firmName) {
-          filtered = mapped.filter(item => canViewFirm(user.firmName, item.firmName));
+          filtered = mapped.filter((item) =>
+            canViewFirm(user.firmName, item.firmName),
+          );
         }
 
         setRows(filtered);
-        
+
         if (selectedFirm) {
           setFormData((prev) => ({
             ...prev,
-            poNumber: prev.poNumber ? prev.poNumber : generatePoNumber(filtered, selectedFirm),
+            poNumber: prev.poNumber
+              ? prev.poNumber
+              : generatePoNumber(filtered, selectedFirm),
           }));
         }
       } catch (error) {
@@ -261,7 +268,6 @@ export default function CreatePO() {
     setRefreshTrigger((prev) => prev + 1);
   });
 
-
   const pendingGroups = useMemo(
     () =>
       groupByVendor(rows.filter((item) => item.planned && !item.poTimestamp)),
@@ -276,15 +282,19 @@ export default function CreatePO() {
   const [poSearch, setPoSearch] = useState("");
 
   const poNumbers = useMemo(() => {
-    return Array.from(new Set(rows.filter((r) => r.poTimestamp && r.poNumber).map((r) => r.poNumber))).sort();
+    return Array.from(
+      new Set(
+        rows.filter((r) => r.poTimestamp && r.poNumber).map((r) => r.poNumber),
+      ),
+    ).sort();
   }, [rows]);
-
 
   const currentGroup = useMemo(() => {
     if (mode === "create") {
       return (
         vendorGroups.find(
-          (group) => normalize(group.vendorName) === normalize(formData.supplierName),
+          (group) =>
+            normalize(group.vendorName) === normalize(formData.supplierName),
         ) || null
       );
     } else {
@@ -298,7 +308,6 @@ export default function CreatePO() {
     }
   }, [mode, vendorGroups, rows, formData.supplierName, formData.poNumber]);
 
-
   useEffect(() => {
     if (!currentGroup) return;
     const first = currentGroup.indents[0] || {};
@@ -306,7 +315,10 @@ export default function CreatePO() {
       ...prev,
       poNumber: prev.poNumber || generatePoNumber(rows, selectedFirm),
       poDate: mode === "revise" ? first.poDate || prev.poDate : prev.poDate,
-      deliveryDate: mode === "revise" ? first.deliveryDate || prev.deliveryDate : prev.deliveryDate,
+      deliveryDate:
+        mode === "revise"
+          ? first.deliveryDate || prev.deliveryDate
+          : prev.deliveryDate,
       supplierName: currentGroup.vendorName,
       supplierAddress: first.supplierAddress || prev.supplierAddress,
       gstin: first.supplierGstin || prev.gstin,
@@ -342,7 +354,7 @@ export default function CreatePO() {
         quantity: indent.approvedQty,
         unit: indent.uom || "MT",
         rate: indent.approvedRate,
-        gstPercent: 5,
+        gstPercent: 18,
         discountPercent: 0,
         specs: {
           alumina: indent.alumina || "",
@@ -437,8 +449,11 @@ export default function CreatePO() {
     companyPhone: selectedFirm?.phone || "771-4001598",
     companyGstin: selectedFirm?.gstin || "22AAHCP9274B1ZI",
     companyPan: selectedFirm?.pan || "AAHCP9274B",
-    companyAddress: selectedFirm?.address || "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
-    billingAddress: selectedFirm?.billing_address || "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+    companyAddress:
+      selectedFirm?.address || "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+    billingAddress:
+      selectedFirm?.billing_address ||
+      "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
     destinationAddress: formData.destination,
     supplierName: formData.supplierName,
     supplierAddress: formData.supplierAddress,
@@ -474,13 +489,13 @@ export default function CreatePO() {
   const handlePreview = async () => {
     if (!validateForm())
       return toast.error("Please fill all required PO fields first");
-    
+
     setIsGenerating(true);
     try {
       const props = buildPdfProps();
       const blob = await pdf(<POPdf {...props} />).toBlob();
       const url = URL.createObjectURL(blob);
-      
+
       // Open the generated PDF natively in a new tab
       window.open(url, "_blank");
     } catch (err) {
@@ -508,13 +523,13 @@ export default function CreatePO() {
         { type: "application/pdf" },
       );
       const { url } = await uploadFileToStorage(file, "image", "po-files");
-      
+
       const now = new Date();
       // Use the PO Date from the form if available, adding the current time
       const datePart = formData.poDate || now.toISOString().split("T")[0];
       const timePart = now.toTimeString().split(" ")[0];
       const stamp = `${datePart} ${timePart}`;
-      
+
       const isExFac = normalize(formData.transportType) === "ex-factory";
       const updates = {
         Actual2: stamp,
@@ -569,12 +584,16 @@ export default function CreatePO() {
 
       // 2. If revising, clear PO info from indents that were removed from the form
       if (mode === "revise") {
-        const formIds = new Set(formData.indents.map(i => i.id));
-        const removedIndents = currentGroup.indents.filter(i => !formIds.has(i.id));
-        
+        const formIds = new Set(formData.indents.map((i) => i.id));
+        const removedIndents = currentGroup.indents.filter(
+          (i) => !formIds.has(i.id),
+        );
+
         if (removedIndents.length > 30) {
-           toast.error("Safety check: Too many removals. Please verify your selection.");
-           return;
+          toast.error(
+            "Safety check: Too many removals. Please verify your selection.",
+          );
+          return;
         }
 
         for (const indent of removedIndents) {
@@ -599,18 +618,23 @@ export default function CreatePO() {
               "PO Items": null,
               Rate: null,
               "Total Quantity": null,
-              "Total Amount": null
+              "Total Amount": null,
             })
             .eq('"Indent Id."', indent.id);
           if (error) throw error;
         }
       }
 
-      toast.success(mode === "revise" ? "PO revised successfully" : "PO created successfully", {
-        id: "create-po",
-        description: `${formData.supplierName} processed for ${formData.indents.length} items`,
-      });
-      
+      toast.success(
+        mode === "revise"
+          ? "PO revised successfully"
+          : "PO created successfully",
+        {
+          id: "create-po",
+          description: `${formData.supplierName} processed for ${formData.indents.length} items`,
+        },
+      );
+
       // Trigger a full refresh which will also recalculate the next PO number correctly
       setRefreshTrigger((prev) => prev + 1);
       resetForm();
@@ -667,7 +691,9 @@ export default function CreatePO() {
           <div className="w-full p-4 space-y-4 bg-white rounded-sm shadow-md">
             {user?.firmName === "all" && (
               <div className="flex flex-col items-center justify-center p-4 mb-4 border rounded-md bg-blue-50/50 border-primary/20">
-                <Label className="mb-2 text-lg font-bold text-primary">Choose Firm for PO</Label>
+                <Label className="mb-2 text-lg font-bold text-primary">
+                  Choose Firm for PO
+                </Label>
                 <div className="w-full max-w-md">
                   <Select
                     value={selectedFirm?.id || ""}
@@ -690,7 +716,9 @@ export default function CreatePO() {
                   </Select>
                 </div>
                 {!selectedFirm && (
-                  <p className="mt-2 text-sm text-red-500 font-medium">Please select a firm before proceeding</p>
+                  <p className="mt-2 text-sm font-medium text-red-500">
+                    Please select a firm before proceeding
+                  </p>
                 )}
               </div>
             )}
@@ -702,13 +730,16 @@ export default function CreatePO() {
                 className="object-contain w-40"
               />
               <div className="text-center">
-                <h1 className="text-2xl font-bold uppercase tracking-tight text-primary">
+                <h1 className="text-2xl font-bold tracking-tight uppercase text-primary">
                   {selectedFirm?.firm_name || "Passary Minerals Madhya Pvt Ltd"}
                 </h1>
                 <p className="text-sm font-medium text-muted-foreground">
-                  {selectedFirm?.address || "Shri Ram Business Park , Block - C, 2nd floor , Room No. 212"}
+                  {selectedFirm?.address ||
+                    "Shri Ram Business Park , Block - C, 2nd floor , Room No. 212"}
                 </p>
-                <p className="text-sm font-semibold text-primary/80">Phone No: {selectedFirm?.phone || "+91 7223844007"}</p>
+                <p className="text-sm font-semibold text-primary/80">
+                  Phone No: {selectedFirm?.phone || "+91 7223844007"}
+                </p>
               </div>
             </div>
 
@@ -718,7 +749,8 @@ export default function CreatePO() {
                   No pending indents found for "{selectedFirm.firm_name}"
                 </p>
                 <p className="mt-1 text-xs text-red-500">
-                  Please verify that the Firm Name in your indents matches the name in your Firms table exactly.
+                  Please verify that the Firm Name in your indents matches the
+                  name in your Firms table exactly.
                 </p>
               </div>
             )}
@@ -741,7 +773,7 @@ export default function CreatePO() {
                   ) : (
                     <div className="relative">
                       <Input
-                        className="h-9 w-full pr-8"
+                        className="w-full pr-8 h-9"
                         placeholder="Search or Select PO..."
                         value={formData.poNumber}
                         onChange={(e) => {
@@ -754,23 +786,39 @@ export default function CreatePO() {
                       />
                       <Search className="absolute right-2.5 top-2.5 h-4 w-4 opacity-50 text-gray-500 pointer-events-none" />
                       {poDropdownOpen && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
-                          {poNumbers.filter(po => po.toLowerCase().includes((formData.poNumber || "").toLowerCase())).length > 0 ? (
-                            poNumbers.filter(po => po.toLowerCase().includes((formData.poNumber || "").toLowerCase())).map((po) => (
-                              <div
-                                key={po}
-                                className="px-3 py-2 text-sm cursor-pointer hover:bg-[#f3f4f6]"
-                                onMouseDown={(e) => { 
-                                  e.preventDefault(); 
-                                  setField("poNumber", po);
-                                  setPoDropdownOpen(false);
-                                }}
-                              >
-                                {po}
-                              </div>
-                            ))
+                        <div className="absolute z-50 w-full mt-1 overflow-x-hidden overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg max-h-60">
+                          {poNumbers.filter((po) =>
+                            po
+                              .toLowerCase()
+                              .includes(
+                                (formData.poNumber || "").toLowerCase(),
+                              ),
+                          ).length > 0 ? (
+                            poNumbers
+                              .filter((po) =>
+                                po
+                                  .toLowerCase()
+                                  .includes(
+                                    (formData.poNumber || "").toLowerCase(),
+                                  ),
+                              )
+                              .map((po) => (
+                                <div
+                                  key={po}
+                                  className="px-3 py-2 text-sm cursor-pointer hover:bg-[#f3f4f6]"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    setField("poNumber", po);
+                                    setPoDropdownOpen(false);
+                                  }}
+                                >
+                                  {po}
+                                </div>
+                              ))
                           ) : (
-                            <div className="px-3 py-3 text-sm text-gray-500 text-center italic">No PO Found</div>
+                            <div className="px-3 py-3 text-sm italic text-center text-gray-500">
+                              No PO Found
+                            </div>
                           )}
                         </div>
                       )}
@@ -781,7 +829,6 @@ export default function CreatePO() {
                       {errors.poNumber}
                     </p>
                   )}
-
                 </div>
                 <div>
                   <Label className="block mb-2">PO Date</Label>
@@ -807,7 +854,6 @@ export default function CreatePO() {
                     onValueChange={(value) => setField("supplierName", value)}
                     disabled={mode === "revise"}
                   >
-
                     <SelectTrigger className="w-full h-9">
                       <SelectValue
                         placeholder={
@@ -1014,7 +1060,8 @@ export default function CreatePO() {
                     {selectedFirm?.gstin || "22AAHCP9274B1ZI"}
                   </p>
                   <p>
-                    <span className="font-semibold">Pan No.</span> {selectedFirm?.pan || "AAHCP9274B"}
+                    <span className="font-semibold">Pan No.</span>{" "}
+                    {selectedFirm?.pan || "AAHCP9274B"}
                   </p>
                 </CardContent>
               </Card>
@@ -1023,7 +1070,10 @@ export default function CreatePO() {
                   <CardTitle className="text-center">Billing Address</CardTitle>
                 </CardHeader>
                 <CardContent className="p-5 text-sm">
-                  <p>{selectedFirm?.billing_address || "Kh No 297/2, Akoli, Block Dharsiwa, Raipur"}</p>
+                  <p>
+                    {selectedFirm?.billing_address ||
+                      "Kh No 297/2, Akoli, Block Dharsiwa, Raipur"}
+                  </p>
                 </CardContent>
               </Card>
               <Card className="gap-0 rounded-[3px] p-0 shadow-xs">
@@ -1148,7 +1198,9 @@ export default function CreatePO() {
                             className={`w-20 text-center h-9 ${mode === "revise" ? "" : "bg-gray-50"}`}
                             value={item.quantity || 0}
                             readOnly={mode !== "revise"}
-                            onChange={(e) => updateIndent(index, "quantity", e.target.value)}
+                            onChange={(e) =>
+                              updateIndent(index, "quantity", e.target.value)
+                            }
                           />
                         </TableCell>
                         <TableCell>
@@ -1163,7 +1215,9 @@ export default function CreatePO() {
                             type="number"
                             className="w-24 text-center h-9"
                             value={item.rate || 0}
-                            onChange={(e) => updateIndent(index, "rate", e.target.value)}
+                            onChange={(e) =>
+                              updateIndent(index, "rate", e.target.value)
+                            }
                           />
                         </TableCell>
                         <TableCell>
@@ -1173,7 +1227,6 @@ export default function CreatePO() {
                             value={item.gstPercent || 0}
                             readOnly
                           />
-
                         </TableCell>
                         <TableCell>
                           <Input
@@ -1182,7 +1235,6 @@ export default function CreatePO() {
                             value={item.discountPercent || 0}
                             readOnly
                           />
-
                         </TableCell>
                         <TableCell className="font-medium">
                           Rs. {money(lineTotal(item))}
@@ -1207,7 +1259,7 @@ export default function CreatePO() {
                 <p className="mt-2 text-xs text-red-500">{errors.indents}</p>
               )}
               <div className="flex justify-end p-4">
-                <div className="w-80 space-y-3">
+                <div className="space-y-3 w-80">
                   <div className="rounded-[3px] bg-muted">
                     <p className="flex justify-between py-2 px-7">
                       <span>Total:</span>
@@ -1314,7 +1366,11 @@ export default function CreatePO() {
               type="button"
               variant="secondary"
               onClick={handlePreview}
-              disabled={!formData.supplierName || !formData.indents.length || isGenerating}
+              disabled={
+                !formData.supplierName ||
+                !formData.indents.length ||
+                isGenerating
+              }
             >
               {isGenerating ? (
                 <Loader size={20} color="gray" className="mr-2" />
@@ -1331,9 +1387,7 @@ export default function CreatePO() {
             </Button>
           </div>
         </form>
-
       </div>
-
     </div>
   );
 }
