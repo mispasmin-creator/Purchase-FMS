@@ -182,6 +182,8 @@ export default function CreatePO() {
   const [selectedFirm, setSelectedFirm] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [poPopoverOpen, setPoPopoverOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
 
   // Fetch Firms data
@@ -474,8 +476,25 @@ export default function CreatePO() {
   const handlePreview = async () => {
     if (!validateForm())
       return toast.error("Please fill all required PO fields first");
-    setPreviewData(buildPdfProps());
-    setShowPreview(true);
+    
+    setIsGenerating(true);
+    try {
+      const props = buildPdfProps();
+      const blob = await pdf(<POPdf {...props} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      
+      // Clean up old URL if it exists
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+      
+      setPdfUrl(url);
+      setPreviewData(props);
+      setShowPreview(true);
+    } catch (err) {
+      console.error("Preview failed:", err);
+      toast.error("Failed to generate PDF preview");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -1312,9 +1331,13 @@ export default function CreatePO() {
               type="button"
               variant="secondary"
               onClick={handlePreview}
-              disabled={!formData.supplierName || !formData.indents.length}
+              disabled={!formData.supplierName || !formData.indents.length || isGenerating}
             >
-              <Eye size={20} className="mr-2" />
+              {isGenerating ? (
+                <Loader size={20} color="gray" className="mr-2" />
+              ) : (
+                <Eye size={20} className="mr-2" />
+              )}
               Preview
             </Button>
             <Button type="submit" disabled={submitting || loading}>
@@ -1326,21 +1349,34 @@ export default function CreatePO() {
           </div>
         </form>
 
-        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <Dialog 
+          open={showPreview} 
+          onOpenChange={(open) => {
+            setShowPreview(open);
+            if (!open && pdfUrl) {
+              URL.revokeObjectURL(pdfUrl);
+              setPdfUrl(null);
+            }
+          }}
+        >
           <DialogContent className="h-[95vh] w-[95vw] max-w-[95vw] gap-0 p-0">
             <DialogHeader className="px-6 py-4 border-b">
               <DialogTitle>PO Preview</DialogTitle>
             </DialogHeader>
             <div className="h-[calc(95vh-70px)] w-full">
-              {previewData && (
-                <PDFViewer
+              {pdfUrl ? (
+                <iframe
+                  src={pdfUrl}
                   width="100%"
                   height="100%"
-                  showToolbar
+                  title="PO Preview"
                   style={{ border: "none" }}
-                >
-                  <POPdf {...previewData} />
-                </PDFViewer>
+                />
+              ) : (
+                <div className="flex items-center justify-center w-full h-full">
+                  <Loader size={40} color="#3b82f6" />
+                  <span className="ml-3 text-lg font-medium">Generating Preview...</span>
+                </div>
               )}
             </div>
           </DialogContent>
