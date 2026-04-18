@@ -102,7 +102,6 @@ const styles = StyleSheet.create({
   addressSection: {
     flexDirection: "row",
     marginBottom: 8,
-    gap: 8,
   },
 
   addressBlock: {
@@ -111,6 +110,7 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     padding: 6,
     backgroundColor: "#f9f9f9",
+    marginRight: 8,
   },
 
   addressBlockTitle: {
@@ -138,7 +138,6 @@ const styles = StyleSheet.create({
   // ===== KEY INFO ROW =====
   keyInfoRow: {
     flexDirection: "row",
-    gap: 8,
     marginBottom: 8,
   },
 
@@ -148,6 +147,7 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     padding: 5,
     backgroundColor: "#f5f5f5",
+    marginRight: 8,
   },
 
   infoBoxLabel: {
@@ -338,13 +338,11 @@ const styles = StyleSheet.create({
   itemSpecGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 4, // Reduced from 8
     width: "80%", // Added
   },
 
   itemSpecItem: {
     flexDirection: "row",
-    width: "auto", // Changed from 30% to auto
     minWidth: "23%", // Added - responsive width
     marginBottom: 2, // Added
     marginRight: 4, // Added
@@ -354,14 +352,12 @@ const styles = StyleSheet.create({
     fontSize: 7,
     fontWeight: "bold",
     color: "#555",
-    width: "auto", // Changed from 45%
     marginRight: 2, // Added
   },
 
   itemSpecValue: {
     fontSize: 7,
     color: "#000",
-    width: "auto", // Changed from 55%
   },
 
   // ===== AMOUNT IN WORDS SECTION =====
@@ -410,7 +406,6 @@ const styles = StyleSheet.create({
   // ===== DECLARATION SECTION =====
   declarationSection: {
     flexDirection: "row",
-    gap: 8,
     marginBottom: 6,
   },
 
@@ -420,6 +415,7 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     padding: 6,
     backgroundColor: "#f9f9f9",
+    marginRight: 8,
   },
 
   declarationRight: {
@@ -523,7 +519,6 @@ const styles = StyleSheet.create({
   specsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
   },
   specItem: {
     flexDirection: "row",
