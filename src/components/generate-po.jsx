@@ -181,6 +181,7 @@ export default function CreatePO() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [poPopoverOpen, setPoPopoverOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [poDropdownOpen, setPoDropdownOpen] = useState(false);
 
 
   // Fetch Firms data
@@ -242,7 +243,7 @@ export default function CreatePO() {
         if (selectedFirm) {
           setFormData((prev) => ({
             ...prev,
-            poNumber: generatePoNumber(filtered, selectedFirm),
+            poNumber: prev.poNumber ? prev.poNumber : generatePoNumber(filtered, selectedFirm),
           }));
         }
       } catch (error) {
@@ -738,52 +739,42 @@ export default function CreatePO() {
                       readOnly
                     />
                   ) : (
-                    <Popover open={poPopoverOpen} onOpenChange={setPoPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          role="combobox"
-                          className="w-full justify-between h-9 px-3 font-normal overflow-hidden"
-                        >
-                          <span className="truncate">{formData.poNumber || "Search PO Number..."}</span>
-                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                        <div className="flex items-center border-b px-3 p-2">
-                          <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                          <Input
-                            placeholder="Search code..."
-                            className="h-8 border-none focus-visible:ring-0 text-xs"
-                            value={poSearch}
-                            onChange={(e) => setPoSearch(e.target.value)}
-                          />
+                    <div className="relative">
+                      <Input
+                        className="h-9 w-full pr-8"
+                        placeholder="Search or Select PO..."
+                        value={formData.poNumber}
+                        onChange={(e) => {
+                          setField("poNumber", e.target.value);
+                          setPoDropdownOpen(true);
+                        }}
+                        onFocus={() => setPoDropdownOpen(true)}
+                        onBlur={() => setPoDropdownOpen(false)}
+                        autoComplete="off"
+                      />
+                      <Search className="absolute right-2.5 top-2.5 h-4 w-4 opacity-50 text-gray-500 pointer-events-none" />
+                      {poDropdownOpen && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
+                          {poNumbers.filter(po => po.toLowerCase().includes((formData.poNumber || "").toLowerCase())).length > 0 ? (
+                            poNumbers.filter(po => po.toLowerCase().includes((formData.poNumber || "").toLowerCase())).map((po) => (
+                              <div
+                                key={po}
+                                className="px-3 py-2 text-sm cursor-pointer hover:bg-[#f3f4f6]"
+                                onMouseDown={(e) => { 
+                                  e.preventDefault(); 
+                                  setField("poNumber", po);
+                                  setPoDropdownOpen(false);
+                                }}
+                              >
+                                {po}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 py-3 text-sm text-gray-500 text-center italic">No PO Found</div>
+                          )}
                         </div>
-                        <ScrollArea className="h-60">
-                          <div className="p-1">
-                            {poNumbers
-                              .filter((po) => po.toLowerCase().includes(poSearch.toLowerCase()))
-                              .map((po) => (
-                                <button
-                                  key={po}
-                                  type="button"
-                                  className="w-full text-left px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm"
-                                  onClick={() => {
-                                    setField("poNumber", po);
-                                    setPoPopoverOpen(false);
-                                  }}
-                                >
-                                  {po}
-                                </button>
-                              ))}
-                            {poNumbers.filter((po) => po.toLowerCase().includes(poSearch.toLowerCase())).length === 0 && (
-                              <p className="p-2 text-xs text-center text-gray-500">No PO found</p>
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </PopoverContent>
-                    </Popover>
+                      )}
+                    </div>
                   )}
                   {errors.poNumber && (
                     <p className="mt-1 text-xs text-red-500">
@@ -1154,9 +1145,10 @@ export default function CreatePO() {
                         <TableCell>
                           <Input
                             type="number"
-                            className="w-20 text-center h-9 bg-gray-50"
+                            className={`w-20 text-center h-9 ${mode === "revise" ? "" : "bg-gray-50"}`}
                             value={item.quantity || 0}
-                            readOnly
+                            readOnly={mode !== "revise"}
+                            onChange={(e) => updateIndent(index, "quantity", e.target.value)}
                           />
                         </TableCell>
                         <TableCell>
