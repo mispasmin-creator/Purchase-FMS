@@ -278,6 +278,38 @@ export default function ManagementApprovals() {
     }
   };
 
+  const onReject = async () => {
+    if (!selectedIndent) return;
+
+    setIsSubmitting(true);
+    try {
+      const { error: updateError } = await supabase
+        .from("INDENT-PO")
+        .update({
+          "Approved Date": new Date().toISOString(),
+          Actual8: new Date().toISOString(),
+          "Approved Vendor Name": "Rejected",
+          "Have To Make PO": "No",
+        })
+        .eq("id", selectedIndent.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(`Indent ${selectedIndent.indentId} rejected`);
+      setOpenDialog(false);
+      setSelectedIndent(null);
+      setSelectedVendorSlot("");
+      setRefreshData((prev) => !prev);
+    } catch (error) {
+      console.error("Error rejecting indent:", error);
+      toast.error("Rejection failed", {
+        description: error.message,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-full mx-auto bg-white border border-gray-200 rounded-lg shadow-md">
       <CardHeader className="p-4 border-b border-gray-200">
@@ -638,6 +670,13 @@ export default function ManagementApprovals() {
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpenDialog(false)}>
                   Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={onReject}
+                  disabled={isSubmitting}
+                >
+                  Reject
                 </Button>
                 <Button
                   className="bg-[#7da23a] hover:bg-[#6b8e2f]"
