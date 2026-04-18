@@ -990,7 +990,10 @@ export default function ThreeParty() {
 
       {/* Redesigned Dialog with Single Vendor Form */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="sm:max-w-[1400px] p-0 overflow-hidden rounded-2xl">
+        <DialogContent
+          aria-describedby={undefined}
+          className="sm:max-w-[1400px] p-0 overflow-hidden rounded-2xl"
+        >
           {selectedIndent && (
             <div className="flex flex-col h-full max-h-[100vh]">
               {/* Header with Indent Info */}
@@ -1115,7 +1118,7 @@ export default function ThreeParty() {
                               <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2">
+                          <PopoverContent className="z-[60] w-[var(--radix-popover-trigger-width)] p-2">
                             <Input
                               value={vendorSearchTerms[idx] || ""}
                               onChange={(e) =>
