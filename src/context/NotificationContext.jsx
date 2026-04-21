@@ -9,6 +9,11 @@ export function useNotification() {
     return useContext(NotificationContext);
 }
 
+const cleanIndentId = (indentId) => {
+    if (!indentId) return "";
+    return String(indentId).replace(/[^a-zA-Z0-9-]/g, "");
+};
+
 export function NotificationProvider({ children }) {
     const { user, isAuthenticated, allowedSteps } = useAuth();
     const [notificationCounts, setNotificationCounts] = useState({
@@ -104,18 +109,28 @@ export function NotificationProvider({ children }) {
             const { data, error } = await supabase
                 .from("INDENT-PO")
                 .select("*")
-                .not("Planned3", "is", null)
-                .not("ActualLogistics", "is", null);
+                .not("Planned3", "is", null);
 
             if (error) throw error;
 
-            let processedData = data.map(row => ({
-                ...row,
-                planned: row["Planned3"],
-                actual: row["Actual3"],
-                actualLogistics: row["ActualLogistics"],
-                firmName: row["Firm Name"]
-            }));
+            let filteredData = (data || [])
+                .reduce((acc, row) => {
+                    const poNumber = String(row.po_number || row["Indent Id."] || "");
+                    const groupKey = cleanIndentId(poNumber);
+                    if (!groupKey) return acc;
+                    if (!acc[groupKey]) {
+                        acc[groupKey] = {
+                            planned: row["Planned3"],
+                            actual: row["Actual3"],
+                            actualLogistics: row["ActualLogistics"],
+                            transportType: row["Transport Type"],
+                            firmName: row["Firm Name"]
+                        };
+                    }
+                    return acc;
+                }, {});
+
+            let processedData = Object.values(filteredData);
 
             if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
                 const userFirmNameLower = String(user.firmName).toLowerCase();
@@ -124,9 +139,11 @@ export function NotificationProvider({ children }) {
                 );
             }
 
-            const filtered = processedData.filter(
-                item => item.planned && item.actualLogistics && !item.actual,
-            );
+            const filtered = processedData.filter(item => {
+                const isForTransport = String(item.transportType || "").trim().toUpperCase() === "FOR";
+                const hasCompletedLogistics = isForTransport || (item.actualLogistics && String(item.actualLogistics).trim() !== "");
+                return item.planned && hasCompletedLogistics && !item.actual;
+            });
             return filtered.length;
         } catch (error) {
             console.error("Error fetching pending tally entries:", error);
