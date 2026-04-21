@@ -577,7 +577,7 @@ const POPdf = ({
   grandTotal = 491541.0,
   advanceToBePaid = "no",
   advanceAmount = 0,
-  gstPercent = 5,
+  gstPercent = 18,
   discountPercent = 0,
   terms = [
     "Price is ex factory",
@@ -588,6 +588,7 @@ const POPdf = ({
   labDetails = null,
   paymentTerms = "1 DAY",
   notes = "",
+  companyEmail = "pmmpl@pasmin.com",
 }) => {
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) return "0.00";
@@ -723,7 +724,7 @@ const POPdf = ({
             <Text style={styles.companyDetails}>
               GSTIN: {companyGstin} | PAN: {companyPan}
             </Text>
-            <Text style={styles.companyDetails}>Email: pmmpl@pasmin.com</Text>
+            <Text style={styles.companyDetails}>Email: {companyEmail}</Text>
           </View>
 
           {/* PO Details */}

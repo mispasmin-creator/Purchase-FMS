@@ -479,11 +479,18 @@ export default function CreatePO() {
     grandTotal,
     advanceToBePaid: formData.advanceToBePaid,
     advanceAmount: Number(formData.toBePaidAmount) || 0,
-    gstPercent: 5,
+    gstPercent: 18,
     discountPercent: 0,
     terms: formData.terms.filter(Boolean),
     paymentTerms: formData.paymentTerms || "1 DAY",
     labDetails: { packaging: formData.indents[0]?.packaging || "" },
+    companyEmail: (() => {
+      const name = (selectedFirm?.firm_name || "").toUpperCase().trim();
+      if (name.includes("PURAB")) return "pmpurab@gmail.com";
+      if (name.includes("MADHYA")) return "pmmpl@pasmin.com";
+      if (name.includes("PASSARY MINERALS PVT LTD")) return "marketing@pasmin.com";
+      return "marketing@pasmin.com";
+    })(),
   });
 
   const handlePreview = async () => {

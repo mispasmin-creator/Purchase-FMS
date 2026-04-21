@@ -44,6 +44,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { XCircle } from "lucide-react";
+import {
   buildApprovedVendorUpdate,
   compareTechnicalTags,
   getVendorsFromRow,
@@ -108,6 +116,8 @@ export default function ManagementApprovals() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [selectedFirm, setSelectedFirm] = useState("all");
+  const [selectedProduct, setSelectedProduct] = useState("all");
 
   const { user } = useAuth();
   const { updateCount } = useNotification();
@@ -150,7 +160,7 @@ export default function ManagementApprovals() {
             product: row["Material"] || "",
             planned8: row["Planned8"] || "",
             expectedRequirementDate: row["expected_requierment_date"] || "",
-            currentStock: row["Current Stock"] || "0",
+            currentStock: row["Current Stock As Per factory"] || "0",
             vendors,
           };
         })
@@ -204,21 +214,57 @@ export default function ManagementApprovals() {
     setRefreshData((prev) => !prev);
   });
 
+  const firmOptions = useMemo(() => {
+    const firms = new Set(pendingData.map((item) => item.firmName));
+    return ["all", ...Array.from(firms).sort()];
+  }, [pendingData]);
+
+  const productOptions = useMemo(() => {
+    let filtered = pendingData;
+    if (selectedFirm !== "all") {
+      filtered = filtered.filter((item) => item.firmName === selectedFirm);
+    }
+    const products = new Set(filtered.map((item) => item.product));
+    return ["all", ...Array.from(products).sort()];
+  }, [pendingData, selectedFirm]);
+
+  // Reset product when firm changes if the current product is not in the new options
+  useEffect(() => {
+    if (selectedFirm !== "all" && selectedProduct !== "all") {
+      const isStillAvailable = pendingData.some(
+        (item) => item.firmName === selectedFirm && item.product === selectedProduct
+      );
+      if (!isStillAvailable) setSelectedProduct("all");
+    }
+  }, [selectedFirm, pendingData]);
+
 
   useEffect(() => {
     const query = searchQuery.trim().toLowerCase();
-    setFilteredPendingData(
-      pendingData.filter(
-        (item) =>
-          item.indentId.toLowerCase().includes(query) ||
-          item.firmName.toLowerCase().includes(query) ||
-          item.product.toLowerCase().includes(query) ||
-          item.vendors.some((vendor) =>
-            vendor.name.toLowerCase().includes(query),
-          ),
-      ),
-    );
-  }, [pendingData, searchQuery]);
+    let filtered = [...pendingData];
+
+    if (selectedFirm !== "all") {
+      filtered = filtered.filter((item) => item.firmName === selectedFirm);
+    }
+
+    if (selectedProduct !== "all") {
+      filtered = filtered.filter((item) => item.product === selectedProduct);
+    }
+
+    if (query) {
+      filtered = filtered.filter((item) => {
+        const indentMatch = item.indentId.toLowerCase().includes(query);
+        const firmMatch = item.firmName.toLowerCase().includes(query);
+        const productMatch = item.product.toLowerCase().includes(query);
+        const vendorMatch = item.vendors.some((vendor) =>
+          vendor.name.toLowerCase().includes(query),
+        );
+        return indentMatch || firmMatch || productMatch || vendorMatch;
+      });
+    }
+
+    setFilteredPendingData(filtered);
+  }, [pendingData, searchQuery, selectedFirm, selectedProduct]);
 
   useEffect(() => {
     const query = historySearchQuery.trim().toLowerCase();
@@ -346,14 +392,65 @@ export default function ManagementApprovals() {
           </TabsList>
 
           <TabsContent value="pending" className="space-y-4">
-            <div className="relative">
-              <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
-              <Input
-                className="pl-9"
-                placeholder="Search indent, firm, vendor..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="flex flex-col md:flex-row gap-4 mb-2">
+              <div className="relative flex-1">
+                <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search indent, firm, product, vendor..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select value={selectedFirm} onValueChange={setSelectedFirm}>
+                  <SelectTrigger className="w-[180px] bg-white">
+                    <SelectValue placeholder="All Firms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {firmOptions.map((firm) => (
+                      <SelectItem key={firm} value={firm}>
+                        {firm === "all" ? "All Firms" : firm}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={selectedProduct}
+                  onValueChange={setSelectedProduct}
+                >
+                  <SelectTrigger className="w-[200px] bg-white">
+                    <SelectValue placeholder="All Products" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productOptions.map((product) => (
+                      <SelectItem key={product} value={product}>
+                        {product === "all" ? "All Products" : product}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {(selectedFirm !== "all" ||
+                  selectedProduct !== "all" ||
+                  searchQuery) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSelectedFirm("all");
+                      setSelectedProduct("all");
+                      setSearchQuery("");
+                    }}
+                    className="text-gray-400 hover:text-red-500 h-9 w-9"
+                    title="Clear all filters"
+                  >
+                    <XCircle className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             {loading ? (
