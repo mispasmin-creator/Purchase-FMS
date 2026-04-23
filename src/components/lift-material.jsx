@@ -277,8 +277,7 @@ const normalizePoItems = (row, liftedQtyByItem) => {
         rate,
         totalAmount: roundQuantity(pendingQuantity * rate),
       };
-    })
-    .filter((item) => item.pendingQuantity > 0);
+    });
 };
 
 export default function LiftMaterial() {
@@ -967,12 +966,11 @@ export default function LiftMaterial() {
         }
 
         const nextQuantity = roundQuantity(value);
-        const cappedQuantity = Math.min(nextQuantity, item.pendingQuantity);
 
         return {
           ...item,
-          quantityToLift: cappedQuantity,
-          totalAmount: roundQuantity(cappedQuantity * item.rate),
+          quantityToLift: nextQuantity,
+          totalAmount: roundQuantity(nextQuantity * item.rate),
         };
       }),
     );
@@ -1175,9 +1173,6 @@ export default function LiftMaterial() {
         if (quantity <= 0) {
           newErrors[`liftItem-${item.key}`] =
             "Quantity must be greater than 0.";
-        } else if (quantity > item.pendingQuantity) {
-          newErrors[`liftItem-${item.key}`] =
-            `Quantity cannot exceed ${item.pendingQuantity}.`;
         }
       });
     }
@@ -2234,7 +2229,6 @@ export default function LiftMaterial() {
                               <Input
                                 type="number"
                                 min="0"
-                                max={item.pendingQuantity}
                                 step="0.001"
                                 value={item.quantityToLift}
                                 onChange={(e) =>
