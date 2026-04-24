@@ -162,7 +162,9 @@ export default function ThreeParty() {
         // Filter by firm name
         let filteredData = data;
         if (user?.firmName) {
-          filteredData = data.filter((row) => canViewFirm(user.firmName, row["Firm Name"]));
+          filteredData = data.filter((row) =>
+            canViewFirm(user.firmName, row["Firm Name"]),
+          );
         }
 
         // Process pending data (Planned6 is not null and Actual6 is null)
@@ -649,7 +651,11 @@ export default function ThreeParty() {
             variant="outline"
             className="mt-2 text-green-700 border-green-200 bg-green-50"
           >
-            {user.firmName === "all" ? "All Firms" : Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+            {user.firmName === "all"
+              ? "All Firms"
+              : Array.isArray(user.firmName)
+                ? user.firmName.join(", ")
+                : user.firmName}
           </Badge>
         )}
       </CardHeader>
@@ -826,7 +832,10 @@ export default function ThreeParty() {
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-sm font-medium text-gray-700">
-                          {indent.quantity} <span className="text-xs text-gray-400 font-normal">{indent.uom}</span>
+                          {indent.quantity}{" "}
+                          <span className="text-xs text-gray-400 font-normal">
+                            {indent.uom}
+                          </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-sm text-gray-600">
                           {formatDateTime(indent.planned6)}
@@ -968,7 +977,10 @@ export default function ThreeParty() {
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-sm font-medium text-gray-700">
-                          {indent.quantity} <span className="text-xs text-gray-400 font-normal">{indent.uom}</span>
+                          {indent.quantity}{" "}
+                          <span className="text-xs text-gray-400 font-normal">
+                            {indent.uom}
+                          </span>
                         </TableCell>
                         <TableCell className="px-4 py-3">
                           <Badge className="text-green-700 bg-green-100 border-0">
@@ -1274,6 +1286,8 @@ export default function ThreeParty() {
                                 <SelectItem value="Ton Bag">Ton Bag</SelectItem>
                                 <SelectItem value="50 kg">50 kg</SelectItem>
                                 <SelectItem value="Loose">Loose</SelectItem>
+                                <SelectItem value="25kg">25kg</SelectItem>
+                                <SelectItem value="40kg">40kg</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1300,6 +1314,9 @@ export default function ThreeParty() {
                                 </SelectItem>
                                 <SelectItem value="Credit 60 Days">
                                   Credit 60 Days
+                                </SelectItem>
+                                <SelectItem value="Credit 45 Days">
+                                  Credit 45 Days
                                 </SelectItem>
                               </SelectContent>
                             </Select>
