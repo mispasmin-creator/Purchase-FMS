@@ -98,19 +98,6 @@ const money = (value) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-const generatePoNumber = (rows, firm) => {
-  const prefix = firm?.po_prefix || "PMMPL/PO/25-26/";
-  const baseCount = Number(firm?.last_po_id) || 2554;
-
-  // Count unique existing PO numbers for this firm in the current data
-  const uniquePoNumbers = new Set(
-    rows
-      ?.filter((row) => row.poFile && row.poNumber)
-      .map((row) => row.poNumber),
-  );
-
-  return `${prefix}${baseCount + uniquePoNumbers.size + 1}`;
-};
 
 const mapRow = (row) => ({
   id: row["Indent Id."],
@@ -209,6 +196,26 @@ export default function CreatePO() {
     fetchFirms();
   }, [user]);
 
+  const fetchPreviewPoNumber = async () => {
+    if (!selectedFirm || mode !== "create") return;
+
+    const { data, error } = await supabase.rpc("preview_next_po_number", {
+      target_firm_id: selectedFirm.id,
+    });
+
+    if (!error && data?.length) {
+      const { next_id, prefix } = data[0];
+      setFormData((prev) => ({
+        ...prev,
+        poNumber: `${prefix}${next_id}`,
+      }));
+    }
+  };
+
+  useEffect(() => {
+    fetchPreviewPoNumber();
+  }, [selectedFirm, mode]);
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -244,15 +251,6 @@ export default function CreatePO() {
         }
 
         setRows(filtered);
-
-        if (selectedFirm) {
-          setFormData((prev) => ({
-            ...prev,
-            poNumber: prev.poNumber
-              ? prev.poNumber
-              : generatePoNumber(filtered, selectedFirm),
-          }));
-        }
       } catch (error) {
         console.error(error);
         toast.error("Failed to load purchase order data");
@@ -313,7 +311,7 @@ export default function CreatePO() {
     const first = currentGroup.indents[0] || {};
     setFormData((prev) => ({
       ...prev,
-      poNumber: prev.poNumber || generatePoNumber(rows, selectedFirm),
+      poNumber: mode === "revise" ? first.poNumber || "" : prev.poNumber,
       poDate: mode === "revise" ? first.poDate || prev.poDate : prev.poDate,
       deliveryDate:
         mode === "revise"
@@ -423,7 +421,8 @@ export default function CreatePO() {
   const validateForm = () => {
     const next = {};
     if (!formData.supplierName) next.supplierName = "Supplier is required";
-    if (!formData.poNumber) next.poNumber = "PO number is required";
+    if (mode === "revise" && !formData.poNumber)
+      next.poNumber = "PO number is required";
     if (!formData.poDate) next.poDate = "PO date is required";
     if (!formData.deliveryDate) next.deliveryDate = "Delivery date is required";
     if (!formData.supplierAddress)
@@ -488,7 +487,8 @@ export default function CreatePO() {
       const name = (selectedFirm?.firm_name || "").toUpperCase().trim();
       if (name.includes("PURAB")) return "pmpurab@gmail.com";
       if (name.includes("MADHYA")) return "pmmpl@pasmin.com";
-      if (name.includes("PASSARY MINERALS PVT LTD")) return "marketing@pasmin.com";
+      if (name.includes("PASSARY MINERALS PVT LTD"))
+        return "marketing@pasmin.com";
       return "marketing@pasmin.com";
     })(),
   });
@@ -522,17 +522,38 @@ export default function CreatePO() {
     setSubmitting(true);
     toast.loading("Generating and uploading PO...", { id: "create-po" });
     try {
-      const pdfProps = buildPdfProps();
+      let finalPoNumber = formData.poNumber;
+
+      // 1. If creating a new PO, get the next unique number from the server
+      if (mode === "create") {
+        const { data: nextPoData, error: rpcError } = await supabase.rpc(
+          "get_next_po_number",
+          { target_firm_id: selectedFirm.id },
+        );
+
+        if (rpcError) {
+          throw new Error(`Failed to generate PO number: ${rpcError.message}`);
+        }
+
+        if (nextPoData && nextPoData.length > 0) {
+          const { next_id, prefix } = nextPoData[0];
+          finalPoNumber = `${prefix}${next_id}`;
+        } else {
+          throw new Error("No data returned from PO number generator");
+        }
+      }
+
+      // 2. Generate PDF with the final confirmed PO number
+      const pdfProps = { ...buildPdfProps(), orderNumber: finalPoNumber };
       const blob = await pdf(<POPdf {...pdfProps} />).toBlob();
       const file = new File(
         [blob],
-        `PO-${formData.poNumber.replace(/\//g, "-")}.pdf`,
+        `PO-${finalPoNumber.replace(/\//g, "-")}.pdf`,
         { type: "application/pdf" },
       );
       const { url } = await uploadFileToStorage(file, "image", "po-files");
 
       const now = new Date();
-      // Use the PO Date from the form if available, adding the current time
       const datePart = formData.poDate || now.toISOString().split("T")[0];
       const timePart = now.toTimeString().split(" ")[0];
       const stamp = `${datePart} ${timePart}`;
@@ -549,7 +570,7 @@ export default function CreatePO() {
               Actual9: stamp,
               Planned3: stamp,
             }),
-        po_number: formData.poNumber,
+        po_number: finalPoNumber,
         "Vendor name": formData.supplierName,
         Rate: Number(formData.indents[0]?.rate) || 0,
         "Lead Time To Lift (days)": formData.deliveryDate
@@ -580,7 +601,7 @@ export default function CreatePO() {
         })),
       };
 
-      // 1. Update/Set indents that are in the form
+      // 3. Update/Set indents that are in the form
       for (const indent of formData.indents) {
         const { error } = await supabase
           .from("INDENT-PO")
@@ -589,7 +610,7 @@ export default function CreatePO() {
         if (error) throw error;
       }
 
-      // 2. If revising, clear PO info from indents that were removed from the form
+      // 4. If revising, clear PO info from indents that were removed from the form
       if (mode === "revise") {
         const formIds = new Set(formData.indents.map((i) => i.id));
         const removedIndents = currentGroup.indents.filter(
@@ -638,7 +659,7 @@ export default function CreatePO() {
           : "PO created successfully",
         {
           id: "create-po",
-          description: `${formData.supplierName} processed for ${formData.indents.length} items`,
+          description: `${formData.supplierName} processed for PO ${finalPoNumber}`,
         },
       );
 
@@ -771,12 +792,16 @@ export default function CreatePO() {
                 <div>
                   <Label className="block mb-2">PO Number</Label>
                   {mode === "create" ? (
-                    <Input
-                      className="h-9"
-                      value={formData.poNumber}
-                      onChange={(e) => setField("poNumber", e.target.value)}
-                      readOnly
-                    />
+                    <div className="space-y-1">
+                      <Input
+                        className="h-9"
+                        value={formData.poNumber || "Calculating..."}
+                        readOnly
+                      />
+                      <p className="text-[10px] text-muted-foreground italic">
+                        *Final PO number will be assigned on save
+                      </p>
+                    </div>
                   ) : (
                     <div className="relative">
                       <Input
@@ -812,9 +837,8 @@ export default function CreatePO() {
                               .map((po) => (
                                 <div
                                   key={po}
-                                  className="px-3 py-2 text-sm cursor-pointer hover:bg-[#f3f4f6]"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
+                                  className="px-4 py-2 text-sm cursor-pointer hover:bg-blue-100"
+                                  onMouseDown={() => {
                                     setField("poNumber", po);
                                     setPoDropdownOpen(false);
                                   }}
@@ -823,8 +847,8 @@ export default function CreatePO() {
                                 </div>
                               ))
                           ) : (
-                            <div className="px-3 py-3 text-sm italic text-center text-gray-500">
-                              No PO Found
+                            <div className="px-4 py-2 text-sm text-gray-500">
+                              No matches found
                             </div>
                           )}
                         </div>
