@@ -478,7 +478,7 @@ export default function CreatePO() {
     grandTotal,
     advanceToBePaid: formData.advanceToBePaid,
     advanceAmount: Number(formData.toBePaidAmount) || 0,
-    gstPercent: 18,
+    gstPercent: Number(formData.indents[0]?.gstPercent) || 18,
     discountPercent: 0,
     terms: formData.terms.filter(Boolean),
     paymentTerms: formData.paymentTerms || "1 DAY",
@@ -597,6 +597,7 @@ export default function CreatePO() {
           material: item.productName,
           quantity: Number(item.quantity) || 0,
           rate: Number(item.rate) || 0,
+          gstPercent: Number(item.gstPercent) || 0,
           specs: { ...(item.specs || {}), packaging: item.packaging || "" },
         })),
       };
@@ -1254,9 +1255,11 @@ export default function CreatePO() {
                         <TableCell>
                           <Input
                             type="number"
-                            className="w-16 text-center h-9 bg-gray-50"
+                            className="w-16 text-center h-9"
                             value={item.gstPercent || 0}
-                            readOnly
+                            onChange={(e) =>
+                              updateIndent(index, "gstPercent", e.target.value)
+                            }
                           />
                         </TableCell>
                         <TableCell>
