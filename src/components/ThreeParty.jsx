@@ -497,83 +497,98 @@ export default function ThreeParty() {
       const v2 = formatVendor(vendorForms[1]);
       const v3 = formatVendor(vendorForms[2]);
 
+      const activeVendors = vendorForms.filter((v) => v.name);
+      const isSingleVendor = activeVendors.length === 1;
+      const now = new Date().toISOString();
+
+      const updates = {
+        Actual6: now,
+        "Vendor Name 1": v1.name,
+        "Select Rate Type 1": v1.rateType,
+        "Rate 1": v1.rate,
+        "With Tax or Not 1": v1.withTaxOrNot,
+        "Tax Value 1": v1.taxValue,
+        "Payment Term 1": v1.paymentTerm,
+        "Advance Percentage 1": v1.advancePercentage,
+        "Quotation Number 1": v1.quotationNumber,
+        "Quotation Date 1": v1.quotationDate,
+        "Whatsapp Number 1": v1.whatsapp,
+        "Email Id 1": v1.email,
+        "Packaging 1": v1.packaging,
+
+        "Vendor Name 2": v2.name,
+        "Select Rate Type 2": v2.rateType,
+        "Rate 2": v2.rate,
+        "With Tax or Not 2": v2.withTaxOrNot,
+        "Tax Value 2": v2.taxValue,
+        "Payment Term 2": v2.paymentTerm,
+        "Advance Percentage 2": v2.advancePercentage,
+        "Quotation Number 2": v2.quotationNumber,
+        "Quotation Date 2": v2.quotationDate,
+        "Whatsapp Number 2": v2.whatsapp,
+        "Email Id 2": v2.email,
+        "Packaging 2": v2.packaging,
+
+        "Vendor Name 3": v3.name,
+        "Select Rate Type 3": v3.rateType,
+        "Rate 3": v3.rate,
+        "With Tax or Not 3": v3.withTaxOrNot,
+        "Tax Value 3": v3.taxValue,
+        "Payment Term 3": v3.paymentTerm,
+        "Advance Percentage 3": v3.advancePercentage,
+        "Quotation Number 3": v3.quotationNumber,
+        "Quotation Date 3": v3.quotationDate,
+        "Whatsapp Number 3": v3.whatsapp,
+        "Email Id 3": v3.email,
+        "Packaging 3": v3.packaging,
+
+        "Alumina 1": v1.alumina,
+        "Iron 1": v1.iron,
+        "SiO2 1": v1.sio2,
+        "CaO 1": v1.cao,
+        "AP 1": v1.ap,
+        "BD 1": v1.bd,
+        "Fineness 1": v1.fineness,
+
+        "Alumina 2": v2.alumina,
+        "Iron 2": v2.iron,
+        "SiO2 2": v2.sio2,
+        "CaO 2": v2.cao,
+        "AP 2": v2.ap,
+        "BD 2": v2.bd,
+        "Fineness 2": v2.fineness,
+
+        "Alumina 3": v3.alumina,
+        "Iron 3": v3.iron,
+        "SiO2 3": v3.sio2,
+        "CaO 3": v3.cao,
+        "AP 3": v3.ap,
+        "BD 3": v3.bd,
+        "Fineness 3": v3.fineness,
+        "Transport Type 1": v1.transportType,
+        "Transport Type 2": v2.transportType,
+        "Transport Type 3": v3.transportType,
+        "Notes 1": v1.notes,
+        "Notes 2": v2.notes,
+        "Notes 3": v3.notes,
+        "Expected Date 1": v1.expectedDate,
+        "Expected Date 2": v2.expectedDate,
+        "Expected Date 3": v3.expectedDate,
+        Planned7: now,
+      };
+
+      if (isSingleVendor) {
+        updates.Actual7 = now;
+        updates.Planned8 = now;
+        // Automatically assign T1 tag to the single vendor so it appears in Management Approvals
+        if (v1.name) updates["Technical Tag 1"] = "T1";
+        else if (v2.name) updates["Technical Tag 2"] = "T1";
+        else if (v3.name) updates["Technical Tag 3"] = "T1";
+      }
+
       const { error: updateError } = await supabase
         .from("INDENT-PO")
-        .update({
-          Actual6: new Date().toISOString(),
-          "Vendor Name 1": v1.name,
-          "Select Rate Type 1": v1.rateType,
-          "Rate 1": v1.rate,
-          "With Tax or Not 1": v1.withTaxOrNot,
-          "Tax Value 1": v1.taxValue,
-          "Payment Term 1": v1.paymentTerm,
-          "Advance Percentage 1": v1.advancePercentage,
-          "Quotation Number 1": v1.quotationNumber,
-          "Quotation Date 1": v1.quotationDate,
-          "Whatsapp Number 1": v1.whatsapp,
-          "Email Id 1": v1.email,
-          "Packaging 1": v1.packaging,
-
-          "Vendor Name 2": v2.name,
-          "Select Rate Type 2": v2.rateType,
-          "Rate 2": v2.rate,
-          "With Tax or Not 2": v2.withTaxOrNot,
-          "Tax Value 2": v2.taxValue,
-          "Payment Term 2": v2.paymentTerm,
-          "Advance Percentage 2": v2.advancePercentage,
-          "Quotation Number 2": v2.quotationNumber,
-          "Quotation Date 2": v2.quotationDate,
-          "Whatsapp Number 2": v2.whatsapp,
-          "Email Id 2": v2.email,
-          "Packaging 2": v2.packaging,
-
-          "Vendor Name 3": v3.name,
-          "Select Rate Type 3": v3.rateType,
-          "Rate 3": v3.rate,
-          "With Tax or Not 3": v3.withTaxOrNot,
-          "Tax Value 3": v3.taxValue,
-          "Payment Term 3": v3.paymentTerm,
-          "Advance Percentage 3": v3.advancePercentage,
-          "Quotation Number 3": v3.quotationNumber,
-          "Quotation Date 3": v3.quotationDate,
-          "Whatsapp Number 3": v3.whatsapp,
-          "Email Id 3": v3.email,
-          "Packaging 3": v3.packaging,
-
-          "Alumina 1": v1.alumina,
-          "Iron 1": v1.iron,
-          "SiO2 1": v1.sio2,
-          "CaO 1": v1.cao,
-          "AP 1": v1.ap,
-          "BD 1": v1.bd,
-          "Fineness 1": v1.fineness,
-
-          "Alumina 2": v2.alumina,
-          "Iron 2": v2.iron,
-          "SiO2 2": v2.sio2,
-          "CaO 2": v2.cao,
-          "AP 2": v2.ap,
-          "BD 2": v2.bd,
-          "Fineness 2": v2.fineness,
-
-          "Alumina 3": v3.alumina,
-          "Iron 3": v3.iron,
-          "SiO2 3": v3.sio2,
-          "CaO 3": v3.cao,
-          "AP 3": v3.ap,
-          "BD 3": v3.bd,
-          "Fineness 3": v3.fineness,
-          "Transport Type 1": v1.transportType,
-          "Transport Type 2": v2.transportType,
-          "Transport Type 3": v3.transportType,
-          "Notes 1": v1.notes,
-          "Notes 2": v2.notes,
-          "Notes 3": v3.notes,
-          "Expected Date 1": v1.expectedDate,
-          "Expected Date 2": v2.expectedDate,
-          "Expected Date 3": v3.expectedDate,
-          Planned7: new Date().toISOString(),
-        })
+        .update(updates)
         .eq("id", selectedIndent.id);
 
       if (updateError) throw updateError;
