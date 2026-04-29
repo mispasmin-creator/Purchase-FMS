@@ -228,10 +228,10 @@ const formatMoney = (value) =>
     maximumFractionDigits: 2,
   });
 
-const makeLiftItemKey = (poNumber, material) =>
-  `${String(poNumber || "").trim()}::${String(material || "")
-    .trim()
-    .toLowerCase()}`;
+const makeLiftItemKey = (poNumber, material, uniqueId = "") => {
+  const baseKey = `${String(poNumber || "").trim()}::${String(material || "").trim().toLowerCase()}`;
+  return uniqueId ? `${baseKey}::${uniqueId}` : baseKey;
+};
 
 const normalizePoItems = (row, liftedQtyByItem) => {
   const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
@@ -249,35 +249,43 @@ const normalizePoItems = (row, liftedQtyByItem) => {
           },
         ];
 
-  return rawItems
-    .map((item, index) => {
-      const materialName = String(
-        item.material ||
-          item.productName ||
-          fallbackMaterial ||
-          `Product ${index + 1}`,
-      ).trim();
-      const key = makeLiftItemKey(poNumber, materialName);
-      const maxQuantity = toNumber(item.quantity || fallbackQuantity);
-      const liftedQuantity = roundQuantity(liftedQtyByItem[key] || 0);
-      const pendingQuantity = Math.max(
-        0,
-        roundQuantity(maxQuantity - liftedQuantity),
-      );
-      const rate = toNumber(item.rate || fallbackRate);
+  return rawItems.map((item, index) => {
+    const materialName = String(
+      item.material ||
+        item.productName ||
+        fallbackMaterial ||
+        `Product ${index + 1}`,
+    ).trim();
 
-      return {
-        key,
-        index,
-        material: materialName,
-        maxQuantity,
-        liftedQuantity,
-        pendingQuantity,
-        quantityToLift: pendingQuantity,
-        rate,
-        totalAmount: roundQuantity(pendingQuantity * rate),
-      };
-    });
+    const aggregationKey = makeLiftItemKey(poNumber, materialName);
+    const uniqueId = item.indentId || item.id || index;
+    const key = makeLiftItemKey(poNumber, materialName, uniqueId);
+
+    const maxQuantity = toNumber(item.quantity || fallbackQuantity);
+    // Use the specific key if available (future proofing), otherwise fallback to aggregated material key
+    const liftedQuantity = roundQuantity(
+      liftedQtyByItem[key] || liftedQtyByItem[aggregationKey] || 0,
+    );
+    const pendingQuantity = Math.max(
+      0,
+      roundQuantity(maxQuantity - liftedQuantity),
+    );
+    const rate = toNumber(item.rate || fallbackRate);
+
+    return {
+      key,
+      aggregationKey,
+      index,
+      material: materialName,
+      maxQuantity,
+      liftedQuantity,
+      pendingQuantity,
+      quantityToLift: pendingQuantity,
+      rate,
+      totalAmount: roundQuantity(pendingQuantity * rate),
+      indentId: item.indentId || "",
+    };
+  });
 };
 
 export default function LiftMaterial() {
