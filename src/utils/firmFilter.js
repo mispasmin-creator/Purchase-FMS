@@ -13,8 +13,8 @@ export function canViewFirm(userFirmName, dataFirmName) {
     if (!userFirmName) return true;
 
     const normalizedUserFirm = Array.isArray(userFirmName) 
-        ? userFirmName.map(f => f.toLowerCase().trim())
-        : userFirmName.toLowerCase().trim();
+        ? userFirmName.map(f => String(f || "").toLowerCase().trim())
+        : String(userFirmName || "").toLowerCase().trim();
 
     // If user has "all" access, show everything
     if (normalizedUserFirm === "all" || (Array.isArray(normalizedUserFirm) && normalizedUserFirm.includes("all"))) {
@@ -26,7 +26,7 @@ export function canViewFirm(userFirmName, dataFirmName) {
         return true;
     }
 
-    const normalizedDataFirm = dataFirmName.toLowerCase().trim();
+    const normalizedDataFirm = String(dataFirmName || "").toLowerCase().trim();
 
     // Support both single string and array of firms for user
     if (Array.isArray(normalizedUserFirm)) {

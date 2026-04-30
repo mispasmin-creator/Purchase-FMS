@@ -1,10 +1,11 @@
-﻿import { useState, useEffect, useCallback, useMemo, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { PackageSearch, PlusCircle, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { toast } from "sonner";
+import { canViewFirm } from "../utils/firmFilter";
 
 // Shadcn UI components
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -71,7 +72,11 @@ export default function FullkittingTransportingPage() {
     const [rateTypes, setRateTypes] = useState([]);
     const [isSubmittingKitting, setIsSubmittingKitting] = useState(false);
 
-    const hasAllFirmAccess = user?.firmName?.toLowerCase() === 'all';
+    const hasAllFirmAccess = useMemo(() => {
+        if (!user?.firmName) return true;
+        const firms = Array.isArray(user.firmName) ? user.firmName : [user.firmName];
+        return firms.some(f => String(f).toLowerCase() === 'all');
+    }, [user?.firmName]);
 
     // Fetch Firm Names and Rate Types from Master table
     useEffect(() => {
@@ -172,10 +177,9 @@ export default function FullkittingTransportingPage() {
             });
 
             // Filter by firm name
-            if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-                const userFirmNameLower = String(user.firmName).toLowerCase();
+            if (user?.firmName) {
                 parsedData = parsedData.filter(
-                    (item) => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower,
+                    (item) => canViewFirm(user.firmName, item.firmName)
                 );
             }
 
@@ -219,10 +223,9 @@ export default function FullkittingTransportingPage() {
         let baseData = kittingData;
 
         // Apply firm-based filter first
-        if (!hasAllFirmAccess && user?.firmName) {
-            const userFirmNameLower = String(user.firmName).toLowerCase();
+        if (user?.firmName) {
             baseData = baseData.filter(
-                item => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower
+                item => canViewFirm(user.firmName, item.firmName)
             );
         }
 

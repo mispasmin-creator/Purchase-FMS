@@ -345,11 +345,11 @@ export default function ThreeParty() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (item) =>
-          item.indentId.toLowerCase().includes(query) ||
-          item.firmName.toLowerCase().includes(query) ||
-          item.indenter.toLowerCase().includes(query) ||
-          item.department.toLowerCase().includes(query) ||
-          item.product.toLowerCase().includes(query),
+          String(item.indentId || "").toLowerCase().includes(query) ||
+          String(item.firmName || "").toLowerCase().includes(query) ||
+          String(item.indenter || "").toLowerCase().includes(query) ||
+          String(item.department || "").toLowerCase().includes(query) ||
+          String(item.product || "").toLowerCase().includes(query),
       );
     }
 
@@ -371,11 +371,11 @@ export default function ThreeParty() {
       const query = historySearchQuery.toLowerCase();
       filtered = filtered.filter(
         (item) =>
-          item.indentId.toLowerCase().includes(query) ||
-          item.firmName.toLowerCase().includes(query) ||
-          item.indenter.toLowerCase().includes(query) ||
-          item.department.toLowerCase().includes(query) ||
-          item.product.toLowerCase().includes(query),
+          String(item.indentId || "").toLowerCase().includes(query) ||
+          String(item.firmName || "").toLowerCase().includes(query) ||
+          String(item.indenter || "").toLowerCase().includes(query) ||
+          String(item.department || "").toLowerCase().includes(query) ||
+          String(item.product || "").toLowerCase().includes(query),
       );
     }
 
