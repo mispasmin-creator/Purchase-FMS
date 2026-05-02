@@ -945,23 +945,38 @@ export default function LiftMaterial() {
   }, [selectedLiftItems]);
 
   useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      truckQty: selectedLiftSummary.totalLiftQuantity
+    setFormData((prev) => {
+      const newTruckQty = selectedLiftSummary.totalLiftQuantity
         ? String(selectedLiftSummary.totalLiftQuantity)
-        : "",
-      totalQuantity: selectedPO?.quantity || "",
-      material:
-        selectedLiftSummary.activeItems.length > 1
-          ? `${selectedLiftSummary.activeItems.length} products`
-          : selectedLiftSummary.activeItems[0]?.material ||
-            selectedPO?.rawMaterialName ||
-            "",
-      rate:
-        selectedLiftSummary.activeItems.length === 1
-          ? String(selectedLiftSummary.activeItems[0]?.rate || "")
-          : prev.rate,
-    }));
+        : "";
+
+      const isExFactory =
+        String(selectedPO?.transportType || "").trim().toUpperCase() ===
+        "EX-FACTORY";
+      let transportRate = prev.transportRate;
+      if (prev.rateType === "Per MT" && !isExFactory) {
+        const tRate = parseFloat(prev.transportingRate) || 0;
+        const bQty = parseFloat(newTruckQty) || 0;
+        transportRate = (tRate * bQty).toFixed(2);
+      }
+
+      return {
+        ...prev,
+        truckQty: newTruckQty,
+        transportRate,
+        totalQuantity: selectedPO?.quantity || "",
+        material:
+          selectedLiftSummary.activeItems.length > 1
+            ? `${selectedLiftSummary.activeItems.length} products`
+            : selectedLiftSummary.activeItems[0]?.material ||
+              selectedPO?.rawMaterialName ||
+              "",
+        rate:
+          selectedLiftSummary.activeItems.length === 1
+            ? String(selectedLiftSummary.activeItems[0]?.rate || "")
+            : prev.rate,
+      };
+    });
   }, [selectedLiftSummary, selectedPO]);
 
   const handleLiftItemQuantityChange = (itemKey, value) => {
@@ -2364,7 +2379,6 @@ export default function LiftMaterial() {
                       step: "any",
                       isRequired: true,
                       readOnly:
-                        formData.rateType === "Per MT" ||
                         String(selectedPO?.transportType || "")
                           .trim()
                           .toUpperCase() === "EX-FACTORY",
