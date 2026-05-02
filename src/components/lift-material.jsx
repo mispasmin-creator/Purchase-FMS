@@ -2378,10 +2378,7 @@ export default function LiftMaterial() {
                       type: "text",
                       step: "any",
                       isRequired: true,
-                      readOnly:
-                        String(selectedPO?.transportType || "")
-                          .trim()
-                          .toUpperCase() === "EX-FACTORY",
+                      readOnly: false,
                     },
                     {
                       label: "Total Truck Billing Quantity",
