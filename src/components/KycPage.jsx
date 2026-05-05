@@ -1,0 +1,397 @@
+// src/components/KycPage.jsx
+"use client";
+
+import { useState } from "react";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from 'sonner';
+import { UserCheck, Loader2, CheckCircle, XCircle, Briefcase, Store, Truck, Info } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs components for styling consistency
+import { Badge } from "@/components/ui/badge"; // Import Badge for consistent styling
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "../supabase";
+
+export default function KycPage() {
+  const [activeForm, setActiveForm] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Form states
+  const [productFormData, setProductFormData] = useState({ productName: "" });
+  const [transportationFormData, setTransportationFormData] = useState({
+    transporterName: "",
+    transportRateType: "",
+    transportRate: "",
+  });
+  const [vendorFormData, setVendorFormData] = useState({
+    vendorName: "",
+    gstNumber: "",
+    bankAcNo: "",
+    ifscCode: "",
+    phoneNumber: "",
+    email: "",
+  });
+
+  const [errors, setErrors] = useState({});
+
+  const handleFormChange = (formSetter) => (e) => {
+    const { name, value } = e.target;
+    formSetter(prev => ({ ...prev, [name]: value }));
+    setErrors(prevErrors => ({ ...prevErrors, [name]: null }));
+  };
+
+  const validateForm = (formType, formData) => {
+    const newErrors = {};
+    switch (formType) {
+      case 'product':
+        if (!formData.productName.trim()) newErrors.productName = "Product Name is required.";
+        break;
+      case 'transportation':
+        if (!formData.transporterName.trim()) newErrors.transporterName = "Transporter Name is required.";
+        if (!formData.transportRateType.trim()) newErrors.transportRateType = "Transport Type is required.";
+        if (!String(formData.transportRate || "").trim()) {
+          newErrors.transportRate = "Rate is required.";
+        } else if (Number.isNaN(Number(formData.transportRate))) {
+          newErrors.transportRate = "Rate must be a valid number.";
+        }
+        break;
+      case 'vendor':
+        if (!formData.vendorName.trim()) newErrors.vendorName = "Vendor Name is required.";
+        if (!formData.bankAcNo.trim()) newErrors.bankAcNo = "Bank Account No. is required.";
+        if (!formData.ifscCode.trim()) newErrors.ifscCode = "IFSC Code is required.";
+        if (!formData.phoneNumber.trim()) {
+          newErrors.phoneNumber = "Phone Number is required.";
+        } else if (!/^\d+$/.test(formData.phoneNumber)) {
+          newErrors.phoneNumber = "Phone Number must contain only digits.";
+        }
+        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+          newErrors.email = "Invalid email format.";
+        }
+        break;
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e, formType) => {
+    e.preventDefault();
+    let currentFormData, formSetter, resetState;
+
+    switch (formType) {
+      case 'product':
+        currentFormData = productFormData;
+        formSetter = setProductFormData;
+        resetState = { productName: "" };
+        break;
+      case 'transportation':
+        currentFormData = transportationFormData;
+        formSetter = setTransportationFormData;
+        resetState = { transporterName: "", transportRateType: "", transportRate: "" };
+        break;
+      case 'vendor':
+        currentFormData = vendorFormData;
+        formSetter = setVendorFormData;
+        resetState = { vendorName: "", gstNumber: "", bankAcNo: "", ifscCode: "", phoneNumber: "", email: "" };
+        break;
+      default:
+        toast.error("Error", { description: "Unknown form type." });
+        return;
+    }
+
+    if (!validateForm(formType, currentFormData)) {
+      toast.error("Validation Error", { description: "Please fill all required fields correctly." });
+      return;
+    }
+    setIsSubmitting(true);
+
+    let dataToInsert = {};
+    let successMessage = "";
+
+    switch (formType) {
+      case 'product':
+        dataToInsert = {
+          "Type Of KYC Form": "Product",
+          "Product Name": String(currentFormData.productName || "")
+        };
+        successMessage = `Product "${currentFormData.productName}" added to Master.`;
+        break;
+      case 'transportation':
+        dataToInsert = {
+          "Type Of KYC Form": "Transportation",
+          "Transporter Name 2": String(currentFormData.transporterName || ""),
+          "Transport Rate Type": String(currentFormData.transportRateType || ""),
+          "Transport Rate": String(currentFormData.transportRate || "")
+        };
+        successMessage = `Transporter "${currentFormData.transporterName}" added to Master.`;
+        break;
+      case 'vendor':
+        dataToInsert = {
+          "Type Of KYC Form": "Vendor",
+          "Vendor Name KYC": String(currentFormData.vendorName || ""),
+          "GST Number": String(currentFormData.gstNumber || ""),
+          "Current Bank A.C. No": String(currentFormData.bankAcNo || ""),
+          "IFSC Code": String(currentFormData.ifscCode || ""),
+          "Phone Number": String(currentFormData.phoneNumber || ""),
+          "Email": String(currentFormData.email || "")
+        };
+        successMessage = `Vendor "${currentFormData.vendorName}" added to Master.`;
+        break;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("Master")
+        .insert([dataToInsert]);
+
+      if (error) throw error;
+
+      toast.success("Success!", { description: successMessage, icon: <CheckCircle className="h-4 w-4" /> });
+      formSetter(resetState);
+      setErrors({});
+      setActiveForm(""); // Close the form after successful submission
+
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error("Submission Failed", { description: error.message, icon: <XCircle className="h-4 w-4" /> });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderProductForm = () => (
+    <Card className="shadow-sm border border-border mt-6">
+      <CardHeader className="py-3 px-4 bg-muted/30">
+        <CardTitle className="flex items-center text-md font-semibold text-foreground">
+          <Briefcase className="h-5 w-5 text-[#7da23a] mr-2" /> Add New Product
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4">
+        <form onSubmit={(e) => handleSubmit(e, 'product')} className="space-y-4">
+          <div>
+            <Label htmlFor="productName" className="block text-sm font-medium text-gray-700">Product Name <span className="text-red-500">*</span></Label>
+            <Input
+              id="productName"
+              name="productName"
+              value={productFormData.productName}
+              onChange={handleFormChange(setProductFormData)}
+              placeholder="Enter new product name"
+              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.productName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+            />
+            {errors.productName && <p className="text-red-500 text-xs mt-1">{errors.productName}</p>}
+          </div>
+          <div className="pt-4 flex justify-end">
+            <Button type="submit" disabled={isSubmitting} className="bg-[#7da23a] hover:bg-[#6b8e2f]">
+              {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : "Submit Product"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+
+  const renderTransportationForm = () => (
+    <Card className="shadow-sm border border-border mt-6">
+      <CardHeader className="py-3 px-4 bg-muted/30">
+        <CardTitle className="flex items-center text-md font-semibold text-foreground">
+          <Truck className="h-5 w-5 text-[#7da23a] mr-2" /> Add New Transporter
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4">
+        <form onSubmit={(e) => handleSubmit(e, 'transportation')} className="space-y-4">
+          <div>
+            <Label htmlFor="transporterName" className="block text-sm font-medium text-gray-700">Transporter Name <span className="text-red-500">*</span></Label>
+            <Input
+              id="transporterName"
+              name="transporterName"
+              value={transportationFormData.transporterName}
+              onChange={handleFormChange(setTransportationFormData)}
+              placeholder="Enter new transporter name"
+              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.transporterName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+            />
+            {errors.transporterName && <p className="text-red-500 text-xs mt-1">{errors.transporterName}</p>}
+          </div>
+          <div>
+            <Label className="block text-sm font-medium text-gray-700">Transport Type <span className="text-red-500">*</span></Label>
+            <Select
+              value={transportationFormData.transportRateType}
+              onValueChange={(value) => {
+                setTransportationFormData((prev) => ({ ...prev, transportRateType: value }));
+                setErrors((prev) => ({ ...prev, transportRateType: null }));
+              }}
+            >
+              <SelectTrigger className={`mt-1 w-full rounded-md shadow-sm sm:text-sm ${errors.transportRateType ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}>
+                <SelectValue placeholder="Select transport type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fixed">Fixed</SelectItem>
+                <SelectItem value="per mt">Per MT</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.transportRateType && <p className="text-red-500 text-xs mt-1">{errors.transportRateType}</p>}
+          </div>
+          <div>
+            <Label htmlFor="transportRate" className="block text-sm font-medium text-gray-700">Rate <span className="text-red-500">*</span></Label>
+            <Input
+              id="transportRate"
+              name="transportRate"
+              value={transportationFormData.transportRate}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9.]/g, "");
+                setTransportationFormData((prev) => ({ ...prev, transportRate: value }));
+                setErrors((prev) => ({ ...prev, transportRate: null }));
+              }}
+              placeholder="Enter rate"
+              className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.transportRate ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+            />
+            {errors.transportRate && <p className="text-red-500 text-xs mt-1">{errors.transportRate}</p>}
+          </div>
+          <div className="pt-4 flex justify-end">
+            <Button type="submit" disabled={isSubmitting} className="bg-[#7da23a] hover:bg-[#6b8e2f]">
+              {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : "Submit Transporter"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+
+  const renderVendorForm = () => (
+    <Card className="shadow-sm border border-border mt-6">
+      <CardHeader className="py-3 px-4 bg-muted/30">
+        <CardTitle className="flex items-center text-md font-semibold text-foreground">
+          <Store className="h-5 w-5 text-[#7da23a] mr-2" /> Add New Vendor
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4">
+        <form onSubmit={(e) => handleSubmit(e, 'vendor')} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+              <Label htmlFor="vendorName" className="block text-sm font-medium text-gray-700">Vendor Name <span className="text-red-500">*</span></Label>
+              <Input
+                id="vendorName"
+                name="vendorName"
+                value={vendorFormData.vendorName}
+                onChange={handleFormChange(setVendorFormData)}
+                placeholder="Enter vendor name"
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.vendorName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+              />
+              {errors.vendorName && <p className="text-red-500 text-xs mt-1">{errors.vendorName}</p>}
+            </div>
+            <div>
+              <Label htmlFor="gstNumber" className="block text-sm font-medium text-gray-700">GST Number (Optional)</Label>
+              <Input
+                id="gstNumber"
+                name="gstNumber"
+                value={vendorFormData.gstNumber}
+                onChange={handleFormChange(setVendorFormData)}
+                placeholder="e.g. 29ABCDE1234F1Z5"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"
+              />
+            </div>
+            <div>
+              <Label htmlFor="bankAcNo" className="block text-sm font-medium text-gray-700">Bank A/C No. <span className="text-red-500">*</span></Label>
+              <Input
+                id="bankAcNo"
+                name="bankAcNo"
+                value={vendorFormData.bankAcNo}
+                onChange={handleFormChange(setVendorFormData)}
+                placeholder="Enter bank account number"
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.bankAcNo ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+              />
+              {errors.bankAcNo && <p className="text-red-500 text-xs mt-1">{errors.bankAcNo}</p>}
+            </div>
+            <div>
+              <Label htmlFor="ifscCode" className="block text-sm font-medium text-gray-700">IFSC Code <span className="text-red-500">*</span></Label>
+              <Input
+                id="ifscCode"
+                name="ifscCode"
+                value={vendorFormData.ifscCode}
+                onChange={handleFormChange(setVendorFormData)}
+                placeholder="e.g. SBIN0123456"
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.ifscCode ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+              />
+              {errors.ifscCode && <p className="text-red-500 text-xs mt-1">{errors.ifscCode}</p>}
+            </div>
+            <div>
+              <Label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">Phone Number <span className="text-red-500">*</span></Label>
+              <Input
+                id="phoneNumber"
+                name="phoneNumber"
+                type="tel"
+                value={vendorFormData.phoneNumber}
+                onChange={handleFormChange(setVendorFormData)}
+                placeholder="Enter phone number"
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.phoneNumber ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+              />
+              {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber}</p>}
+            </div>
+            <div>
+              <Label htmlFor="email" className="block text-sm font-medium text-gray-700">Email (Optional)</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={vendorFormData.email}
+                onChange={handleFormChange(setVendorFormData)}
+                placeholder="company@example.com"
+                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${errors.email ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+              />
+              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+            </div>
+          </div>
+          <div className="pt-4 flex justify-end">
+            <Button type="submit" disabled={isSubmitting} className="bg-[#7da23a] hover:bg-[#6b8e2f]">
+              {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : "Submit Vendor"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="min-h-screen w-full bg-slate-50 p-4 md:p-6">
+      <Card className="w-full max-w-4xl mx-auto shadow-md border-none">
+        <CardHeader className="p-4 border-b border-gray-200">
+          <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
+            <UserCheck className="h-5 w-5 text-[#7da23a]" />
+            KYC & Master Data Entry
+          </CardTitle>
+          <CardDescription className="text-gray-500 text-sm">
+            Add new vendors, products, or transporters to the master list.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+            <Tabs defaultValue="initial" className="w-full"> {/* Using Tabs for consistent styling */}
+              <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-muted/80 rounded-lg"> {/* Adjusted for 3 columns */}
+                <TabsTrigger value="vendor" onClick={() => setActiveForm('vendor')} className="inline-flex h-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+                  <Store className="h-4 w-4" /> Add Vendor
+                </TabsTrigger>
+                <TabsTrigger value="product" onClick={() => setActiveForm('product')} className="inline-flex h-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+                  <Briefcase className="h-4 w-4" /> Add Product
+                </TabsTrigger>
+                <TabsTrigger value="transportation" onClick={() => setActiveForm('transportation')} className="inline-flex h-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+                  <Truck className="h-4 w-4" /> Add Transporter
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {activeForm === 'vendor' && renderVendorForm()}
+          {activeForm === 'product' && renderProductForm()}
+          {activeForm === 'transportation' && renderTransportationForm()}
+
+          {activeForm === '' && (
+            <div className="p-8 text-center text-muted-foreground border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-auto my-4 max-w-sm">
+              <Info className="mx-auto h-12 w-12 text-green-500 mb-3" />
+              <p className="font-medium text-foreground">Select a Category</p>
+              <p className="text-sm text-muted-foreground">Please choose a category above to add new master data entries.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
