@@ -675,8 +675,6 @@ export default function ManageUsers() {
                       checked={formData.permissions.includes("admin")}
                       onCheckedChange={() => handleTogglePermission("admin")}
                       disabled={formData.isViewOnly}
-=======
->>>>>>> 0e018cce46bf31b0820d84bbb9b7aa573bf055d5
                       className="data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
                     />
                     <div className="flex-1">

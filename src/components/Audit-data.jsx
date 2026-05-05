@@ -1384,7 +1384,6 @@ const CallTrackerPage = () => {
     }
   };
 
-<<<<<<< HEAD
   // Fetch History data - records where Bill Entry (Actual6) is completed
   const fetchHistoryDataFromSupabase = async () => {
     setLoadingHistory(true);
