@@ -134,3 +134,25 @@
     background: oklch(0.8 0 0);
   }
 }
+
+/* ============================================
+   View Only Mode — Read-Only Global Styles
+   ============================================ */
+.readonly-mode button:not([data-readonly-allow]),
+.readonly-mode input[type="submit"],
+.readonly-mode input[type="button"] {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+/* Allow search inputs and read-only inputs to still work */
+.readonly-mode input[type="text"],
+.readonly-mode input[type="search"],
+.readonly-mode input[type="number"],
+.readonly-mode select,
+.readonly-mode textarea {
+  pointer-events: none;
+  opacity: 0.7;
+  background-color: oklch(0.97 0 0);
+}

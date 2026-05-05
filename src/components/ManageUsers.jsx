@@ -139,7 +139,7 @@ const parseFirms = (firmName) => {
 
 
 export default function ManageUsers() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isReadOnly } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");

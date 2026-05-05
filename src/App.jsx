@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import {
   useNavigate,
   useLocation,
@@ -493,6 +494,9 @@ function App() {
     // Always show dashboard
     if (tab.id === "dashboard") return !tab.hidden;
 
+    // View-only users cannot see Manage Users page
+    if (isReadOnly && tab.id === "manage-users") return false;
+
     // If admin, show all
     if (allowedSteps.includes("admin")) return !tab.hidden;
 
@@ -682,7 +686,37 @@ function App() {
           isSidebarOpen={isSidebarOpen}
           setIsMobileSidebarOpen={setIsMobileSidebarOpen}
         />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50">
+        <main
+          className={`flex-1 overflow-x-hidden overflow-y-auto bg-slate-50${isReadOnly ? " readonly-mode" : ""}`}
+          onClickCapture={(e) => {
+            if (!isReadOnly) return;
+            const target = e.target.closest(
+              "button, input[type='submit'], input[type='button'], [type='submit'], a[href='#']"
+            );
+            // Allow navigation links (sidebar/dashboard) but block action buttons
+            if (target) {
+              const isNavLink = target.closest("nav");
+              const isDashboardNav = target.getAttribute("href") || target.closest("a[href]");
+              if (!isNavLink && !isDashboardNav) {
+                e.stopPropagation();
+                e.preventDefault();
+                toast.warning("View Only Mode", {
+                  description: "Aap sirf dekh sakte hain — koi bhi changes allow nahi hain.",
+                  duration: 2000,
+                });
+              }
+            }
+          }}
+          onSubmitCapture={(e) => {
+            if (!isReadOnly) return;
+            e.stopPropagation();
+            e.preventDefault();
+            toast.warning("View Only Mode", {
+              description: "Form submit nahi ho sakta — View Only access hai.",
+              duration: 2000,
+            });
+          }}
+        >
           {isReadOnly && (
             <div className="sticky top-0 z-50 flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 shadow-md">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -696,6 +730,22 @@ function App() {
                 key={tab.id}
                 path={tab.path}
                 element={
+                  // View-only users cannot access Manage Users
+                  (isReadOnly && tab.id === "manage-users") ? (
+                    <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)] text-center text-gray-500">
+                      <X size={48} className="text-red-400 mb-4" />
+                      <h2 className="text-2xl font-bold">Access Denied</h2>
+                      <p className="mt-2">
+                        View Only users cannot manage users.
+                      </p>
+                      <Button
+                        onClick={() => navigate("/dashboard")}
+                        className="mt-4"
+                      >
+                        Go to Dashboard
+                      </Button>
+                    </div>
+                  ) :
                   // Check access control - same logic as sidebar filtering
                   tab.id === "dashboard" ||
                   allowedSteps.includes("admin") ||
