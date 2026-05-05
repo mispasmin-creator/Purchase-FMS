@@ -240,13 +240,6 @@ const ELIGIBLE_TESTS_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Truck Number", dataKey: "truckNo", toggleable: true },
-  { header: "PO Quantity", dataKey: "poQuantity", toggleable: true },
-  {
-    header: "Actual Qty Rcvd",
-    dataKey: "actualQty_fromReceipt",
-    toggleable: true,
-  },
-  { header: "Firm Name", dataKey: "firmName", toggleable: true },
 ];
 
 const RECORDED_TESTS_COLUMNS_META = [

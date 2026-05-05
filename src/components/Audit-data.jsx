@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
@@ -1384,6 +1384,7 @@ const CallTrackerPage = () => {
     }
   };
 
+<<<<<<< HEAD
   // Fetch History data - records where Bill Entry (Actual6) is completed
   const fetchHistoryDataFromSupabase = async () => {
     setLoadingHistory(true);

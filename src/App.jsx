@@ -36,8 +36,6 @@ import POHistory from "./components/POHistory";
 import LabReportPage from "./components/LabReportPage";
 import IndentTrackingReport from "./components/IndentTrackingReport";
 
-
-
 import { useAuth } from "./context/AuthContext";
 import { useNotification } from "./context/NotificationContext"; // Import hook
 import { supabase } from "./supabase";
