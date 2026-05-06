@@ -2351,10 +2351,7 @@ export default function LiftMaterial() {
                       label: "Type Of Transporting Rate",
                       name: "rateType",
                       type: "select",
-                      disabled:
-                        String(selectedPO?.transportType || "")
-                          .trim()
-                          .toUpperCase() === "EX-FACTORY",
+                      disabled: false,
                       options: [
                         { value: "", label: "Select rate type" },
                         ...rateTypeOptions,

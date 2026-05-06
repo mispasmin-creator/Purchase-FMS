@@ -117,7 +117,15 @@ export async function fetchMasterData() {
             indentTypeOptions: extractUniqueValues("Type Of Indent"),
 
             // For lift-material
-            rateTypeOptions: extractUniqueValues("Type Of Rate"),
+            rateTypeOptions: (() => {
+                // Try multiple possible column names in Master table
+                const fromRateType = extractUniqueValues("Rate Type");
+                const fromTypeOfRate = extractUniqueValues("Type Of Rate");
+                const fromTransportingRate = extractUniqueValues("Type Of Transporting Rate");
+                const combined = [...new Set([...fromRateType, ...fromTypeOfRate, ...fromTransportingRate])];
+                // If nothing found in Master, provide hardcoded defaults
+                return combined.length > 0 ? combined.sort() : ["Per MT", "Fixed"];
+            })(),
             areaLiftingOptions: extractUniqueValues("Area Lifting"),
             typeOptions: extractUniqueValues("Type"),
             transporterOptions: transporterNames,
