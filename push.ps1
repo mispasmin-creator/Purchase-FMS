@@ -15,7 +15,7 @@ git add .
 Write-Host "Files staged." -ForegroundColor Cyan
 
 # Step 3: Commit
-git commit -m "fix: Type Of Transporting Rate dropdown - options from Master table, enabled for all POs"
+git commit -m "feat: added Rate Report tab, Excel export, and integrated Lab Results into rates"
 Write-Host "Committed." -ForegroundColor Cyan
 
 # Step 4: Push

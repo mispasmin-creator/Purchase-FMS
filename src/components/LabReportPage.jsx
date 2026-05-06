@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useContext } from "react";
 import { supabase } from "../supabase";
 import { AuthContext } from "../context/AuthContext";
-import { RefreshCw, Filter, X, Download, Settings, Check, FileDown } from "lucide-react";
+import { RefreshCw, Filter, X, Download, Settings, Check, FileDown, TrendingUp, IndentIcon, DollarSign, Truck } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -368,8 +368,212 @@ export default function LabReportPage() {
     }
   };
 
+  // ── Rate Report State ──────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState("lab");
+  const [rateRows, setRateRows] = useState([]);
+  const [rateLoading, setRateLoading] = useState(false);
+  const [rateSearch, setRateSearch] = useState("");
+  const [rateFirmFilter, setRateFirmFilter] = useState("all");
+
+  const fetchRateData = useCallback(async () => {
+    setRateLoading(true);
+    try {
+      const [{ data: liftData, error: liftErr }, { data: poData, error: poErr }] = await Promise.all([
+        supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
+        supabase.from("INDENT-PO").select("*"),
+      ]);
+      if (liftErr) throw liftErr;
+      if (poErr) throw poErr;
+
+      // Same robust findPo logic as main lab report
+      const findPoRow = (indentNo) => {
+        if (!indentNo) return null;
+        const key = String(indentNo).trim().toLowerCase();
+        // 1. Direct match on Indent Id.
+        let match = (poData || []).find(r => String(r["Indent Id."] || "").trim().toLowerCase() === key);
+        if (match) return match;
+        // 2. Direct match on po_number
+        match = (poData || []).find(r => String(r["po_number"] || "").trim().toLowerCase() === key);
+        if (match) return match;
+        // 3. Numeric part fallback
+        const numPart = key.match(/\d+/)?.[0];
+        if (!numPart) return null;
+        return (poData || []).find(r => {
+          const k1 = String(r["Indent Id."] || "").trim().toLowerCase();
+          const k2 = String(r["po_number"] || "").trim().toLowerCase();
+          return k1.match(/\d+/)?.[0] === numPart || k2.match(/\d+/)?.[0] === numPart;
+        }) || null;
+      };
+
+      let data = (liftData || []).map((row) => {
+        const liftIndentRef = String(row["Indent no."] || "").trim();
+        const poRow = findPoRow(liftIndentRef);
+        
+        // Use true values from PO record if matched, otherwise fallback to lift reference
+        const indentId = poRow ? String(poRow["Indent Id."] || "").trim() : liftIndentRef;
+        const poNumber = poRow ? String(poRow["po_number"] || "").trim() : "";
+        const poRate   = String(poRow?.["Rate"] || "").trim();
+
+        // Transport cost logic
+        const rateType = String(row["Type Of Transporting Rate"] || "").trim();
+        const transRate = parseFloat(row["Transporter Rate"] || 0);
+        const liftQty  = parseFloat(row["Lifting Qty"] || row["Qty"] || 0);
+        const isPerMT  = rateType.toLowerCase().includes("per mt") || rateType.toLowerCase() === "per mt";
+        const isFixed  = rateType.toLowerCase() === "fixed";
+
+        return {
+          liftNo:           String(row["Lift No"] || "").trim(),
+          indentId,
+          poNumber,
+          partyName:        String(row["Vendor Name"] || "").trim(),
+          productName:      String(row["Raw Material Name"] || "").trim(),
+          qty:              liftQty,
+          billNo:           String(row["Bill No."] || "").trim(),
+          poRate,
+          liftBillRate:     String(row["Rate"] || "").trim(),
+          transportRateType: rateType,
+          transporterRate:  transRate,
+          isPerMT,
+          isFixed,
+          // Computed transport cost: Per MT → show rate; Fixed → total / qty
+          transportCostValue: isFixed ? (liftQty > 0 ? transRate / liftQty : 0) : transRate,
+          // Added Lab Results to Rate Report
+          status:           String(row["Status"] || "").trim(),
+          alumina:          String(row["Alumina Percent Age %"] || "").trim(),
+          iron:             String(row["Iron Percent Age %"] || "").trim(),
+          firmName:         String(row["Firm Name"] || "").trim(),
+          timestamp:        row["Timestamp"] || "",
+        };
+      });
+
+      // User firm filter
+      if (user?.firmName) {
+        const uf = user.firmName;
+        if (Array.isArray(uf)) {
+          const set = new Set(uf.map((f) => f.toLowerCase()));
+          data = data.filter((r) => set.has(r.firmName.toLowerCase()));
+        } else if (String(uf).toLowerCase() !== "all") {
+          const userFirm = String(uf).toLowerCase();
+          data = data.filter((r) => r.firmName.toLowerCase() === userFirm);
+        }
+      }
+      setRateRows(data);
+    } catch (err) {
+      console.error(err);
+      toast.error(`Failed to load rate data: ${err.message}`);
+    } finally {
+      setRateLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { if (activeTab === "rate") fetchRateData(); }, [activeTab, fetchRateData]);
+
+  const rateFirmOptions = ["all", ...Array.from(new Set(rateRows.map((r) => r.firmName).filter(Boolean))).sort()];
+
+  const filteredRateRows = rateRows.filter((r) => {
+    if (rateFirmFilter !== "all" && r.firmName !== rateFirmFilter) return false;
+    if (!rateSearch) return true;
+    const s = rateSearch.toLowerCase();
+    return (
+      r.liftNo.toLowerCase().includes(s) ||
+      r.indentNo.toLowerCase().includes(s) ||
+      r.partyName.toLowerCase().includes(s) ||
+      r.productName.toLowerCase().includes(s) ||
+      r.billNo.toLowerCase().includes(s)
+    );
+  });
+  // ── End Rate Report State ──────────────────────────────────────────────────
+
+  const exportRateExcel = () => {
+    try {
+      if (filteredRateRows.length === 0) {
+        toast.error("No data to export");
+        return;
+      }
+
+      // Headers
+      const headers = [
+        "Lift No.",
+        "Indent ID",
+        "PO Number",
+        "Party Name",
+        "Product Name",
+        "Lifting Qty",
+        "PO Rate (INR)",
+        "Lifting Bill Rate (INR)",
+        "Transport Cost (INR)",
+        "Transport Rate Type"
+      ];
+
+      // Data rows
+      const dataRows = filteredRateRows.map(r => [
+        r.liftNo,
+        r.indentId,
+        r.poNumber,
+        r.partyName,
+        r.productName,
+        r.qty,
+        r.poRate,
+        r.liftBillRate,
+        r.transportCostValue,
+        r.transportRateType
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(","),
+        ...dataRows.map(row => row.map(val => {
+          const s = String(val ?? "").replace(/"/g, '""');
+          return s.includes(",") ? `"${s}"` : s;
+        }).join(","))
+      ].join("\n");
+
+      // Create download link
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `rate-report-${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Excel (CSV) exported successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export Excel: " + err.message);
+    }
+  };
+
   return (
     <div className="p-4 min-h-screen bg-gray-50">
+      {/* Page Tabs */}
+      <div className="mb-4 flex items-center gap-1 border-b border-gray-200 pb-0">
+        <button
+          onClick={() => setActiveTab("lab")}
+          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${
+            activeTab === "lab"
+              ? "border-teal-600 text-teal-700 bg-teal-50"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          }`}
+        >
+          🧪 Lab Report
+        </button>
+        <button
+          onClick={() => setActiveTab("rate")}
+          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${
+            activeTab === "rate"
+              ? "border-indigo-600 text-indigo-700 bg-indigo-50"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          }`}
+        >
+          💰 Rate Report
+        </button>
+      </div>
+
+      {/* ═══════════════════════════════ LAB REPORT TAB ═══════════════════════════════ */}
+      {activeTab === "lab" && (
+        <>
       {/* Header */}
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -699,6 +903,220 @@ export default function LabReportPage() {
           </table>
         )}
       </div>
+      </>
+      )}
+
+      {/* ═══════════════════════════════ RATE REPORT TAB ═══════════════════════════════ */}
+      {activeTab === "rate" && (
+        <>
+          {/* Rate Report Header */}
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">Rate Report</h1>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Indent-wise PO Rate, Lifting Bill Rate &amp; Transport Cost &nbsp;|&nbsp;
+                Total: {filteredRateRows.length} lifts
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {/* Firm filter */}
+              <select
+                value={rateFirmFilter}
+                onChange={(e) => setRateFirmFilter(e.target.value)}
+                className="py-1.5 px-2 text-xs border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                {rateFirmOptions.map((f) => (
+                  <option key={f} value={f}>{f === "all" ? "All Firms" : f}</option>
+                ))}
+              </select>
+              {/* Search */}
+              <div className="relative">
+                <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search indent, party, product..."
+                  value={rateSearch}
+                  onChange={(e) => setRateSearch(e.target.value)}
+                  className="pl-8 pr-8 py-1.5 text-xs border border-gray-300 rounded-lg w-52 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                {rateSearch && (
+                  <button onClick={() => setRateSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <X className="h-3.5 w-3.5 text-gray-400" />
+                  </button>
+                )}
+              </div>
+              {/* Refresh */}
+              <button
+                onClick={fetchRateData}
+                disabled={rateLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${rateLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
+              {/* Excel Export */}
+              <button
+                onClick={exportRateExcel}
+                disabled={rateLoading || filteredRateRows.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                Export Excel
+              </button>
+            </div>
+          </div>
+
+          {/* Rate Table */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-auto" style={{ maxHeight: "calc(100vh - 210px)" }}>
+            {rateLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
+                <span className="ml-3 text-gray-500">Loading rate report...</span>
+              </div>
+            ) : filteredRateRows.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-gray-400">No data found</div>
+            ) : (
+              <table className="w-full border-collapse text-left">
+                <thead className="sticky top-0 z-10">
+                  {/* Group header */}
+                  <tr>
+                    <th colSpan={5} className="border border-gray-300 bg-indigo-700 text-white text-center text-[11px] font-bold px-2 py-1.5">
+                      Lift &amp; Indent Information
+                    </th>
+                    <th colSpan={3} className="border border-gray-300 bg-purple-700 text-white text-center text-[11px] font-bold px-2 py-1.5">
+                      Rate &amp; Cost
+                    </th>
+                    <th colSpan={3} className="border border-gray-300 bg-teal-700 text-white text-center text-[11px] font-bold px-2 py-1.5">
+                      Quality (Lab)
+                    </th>
+                  </tr>
+                  <tr className="bg-gray-100">
+                    <TH>Lift No.</TH>
+                    <TH>Indent / PO No.</TH>
+                    <TH>Party Name</TH>
+                    <TH>Product Name</TH>
+                    <TH>Lifting Qty</TH>
+                    <TH className="bg-purple-50">PO Rate (₹)</TH>
+                    <TH className="bg-orange-50">Lifting Bill Rate (₹)</TH>
+                    <TH className="bg-blue-50">Transport Cost (₹)</TH>
+                    <TH className="bg-teal-50">Lab Status</TH>
+                    <TH className="bg-teal-50">Alumina %</TH>
+                    <TH className="bg-teal-50">Iron %</TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRateRows.map((row, i) => {
+                    const rowBg = i % 2 === 0 ? "bg-white" : "bg-gray-50";
+                    const poR   = parseFloat(row.poRate);
+                    const liftR = parseFloat(row.liftBillRate);
+                    const rateVariance = (!isNaN(poR) && !isNaN(liftR)) ? liftR - poR : null;
+
+                    // Transport cost display
+                    let transportDisplay = "-";
+                    if (row.transporterRate) {
+                      if (row.isPerMT) {
+                        // Per MT: show the rate per MT
+                        transportDisplay = (
+                          <span>
+                            ₹{row.transporterRate.toLocaleString("en-IN")}
+                            <span className="ml-1 text-[10px] font-normal text-blue-500 bg-blue-100 px-1 rounded">/MT</span>
+                          </span>
+                        );
+                      } else if (row.isFixed) {
+                        // Fixed: show Total / Qty = Per Unit Rate
+                        const perUnitRate = row.transportCostValue;
+                        transportDisplay = (
+                          <span>
+                            ₹{perUnitRate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <span className="block text-[10px] font-normal text-gray-400">
+                              ₹{row.transporterRate.toLocaleString("en-IN")} ÷ {row.qty}
+                            </span>
+                          </span>
+                        );
+                      } else {
+                        transportDisplay = `₹${row.transporterRate.toLocaleString("en-IN")}`;
+                      }
+                    }
+
+                    return (
+                      <tr key={i} className={`${rowBg} hover:bg-indigo-50/40`}>
+                        <TD className="font-medium text-indigo-700">{row.liftNo || "-"}</TD>
+                        <TD className="font-medium">
+                          <div>{row.indentId || "-"}</div>
+                          {row.poNumber && row.poNumber !== row.indentId && (
+                            <div className="text-gray-500 font-normal text-[10px]">PO: {row.poNumber}</div>
+                          )}
+                        </TD>
+                        <TD className="max-w-[140px] truncate" title={row.partyName}>{row.partyName || "-"}</TD>
+                        <TD className="max-w-[120px] truncate" title={row.productName}>{row.productName || "-"}</TD>
+                        <TD className="text-right">{row.qty || "-"}</TD>
+                        {/* PO Rate */}
+                        <TD className="text-right font-semibold text-purple-700 bg-purple-50/40">
+                          {row.poRate ? `₹${parseFloat(row.poRate).toLocaleString("en-IN")}` : "-"}
+                        </TD>
+                        {/* Lifting Bill Rate with variance */}
+                        <TD className={`text-right font-semibold bg-orange-50/40 ${
+                          rateVariance === null ? "text-gray-700"
+                          : rateVariance > 0 ? "text-red-600"
+                          : rateVariance < 0 ? "text-green-700"
+                          : "text-gray-700"
+                        }`}>
+                          {row.liftBillRate ? (
+                            <span>
+                              ₹{parseFloat(row.liftBillRate).toLocaleString("en-IN")}
+                              {rateVariance !== null && (
+                                <span className={`ml-1 text-[10px] font-normal px-1 rounded ${
+                                  rateVariance > 0 ? "bg-red-100 text-red-600" : rateVariance < 0 ? "bg-green-100 text-green-700" : ""
+                                }`}>
+                                  {rateVariance > 0 ? `+${rateVariance.toFixed(0)}` : rateVariance.toFixed(0)}
+                                </span>
+                              )}
+                            </span>
+                          ) : "-"}
+                        </TD>
+                        {/* Transport Cost */}
+                        <TD className="text-right font-semibold text-blue-700 bg-blue-50/40">
+                          {transportDisplay}
+                        </TD>
+                        {/* Lab Results */}
+                        <TD className="text-center bg-teal-50/30">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            (row.status.toLowerCase() === "tested" || row.alumina !== "") ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                          }`}>
+                            {(row.status.toLowerCase() === "tested" || row.alumina !== "") ? "Tested" : "Pending"}
+                          </span>
+                        </TD>
+                        <TD className="text-center font-medium text-teal-700 bg-teal-50/30">{row.alumina || "-"}</TD>
+                        <TD className="text-center font-medium text-teal-700 bg-teal-50/30">{row.iron || "-"}</TD>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                {/* Footer Totals */}
+                <tfoot className="sticky bottom-0 bg-gray-100 border-t-2 border-gray-300">
+                  <tr>
+                    <td colSpan={5} className="border border-gray-300 px-2 py-1.5 text-[11px] font-bold text-gray-700">
+                      Totals ({filteredRateRows.length} lifts)
+                    </td>
+                    <td className="border border-gray-300 px-2 py-1.5 text-[11px] font-bold text-right text-purple-700 bg-purple-50">—</td>
+                    <td className="border border-gray-300 px-2 py-1.5 text-[11px] font-bold text-right text-orange-700 bg-orange-50">—</td>
+                    <td className="border border-gray-300 px-2 py-1.5 text-[11px] font-bold text-right text-blue-700 bg-blue-50">
+                      ₹{filteredRateRows
+                        .reduce((sum, r) => sum + (r.transportCostValue || 0), 0)
+                        .toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+          {/* Legend */}
+          <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-500">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 inline-block border border-red-300" /> Lifting Rate &gt; PO Rate (over budget)</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-100 inline-block border border-green-300" /> Lifting Rate ≤ PO Rate (within budget)</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
