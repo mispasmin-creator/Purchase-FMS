@@ -5,18 +5,17 @@ const supabaseUrl = "https://jcgmyvxcamstnhuwmemc.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjZ215dnhjYW1zdG5odXdtZW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwMDgyODAsImV4cCI6MjA4NTU4NDI4MH0.wMKYEcXGOgrRwy7DKBlBz-a_mWhAuZaknG_iXYvKLLo";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkMismatch() {
-  console.log("Checking Mismatch for LF-142 and LF-148...");
+async function checkData() {
+  console.log("Checking 5 rows of fullkittin table...");
   const { data, error } = await supabase
-    .from('Mismatch')
+    .from('fullkittin')
     .select('*')
-    .in('Lift Number', ['LF-142', 'LF-148']);
+    .limit(5);
 
-  if (error) {
-    console.error(error);
-  } else {
-    console.log("Results:", JSON.stringify(data, null, 2));
+  if (error) console.error(error);
+  else {
+    console.log("Data Rows:", JSON.stringify(data, null, 2));
   }
 }
 
-checkMismatch();
+checkData();

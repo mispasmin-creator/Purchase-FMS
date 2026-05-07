@@ -52,6 +52,7 @@ const CallTrackerPage = () => {
     weightSlip: true,
     debitAmount: true,
     debitNoteUrl: true,
+    totalFreight: true,
     status: false,
     actions: true
   });
@@ -948,19 +949,28 @@ const CallTrackerPage = () => {
   const fetchAuditDataFromSupabase = async () => {
     setLoadingAudit(true);
     try {
-      const { data, error } = await supabase
-        .from("Mismatch")
-        .select("*")
-        .order("Timestamp", { ascending: false });
+      // Fetch both Mismatch and fullkittin data
+      const [{ data: mismatchData, error: mismatchError }, { data: fullkittingData, error: fkError }] = await Promise.all([
+        supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
+        supabase.from("fullkittin").select('"Bilty Number"')
+      ]);
 
-      if (error) throw error;
+      if (mismatchError) throw mismatchError;
+      if (fkError) throw fkError;
 
-      // Filter: Show data ONLY when Actual2 is null AND (Planned2 is set OR matches Skip Kitting criteria)
-      const filteredByActual = (data || []).filter(row => {
+      // Build a set of Bilty Numbers that have been kitted
+      const kittedBiltyNos = new Set((fullkittingData || []).map(fk => String(fk["Bilty Number"] || "").trim()).filter(Boolean));
+
+      // Filter: Show data ONLY when Actual2 is null AND (Planned2 is set OR kitted OR matches Skip Kitting criteria)
+      const filteredByActual = (mismatchData || []).filter(row => {
         if (row.Actual2) return false;
 
         // Normal flow: Planned2 is set
         if (row.Planned2 !== null) return true;
+
+        // Kitted flow: Exists in fullkittin table by Bilty No
+        const rowBiltyNo = String(row["Bilty No."] || row["Bilty No"] || "").trim();
+        if (rowBiltyNo && kittedBiltyNos.has(rowBiltyNo)) return true;
 
         // Bypass flow: Skip Kitting Criteria
         const firmName = String(row["Firm Name"] || "").trim().toUpperCase();
@@ -1406,12 +1416,17 @@ const CallTrackerPage = () => {
   const fetchAllDataFromSupabase = async () => {
     setLoadingAll(true);
     try {
-      const { data, error } = await supabase
-        .from("Mismatch")
-        .select("*")
-        .order("Timestamp", { ascending: false });
+      // Fetch both Mismatch and fullkittin data
+      const [{ data: mismatchData, error: mismatchError }, { data: fullkittingData, error: fkError }] = await Promise.all([
+        supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
+        supabase.from("fullkittin").select('"Bilty Number"')
+      ]);
 
-      if (error) throw error;
+      if (mismatchError) throw mismatchError;
+      if (fkError) throw fkError;
+
+      // Build a set of Bilty Numbers that have been kitted
+      const kittedBiltyNos = new Set((fullkittingData || []).map(fk => String(fk["Bilty Number"] || "").trim()).filter(Boolean));
 
       // Determine the current stage for each row based on Planned/Actual logic
       // Check ALL stages and return ANY active stage (Planned set, Actual not set)
@@ -1419,7 +1434,10 @@ const CallTrackerPage = () => {
         // Check all stages - return any that has Planned set but Actual not set
         // This ensures data shows up in ALL tab regardless of workflow order
         const activeStages = [];
-        if (row.Planned2 && !row.Actual2) activeStages.push('AUDIT');
+        const rowBiltyNo = String(row["Bilty No."] || row["Bilty No"] || "").trim();
+        const isKitted = rowBiltyNo && kittedBiltyNos.has(rowBiltyNo);
+
+        if ((row.Planned2 || isKitted) && !row.Actual2) activeStages.push('AUDIT');
         if (row.Planned3 && !row.Actual3) activeStages.push('RECTIFY');
         if (row.Planned4 && !row.Actual4) activeStages.push('TALLY_ENTRY');
         if (row.Planned5 && !row.Actual5) activeStages.push('REAUDIT');
@@ -1442,7 +1460,7 @@ const CallTrackerPage = () => {
       };
 
       // Map Supabase data to match the expected format - include all columns
-      const formattedData = (data || []).map((row, index) => {
+      const formattedData = (mismatchData || []).map((row, index) => {
         const currentStage = determineCurrentStage(row);
         return {
           id: `mismatch_all_${row.id || index}`,
@@ -2029,6 +2047,7 @@ const CallTrackerPage = () => {
                   {visibleColumns.weightSlip && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight Slip</th>}
                   {visibleColumns.debitAmount && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Debit Amount</th>}
                   {visibleColumns.debitNoteUrl && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Debit Image</th>}
+                  {visibleColumns.totalFreight && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Freight</th>}
                   {visibleColumns.status && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>}
                 </tr>
               </thead>
@@ -2105,6 +2124,7 @@ const CallTrackerPage = () => {
                         {visibleColumns.weightSlip && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.weightSlip ? (<a href={row.weightSlip} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
                         {visibleColumns.debitAmount && <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">{row.debitAmount ? `₹${row.debitAmount}` : '-'}</td>}
                         {visibleColumns.debitNoteUrl && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.debitNoteUrl ? (<a href={row.debitNoteUrl} target='_blank' rel='noopener noreferrer' className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center"><ExternalLink className="h-3 w-3 mr-1" /> View Image</a>) : ("-")}</td>}
+                        {visibleColumns.totalFreight && <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{row.totalFreight ? `₹${row.totalFreight}` : '-'}</td>}
                         {visibleColumns.status && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.status || '-'}</td>}
                       </tr>
                     );

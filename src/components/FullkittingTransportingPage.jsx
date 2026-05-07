@@ -27,7 +27,7 @@ const KITTING_COLUMNS_META = [
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
     { header: "Party Name", dataKey: "partyName", toggleable: true },
     { header: "Product Name", dataKey: "productName", toggleable: true },
-    { header: "Qty", dataKey: "qty", toggleable: true },
+    { header: "PO Qty", dataKey: "qty", toggleable: true },
     { header: "Billing Quantity", dataKey: "billingQty", toggleable: true },
     { header: "Bill No.", dataKey: "billNo", toggleable: true },
     { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
@@ -147,7 +147,7 @@ export default function FullkittingTransportingPage() {
             // Build a set of Lift Nos that have been full-kitted already
             const doneLiftNos = new Set();
             (fullkittinData || []).forEach(fk => {
-                const liftNo = String(fk["Lift No."] || fk["Lift Number"] || fk["Lift No"] || "").trim();
+                const liftNo = String(fk["Lift No"] || "").trim();
                 if (liftNo) doneLiftNos.add(liftNo);
                 // Fallback: track by Bilty Number if Lift No not stored
                 const biltyNo = String(fk["Bilty Number"] || "").trim();
@@ -391,19 +391,19 @@ export default function FullkittingTransportingPage() {
             if (fullkittinError) throw fullkittinError;
             
             // Also update Mismatch table to signal Audit stage (Planned2) and sync data
-            const isoTimestamp = new Date().toISOString();
             const { error: mismatchUpdateError } = await supabase
                 .from("Mismatch")
                 .update({ 
-                    Planned2: isoTimestamp,
+                    Planned2: timestamp,
                     "Transporter Name": kittingFormData.transporterName,
+                    Transporter: kittingFormData.transporterName,
                     "Truck No.": kittingFormData.vehicleNumber,
                     "Bilty No.": kittingFormData.biltyNumber,
                     "Bilty Image": biltyImageVal,
                     "Total Freight": kittingFormData.amount ? Number(kittingFormData.amount) : null,
                     "Indent Number": kittingFormData.indentNo
                 })
-                .or(`"Lift Number".eq.${selectedKittingItem?.liftNumber},"Lift ID".eq.${selectedKittingItem?.liftNumber}`);
+                .eq("Lift Number", selectedKittingItem?.liftNumber);
             
             if (mismatchUpdateError) {
                 console.error("Error updating Mismatch table:", mismatchUpdateError);
