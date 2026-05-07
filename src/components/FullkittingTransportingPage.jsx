@@ -391,6 +391,25 @@ export default function FullkittingTransportingPage() {
                 }]);
 
             if (fullkittinError) throw fullkittinError;
+            
+            // Also update Mismatch table to signal Audit stage (Planned2) and sync data
+            const isoTimestamp = new Date().toISOString();
+            const { error: mismatchUpdateError } = await supabase
+                .from("Mismatch")
+                .update({ 
+                    Planned2: isoTimestamp,
+                    "Transporter Name": kittingFormData.transporterName,
+                    "Truck No.": kittingFormData.vehicleNumber,
+                    "Bilty No.": kittingFormData.biltyNumber,
+                    "Bilty Image": biltyImageVal,
+                    "Total Freight": kittingFormData.amount ? Number(kittingFormData.amount) : null,
+                    "Indent Number": kittingFormData.indentNo
+                })
+                .or(`"Lift Number".eq.${selectedKittingItem?.liftNumber},"Lift ID".eq.${selectedKittingItem?.liftNumber}`);
+            
+            if (mismatchUpdateError) {
+                console.error("Error updating Mismatch table:", mismatchUpdateError);
+            }
 
             toast.success("Kitting created successfully.");
             setIsKittingModalOpen(false);
