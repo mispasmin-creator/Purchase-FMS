@@ -30,6 +30,17 @@ const PENDING_BILTY_COLUMNS_META = [
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
+  { header: "Lift Type", dataKey: "liftType", toggleable: true },
+  { header: "Indent No.", dataKey: "indentNo", toggleable: true },
+  { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Truck Number", dataKey: "truckNo", toggleable: true },
+  { header: "Driver No.", dataKey: "driverNo", toggleable: true },
+  { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+  { header: "Type Of Transporting Rate", dataKey: "rateType", toggleable: true },
+  { header: "Transporting Per MT Rate", dataKey: "transportingRate", toggleable: true },
+  { header: "Original Qty", dataKey: "originalQty", toggleable: true },
+  { header: "Total Bill Qty", dataKey: "totalBillQuantity", toggleable: true },
+  { header: "Actual Qty", dataKey: "actualQty", toggleable: true },
 ];
 
 const BILTY_HISTORY_COLUMNS_META = [
@@ -38,6 +49,17 @@ const BILTY_HISTORY_COLUMNS_META = [
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Vendor Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
+  { header: "Lift Type", dataKey: "liftType", toggleable: true },
+  { header: "Indent No.", dataKey: "indentNo", toggleable: true },
+  { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Truck Number", dataKey: "truckNo", toggleable: true },
+  { header: "Driver No.", dataKey: "driverNo", toggleable: true },
+  { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+  { header: "Type Of Transporting Rate", dataKey: "rateType", toggleable: true },
+  { header: "Transporting Per MT Rate", dataKey: "transportingRate", toggleable: true },
+  { header: "Original Qty", dataKey: "originalQty", toggleable: true },
+  { header: "Total Bill Qty", dataKey: "totalBillQuantity", toggleable: true },
+  { header: "Actual Qty", dataKey: "actualQty", toggleable: true },
   { header: "Bilty Number", dataKey: "biltyNumber", toggleable: true },
   { header: "Bilty Image", dataKey: "biltyImageUrl", isLink: true, linkText: "View Bilty" },
 ];
@@ -127,6 +149,18 @@ export default function BiltyPage() {
       };
 
       let processedRawRows = (data || []).map((row) => {
+        const firmNameStr = String(row["Firm Name"] || "").trim().toUpperCase();
+        const transporterNameStr = String(row["Transporter Name"] || "").trim().toUpperCase();
+
+        // Condition 1: RKL or Purab AND Transporter is "For"
+        if ((firmNameStr === "RKL" || firmNameStr === "PURAB") && transporterNameStr === "FOR") {
+            return null;
+        }
+        // Condition 2: PMMPL or PMPL AND Transporter is "Ex Factory Transporter"
+        if ((firmNameStr === "PMMPL" || firmNameStr === "PMPL") && (transporterNameStr === "EX FACTORY TRANSPORTER" || transporterNameStr === "EX FACTORY")) {
+            return null;
+        }
+
         return {
           _id: `lift-${row.id}-${row["Lift No"] || ''}`,
           _dbId: row.id,
@@ -134,6 +168,11 @@ export default function BiltyPage() {
           vendorName: String(row["Vendor Name"] || "").trim(),
           rawMaterialName: String(row["Raw Material Name"] || "").trim(),
           liftType: String(row["Type"] || "").trim(),
+          truckNo: String(row["Truck No."] || row["Truck Number"] || "").trim(),
+          driverNo: String(row["Driver No."] || "").trim(),
+          transporterName: String(row["Transporter Name"] || "").trim(),
+          rateType: String(row["Type Of Transporting Rate"] || "").trim(),
+          transportingRate: String(row["Transporting Per MT Rate"] || row["Transporter Rate"] || row["transportingRate"] || "").trim(),
           originalQty: String(row["Qty"] || "").trim(),
           totalBillQuantity: String(row["Total Bill Quantity"] || "").trim(),
           actualQty: String(row["Actual Quantity"] || "").trim(),
