@@ -144,6 +144,7 @@ export default function IndentTrackingReport() {
                 });
 
                 const liftNumbers = associatedLifts.map(l => String(l["Lift No"] || l["Lift Number"] || "").trim()).filter(Boolean);
+                const biltyNumbers = associatedLifts.map(l => String(l["Bilty No."] || l["Bilty No"] || "").trim()).filter(Boolean);
 
                 const associatedMismatches = mismatches.filter(m => {
                     const mLiftNo = String(m["Lift Number"] || m["Lift No"] || "").trim();
@@ -152,7 +153,8 @@ export default function IndentTrackingReport() {
 
                 const associatedKittings = kittings.filter(k => {
                     const kLiftNo = String(k["Lift No"] || k["Lift Number"] || "").trim();
-                    return liftNumbers.includes(kLiftNo);
+                    const kBiltyNo = String(k["Bilty Number"] || "").trim();
+                    return liftNumbers.includes(kLiftNo) || (kBiltyNo && biltyNumbers.includes(kBiltyNo));
                 });
 
                 const firstLift = associatedLifts[0] || {};
@@ -173,10 +175,10 @@ export default function IndentTrackingReport() {
                         return sorted[0][step.key];
                     }
                     if (step.source === "fullkittin") {
-                        const valid = associatedKittings.filter(k => k[step.key] && k[step.key] !== "N/A");
+                        const valid = associatedKittings.filter(k => (k[step.key] && k[step.key] !== "N/A") || (k["created_at"] && k["created_at"] !== "N/A"));
                         if (valid.length === 0) return null;
-                        const sorted = valid.sort((a, b) => new Date(a[step.key]) - new Date(b[step.key]));
-                        return sorted[0][step.key];
+                        const sorted = valid.sort((a, b) => new Date(a[step.key] || a["created_at"]) - new Date(b[step.key] || b["created_at"]));
+                        return sorted[0][step.key] || sorted[0]["created_at"];
                     }
                     return indent[step.column];
                 });

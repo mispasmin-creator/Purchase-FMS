@@ -147,7 +147,7 @@ export default function FullkittingTransportingPage() {
             // Build a set of Lift Nos that have been full-kitted already
             const doneLiftNos = new Set();
             (fullkittinData || []).forEach(fk => {
-                const liftNo = String(fk["Lift No"] || "").trim();
+                const liftNo = String(fk["Lift No."] || fk["Lift Number"] || fk["Lift No"] || "").trim();
                 if (liftNo) doneLiftNos.add(liftNo);
                 // Fallback: track by Bilty Number if Lift No not stored
                 const biltyNo = String(fk["Bilty Number"] || "").trim();
@@ -374,7 +374,6 @@ export default function FullkittingTransportingPage() {
             const { error: fullkittinError } = await supabase
                 .from("fullkittin")
                 .insert([{
-                    "Lift No": selectedKittingItem?.liftNumber,
                     "Indent No": kittingFormData.indentNo,
                     "Fms Name": kittingFormData.fmsName,
                     "Status": kittingFormData.status,
@@ -386,8 +385,7 @@ export default function FullkittingTransportingPage() {
                     "Bilty Number": kittingFormData.biltyNumber,
                     "Rate Type": kittingFormData.rateType,
                     "Amount": kittingFormData.amount ? Number(kittingFormData.amount) : null,
-                    "Bilty Image": biltyImageVal,
-                    "Timestamp": timestamp,
+                    "Bilty Image": biltyImageVal
                 }]);
 
             if (fullkittinError) throw fullkittinError;
