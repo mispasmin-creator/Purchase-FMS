@@ -29,13 +29,20 @@ const KITTING_COLUMNS_META = [
     { header: "Product Name", dataKey: "productName", toggleable: true },
     { header: "Qty", dataKey: "qty", toggleable: true },
     { header: "Billing Quantity", dataKey: "billingQty", toggleable: true },
-    { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
     { header: "Bill No.", dataKey: "billNo", toggleable: true },
-    { header: "Material Rate", dataKey: "materialRate", toggleable: true },
-    { header: "Truck Qty", dataKey: "truckQty", toggleable: true },
-    { header: "Bill Image", dataKey: "billImage", toggleable: true, isLink: true, linkText: "View Bill" },
+    { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
+    { header: "Lead Time (Days)", dataKey: "leadTime", toggleable: true },
+    { header: "Truck No", dataKey: "truckNo", toggleable: true },
     { header: "Driver No.", dataKey: "driverNo", toggleable: true },
-    { header: "Lead Time", dataKey: "leadTime", toggleable: true },
+    { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+    { header: "Type Of Transporting Rate", dataKey: "typeOfRate", toggleable: true },
+    { header: "Transporting Per MT Rate", dataKey: "transportingRate", toggleable: true },
+    { header: "Transportation Total Amount", dataKey: "transportRate", toggleable: true },
+    { header: "Total Truck Billing Quantity", dataKey: "additionalTruckQty", toggleable: true },
+    { header: "Has Bilty", dataKey: "hasBilty", toggleable: true },
+    { header: "Bilty Number", dataKey: "biltyNo", toggleable: true },
+    { header: "Material Rate", dataKey: "materialRate", toggleable: true },
+    { header: "Bill Image", dataKey: "billImage", toggleable: true, isLink: true, linkText: "View Bill" },
     { header: "Kitting Link", dataKey: "kittingLink", toggleable: true, isLink: true, linkText: "View Kitting" },
 ];
 
@@ -156,7 +163,22 @@ export default function FullkittingTransportingPage() {
 
             let parsedData = (liftData || []).filter(row => {
                 const biltyNo = String(row["Bilty No."] || "").trim();
-                return biltyNo !== "";
+                if (biltyNo === "") return false;
+
+                // Skip Kitting Logic
+                const firmName = String(row["Firm Name"] || "").trim().toUpperCase();
+                const transporterName = String(row["Transporter Name"] || "").trim().toUpperCase();
+
+                // Condition 1: RKL or Purab AND Transporter is "For"
+                if ((firmName === "RKL" || firmName === "PURAB") && transporterName === "FOR") {
+                    return false;
+                }
+                // Condition 2: PMMPL or PMPL AND Transporter is "Ex Factory Transporter"
+                if ((firmName === "PMMPL" || firmName === "PMPL") && (transporterName === "EX FACTORY TRANSPORTER" || transporterName === "EX FACTORY")) {
+                    return false;
+                }
+
+                return true;
             }).map((row) => {
                 const liftNum = String(row["Lift No"] || "").trim();
                 const biltyNo = String(row["Bilty No."] || "").trim();
@@ -174,7 +196,7 @@ export default function FullkittingTransportingPage() {
                     liftNumber: liftNum,
                     partyName: String(row["Vendor Name"] || "").trim(),
                     productName: String(row["Raw Material Name"] || "").trim(),
-                    transporterName: String(row["Truck No."] || "").trim(),
+                    transporterName: String(row["Transporter Name"] || "").trim(),
                     kittingLink: null,
                     isPending: !isDone,
                     isHistory: isDone,
@@ -185,7 +207,7 @@ export default function FullkittingTransportingPage() {
                     areaLifting: String(row["Area lifting"] || "").trim(),
                     billNo: String(row["Bill No."] || "").trim(),
                     materialRate: String(row["Rate"] || "").trim(),
-                    truckQty: String(row["Truck Qty"] || "").trim(),
+                    additionalTruckQty: String(row["Truck Qty"] || "").trim(),
                     billImage: String(row["Bill Image"] || "").trim(),
                     driverNo: String(row["Driver No."] || "").trim(),
                     leadTime: String(row["Lead Time To Reach Factory (days)"] || "").trim(),
@@ -193,8 +215,11 @@ export default function FullkittingTransportingPage() {
                     biltyNo: biltyNo,
                     biltyImage: String(row["Bilty Image"] || "").trim(),
                     typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
+                    transportingRate: String(row["Transporting Rate"] || "").trim(),
+                    transportRate: String(row["Transporter Rate"] || "").trim(),
                     rate: Number(row["Rate"]) || 0,
                     truckNo: String(row["Truck No."] || "").trim(),
+                    hasBilty: biltyNo ? "Yes" : "No",
                 };
             });
 
@@ -318,7 +343,7 @@ export default function FullkittingTransportingPage() {
             materialLoadDetails: item?.productName || "",
             biltyNumber: item?.biltyNo || "",
             rateType: item?.typeOfRate || "",
-            amount: item?.rate ? String(item.rate) : "",
+            amount: item?.transportRate ? String(item.transportRate) : "",
             biltyImage: item?.biltyImage || null,
         });
         setIsKittingModalOpen(true);

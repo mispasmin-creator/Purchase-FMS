@@ -30,6 +30,9 @@ const CallTrackerPage = () => {
   const [visibleColumns, setVisibleColumns] = useState({
     stage: true,
     timestamp: true,
+    indentNumber: true,
+    firmName: true,
+    poRate: true,
     liftNumber: true,
     type: true,
     billNo: true,
@@ -58,6 +61,45 @@ const CallTrackerPage = () => {
   const [liftBiltyImageMap, setLiftBiltyImageMap] = useState({}); // Lift No → Bilty Image URL
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('AUDIT'); // Default to Audit tab
+  const [poToIndentMap, setPoToIndentMap] = useState({});
+  const [poToRateMap, setPoToRateMap] = useState({});
+
+  useEffect(() => {
+    const fetchPOMapping = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("INDENT-PO")
+          .select('po_number, "Indent Id.", Rate');
+        
+        if (!error && data) {
+          const indentMap = {};
+          const rateMap = {};
+          data.forEach(row => {
+            const rawPo = String(row.po_number || "").trim().toUpperCase();
+            if (rawPo) {
+              indentMap[rawPo] = row["Indent Id."];
+              rateMap[rawPo] = row["Rate"];
+              
+              // Also add a normalized version (e.g. PO/26-27/15 instead of PMMPL/PO/26-27/15)
+              const parts = rawPo.split('/');
+              if (parts.length > 1) {
+                const normalizedPo = parts.slice(1).join('/');
+                if (!indentMap[normalizedPo]) {
+                  indentMap[normalizedPo] = row["Indent Id."];
+                  rateMap[normalizedPo] = row["Rate"];
+                }
+              }
+            }
+          });
+          setPoToIndentMap(indentMap);
+          setPoToRateMap(rateMap);
+        }
+      } catch (err) {
+        console.error("Error fetching PO mapping:", err);
+      }
+    };
+    fetchPOMapping();
+  }, []);
 
   const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
   const SHEET_NAME = "ACCOUNTS";
@@ -909,13 +951,26 @@ const CallTrackerPage = () => {
       const { data, error } = await supabase
         .from("Mismatch")
         .select("*")
-        .not("Planned2", "is", null)
         .order("Timestamp", { ascending: false });
 
       if (error) throw error;
 
-      // Filter: Show data ONLY when Actual2 is null (Planned2 not null is already filtered in query)
-      const filteredByActual = (data || []).filter(row => !row.Actual2);
+      // Filter: Show data ONLY when Actual2 is null AND (Planned2 is set OR matches Skip Kitting criteria)
+      const filteredByActual = (data || []).filter(row => {
+        if (row.Actual2) return false;
+
+        // Normal flow: Planned2 is set
+        if (row.Planned2 !== null) return true;
+
+        // Bypass flow: Skip Kitting Criteria
+        const firmName = String(row["Firm Name"] || "").trim().toUpperCase();
+        const transporterName = String(row["Transporter Name"] || "").trim().toUpperCase();
+
+        if ((firmName === "RKL" || firmName === "PURAB") && transporterName === "FOR") return true;
+        if ((firmName === "PMMPL" || firmName === "PMPL") && (transporterName === "EX FACTORY TRANSPORTER" || transporterName === "EX FACTORY")) return true;
+
+        return false;
+      });
 
       // Map Supabase data to match the expected format
       const formattedData = (filteredByActual || []).map((row, index) => ({
@@ -946,8 +1001,20 @@ const CallTrackerPage = () => {
         remarks: row.Remarks2 || row.Remarks || '',
         currentStage: 'AUDIT',
         supabaseId: row.id, // Store the actual Supabase ID for updates
-        indentNumber: row["Indent Number"] || '',
-        firmName: row["Firm Name"] || ''
+        indentNumber: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent Number"] || row["Indent No"] || '';
+        })(),
+        firmName: row["Firm Name"] || '',
+        poRate: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
+        })(),
+        vendorName: row["Vendor Name"] || ''
       }));
 
       // Filter out submitted rows
@@ -1017,8 +1084,19 @@ const CallTrackerPage = () => {
         remarks: row.Remarks4 || '',
         currentStage: 'TALLY_ENTRY',
         supabaseId: row.id, // Store the actual Supabase ID for updates
-        indentNumber: row["Indent Number"] || row["Indent No"] || '',
+        indentNumber: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent Number"] || row["Indent No"] || '';
+        })(),
         firmName: row["Firm Name"] || '',
+        poRate: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
+        })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
         liftingQty: row["Lifting Qty"] || '',
@@ -1096,8 +1174,19 @@ const CallTrackerPage = () => {
         remarks: row.Remarks6 || '',
         currentStage: 'BILL_ENTRY',
         supabaseId: row.id, // Store the actual Supabase ID for updates
-        indentNumber: row["Indent Number"] || row["Indent No"] || '',
+        indentNumber: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent Number"] || row["Indent No"] || '';
+        })(),
         firmName: row["Firm Name"] || '',
+        poRate: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
+        })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
         liftingQty: row["Lifting Qty"] || '',
@@ -1175,8 +1264,19 @@ const CallTrackerPage = () => {
         remarks: row.Remarks3 || '',
         currentStage: 'RECTIFY',
         supabaseId: row.id, // Store the actual Supabase ID for updates
-        indentNumber: row["Indent Number"] || row["Indent No"] || '',
+        indentNumber: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent Number"] || row["Indent No"] || '';
+        })(),
         firmName: row["Firm Name"] || '',
+        poRate: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
+        })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
         liftingQty: row["Lifting Qty"] || '',
@@ -1254,8 +1354,19 @@ const CallTrackerPage = () => {
         remarks: row.Remarks5 || '',
         currentStage: 'RE_AUDIT',
         supabaseId: row.id, // Store the actual Supabase ID for updates
-        indentNumber: row["Indent Number"] || row["Indent No"] || '',
+        indentNumber: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent Number"] || row["Indent No"] || '';
+        })(),
         firmName: row["Firm Name"] || '',
+        poRate: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
+        })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
         liftingQty: row["Lifting Qty"] || '',
@@ -1314,6 +1425,18 @@ const CallTrackerPage = () => {
         if (row.Planned5 && !row.Actual5) activeStages.push('REAUDIT');
         if (row.Planned6 && !row.Actual6) activeStages.push('BILL_ENTRY');
 
+        // Check if it's a skipped record that hasn't been audited
+        if (!row.Actual2 && !row.Planned2) {
+          const firmName = String(row["Firm Name"] || "").trim().toUpperCase();
+          const transporterName = String(row["Transporter Name"] || "").trim().toUpperCase();
+
+          if ((firmName === "RKL" || firmName === "PURAB") && transporterName === "FOR") {
+            activeStages.push('AUDIT');
+          } else if ((firmName === "PMMPL" || firmName === "PMPL") && (transporterName === "EX FACTORY TRANSPORTER" || transporterName === "EX FACTORY")) {
+            activeStages.push('AUDIT');
+          }
+        }
+
         // Return the first active stage found, or COMPLETED if none
         return activeStages.length > 0 ? activeStages[0] : 'COMPLETED';
       };
@@ -1346,9 +1469,19 @@ const CallTrackerPage = () => {
           status: row[`Status${currentStage === 'AUDIT' ? '2' : currentStage === 'RECTIFY' ? '3' : currentStage === 'TALLY_ENTRY' ? '4' : currentStage === 'REAUDIT' ? '5' : '6'}`] || '',
           remarks: row[`Remarks${currentStage === 'AUDIT' ? '2' : currentStage === 'RECTIFY' ? '3' : currentStage === 'TALLY_ENTRY' ? '4' : currentStage === 'REAUDIT' ? '5' : '6'}`] || '',
           currentStage: currentStage,
-          supabaseId: row.id, // Store the actual Supabase ID for updates
-          indentNumber: row["Indent Number"] || row["Indent No"] || '',
+          indentNumber: (() => {
+            const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+            const parts = raw.split('/');
+            const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+            return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent Number"] || row["Indent No"] || '';
+          })(),
           firmName: row["Firm Name"] || '',
+          poRate: (() => {
+            const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+            const parts = raw.split('/');
+            const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+            return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
+          })(),
           vendorName: row["Vendor Name"] || '',
           driverNo: row["Driver No"] || row["Driver No."] || '',
           liftingQty: row["Lifting Qty"] || '',
@@ -1424,8 +1557,20 @@ const CallTrackerPage = () => {
         remarks: row.Remarks6 || '',
         currentStage: 'COMPLETED',
         supabaseId: row.id,
-        indentNumber: row["Indent Number"] || row["Indent No"] || '',
+        indentNumber: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent Number"] || row["Indent No"] || '';
+        })(),
         firmName: row["Firm Name"] || '',
+        poRate: (() => {
+          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
+        })(),
+        vendorName: row["Vendor Name"] || ''
       }));
 
       let finalData = formattedData;
@@ -1498,14 +1643,14 @@ const CallTrackerPage = () => {
     const StageIcon = stageInfo.icon;
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100]">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-100">
         <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <h3 className="text-xl font-semibold text-gray-900">Add Entry</h3>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${stageInfo.color}`}>
-                  <StageIcon className="w-4 h-4 mr-1" />
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${stageInfo.color}`}>
+                  <StageIcon className="w-3 h-3 mr-1" />
                   {stageInfo.name}
                 </span>
               </div>
@@ -1564,7 +1709,7 @@ const CallTrackerPage = () => {
               <button
                 onClick={submitFormData}
                 disabled={submitting || (['RECTIFY', 'TALLY_ENTRY', 'REAUDIT', 'RE_AUDIT', 'BILL_ENTRY'].includes(row.currentStage) && formData.status !== 'Done')}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 {submitting ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -1634,18 +1779,16 @@ const CallTrackerPage = () => {
 
   if (loading || (activeTab === 'ALL' && (loadingAudit || loadingRectify || loadingTallyEntry || loadingReAudit || loadingBillEntry)) || (activeTab === 'AUDIT' && loadingAudit) || (activeTab === 'TALLY_ENTRY' && loadingTallyEntry) || (activeTab === 'BILL_ENTRY' && loadingBillEntry) || (activeTab === 'RECTIFY' && loadingRectify) || (activeTab === 'REAUDIT' && loadingReAudit) || (activeTab === 'HISTORY' && loadingHistory)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-12 h-12 animate-spin text-green-500 mx-auto mb-4" />
-          <p className="text-xl text-gray-600">Loading call tracker data...</p>
-        </div>
+      <div className="min-h-[400px] bg-linear-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center rounded-xl border border-gray-200 shadow-sm m-4">
+        <RefreshCw className="w-12 h-12 animate-spin text-green-500 mx-auto mb-4" />
+        <p className="text-xl text-gray-600">Loading call tracker data...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
         <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-2xl w-full">
           <div className="flex items-center mb-4">
             <X className="w-8 h-8 text-red-500 mr-3" />
@@ -1665,7 +1808,7 @@ const CallTrackerPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-4 sm:p-6 pb-20">
       {renderModal()}
 
       <div className="max-w-7xl mx-auto">
@@ -1699,7 +1842,11 @@ const CallTrackerPage = () => {
                           <div className="grid grid-cols-1 gap-2">
                             {Object.entries({
                               stage: 'Stage',
-                              timestamp: 'Timestamp',
+                              timestamp: 'Date',
+                              indentNumber: 'Indent No.',
+                              firmName: 'Firm Name',
+                              poRate: 'PO Rate',
+                              vendorName: 'Vendor Name',
                               liftNumber: 'Lift Number',
                               type: 'Type',
                               billNo: 'Bill No.',
@@ -1860,6 +2007,9 @@ const CallTrackerPage = () => {
                   {activeTab === 'HISTORY' && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed At</th>}
                   {visibleColumns.stage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stage</th>}
                   {visibleColumns.timestamp && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>}
+                  {visibleColumns.indentNumber && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Indent No.</th>}
+                  {visibleColumns.firmName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Firm Name</th>}
+                  {visibleColumns.poRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Rate</th>}
                   {visibleColumns.liftNumber && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lift Number</th>}
                   {visibleColumns.type && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>}
                   {visibleColumns.billNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill No.</th>}
@@ -1917,7 +2067,7 @@ const CallTrackerPage = () => {
                                 setEditingRow(row.id);
                                 initializeFormData(row.currentStage);
                               }}
-                              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
+                              className="inline-flex items-center px-4 py-2 bg-linear-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
                             >
                               <Edit2 className="w-4 h-4 mr-2" />
                               Add Entry
@@ -1933,6 +2083,9 @@ const CallTrackerPage = () => {
                           </td>
                         )}
                         {visibleColumns.timestamp && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.timestamp || '-'}</td>}
+                        {visibleColumns.indentNumber && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.indentNumber || '-'}</td>}
+                        {visibleColumns.firmName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.firmName || '-'}</td>}
+                        {visibleColumns.poRate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.poRate || '-'}</td>}
                         {visibleColumns.liftNumber && <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.liftNumber || '-'}</td>}
                         {visibleColumns.type && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.type || '-'}</td>}
                         {visibleColumns.billNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.billNo || '-'}</td>}

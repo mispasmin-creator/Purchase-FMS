@@ -282,6 +282,7 @@ const normalizePoItems = (row, liftedQtyByItem) => {
       pendingQuantity,
       quantityToLift: pendingQuantity,
       rate,
+      poRate: rate, // Store original PO rate for mismatch tracking
       totalAmount: roundQuantity(pendingQuantity * rate),
       indentId: item.indentId || "",
     };
@@ -546,8 +547,8 @@ export default function LiftMaterial() {
 
         return {
           id: `PO-${row.id || Math.random().toString(36).substring(7)}`,
-          indentNo: poNumber,
-          poNumber,
+          indentNo: String(row["Indent Id."] || row.po_number || "").trim(),
+          poNumber: String(row.po_number || row["Indent Id."] || "").trim(),
           firmName: String(row["Firm Name"] || "").trim(),
           vendorName: String(row["Vendor name"] || row["Vendor"] || "").trim(),
           rawMaterialName:
@@ -999,6 +1000,26 @@ export default function LiftMaterial() {
     );
   };
 
+  const handleLiftItemRateChange = (itemKey, value) => {
+    setSelectedLiftItems((prev) =>
+      prev.map((item) => {
+        if (item.key !== itemKey) return item;
+
+        if (value === "") {
+          return { ...item, rate: "" };
+        }
+
+        const nextRate = toNumber(value);
+
+        return {
+          ...item,
+          rate: nextRate,
+          totalAmount: roundQuantity(toNumber(item.quantityToLift) * nextRate),
+        };
+      }),
+    );
+  };
+
   const handleRemoveLiftItem = (itemKey) => {
     setSelectedLiftItems((prev) => prev.filter((item) => item.key !== itemKey));
   };
@@ -1009,12 +1030,13 @@ export default function LiftMaterial() {
       (po.items || []).map((item) => ({
         ...item,
         quantityToLift: item.pendingQuantity,
-        totalAmount: roundQuantity(item.pendingQuantity * item.rate),
+        rate: "", // Set rate to blank initially
+        totalAmount: 0, // Set total amount to 0 since rate is blank
       })),
     );
     setFormData({
       ...createEmptyLiftForm(),
-      indentNo: po.poNumber || po.indentNo,
+      indentNo: po.indentNo || po.poNumber,
       vendorName: po.vendorName,
       material: po.rawMaterialName,
       totalQuantity: po.quantity,
@@ -1031,7 +1053,7 @@ export default function LiftMaterial() {
         po.transportType?.toUpperCase() === "EX-FACTORY"
           ? String(po.transporterRate || "")
           : "",
-      rate: String(po.rate || ""),
+      rate: "", // Set rate to blank initially
     });
     setFormErrors({});
     setShowPopup(true);
@@ -1393,11 +1415,12 @@ export default function LiftMaterial() {
         const poItem = selectedLiftItems.find(
           (item) => item.material === liftAccountData["Raw Material Name"],
         );
-        const poRate = toNumber(poItem?.rate || selectedPO?.rate);
+        const poRate = toNumber(poItem?.poRate || selectedPO?.rate);
         const liftRate = toNumber(liftAccountData["Rate"]);
         const rateDiff = Number((poRate - liftRate).toFixed(2));
 
         return {
+          "PO Rate": poRate,
           Timestamp: liftAccountData["Timestamp"],
           "Lift ID": liftAccountData["Lift No"],
           "Lift Number": liftAccountData["Lift No"],
@@ -2224,7 +2247,7 @@ export default function LiftMaterial() {
                           </TableHead>
                           <TableHead className="text-right">Lifted</TableHead>
                           <TableHead className="text-right">Pending</TableHead>
-                          <TableHead className="text-right">Rate</TableHead>
+                          <TableHead className="text-right">Bill Rate</TableHead>
                           <TableHead className="text-right">Lift Qty</TableHead>
                           <TableHead className="text-right">Amount</TableHead>
                           <TableHead className="text-center">Remove</TableHead>
@@ -2246,7 +2269,19 @@ export default function LiftMaterial() {
                               {item.pendingQuantity}
                             </TableCell>
                             <TableCell className="text-right">
-                              Rs. {formatMoney(item.rate)}
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.rate}
+                                onChange={(e) =>
+                                  handleLiftItemRateChange(
+                                    item.key,
+                                    e.target.value,
+                                  )
+                                }
+                                className="h-8 ml-auto text-right w-24"
+                              />
                             </TableCell>
                             <TableCell className="text-right">
                               <Input

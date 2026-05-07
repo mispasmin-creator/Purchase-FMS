@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Filter, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabase';
 import { AuthContext } from '../context/AuthContext';
@@ -120,7 +120,6 @@ const AccountsAudit = () => {
       const { data: mismatchData, error: fetchError } = await supabase
         .from("Mismatch")
         .select("*")
-        .not("Planned2", "is", null)
         .is("Actual2", null)
         .order("Timestamp", { ascending: false });
 
@@ -164,7 +163,7 @@ const AccountsAudit = () => {
         }
       }
 
-      // 3. Merge Data
+      // 3. Merge Data and Filter
       const formattedData = mismatchData.map((row, index) => {
         // Find match using normalized key
         const rawLiftId = row["Lift ID"] || row["Lift Number"];
@@ -178,10 +177,10 @@ const AccountsAudit = () => {
           timestamp: row.Timestamp || '',
           liftId: liftId || '',
           indentNumber: row["Indent Number"] || '',
-          firmName: row["Firm Name"] || '',
+          firmName: row["Firm Name"] || liftRecord["Firm Name"] || '',
           partyName: row["Party Name"] || '',
           productName: row["Product Name"] || '',
-          transporterName: row["Transporter Name"] || '',
+          transporterName: row["Transporter Name"] || liftRecord["Transporter Name"] || '',
           status: row.Status || '',
           remarks: row.Remarks || '',
           planned2: row.Planned2 || '',
@@ -193,7 +192,7 @@ const AccountsAudit = () => {
           billNo: row["Bill No."] || '',
           qty: row["Qty"] || '',
           areaLifting: row["Area Lifting"] || '',
-          truckNo: row["Truck No."] || '',
+          truckNo: row["Truck No."] || liftRecord["Truck No."] || '',
           rateType: row["Type Of Rate"] || '',
           rate: row["Rate"] || '',
           truckQty: row["Truck Qty"] || '',
@@ -207,25 +206,38 @@ const AccountsAudit = () => {
           quantityDifference: row["Quantity Difference"] || '',
 
           // --- LIFT-ACCOUNTS Table Columns (Merged) ---
-          // Use LIFT-ACCOUNTS value if Mismatch value is missing, or specifically requests it
           vendorName: liftRecord["Vendor Name"] || '',
           rawMaterialName: liftRecord["Raw Material Name"] || '',
           physicalCondition: liftRecord["Physical Condition"] || '',
           moisture: liftRecord["Moisture"] || '',
           dateOfReceiving: liftRecord["Date Of Receiving"] || '',
-          driverNo: liftRecord["Driver No."] || '', // Specific to LIFT-ACCOUNTS
+          driverNo: liftRecord["Driver No."] || '', 
           leadTime: liftRecord["Lead Time To Reach Factory (days)"] || '',
 
-          // Image Links (Prioritize LIFT-ACCOUNTS if richer)
+          // Image Links
           billImage: row["Bill Image"] || liftRecord["Bill Image"] || '',
           biltyImage: row["Bilty Image"] || liftRecord["Bilty Image"] || '',
           weightSlip: row["Weight Slip"] || liftRecord["Image Of Weight Slip"] || '',
           physicalImage: liftRecord["Physical Image Of Product"] || '',
-
-          // Fallbacks/Overlaps (e.g. if Mismatch has empty Truck No, check LIFT-ACCOUNTS)
-          truckNo: row["Truck No."] || liftRecord["Truck No."] || '',
-          transporterName: row["Transporter Name"] || liftRecord["Transporter Name"] || ''
         };
+      }).filter(row => {
+        // Condition: Show if Planned2 is set (normal flow)
+        if (row.planned2 && row.planned2 !== '') return true;
+
+        // OR Show if it meets Skip Kitting criteria (bypass flow)
+        const firmName = String(row.firmName).trim().toUpperCase();
+        const transporterName = String(row.transporterName).trim().toUpperCase();
+
+        // Condition 1: RKL or Purab AND Transporter is "For"
+        if ((firmName === "RKL" || firmName === "PURAB") && transporterName === "FOR") {
+          return true;
+        }
+        // Condition 2: PMMPL or PMPL AND Transporter is "Ex Factory Transporter"
+        if ((firmName === "PMMPL" || firmName === "PMPL") && (transporterName === "EX FACTORY TRANSPORTER" || transporterName === "EX FACTORY")) {
+          return true;
+        }
+
+        return false;
       });
 
       // Filter out submitted rows
@@ -323,7 +335,7 @@ const AccountsAudit = () => {
     if (!row) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100]">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-100">
         <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
@@ -391,7 +403,7 @@ const AccountsAudit = () => {
               <button
                 onClick={submitFormData}
                 disabled={submitting}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 {submitting ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -410,7 +422,7 @@ const AccountsAudit = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-12 h-12 animate-spin text-green-500 mx-auto mb-4" />
           <p className="text-xl text-gray-600">Loading audit data...</p>
@@ -422,7 +434,7 @@ const AccountsAudit = () => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
         <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-2xl w-full">
           <div className="flex items-center mb-4">
             <X className="w-8 h-8 text-red-500 mr-3" />
@@ -443,7 +455,7 @@ const AccountsAudit = () => {
 
   // Main render
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
       {renderModal()}
 
       <div className="max-w-7xl mx-auto">
