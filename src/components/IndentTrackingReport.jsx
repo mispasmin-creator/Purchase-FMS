@@ -227,7 +227,7 @@ export default function IndentTrackingReport() {
     }, [user]);
 
     useEffect(() => {
-        fetchData();
+        // fetchData(); // Commented out to reduce Supabase Disk IO
     }, [fetchData]);
 
     const filteredData = useMemo(() => {

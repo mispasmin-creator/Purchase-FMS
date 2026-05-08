@@ -132,6 +132,7 @@ function App() {
       showNotification: false,
       component: <Dashboard />,
     },
+    /* Hiding Tracking Report to reduce Supabase Disk IO
     {
       id: "indent-tracking",
       label: "Tracking Report",
@@ -141,6 +142,7 @@ function App() {
       showNotification: false,
       component: <IndentTrackingReport />,
     },
+    */
     {
       id: "indent",
       label: "Indent",

@@ -622,6 +622,7 @@ export function NotificationProvider({ children }) {
 
 
     const fetchNotificationCounts = useCallback(async () => {
+        /* Counting disabled to reduce Supabase Disk IO
         if (!isAuthenticated) return;
 
         setLoadingNotifications(true);
@@ -668,10 +669,12 @@ export function NotificationProvider({ children }) {
         } finally {
             setLoadingNotifications(false);
         }
+        */
     }, [user, allowedSteps, isAuthenticated]);
 
 
     useEffect(() => {
+        /* Realtime disabled to reduce Supabase Disk IO
         if (!isAuthenticated) return;
 
         // Initial load
@@ -708,6 +711,7 @@ export function NotificationProvider({ children }) {
         return () => {
             supabase.removeChannel(channel);
         };
+        */
     }, [isAuthenticated, fetchNotificationCounts]);
 
 
