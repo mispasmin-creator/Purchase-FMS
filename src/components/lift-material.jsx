@@ -142,6 +142,11 @@ const PO_COLUMNS_META = [
   { header: "Status", dataKey: "status", toggleable: true },
   { header: "Notes", dataKey: "whatIsToBeDone", toggleable: true },
   {
+    header: "DO Number",
+    dataKey: "doNumber",
+    toggleable: true,
+  },
+  {
     header: "Cancel PO",
     dataKey: "cancelAction",
     toggleable: false,
@@ -178,6 +183,7 @@ const LIFTS_COLUMNS_META = [
     dataKey: "additionalTruckQty",
     toggleable: true,
   },
+  { header: "DO Number", dataKey: "doNumber", toggleable: true },
   { header: "Order Cancel Qty", dataKey: "orderCancelQty", toggleable: true },
   { header: "Cancel Reason", dataKey: "cancelReason", toggleable: true },
 ];
@@ -579,6 +585,7 @@ export default function LiftMaterial() {
           orderCancelQty: String(row["Order Cancel Qty"] || "0"),
           cancelReason: String(row["Reason Of Cancel Qty"] || "").trim(),
           status: row["Status"] || "Pending",
+          doNumber: String(row["Delivery Order No."] || "").trim(),
           _totalQty: totalQty,
           _liftedSoFar: liftedSoFar,
           items,
@@ -590,6 +597,15 @@ export default function LiftMaterial() {
           canViewFirm(user.firmName, po.firmName),
         );
       }
+
+      // Sort by planned date descending (latest first)
+      formattedData.sort((a, b) => {
+        const dateA = new Date(a.planned).getTime();
+        const dateB = new Date(b.planned).getTime();
+        if (isNaN(dateA)) return 1;
+        if (isNaN(dateB)) return -1;
+        return dateB - dateA;
+      });
 
       setPurchaseOrders(formattedData);
     } catch (error) {
@@ -616,7 +632,7 @@ export default function LiftMaterial() {
         supabase
           .from("INDENT-PO")
           .select(
-            'id, "Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty", po_number',
+            'id, "Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty", po_number, "Delivery Order No."',
           ),
       ]);
 
@@ -626,6 +642,7 @@ export default function LiftMaterial() {
       // Build maps: poNumber -> Cancel Data
       const cancelQtyMap = {};
       const cancelReasonMap = {};
+      const doNumberMap = {};
       (poData || []).forEach((row) => {
         const poNumber = String(
           row.po_number || row["Indent Id."] || "",
@@ -635,6 +652,7 @@ export default function LiftMaterial() {
           cancelReasonMap[poNumber] = String(
             row["Reason Of Cancel Qty"] || "",
           ).trim();
+          doNumberMap[poNumber] = String(row["Delivery Order No."] || "").trim();
         }
       });
 
@@ -702,6 +720,11 @@ export default function LiftMaterial() {
             ] || "0",
           cancelReason:
             cancelReasonMap[
+              indentToPoMap[String(row["Indent no."] || "").trim()] ||
+                String(row["Indent no."] || "").trim()
+            ] || "",
+          doNumber:
+            doNumberMap[
               indentToPoMap[String(row["Indent no."] || "").trim()] ||
                 String(row["Indent no."] || "").trim()
             ] || "",

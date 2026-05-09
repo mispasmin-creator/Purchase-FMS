@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useMemo, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -958,10 +958,36 @@ export default function MismatchAnalysis() {
       const apDiff = mismatchItem["AP Difference"];
       const bdDiff = mismatchItem["BD Difference"];
 
-      const hasAlumina = aluminaDiff !== null && Math.abs(parseFloat(aluminaDiff || 0)) > 0;
-      const hasIron = ironDiff !== null && Math.abs(parseFloat(ironDiff || 0)) > 0;
-      const hasAp = apDiff !== null && Math.abs(parseFloat(apDiff || 0)) > 0;
-      const hasBd = bdDiff !== null && Math.abs(parseFloat(bdDiff || 0)) > 0;
+      // Check stored difference columns from Mismatch table
+      const hasAluminaStored = aluminaDiff !== null && Math.abs(parseFloat(aluminaDiff || 0)) > 0;
+      const hasIronStored = ironDiff !== null && Math.abs(parseFloat(ironDiff || 0)) > 0;
+      const hasApStored = apDiff !== null && Math.abs(parseFloat(apDiff || 0)) > 0;
+      const hasBdStored = bdDiff !== null && Math.abs(parseFloat(bdDiff || 0)) > 0;
+
+      // LIVE comparison: compare LIFT-ACCOUNTS lab values directly against TL thresholds
+      // This catches records where Mismatch table diff columns are null (e.g. submitted before integration)
+      const labAluminaVal = parseFloat(lift.aluminaPercent || "");
+      const labIronVal = parseFloat(lift.ironPercent || "");
+      const labApVal = parseFloat(lift.apPercent || "");
+      const labBdVal = parseFloat(lift.bdPercent || "");
+      const tlAluminaMinVal = parseFloat(tlRow.tlAluminaMin ?? "");
+      const tlIronMaxVal = parseFloat(tlRow.tlIronMax ?? "");
+      const tlApMaxVal = parseFloat(tlRow.tlApMax ?? "");
+      const tlBdMinVal = parseFloat(tlRow.tlBdMin ?? "");
+
+      // Alumina: TL Alumina is MINIMUM → mismatch if lab < min
+      const hasAluminaLive = !isNaN(labAluminaVal) && !isNaN(tlAluminaMinVal) && labAluminaVal < tlAluminaMinVal;
+      // Iron: TL Iron is MAXIMUM → mismatch if lab > max
+      const hasIronLive = !isNaN(labIronVal) && !isNaN(tlIronMaxVal) && labIronVal > tlIronMaxVal;
+      // AP: TL AP is MAXIMUM → mismatch if lab > max
+      const hasApLive = !isNaN(labApVal) && !isNaN(tlApMaxVal) && labApVal > tlApMaxVal;
+      // BD: TL BD is MINIMUM → mismatch if lab < min
+      const hasBdLive = !isNaN(labBdVal) && !isNaN(tlBdMinVal) && labBdVal < tlBdMinVal;
+
+      const hasAlumina = hasAluminaStored || hasAluminaLive;
+      const hasIron = hasIronStored || hasIronLive;
+      const hasAp = hasApStored || hasApLive;
+      const hasBd = hasBdStored || hasBdLive;
       const isRejected = lift.status?.toLowerCase() === "rejected";
       const hasLab = hasAlumina || hasIron || hasAp || hasBd || isRejected || (lift.physicalCondition === "Bad" && lift.moisture === "Yes");
 

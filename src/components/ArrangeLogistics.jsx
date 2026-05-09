@@ -205,7 +205,8 @@ export default function ArrangeLogistics() {
             actual2: row["Actual2"] || "",
             logisticsOptions: Array.isArray(row["LogisticsOptions"]) ? row["LogisticsOptions"] : [],
           }))
-          .filter((row) => row.plannedLogistics && !row.actualLogistics && !row.Planned9 && row.actual2);
+          .filter((row) => row.plannedLogistics && !row.actualLogistics && !row.Planned9 && row.actual2)
+          .sort((a, b) => new Date(b.plannedLogistics).getTime() - new Date(a.plannedLogistics).getTime());
 
         const history = groupedData
           .map(({ primaryRow: row, rowIds }) => ({
@@ -219,10 +220,15 @@ export default function ArrangeLogistics() {
             totalQuantity: row["Total Quantity"] || row["Approved Qty"] || "",
             totalAmount: row["Total Amount"] || "",
             actualLogistics: row["ActualLogistics"] || "",
+            planned9: row["Planned9"] || "",
             selectedTransporter: row["SelectedTransporter"] || (Array.isArray(row["LogisticsOptions"]) ? row["LogisticsOptions"][row["SelectedTransporterIndex"] || 0] : null),
           }))
-          .filter((row) => row["ActualLogistics"])
-          .sort((a, b) => new Date(b.actualLogistics).getTime() - new Date(a.actualLogistics).getTime());
+          .filter((row) => row.actualLogistics || row.planned9)
+          .sort((a, b) => {
+            const dateA = new Date(a.actualLogistics || a.planned9).getTime();
+            const dateB = new Date(b.actualLogistics || b.planned9).getTime();
+            return dateB - dateA;
+          });
 
         setPendingData(pending);
         setFilteredPendingData(pending);
@@ -451,7 +457,7 @@ export default function ArrangeLogistics() {
             </TabsContent>
 
             <TabsContent value="history" className="flex-1 mt-0">
-              {loading ? <div className="flex items-center justify-center py-10 text-sm text-gray-500"><Loader2 className="h-5 w-5 mr-2 animate-spin text-[#7da23a]" />Loading logistics history...</div> : !filteredHistoryData.length ? <div className="p-6 rounded-lg border border-dashed bg-secondary/50 text-center"><Info className="h-10 w-10 text-[#7da23a] mx-auto mb-3" /><p className="font-semibold">No logistics history yet</p></div> : <Card className="shadow-none border flex-1 flex flex-col"><CardHeader className="py-3 px-4 border-b"><CardTitle className="flex items-center text-base"><History className="w-5 h-5 mr-2 text-[#7da23a]" />Logistics History ({filteredHistoryData.length})</CardTitle><CardDescription className="mt-1 text-xs">Completed logistics arrangements with selected transporters.</CardDescription></CardHeader><CardContent className="p-0 flex-1 overflow-hidden"><div className="overflow-auto h-full"><Table><TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10"><TableRow><TableHead>View</TableHead><TableHead>PO Number</TableHead><TableHead>Firm Name</TableHead><TableHead>Vendor</TableHead><TableHead>Material</TableHead><TableHead>Selected Transporter</TableHead><TableHead>Cost</TableHead><TableHead>Completed</TableHead></TableRow></TableHeader><TableBody>{filteredHistoryData.map((item) => <TableRow key={item.id}><TableCell><Button variant="outline" size="sm" onClick={() => openHistoryDialog(item)}>View</Button></TableCell><TableCell>{item.poNumber || item.indentId}</TableCell><TableCell>{item.firmName}</TableCell><TableCell>{item.vendorName}</TableCell><TableCell>{item.material}</TableCell><TableCell>{item.selectedTransporter?.name || "-"}</TableCell><TableCell>{item.selectedTransporter?.cost || "-"}</TableCell><TableCell>{formatDateTime(item.actualLogistics)}</TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>}
+              {loading ? <div className="flex items-center justify-center py-10 text-sm text-gray-500"><Loader2 className="h-5 w-5 mr-2 animate-spin text-[#7da23a]" />Loading logistics history...</div> : !filteredHistoryData.length ? <div className="p-6 rounded-lg border border-dashed bg-secondary/50 text-center"><Info className="h-10 w-10 text-[#7da23a] mx-auto mb-3" /><p className="font-semibold">No logistics history yet</p></div> : <Card className="shadow-none border flex-1 flex flex-col"><CardHeader className="py-3 px-4 border-b"><CardTitle className="flex items-center text-base"><History className="w-5 h-5 mr-2 text-[#7da23a]" />Logistics History ({filteredHistoryData.length})</CardTitle><CardDescription className="mt-1 text-xs">Completed logistics arrangements with selected transporters.</CardDescription></CardHeader><CardContent className="p-0 flex-1 overflow-hidden"><div className="overflow-auto h-full"><Table><TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10"><TableRow><TableHead>View</TableHead><TableHead>Status</TableHead><TableHead>PO Number</TableHead><TableHead>Firm Name</TableHead><TableHead>Vendor</TableHead><TableHead>Material</TableHead><TableHead>Selected Transporter</TableHead><TableHead>Cost</TableHead><TableHead>Date</TableHead></TableRow></TableHeader><TableBody>{filteredHistoryData.map((item) => <TableRow key={item.id}><TableCell><Button variant="outline" size="sm" onClick={() => openHistoryDialog(item)}>View</Button></TableCell><TableCell>{item.actualLogistics ? <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">Approved</Badge> : <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs">Pending Approval</Badge>}</TableCell><TableCell>{item.poNumber || item.indentId}</TableCell><TableCell>{item.firmName}</TableCell><TableCell>{item.vendorName}</TableCell><TableCell>{item.material}</TableCell><TableCell>{item.selectedTransporter?.name || "-"}</TableCell><TableCell>{item.selectedTransporter?.cost || "-"}</TableCell><TableCell>{formatDateTime(item.actualLogistics || item.planned9)}</TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>}
             </TabsContent>
           </Tabs>
         </CardContent>

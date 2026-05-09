@@ -1010,8 +1010,8 @@ export default function StockApproval() {
                                           <option value="Select" disabled>
                                             Select...
                                           </option>
-                                          <option value="Approve">
-                                            Approve
+                                          <option value="Approved">
+                                            Approved
                                           </option>
                                           <option value="Reject">Reject</option>
                                         </select>

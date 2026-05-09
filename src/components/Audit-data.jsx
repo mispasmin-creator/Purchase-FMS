@@ -34,7 +34,6 @@ const CallTrackerPage = () => {
     firmName: true,
     poRate: true,
     liftNumber: true,
-    type: true,
     billNo: true,
     partyName: true,
     productName: true,
@@ -47,12 +46,14 @@ const CallTrackerPage = () => {
     typeOfRate: true,
     rate: true,
     truckQty: true,
+    liftingQty: true,
     biltyImage: true,
     qtyDifferenceStatus: true,
     weightSlip: true,
     debitAmount: true,
     debitNoteUrl: true,
     totalFreight: true,
+    dateOfReceiving: true,
     status: false,
     actions: true
   });
@@ -60,6 +61,8 @@ const CallTrackerPage = () => {
   const [liftTypeMap, setLiftTypeMap] = useState({}); // Lift No → Type (Independent/Common)
   const [liftBiltyNoMap, setLiftBiltyNoMap] = useState({}); // Lift No → Bilty No.
   const [liftBiltyImageMap, setLiftBiltyImageMap] = useState({}); // Lift No → Bilty Image URL
+  const [liftActualQtyMap, setLiftActualQtyMap] = useState({}); // Lift No → Actual Quantity from LIFT-ACCOUNTS
+  const [liftDateOfReceivingMap, setLiftDateOfReceivingMap] = useState({}); // Lift No → Date Of Receiving from LIFT-ACCOUNTS
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('AUDIT'); // Default to Audit tab
   const [poToIndentMap, setPoToIndentMap] = useState({});
@@ -920,11 +923,13 @@ const CallTrackerPage = () => {
       try {
         const { data } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image"');
+          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Date Of Receiving"');
         const weightSlipMap = {};
         const typeMap = {};
         const biltyNoMap = {};
         const biltyImageMap = {};
+        const actualQtyMap = {};
+        const dateOfReceivingMap = {};
         (data || []).forEach(l => {
           const key = String(l["Lift No"] || "").trim();
           if (key) {
@@ -932,12 +937,16 @@ const CallTrackerPage = () => {
             typeMap[key] = String(l["Type"] || "").trim();
             biltyNoMap[key] = String(l["Bilty No."] || "").trim();
             biltyImageMap[key] = String(l["Bilty Image"] || "").trim();
+            actualQtyMap[key] = String(l["Actual Quantity"] || "").trim();
+            dateOfReceivingMap[key] = String(l["Date Of Receiving"] || "").trim();
           }
         });
         setLiftWeightSlipMap(weightSlipMap);
         setLiftTypeMap(typeMap);
         setLiftBiltyNoMap(biltyNoMap);
         setLiftBiltyImageMap(biltyImageMap);
+        setLiftActualQtyMap(actualQtyMap);
+        setLiftDateOfReceivingMap(dateOfReceivingMap);
       } catch (e) {
         console.error('Failed to fetch LIFT-ACCOUNTS meta:', e);
       }
@@ -1001,7 +1010,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
+        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
@@ -1024,7 +1033,9 @@ const CallTrackerPage = () => {
           const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
           return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
         })(),
-        vendorName: row["Vendor Name"] || ''
+        vendorName: row["Vendor Name"] || '',
+        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || ''
       }));
 
       // Filter out submitted rows
@@ -1084,7 +1095,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
+        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
@@ -1109,8 +1120,8 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: row["Lifting Qty"] || '',
-        dateOfReceiving: row["Date Of Receiving"] || '',
+        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
         moisture: row["Moisture"] || '',
@@ -1174,7 +1185,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
+        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
@@ -1199,8 +1210,8 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: row["Lifting Qty"] || '',
-        dateOfReceiving: row["Date Of Receiving"] || '',
+        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
         moisture: row["Moisture"] || '',
@@ -1264,7 +1275,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
+        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
@@ -1289,8 +1300,8 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: row["Lifting Qty"] || '',
-        dateOfReceiving: row["Date Of Receiving"] || '',
+        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
         moisture: row["Moisture"] || '',
@@ -1354,7 +1365,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
+        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
@@ -1379,8 +1390,8 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: row["Lifting Qty"] || '',
-        dateOfReceiving: row["Date Of Receiving"] || '',
+        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
         moisture: row["Moisture"] || '',
@@ -1480,7 +1491,7 @@ const CallTrackerPage = () => {
           rate: row["Rate"] || '',
           truckQty: row["Truck Qty"] || '',
           biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-          qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
+          qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
           differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
           weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
           totalFreight: row["Total Freight"] || '',
@@ -1502,8 +1513,8 @@ const CallTrackerPage = () => {
           })(),
           vendorName: row["Vendor Name"] || '',
           driverNo: row["Driver No"] || row["Driver No."] || '',
-          liftingQty: row["Lifting Qty"] || '',
-          dateOfReceiving: row["Date Of Receiving"] || '',
+          liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+          dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
           actualQuantity: row["Actual Quantity"] || '',
           physicalCondition: row["Physical Condition"] || '',
           moisture: row["Moisture"] || '',
@@ -1566,7 +1577,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: row["Qty Diff Status"] || row["Qty Difference Status"] || '',
+        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: row["Total Freight"] || '',
         debitAmount: row["Debit Amount"] || '',
@@ -1588,7 +1599,9 @@ const CallTrackerPage = () => {
           const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
           return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
         })(),
-        vendorName: row["Vendor Name"] || ''
+        vendorName: row["Vendor Name"] || '',
+        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || ''
       }));
 
       let finalData = formattedData;
@@ -1866,24 +1879,26 @@ const CallTrackerPage = () => {
                               poRate: 'PO Rate',
                               vendorName: 'Vendor Name',
                               liftNumber: 'Lift Number',
-                              type: 'Type',
                               billNo: 'Bill No.',
+                              dateOfReceiving: 'Bill Receiving Date',
                               partyName: 'Party Name',
                               productName: 'Product Name',
-                              qty: 'Qty',
+                              qty: 'PO Qty',
                               areaLifting: 'Area Lifting',
                               truckNo: 'Truck No.',
                               transporterName: 'Transporter',
                               billImage: 'Bill Image',
                               biltyNo: 'Bilty No.',
                               typeOfRate: 'Type Of Rate',
-                              rate: 'Rate',
-                              truckQty: 'Truck Qty',
+                              rate: 'Material Rate',
+                              truckQty: 'Material Qty',
+                              liftingQty: 'Truck Qty',
                               biltyImage: 'Bilty Image',
                               qtyDifferenceStatus: 'Qty Diff Status',
                               weightSlip: 'Weight Slip',
                               debitAmount: 'Debit Amount',
                               debitNoteUrl: 'Debit Image',
+                              totalFreight: 'Total Freight',
                               status: 'Status',
                               actions: 'Actions'
                             }).map(([key, label]) => (
@@ -2029,19 +2044,20 @@ const CallTrackerPage = () => {
                   {visibleColumns.firmName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Firm Name</th>}
                   {visibleColumns.poRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Rate</th>}
                   {visibleColumns.liftNumber && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lift Number</th>}
-                  {visibleColumns.type && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>}
                   {visibleColumns.billNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill No.</th>}
+                  {visibleColumns.dateOfReceiving && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Receiving Date</th>}
                   {visibleColumns.partyName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party Name</th>}
                   {visibleColumns.productName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>}
-                  {visibleColumns.qty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>}
+                  {visibleColumns.qty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Qty</th>}
                   {visibleColumns.areaLifting && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area Lifting</th>}
                   {visibleColumns.truckNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck No.</th>}
                   {visibleColumns.transporterName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transporter</th>}
                   {visibleColumns.billImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Image</th>}
                   {visibleColumns.biltyNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty No.</th>}
                   {visibleColumns.typeOfRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type Of Rate</th>}
-                  {visibleColumns.rate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>}
-                  {visibleColumns.truckQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck Qty</th>}
+                  {visibleColumns.rate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Rate</th>}
+                  {visibleColumns.truckQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Qty</th>}
+                  {visibleColumns.liftingQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck Qty</th>}
                   {visibleColumns.biltyImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty Image</th>}
                   {visibleColumns.qtyDifferenceStatus && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Diff Status</th>}
                   {visibleColumns.weightSlip && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight Slip</th>}
@@ -2106,8 +2122,8 @@ const CallTrackerPage = () => {
                         {visibleColumns.firmName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.firmName || '-'}</td>}
                         {visibleColumns.poRate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.poRate || '-'}</td>}
                         {visibleColumns.liftNumber && <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.liftNumber || '-'}</td>}
-                        {visibleColumns.type && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.type || '-'}</td>}
                         {visibleColumns.billNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.billNo || '-'}</td>}
+                        {visibleColumns.dateOfReceiving && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.dateOfReceiving || '-'}</td>}
                         {visibleColumns.partyName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.partyName || '-'}</td>}
                         {visibleColumns.productName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.productName || '-'}</td>}
                         {visibleColumns.qty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qty || '-'}</td>}
@@ -2119,6 +2135,7 @@ const CallTrackerPage = () => {
                         {visibleColumns.typeOfRate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.typeOfRate || '-'}</td>}
                         {visibleColumns.rate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.rate || '-'}</td>}
                         {visibleColumns.truckQty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.truckQty || '-'}</td>}
+                        {visibleColumns.liftingQty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.liftingQty || '-'}</td>}
                         {visibleColumns.biltyImage && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.biltyImage ? (<a href={row.biltyImage} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
                         {visibleColumns.qtyDifferenceStatus && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qtyDifferenceStatus || '-'}</td>}
                         {visibleColumns.weightSlip && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.weightSlip ? (<a href={row.weightSlip} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}

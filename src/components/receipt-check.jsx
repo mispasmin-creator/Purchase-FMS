@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useContext, useMemo, useEffect } from "react";
 import {
   PackageOpen,
@@ -861,24 +861,54 @@ export default function ReceiptCheck() {
       if (qtyDiff < 0) {
         const qtyDiffStatus = "Mismatch";
 
-        const mismatchUpdatePayload = {
+        const mismatchPayload = {
           "Quantity Difference": qtyDiff,
           "Diff Qty": qtyDiff,
           "Qty Diff Status": qtyDiffStatus,
+          "Status": "Pending",
         };
 
-        mismatchUpdatePayload["Status"] = "Pending";
-
-        const { error: mismatchUpdateError } = await supabase
+        // Check for existing mismatch record
+        const { data: existingMismatch, error: existingMismatchError } = await supabase
           .from("Mismatch")
-          .update(mismatchUpdatePayload)
-          .eq('"Lift ID"', selectedLift.id);
+          .select("id")
+          .eq('"Lift ID"', selectedLift.id)
+          .maybeSingle();
 
-        if (mismatchUpdateError) {
-          console.error(
-            "Failed to update Mismatch table with qty difference:",
-            mismatchUpdateError,
-          );
+        if (existingMismatch) {
+          // Update existing
+          const { error: mismatchUpdateError } = await supabase
+            .from("Mismatch")
+            .update(mismatchPayload)
+            .eq("id", existingMismatch.id);
+
+          if (mismatchUpdateError) {
+            console.error("Failed to update Mismatch table with qty difference:", mismatchUpdateError);
+          }
+        } else {
+          // Create new record
+          const newMismatchRecord = {
+            ...mismatchPayload,
+            Timestamp: timestamp,
+            "Lift Number": selectedLift.liftNo,
+            "Lift ID": selectedLift.id,
+            "Indent Number": selectedLift.indentNo,
+            "Firm Name": selectedLift.firmName,
+            "Party Name": selectedLift.vendorName,
+            "Product Name": selectedLift.rawMaterialName,
+            "Qty": selectedLift.qty,
+            "Bill No.": selectedLift.billNo,
+            "Truck No.": selectedLift.truckNo,
+            "Area Lifting": selectedLift.areaLifting || null,
+          };
+
+          const { error: mismatchInsertError } = await supabase
+            .from("Mismatch")
+            .insert([newMismatchRecord]);
+
+          if (mismatchInsertError) {
+            console.error("Failed to insert into Mismatch table with qty difference:", mismatchInsertError);
+          }
         }
       }
 

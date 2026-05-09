@@ -77,6 +77,7 @@ const ALL_PAGES = [
   "Receipt",
   "Unload App.",
   "Lab",
+  "Lab Report",
   "Bilty",
   "Mismatch",
   "Purchaser Coord.",

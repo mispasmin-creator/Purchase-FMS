@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -275,20 +275,24 @@ export default function OriginalBillsFiledPage() {
   );
 
   const pendingEntries = useMemo(() => {
-    const pending = sheetData.filter((row) => {
-      const hasPlanned5 = row.planned5 && String(row.planned5).trim() !== "" && String(row.planned5).trim() !== "-";
-      const hasActual5 = row.actual5 && String(row.actual5).trim() !== "" && String(row.actual5).trim() !== "-";
-      return hasPlanned5 && !hasActual5;
-    });
+    const pending = sheetData
+      .filter((row) => {
+        const hasPlanned5 = row.planned5 && String(row.planned5).trim() !== "" && String(row.planned5).trim() !== "-";
+        const hasActual5 = row.actual5 && String(row.actual5).trim() !== "" && String(row.actual5).trim() !== "-";
+        return hasPlanned5 && !hasActual5;
+      })
+      .sort((a, b) => new Date(b.planned5 || 0) - new Date(a.planned5 || 0));
     return applyFilters(pending);
   }, [sheetData, applyFilters]);
 
   const historyEntries = useMemo(() => {
-    const history = sheetData.filter((row) => {
-      const hasPlanned5 = row.planned5 && String(row.planned5).trim() !== "" && String(row.planned5).trim() !== "-";
-      const hasActual5 = row.actual5 && String(row.actual5).trim() !== "" && String(row.actual5).trim() !== "-";
-      return hasPlanned5 && hasActual5;
-    });
+    const history = sheetData
+      .filter((row) => {
+        const hasPlanned5 = row.planned5 && String(row.planned5).trim() !== "" && String(row.planned5).trim() !== "-";
+        const hasActual5 = row.actual5 && String(row.actual5).trim() !== "" && String(row.actual5).trim() !== "-";
+        return hasPlanned5 && hasActual5;
+      })
+      .sort((a, b) => new Date(b.actual5 || 0) - new Date(a.actual5 || 0));
     // Sort logic removed to simply show all history
     return applyFilters(history);
   }, [sheetData, applyFilters]);

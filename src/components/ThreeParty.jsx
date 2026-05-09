@@ -270,7 +270,8 @@ export default function ThreeParty() {
                 expectedDate: row["Expected Date 3"] || "",
               },
             ],
-          }));
+          }))
+          .sort((a, b) => new Date(b.planned6) - new Date(a.planned6));
 
         // Process history data (Planned6 is not null and Actual6 is not null)
         const history = filteredData
@@ -784,13 +785,13 @@ export default function ThreeParty() {
                         Firm & Department
                       </TableHead>
                       <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
+                        Indenter
+                      </TableHead>
+                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
                         Quantity
                       </TableHead>
                       <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
                         Planned Date
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Vendor Rates
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -846,6 +847,9 @@ export default function ThreeParty() {
                             {indent.department}
                           </div>
                         </TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-gray-600">
+                          {indent.indenter || <span className="text-gray-400 text-xs">—</span>}
+                        </TableCell>
                         <TableCell className="px-4 py-3 text-sm font-medium text-gray-700">
                           {indent.quantity}{" "}
                           <span className="text-xs text-gray-400 font-normal">
@@ -854,22 +858,6 @@ export default function ThreeParty() {
                         </TableCell>
                         <TableCell className="px-4 py-3 text-sm text-gray-600">
                           {formatDateTime(indent.planned6)}
-                        </TableCell>
-                        <TableCell className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            {indent.vendors
-                              .filter((v) => v.name)
-                              .map((vendor, index) => (
-                                <Badge
-                                  key={index}
-                                  variant="outline"
-                                  className="text-xs px-2 py-0.5 bg-white border-gray-200"
-                                >
-                                  {vendor.name.split(" ").slice(0, 2).join(" ")}{" "}
-                                  ₹{vendor.rate}
-                                </Badge>
-                              ))}
-                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -951,6 +939,12 @@ export default function ThreeParty() {
                         Indent & Product
                       </TableHead>
                       <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
+                        Firm &amp; Dept.
+                      </TableHead>
+                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
+                        Indenter
+                      </TableHead>
+                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
                         Quantity
                       </TableHead>
                       <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
@@ -990,6 +984,17 @@ export default function ThreeParty() {
                           <div className="text-xs text-gray-400">
                             {indent.product}
                           </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <div className="text-sm text-gray-700">
+                            {indent.firmName}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {indent.department}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-gray-600">
+                          {indent.indenter || <span className="text-gray-400 text-xs">—</span>}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-sm font-medium text-gray-700">
                           {indent.quantity}{" "}

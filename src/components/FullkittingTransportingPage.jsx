@@ -134,15 +134,25 @@ export default function FullkittingTransportingPage() {
         setError(null);
         try {
             // Fetch LIFT-ACCOUNTS where Bilty No. is filled + fullkittin + INDENT-PO
-            const [{ data: liftData, error: liftError }, { data: fullkittinData, error: fkError }, { data: poData, error: poError }] = await Promise.all([
+            const [
+                { data: liftData, error: liftError },
+                { data: fullkittinData, error: fkError },
+                { data: poData, error: poError },
+                { data: mismatchData, error: mismatchError },
+                { data: tlData, error: tlError }
+            ] = await Promise.all([
                 supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
                 supabase.from("fullkittin").select("*"),
                 supabase.from("INDENT-PO").select("*"),
+                supabase.from("Mismatch").select("*"),
+                supabase.from("TL").select('"NAME", "TL Alumina", "TL Iron", "BD%", "AP%"'),
             ]);
 
             if (liftError) throw liftError;
             if (fkError) throw fkError;
             if (poError) throw poError;
+            if (mismatchError) throw mismatchError;
+            if (tlError) console.warn("TL fetch error:", tlError);
 
             // Build a set of Lift Nos that have been full-kitted already
             const doneLiftNos = new Set();
@@ -161,6 +171,20 @@ export default function FullkittingTransportingPage() {
                 if (key) poLookup[key] = po;
             });
 
+            // Build a lookup map from Mismatch
+            const mismatchLookup = {};
+            (mismatchData || []).forEach(m => {
+                const liftNo = String(m["Lift Number"] || m["Lift No"] || "").trim();
+                if (liftNo) mismatchLookup[liftNo] = m;
+            });
+
+            // Build a TL lookup map by product name (lowercase)
+            const tlLookup = {};
+            (tlData || []).forEach(tl => {
+                const name = String(tl["NAME"] || "").trim().toLowerCase();
+                if (name) tlLookup[name] = tl;
+            });
+
             let parsedData = (liftData || []).filter(row => {
                 const biltyNo = String(row["Bilty No."] || "").trim();
                 if (biltyNo === "") return false;
@@ -176,6 +200,50 @@ export default function FullkittingTransportingPage() {
                 // Condition 2: PMMPL or PMPL AND Transporter is "Ex Factory Transporter"
                 if ((firmName === "PMMPL" || firmName === "PMPL") && (transporterName === "EX FACTORY TRANSPORTER" || transporterName === "EX FACTORY")) {
                     return false;
+                }
+
+                // Quality Gating: Block only if there is a Mismatch record with Pending/Purchase Return status
+                // AND at least one actual difference value exists (non-zero)
+                const liftNum = String(row["Lift No"] || "").trim();
+                const mismatch = mismatchLookup[liftNum];
+
+                // Check stored differences in Mismatch table
+                const hasRateDiff = Math.abs(parseFloat(mismatch?.["Rate Difference"] || 0)) > 0.001;
+                const hasQtyDiff = parseFloat(mismatch?.["Quantity Difference"] || mismatch?.["Diff Qty"] || 0) < -0.001;
+                const hasAluminaDiff = Math.abs(parseFloat(mismatch?.["Alumina Difference"] || 0)) > 0;
+                const hasIronDiff = Math.abs(parseFloat(mismatch?.["Iron Difference"] || 0)) > 0;
+                const hasApDiff = Math.abs(parseFloat(mismatch?.["AP Difference"] || 0)) > 0;
+                const hasBdDiff = Math.abs(parseFloat(mismatch?.["BD Difference"] || 0)) > 0;
+
+                // LIVE comparison: check lab values from LIFT-ACCOUNTS directly against TL thresholds
+                const productKey = String(row["Raw Material Name"] || "").trim().toLowerCase();
+                const tlRow = tlLookup[productKey];
+                const labAlumina = parseFloat(row["Alumina Percent Age %"] ?? "");
+                const labIron = parseFloat(row["Iron Percent Age %"] ?? "");
+                const labAp = parseFloat(row["AP Percent Age %"] ?? "");
+                const labBd = parseFloat(row["BD Percent Age %"] ?? "");
+                const tlAluminaMin = parseFloat(tlRow?.["TL Alumina"] ?? "");
+                const tlIronMax = parseFloat(tlRow?.["TL Iron"] ?? "");
+                const tlApMax = parseFloat(tlRow?.["AP%"] ?? "");
+                const tlBdMin = parseFloat(tlRow?.["BD%"] ?? "");
+
+                // Only gate if lab test has been done (Actual 2 is set)
+                const labDone = row["Actual 2"] && String(row["Actual 2"]).trim() !== "";
+                const hasAluminaLive = labDone && !isNaN(labAlumina) && !isNaN(tlAluminaMin) && labAlumina < tlAluminaMin;
+                const hasIronLive = labDone && !isNaN(labIron) && !isNaN(tlIronMax) && labIron > tlIronMax;
+                const hasApLive = labDone && !isNaN(labAp) && !isNaN(tlApMax) && labAp > tlApMax;
+                const hasBdLive = labDone && !isNaN(labBd) && !isNaN(tlBdMin) && labBd < tlBdMin;
+
+                const hasRealMismatch = hasRateDiff || hasQtyDiff || hasAluminaDiff || hasIronDiff || hasApDiff || hasBdDiff
+                    || hasAluminaLive || hasIronLive || hasApLive || hasBdLive;
+
+                // Block if there's a real mismatch AND the Mismatch entry (if exists) is not resolved
+                if (hasRealMismatch) {
+                    const mismatchStatus = mismatch?.Status;
+                    // If resolved (Credit Notes or Others), allow through
+                    if (mismatchStatus !== "Credit Notes" && mismatchStatus !== "Others") {
+                        return false;
+                    }
                 }
 
                 return true;

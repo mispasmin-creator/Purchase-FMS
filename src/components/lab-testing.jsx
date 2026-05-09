@@ -1024,30 +1024,42 @@ export default function LabTesting() {
 
   const validateForm = useCallback(() => {
     const newErrors = {};
-    const reqFields = {
-      alStatus: "Status",
-      amDateOfTest: "Date Of Test",
-      anMoisturePercent: "Moisture %",
-      aoBdPercent: "BD %",
-      apApPercent: "AP %",
-      aqAluminaPercent: "Alumina %",
-      arIronPercent: "Iron %",
-      asSieveAnalysis: "Sieve Analysis",
-      atLoiPercent: "LOI %",
-      auSio2Percent: "SiO2 %",
-      avCaoPercent: "CaO %",
-      awMgoPercent: "MgO %",
-      axTio2Percent: "TiO2 %",
-      ayKna2oPercent: "K2O+Na2O %",
-      azFreeIronPercent: "Free Iron %",
-    };
-    for (const fKey in reqFields) {
-      if (
-        formData[fKey] === null ||
-        formData[fKey] === undefined ||
-        String(formData[fKey]).trim() === ""
-      ) {
-        newErrors[fKey] = `${reqFields[fKey]} is required`;
+    const isRejected = formData.alStatus === "Rejected";
+
+    // Basic requirements for all statuses
+    if (!formData.alStatus) newErrors.alStatus = "Status is required";
+    if (!formData.amDateOfTest) newErrors.amDateOfTest = "Date Of Test is required";
+
+    if (isRejected) {
+      // For rejected, only Reason is required
+      if (!formData.baReason || String(formData.baReason).trim() === "") {
+        newErrors.baReason = "Reason is required for rejection";
+      }
+    } else {
+      // For accepted/others, all chemical fields are required
+      const reqFields = {
+        anMoisturePercent: "Moisture %",
+        aoBdPercent: "BD %",
+        apApPercent: "AP %",
+        aqAluminaPercent: "Alumina %",
+        arIronPercent: "Iron %",
+        asSieveAnalysis: "Sieve Analysis",
+        atLoiPercent: "LOI %",
+        auSio2Percent: "SiO2 %",
+        avCaoPercent: "CaO %",
+        awMgoPercent: "MgO %",
+        axTio2Percent: "TiO2 %",
+        ayKna2oPercent: "K2O+Na2O %",
+        azFreeIronPercent: "Free Iron %",
+      };
+      for (const fKey in reqFields) {
+        if (
+          formData[fKey] === null ||
+          formData[fKey] === undefined ||
+          String(formData[fKey]).trim() === ""
+        ) {
+          newErrors[fKey] = `${reqFields[fKey]} is required`;
+        }
       }
     }
     setFormErrors(newErrors);
@@ -1205,15 +1217,26 @@ export default function LabTesting() {
       const isQualityMismatch =
         selectedReceiptForModal.physicalCondition === "Bad" &&
         selectedReceiptForModal.moisture === "Yes";
-      const isMismatch =
+      const isLabValueMismatch =
         hasAluminaMismatch ||
         hasIronMismatch ||
         hasApMismatch ||
-        hasBdMismatch ||
-        isQualityMismatch;
+        hasBdMismatch;
+      
+      const isMismatch = isLabValueMismatch || isQualityMismatch;
 
-      // Only store a difference value if it EXCEEDS the TL table range for that material.
-      // If within range → store null (so it won't appear in Material Mismatch tab).
+      // Fetch existing mismatch record
+      const { data: existingMismatch, error: existingMismatchError } = await supabase
+        .from("Mismatch")
+        .select("id, Status")
+        .eq("Lift Number", selectedReceiptForModal.liftNo)
+        .maybeSingle();
+
+      if (existingMismatchError) {
+        console.error("Error fetching existing mismatch:", existingMismatchError);
+      }
+
+      // Prepare mismatch payload
       const mismatchUpdatePayload = {
         "Alumina Difference": hasAluminaMismatch
           ? Math.round(diffAlumina * 1000) / 1000
@@ -1227,17 +1250,52 @@ export default function LabTesting() {
         "BD Difference": hasBdMismatch
           ? Math.round(diffBd * 1000) / 1000
           : null,
-        Status: "Pending",
       };
 
-      const { error: mismatchError } = await supabase
-        .from("Mismatch")
-        .update(mismatchUpdatePayload)
-        .eq("Lift Number", selectedReceiptForModal.liftNo);
-
-      if (mismatchError) {
-        console.error("Failed to update Mismatch table:", mismatchError);
+      // If there is a lab mismatch, ensure the status is set to Pending to trigger the quality gate
+      if (isMismatch) {
+        mismatchUpdatePayload.Status = "Pending";
       }
+
+      if (existingMismatch) {
+        // An existing record was found — update lab difference columns.
+        // If lab is now passing (no mismatch), just clear the diff columns
+        // but do NOT touch Status (it may still be gated due to qty shortage etc.)
+        // If lab has mismatch, also set Status to Pending.
+        const { error: mismatchError } = await supabase
+          .from("Mismatch")
+          .update(mismatchUpdatePayload)
+          .eq("id", existingMismatch.id);
+
+        if (mismatchError) {
+          console.error("Failed to update Mismatch table:", mismatchError);
+        }
+      } else if (isMismatch) {
+        // No existing record — create one only if there's a real lab mismatch
+        const newMismatchRecord = {
+          ...mismatchUpdatePayload,
+          Timestamp: timestamp,
+          "Lift Number": selectedReceiptForModal.liftNo,
+          "Lift ID": selectedReceiptForModal.liftNo,
+          "Indent Number": selectedReceiptForModal.indentNo,
+          "Firm Name": selectedReceiptForModal.firmName,
+          "Party Name": selectedReceiptForModal.vendorName,
+          "Product Name": selectedReceiptForModal.rawMaterialName,
+          "Qty": selectedReceiptForModal.qty,
+          "Bill No.": selectedReceiptForModal.billNo,
+          "Truck No.": selectedReceiptForModal.truckNo,
+          "Area Lifting": selectedReceiptForModal.areaLifting || null,
+        };
+
+        const { error: mismatchError } = await supabase
+          .from("Mismatch")
+          .insert([newMismatchRecord]);
+
+        if (mismatchError) {
+          console.error("Failed to insert into Mismatch table:", mismatchError);
+        }
+      }
+      // If no existing record AND no mismatch: do nothing — record is clean, goes directly to Full Kitting
 
       toast.success("Success!", {
         description: `Lab test for Lift ID ${selectedReceiptForModal.liftNo} recorded.`,
@@ -1793,322 +1851,326 @@ export default function LabTesting() {
                 )}
               </div>
 
-              {/* Moisture % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="anMoisturePercent"
-                >
-                  Moisture % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="anMoisturePercent"
-                  name="anMoisturePercent"
-                  value={formData.anMoisturePercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.anMoisturePercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.anMoisturePercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.anMoisturePercent}
-                  </p>
-                )}
-              </div>
+              {formData.alStatus !== "Rejected" ? (
+                <>
+                  {/* Moisture % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="anMoisturePercent"
+                    >
+                      Moisture % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="anMoisturePercent"
+                      name="anMoisturePercent"
+                      value={formData.anMoisturePercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.anMoisturePercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.anMoisturePercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.anMoisturePercent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* BD % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="aoBdPercent"
-                >
-                  BD % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="aoBdPercent"
-                  name="aoBdPercent"
-                  value={formData.aoBdPercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.aoBdPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.aoBdPercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.aoBdPercent}
-                  </p>
-                )}
-              </div>
+                  {/* BD % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="aoBdPercent"
+                    >
+                      BD % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="aoBdPercent"
+                      name="aoBdPercent"
+                      value={formData.aoBdPercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.aoBdPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.aoBdPercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.aoBdPercent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* AP % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="apApPercent"
-                >
-                  AP % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="apApPercent"
-                  name="apApPercent"
-                  value={formData.apApPercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.apApPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.apApPercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.apApPercent}
-                  </p>
-                )}
-              </div>
+                  {/* AP % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="apApPercent"
+                    >
+                      AP % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="apApPercent"
+                      name="apApPercent"
+                      value={formData.apApPercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.apApPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.apApPercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.apApPercent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* Alumina % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="aqAluminaPercent"
-                >
-                  Alumina % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="aqAluminaPercent"
-                  name="aqAluminaPercent"
-                  value={formData.aqAluminaPercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.aqAluminaPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.aqAluminaPercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.aqAluminaPercent}
-                  </p>
-                )}
-              </div>
+                  {/* Alumina % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="aqAluminaPercent"
+                    >
+                      Alumina % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="aqAluminaPercent"
+                      name="aqAluminaPercent"
+                      value={formData.aqAluminaPercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.aqAluminaPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.aqAluminaPercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.aqAluminaPercent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* Iron % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="arIronPercent"
-                >
-                  Iron % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="arIronPercent"
-                  name="arIronPercent"
-                  value={formData.arIronPercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.arIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.arIronPercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.arIronPercent}
-                  </p>
-                )}
-              </div>
+                  {/* Iron % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="arIronPercent"
+                    >
+                      Iron % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="arIronPercent"
+                      name="arIronPercent"
+                      value={formData.arIronPercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.arIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.arIronPercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.arIronPercent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* Sieve Analysis Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="asSieveAnalysis"
-                >
-                  Sieve Analysis <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="asSieveAnalysis"
-                  name="asSieveAnalysis"
-                  value={formData.asSieveAnalysis}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.asSieveAnalysis ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.asSieveAnalysis && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.asSieveAnalysis}
-                  </p>
-                )}
-              </div>
+                  {/* Sieve Analysis Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="asSieveAnalysis"
+                    >
+                      Sieve Analysis <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="asSieveAnalysis"
+                      name="asSieveAnalysis"
+                      value={formData.asSieveAnalysis}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.asSieveAnalysis ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.asSieveAnalysis && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.asSieveAnalysis}
+                      </p>
+                    )}
+                  </div>
 
-              {/* LOI % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="atLoiPercent"
-                >
-                  LOI % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="atLoiPercent"
-                  name="atLoiPercent"
-                  value={formData.atLoiPercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.atLoiPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.atLoiPercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.atLoiPercent}
-                  </p>
-                )}
-              </div>
+                  {/* LOI % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="atLoiPercent"
+                    >
+                      LOI % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="atLoiPercent"
+                      name="atLoiPercent"
+                      value={formData.atLoiPercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.atLoiPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.atLoiPercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.atLoiPercent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* SiO2 % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="auSio2Percent"
-                >
-                  SiO2 % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="auSio2Percent"
-                  name="auSio2Percent"
-                  value={formData.auSio2Percent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.auSio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.auSio2Percent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.auSio2Percent}
-                  </p>
-                )}
-              </div>
+                  {/* SiO2 % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="auSio2Percent"
+                    >
+                      SiO2 % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="auSio2Percent"
+                      name="auSio2Percent"
+                      value={formData.auSio2Percent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.auSio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.auSio2Percent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.auSio2Percent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* CaO % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="avCaoPercent"
-                >
-                  CaO % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="avCaoPercent"
-                  name="avCaoPercent"
-                  value={formData.avCaoPercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.avCaoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.avCaoPercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.avCaoPercent}
-                  </p>
-                )}
-              </div>
+                  {/* CaO % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="avCaoPercent"
+                    >
+                      CaO % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="avCaoPercent"
+                      name="avCaoPercent"
+                      value={formData.avCaoPercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.avCaoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.avCaoPercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.avCaoPercent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* MgO % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="awMgoPercent"
-                >
-                  MgO % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="awMgoPercent"
-                  name="awMgoPercent"
-                  value={formData.awMgoPercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.awMgoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.awMgoPercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.awMgoPercent}
-                  </p>
-                )}
-              </div>
+                  {/* MgO % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="awMgoPercent"
+                    >
+                      MgO % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="awMgoPercent"
+                      name="awMgoPercent"
+                      value={formData.awMgoPercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.awMgoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.awMgoPercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.awMgoPercent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* TiO2 % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="axTio2Percent"
-                >
-                  TiO2 % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="axTio2Percent"
-                  name="axTio2Percent"
-                  value={formData.axTio2Percent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.axTio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.axTio2Percent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.axTio2Percent}
-                  </p>
-                )}
-              </div>
+                  {/* TiO2 % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="axTio2Percent"
+                    >
+                      TiO2 % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="axTio2Percent"
+                      name="axTio2Percent"
+                      value={formData.axTio2Percent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.axTio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.axTio2Percent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.axTio2Percent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* K2O+Na2O % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="ayKna2oPercent"
-                >
-                  K2O+Na2O % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="ayKna2oPercent"
-                  name="ayKna2oPercent"
-                  value={formData.ayKna2oPercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.ayKna2oPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.ayKna2oPercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.ayKna2oPercent}
-                  </p>
-                )}
-              </div>
+                  {/* K2O+Na2O % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="ayKna2oPercent"
+                    >
+                      K2O+Na2O % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="ayKna2oPercent"
+                      name="ayKna2oPercent"
+                      value={formData.ayKna2oPercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.ayKna2oPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.ayKna2oPercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.ayKna2oPercent}
+                      </p>
+                    )}
+                  </div>
 
-              {/* Free Iron % Field */}
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="azFreeIronPercent"
-                >
-                  Free Iron % <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id="azFreeIronPercent"
-                  name="azFreeIronPercent"
-                  value={formData.azFreeIronPercent}
-                  onChange={handleInputChange}
-                  placeholder=""
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.azFreeIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.azFreeIronPercent && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.azFreeIronPercent}
-                  </p>
-                )}
-              </div>
+                  {/* Free Iron % Field */}
+                  <div>
+                    <Label
+                      className="text-xs text-foreground"
+                      htmlFor="azFreeIronPercent"
+                    >
+                      Free Iron % <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      id="azFreeIronPercent"
+                      name="azFreeIronPercent"
+                      value={formData.azFreeIronPercent}
+                      onChange={handleInputChange}
+                      placeholder=""
+                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.azFreeIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
+                    />
+                    {formErrors.azFreeIronPercent && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {formErrors.azFreeIronPercent}
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : null}
 
               {/* Reason Field */}
               <div className="sm:col-span-2 md:col-span-3 lg:col-span-4">
                 <Label className="text-xs text-foreground" htmlFor="baReason">
-                  Reason
+                  Reason {formData.alStatus === "Rejected" && <span className="text-destructive">*</span>}
                 </Label>
                 <Input
                   type="text"
