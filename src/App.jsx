@@ -169,7 +169,7 @@ function App() {
       path: "/three-party",
       icon: <UserCheck size={20} />,
       stepName: "vendor",
-      showNotification: true,
+      showNotification: false,
       countKey: "vendor",
       countLabel: "Pending",
       component: <ThreeParty />,
@@ -191,7 +191,7 @@ function App() {
       path: "/management-approval",
       icon: <CheckCircle2 size={20} />,
       stepName: "management",
-      showNotification: true,
+      showNotification: false,
       countKey: "management",
       countLabel: "Pending",
       component: <ManagementApprovals />,
@@ -573,26 +573,12 @@ function App() {
                 {(isMobile || isSidebarOpen) && (
                   <div className="ml-3 flex items-center justify-between flex-1 min-w-0">
                     <span className="truncate mr-2">{tab.label}</span>
-                    {renderNotificationBadge(tab)}
                   </div>
                 )}
 
                 {!isMobile && !isSidebarOpen && isActive && (
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-[#7da23a] rounded-r-full"></span>
                 )}
-
-                {!isMobile &&
-                  !isSidebarOpen &&
-                  tab.showNotification &&
-                  notificationCounts[tab.countKey] > 0 && (
-                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
-                      <span className="text-[8px] text-white font-bold">
-                        {notificationCounts[tab.countKey] > 9
-                          ? "9+"
-                          : notificationCounts[tab.countKey]}
-                      </span>
-                    </span>
-                  )}
               </Link>
             );
           })}

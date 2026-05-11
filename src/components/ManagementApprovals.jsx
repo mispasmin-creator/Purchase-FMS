@@ -479,7 +479,8 @@ export default function ManagementApprovals() {
                       <TableHead>Firm</TableHead>
                       <TableHead>Product</TableHead>
                       <TableHead>Required On</TableHead>
-                      <TableHead>Timeline Info</TableHead>
+                      <TableHead>Current Stock</TableHead>
+                      <TableHead>Rate</TableHead>
                       <TableHead>Tagged Vendors</TableHead>
                       <TableHead>Factory Done</TableHead>
                     </TableRow>
@@ -507,21 +508,17 @@ export default function ManagementApprovals() {
                         <TableCell className="text-xs font-medium text-blue-600">
                           {formatDate(item.expectedRequirementDate)}
                         </TableCell>
+                        <TableCell className="text-sm font-medium text-gray-700">
+                          {item.currentStock || "-"}
+                        </TableCell>
                         <TableCell>
-                          {(() => {
-                            const delays = item.vendors
-                              .map(v => getDelayDays(v.expectedDate, item.expectedRequirementDate))
-                              .filter(d => d !== null);
-                            const minDelay = Math.min(...delays);
-                            
-                            if (delays.length === 0) return <span className="text-gray-400">-</span>;
-                            
-                            return (
-                              <Badge className={`text-[10px] ${minDelay > 0 ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-                                {minDelay > 0 ? `${minDelay}d Delay` : "On Time"}
-                              </Badge>
-                            );
-                          })()}
+                          <div className="flex flex-col gap-0.5">
+                            {item.vendors.map((vendor) => (
+                              <span key={vendor.slot} className="text-xs text-gray-700 whitespace-nowrap">
+                                ₹{vendor.rate} <span className="text-gray-400">({vendor.name.split(' ').slice(0, 2).join(' ')})</span>
+                              </span>
+                            ))}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1.5 focus-within:z-10">
