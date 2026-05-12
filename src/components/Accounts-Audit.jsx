@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Filter, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabase';
 import { AuthContext } from '../context/AuthContext';
@@ -60,6 +60,8 @@ const AccountsAudit = () => {
   const [formData, setFormData] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submittedRows, setSubmittedRows] = useState(new Set());
+  const [firmFilter, setFirmFilter] = useState("all");
+  const [uniqueFirms, setUniqueFirms] = useState([]);
 
   // Initialize with all columns visible by default
   const [visibleColumns, setVisibleColumns] = useState(() =>
@@ -247,15 +249,11 @@ const AccountsAudit = () => {
       });
 
 
-      // Filter by Firm Name
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        filteredData = filteredData.filter(
-          (item) => item.firmName && String(item.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      // Extract unique firms for the filter dropdown
+      const firms = [...new Set(formattedData.map(item => item.firmName).filter(Boolean))].sort();
+      setUniqueFirms(firms);
 
-      setAuditData(filteredData);
+      setAuditData(formattedData);
 
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -453,6 +451,26 @@ const AccountsAudit = () => {
     );
   }
 
+  // Filtered data for display
+  const filteredAuditData = useMemo(() => {
+    let data = auditData;
+
+    // 1. User-level access filter
+    if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
+      const userFirmNameLower = String(user.firmName).toLowerCase();
+      data = data.filter(
+        (item) => item.firmName && String(item.firmName).toLowerCase().trim() === userFirmNameLower
+      );
+    }
+
+    // 2. Interactive UI filter
+    if (firmFilter !== "all") {
+      data = data.filter(item => item.firmName === firmFilter);
+    }
+
+    return data;
+  }, [auditData, firmFilter, user]);
+
   // Main render
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
@@ -467,6 +485,19 @@ const AccountsAudit = () => {
                 <p className="text-sm text-gray-600 mt-1">Review and process pending audit items</p>
               </div>
               <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 mr-4">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <select
+                    value={firmFilter}
+                    onChange={(e) => setFirmFilter(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-[#6b8e2f] outline-none"
+                  >
+                    <option value="all">All Firms</option>
+                    {uniqueFirms.map(f => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="relative">
                   <button
                     onClick={() => setShowColumnFilter(!showColumnFilter)}
@@ -529,18 +560,18 @@ const AccountsAudit = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {auditData.length === 0 ? (
+                {filteredAuditData.length === 0 ? (
                   <tr>
                     <td colSpan={columns.filter(col => visibleColumns[col.key]).length} className="px-6 py-8 text-center text-gray-500">
                       <div className="flex flex-col items-center">
                         <AlertCircle className="w-12 h-12 text-gray-400 mb-2" />
                         <p className="text-lg">No pending audit items</p>
-                        <p className="text-sm text-gray-400 mt-1">All items have been processed</p>
+                        <p className="text-sm text-gray-400 mt-1">No items match the selected filters or all items processed.</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  auditData.map((row, index) => (
+                  filteredAuditData.map((row, index) => (
                     <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       {columns.filter(col => visibleColumns[col.key]).map(col => (
                         <td key={`${row.id}-${col.key}`} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -574,10 +605,10 @@ const AccountsAudit = () => {
           </div>
 
           {/* Footer with count */}
-          {auditData.length > 0 && (
+          {filteredAuditData.length > 0 && (
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
               <p className="text-sm text-gray-600">
-                Showing {auditData.length} pending audit {auditData.length === 1 ? 'item' : 'items'}
+                Showing {filteredAuditData.length} pending audit {filteredAuditData.length === 1 ? 'item' : 'items'}
               </p>
             </div>
           )}

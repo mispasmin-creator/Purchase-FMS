@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect, useCallback, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { supabase } from "../supabase";
 import { AuthContext } from "../context/AuthContext";
-import { RefreshCw, Filter, X, Download, Settings, Check, FileDown, TrendingUp, IndentIcon, DollarSign, Truck } from "lucide-react";
+import { RefreshCw, Filter, X, Download, Settings, Check, FileDown, TrendingUp, IndentIcon, DollarSign, Truck, AlertTriangle, Info } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -375,6 +375,74 @@ export default function LabReportPage() {
   const [rateSearch, setRateSearch] = useState("");
   const [rateFirmFilter, setRateFirmFilter] = useState("all");
 
+  // --- Transporter Summary Logic ---
+  const transporterSummaryData = useMemo(() => {
+    if (!rateRows.length) return [];
+
+    // 1. Filter by date range and firm
+    let filtered = rateRows;
+    if (rateFirmFilter !== "all") {
+      filtered = filtered.filter(r => r.firmName === rateFirmFilter);
+    }
+    if (fromDate) {
+      const f = new Date(fromDate);
+      f.setHours(0,0,0,0);
+      filtered = filtered.filter(r => new Date(r.timestamp) >= f);
+    }
+    if (toDate) {
+      const t = new Date(toDate);
+      t.setHours(23,59,59,999);
+      filtered = filtered.filter(r => new Date(r.timestamp) <= t);
+    }
+
+    // 2. Propagate Transporter Name by Bill No.
+    const billToTransporter = {};
+    filtered.forEach(r => {
+      if (r.billNo && r.transporterName && r.transporterName.trim() !== "" && r.transporterName.toLowerCase() !== "null") {
+        billToTransporter[r.billNo] = r.transporterName;
+      }
+    });
+
+    // 3. Aggregate by Transporter
+    const summaryMap = {};
+    filtered.forEach(r => {
+      const billNo = r.billNo || "No Bill";
+      const transporter = billToTransporter[billNo] || r.transporterName || "Unassigned Bills";
+      
+      if (!summaryMap[transporter]) {
+        summaryMap[transporter] = {
+          name: transporter,
+          billCount: new Set(),
+          totalQty: 0,
+          totalTransportCost: 0,
+          isUnassigned: transporter === "Unassigned Bills",
+          bills: []
+        };
+      }
+      
+      summaryMap[transporter].billCount.add(billNo);
+      summaryMap[transporter].totalQty += parseFloat(r.qty || 0);
+      summaryMap[transporter].totalTransportCost += parseFloat(r.transportTotalCost || 0);
+      summaryMap[transporter].bills.push({
+        liftNo: r.liftNo,
+        billNo: billNo,
+        qty: r.qty,
+        cost: r.transportTotalCost,
+        product: r.productName,
+        date: r.timestamp
+      });
+    });
+
+    // Convert to array and sort
+    const result = Object.values(summaryMap).sort((a, b) => {
+      if (a.isUnassigned) return 1;
+      if (b.isUnassigned) return -1;
+      return b.totalTransportCost - a.totalTransportCost;
+    });
+
+    return result;
+  }, [rateRows, fromDate, toDate, rateFirmFilter]);
+
   const fetchRateData = useCallback(async () => {
     setRateLoading(true);
     try {
@@ -386,33 +454,64 @@ export default function LabReportPage() {
       if (poErr) throw poErr;
 
       // Same robust findPo logic as main lab report
-      const findPoRow = (indentNo) => {
+      const findPoRow = (indentNo, material) => {
         if (!indentNo) return null;
         const key = String(indentNo).trim().toLowerCase();
-        // 1. Direct match on Indent Id.
-        let match = (poData || []).find(r => String(r["Indent Id."] || "").trim().toLowerCase() === key);
-        if (match) return match;
-        // 2. Direct match on po_number
-        match = (poData || []).find(r => String(r["po_number"] || "").trim().toLowerCase() === key);
-        if (match) return match;
-        // 3. Numeric part fallback
-        const numPart = key.match(/\d+/)?.[0];
-        if (!numPart) return null;
-        return (poData || []).find(r => {
+        const mat = String(material || "").trim().toLowerCase();
+
+        // Find all possible matches for the indent
+        const candidates = (poData || []).filter(r => {
           const k1 = String(r["Indent Id."] || "").trim().toLowerCase();
           const k2 = String(r["po_number"] || "").trim().toLowerCase();
-          return k1.match(/\d+/)?.[0] === numPart || k2.match(/\d+/)?.[0] === numPart;
-        }) || null;
+          if (k1 === key || k2 === key) return true;
+
+          const numPart = key.match(/\d+/)?.[0];
+          if (numPart) {
+            return k1.match(/\d+/)?.[0] === numPart || k2.match(/\d+/)?.[0] === numPart;
+          }
+          return false;
+        });
+
+        if (candidates.length === 0) return null;
+        if (candidates.length === 1) return candidates[0];
+
+        // If multiple candidates, prioritize the one matching the material
+        const exactMaterialMatch = candidates.find(r => 
+          String(r["Material"] || "").trim().toLowerCase() === mat
+        );
+        if (exactMaterialMatch) return exactMaterialMatch;
+
+        // Otherwise check PO Items within candidates
+        const itemMatch = candidates.find(r => {
+          const items = Array.isArray(r["PO Items"]) ? r["PO Items"] : [];
+          return items.some(it => String(it.material || it.productName || "").trim().toLowerCase() === mat);
+        });
+        
+        return itemMatch || candidates[0];
       };
 
       let data = (liftData || []).map((row) => {
         const liftIndentRef = String(row["Indent no."] || "").trim();
-        const poRow = findPoRow(liftIndentRef);
+        const liftMaterial  = String(row["Raw Material Name"] || "").trim();
+        const poRow = findPoRow(liftIndentRef, liftMaterial);
         
         // Use true values from PO record if matched, otherwise fallback to lift reference
         const indentId = poRow ? String(poRow["Indent Id."] || "").trim() : liftIndentRef;
         const poNumber = poRow ? String(poRow["po_number"] || "").trim() : "";
-        const poRate   = String(poRow?.["Rate"] || "").trim();
+        
+        // Determine the PO Rate: Check PO Items first, then fallback to top-level Rate
+        let poRate = String(poRow?.["Rate"] || "").trim();
+        if (poRow?.["PO Items"] && Array.isArray(poRow["PO Items"])) {
+          const matLower = liftMaterial.toLowerCase();
+          const itemMatch = poRow["PO Items"].find(it => 
+            String(it.material || it.productName || "").trim().toLowerCase() === matLower
+          );
+          if (itemMatch) {
+            poRate = String(itemMatch.rate || "").trim();
+          }
+        }
+
+        const poCopy   = String(poRow?.["PO Copy"] || "").trim();
 
         // Transport cost logic
         const rateType = String(row["Type Of Transporting Rate"] || "").trim();
@@ -420,6 +519,9 @@ export default function LabReportPage() {
         const liftQty  = parseFloat(row["Lifting Qty"] || row["Qty"] || 0);
         const isPerMT  = rateType.toLowerCase().includes("per mt") || rateType.toLowerCase() === "per mt";
         const isFixed  = rateType.toLowerCase() === "fixed";
+
+        const transportTotalCost = isPerMT ? (transRate * liftQty) : transRate;
+        const effectiveRatePerMT = isFixed ? (liftQty > 0 ? transRate / liftQty : 0) : transRate;
 
         return {
           liftNo:           String(row["Lift No"] || "").trim(),
@@ -435,14 +537,23 @@ export default function LabReportPage() {
           transporterRate:  transRate,
           isPerMT,
           isFixed,
-          // Computed transport cost: Per MT → show rate; Fixed → total / qty
-          transportCostValue: isFixed ? (liftQty > 0 ? transRate / liftQty : 0) : transRate,
+          // Total transport cost for this lift
+          transportTotalCost,
+          // Effective rate per MT
+          transportEffectiveRate: effectiveRatePerMT,
           // Added Lab Results to Rate Report
           status:           String(row["Status"] || "").trim(),
           alumina:          String(row["Alumina Percent Age %"] || "").trim(),
           iron:             String(row["Iron Percent Age %"] || "").trim(),
           firmName:         String(row["Firm Name"] || "").trim(),
           timestamp:        row["Timestamp"] || "",
+          billImage:        String(row["Bill Image"] || "").trim(),
+          poCopy,
+          biltyNo:          String(row["Bilty No."] || "").trim(),
+          biltyImage:       String(row["Bilty Image"] || "").trim(),
+          truckNo:          String(row["Truck No."] || "").trim(),
+          transporterName:  String(row["Transporter Name"] || "").trim(),
+          totalTruckQty:    String(row["Truck Qty"] || "").trim(),
         };
       });
 
@@ -493,30 +604,50 @@ export default function LabReportPage() {
 
       // Headers
       const headers = [
+        "Firm Name",
         "Lift No.",
+        "Lift Date",
         "Indent ID",
         "PO Number",
         "Party Name",
         "Product Name",
         "Lifting Qty",
+        "Truck No.",
+        "Transporter Name",
+        "Total Truck Billing Qty",
+        "PO Copy Link",
+        "Bill Copy Link",
+        "Bilty No.",
+        "Bilty Copy Link",
         "PO Rate (INR)",
         "Lifting Bill Rate (INR)",
-        "Transport Cost (INR)",
-        "Transport Rate Type"
+        "Total Transport Cost (INR)",
+        "Transport Rate Type",
+        "Effective Transport Rate/MT"
       ];
 
       // Data rows
       const dataRows = filteredRateRows.map(r => [
+        r.firmName,
         r.liftNo,
+        r.timestamp ? new Date(r.timestamp).toLocaleDateString() : "-",
         r.indentId,
         r.poNumber,
         r.partyName,
         r.productName,
         r.qty,
+        r.truckNo,
+        r.transporterName,
+        r.totalTruckQty,
+        r.poCopy,
+        r.billImage,
+        r.biltyNo,
+        r.biltyImage,
         r.poRate,
         r.liftBillRate,
-        r.transportCostValue,
-        r.transportRateType
+        r.transportTotalCost,
+        r.transportRateType,
+        r.transportEffectiveRate
       ]);
 
       // Combine headers and rows
@@ -980,28 +1111,32 @@ export default function LabReportPage() {
                 <thead className="sticky top-0 z-10">
                   {/* Group header */}
                   <tr>
-                    <th colSpan={5} className="border border-gray-300 bg-indigo-700 text-white text-center text-[11px] font-bold px-2 py-1.5">
+                    <th colSpan={14} className="border border-gray-300 bg-indigo-700 text-white text-center text-[11px] font-bold px-2 py-1.5">
                       Lift &amp; Indent Information
                     </th>
-                    <th colSpan={3} className="border border-gray-300 bg-purple-700 text-white text-center text-[11px] font-bold px-2 py-1.5">
+                    <th colSpan={4} className="border border-gray-300 bg-purple-700 text-white text-center text-[11px] font-bold px-2 py-1.5">
                       Rate &amp; Cost
-                    </th>
-                    <th colSpan={3} className="border border-gray-300 bg-teal-700 text-white text-center text-[11px] font-bold px-2 py-1.5">
-                      Quality (Lab)
                     </th>
                   </tr>
                   <tr className="bg-gray-100">
+                    <TH>Firm Name</TH>
                     <TH>Lift No.</TH>
+                    <TH>Lift Date</TH>
                     <TH>Indent / PO No.</TH>
                     <TH>Party Name</TH>
                     <TH>Product Name</TH>
                     <TH>Lifting Qty</TH>
+                    <TH>Truck No.</TH>
+                    <TH>Transporter</TH>
+                    <TH>Truck Billing Qty</TH>
+                    <TH>PO Copy</TH>
+                    <TH>Bill Copy</TH>
+                    <TH>Bilty No.</TH>
+                    <TH>Bilty Copy</TH>
                     <TH className="bg-purple-50">PO Rate (₹)</TH>
                     <TH className="bg-orange-50">Lifting Bill Rate (₹)</TH>
                     <TH className="bg-blue-50">Transport Cost (₹)</TH>
-                    <TH className="bg-teal-50">Lab Status</TH>
-                    <TH className="bg-teal-50">Alumina %</TH>
-                    <TH className="bg-teal-50">Iron %</TH>
+                    <TH className="bg-blue-50">Rate Type</TH>
                   </tr>
                 </thead>
                 <tbody>
@@ -1011,36 +1146,11 @@ export default function LabReportPage() {
                     const liftR = parseFloat(row.liftBillRate);
                     const rateVariance = (!isNaN(poR) && !isNaN(liftR)) ? liftR - poR : null;
 
-                    // Transport cost display
-                    let transportDisplay = "-";
-                    if (row.transporterRate) {
-                      if (row.isPerMT) {
-                        // Per MT: show the rate per MT
-                        transportDisplay = (
-                          <span>
-                            ₹{row.transporterRate.toLocaleString("en-IN")}
-                            <span className="ml-1 text-[10px] font-normal text-blue-500 bg-blue-100 px-1 rounded">/MT</span>
-                          </span>
-                        );
-                      } else if (row.isFixed) {
-                        // Fixed: show Total / Qty = Per Unit Rate
-                        const perUnitRate = row.transportCostValue;
-                        transportDisplay = (
-                          <span>
-                            ₹{perUnitRate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            <span className="block text-[10px] font-normal text-gray-400">
-                              ₹{row.transporterRate.toLocaleString("en-IN")} ÷ {row.qty}
-                            </span>
-                          </span>
-                        );
-                      } else {
-                        transportDisplay = `₹${row.transporterRate.toLocaleString("en-IN")}`;
-                      }
-                    }
-
                     return (
                       <tr key={i} className={`${rowBg} hover:bg-indigo-50/40`}>
+                        <TD className="text-gray-600 font-medium">{row.firmName || "-"}</TD>
                         <TD className="font-medium text-indigo-700">{row.liftNo || "-"}</TD>
+                        <TD>{fmtDate(row.timestamp)}</TD>
                         <TD className="font-medium">
                           <div>{row.indentId || "-"}</div>
                           {row.poNumber && row.poNumber !== row.indentId && (
@@ -1050,6 +1160,51 @@ export default function LabReportPage() {
                         <TD className="max-w-[140px] truncate" title={row.partyName}>{row.partyName || "-"}</TD>
                         <TD className="max-w-[120px] truncate" title={row.productName}>{row.productName || "-"}</TD>
                         <TD className="text-right">{row.qty || "-"}</TD>
+                        <TD>{row.truckNo || "-"}</TD>
+                        <TD className="max-w-[120px] truncate" title={row.transporterName}>{row.transporterName || "-"}</TD>
+                        <TD className="text-right">{row.totalTruckQty || "-"}</TD>
+                        <TD className="text-center">
+                          {row.poCopy ? (
+                            <a 
+                              href={row.poCopy.startsWith("http") ? row.poCopy : `https://${row.poCopy}`} 
+                              target="_blank" rel="noopener noreferrer"
+                              className="text-purple-600 hover:text-purple-800 underline font-medium"
+                            >
+                              View PO
+                            </a>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TD>
+                        <TD className="text-center">
+                          {row.billImage ? (
+                            <a 
+                              href={row.billImage.startsWith("http") ? row.billImage : `https://${row.billImage}`} 
+                              target="_blank" rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+                            >
+                              View Bill
+                            </a>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TD>
+                        <TD className="text-center">
+                          {row.biltyNo || "-"}
+                        </TD>
+                        <TD className="text-center">
+                          {row.biltyImage ? (
+                            <a 
+                              href={row.biltyImage.startsWith("http") ? row.biltyImage : `https://${row.biltyImage}`} 
+                              target="_blank" rel="noopener noreferrer"
+                              className="text-green-600 hover:text-green-800 underline font-medium"
+                            >
+                              View Bilty
+                            </a>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TD>
                         {/* PO Rate */}
                         <TD className="text-right font-semibold text-purple-700 bg-purple-50/40">
                           {row.poRate ? `₹${parseFloat(row.poRate).toLocaleString("en-IN")}` : "-"}
@@ -1076,18 +1231,15 @@ export default function LabReportPage() {
                         </TD>
                         {/* Transport Cost */}
                         <TD className="text-right font-semibold text-blue-700 bg-blue-50/40">
-                          {transportDisplay}
+                          <div>₹{(row.transportTotalCost || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                          <div className="text-[10px] font-normal text-gray-400">
+                            {row.isPerMT ? `(₹${row.transporterRate}/MT)` : `(Fixed)`}
+                          </div>
                         </TD>
-                        {/* Lab Results */}
-                        <TD className="text-center bg-teal-50/30">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            (row.status.toLowerCase() === "tested" || row.alumina !== "") ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-                          }`}>
-                            {(row.status.toLowerCase() === "tested" || row.alumina !== "") ? "Tested" : "Pending"}
-                          </span>
+                        {/* Rate Type */}
+                        <TD className="text-center text-[10px] text-gray-500 bg-blue-50/40">
+                          {row.transportRateType || "-"}
                         </TD>
-                        <TD className="text-center font-medium text-teal-700 bg-teal-50/30">{row.alumina || "-"}</TD>
-                        <TD className="text-center font-medium text-teal-700 bg-teal-50/30">{row.iron || "-"}</TD>
                       </tr>
                     );
                   })}
@@ -1095,14 +1247,14 @@ export default function LabReportPage() {
                 {/* Footer Totals */}
                 <tfoot className="sticky bottom-0 bg-gray-100 border-t-2 border-gray-300">
                   <tr>
-                    <td colSpan={5} className="border border-gray-300 px-2 py-1.5 text-[11px] font-bold text-gray-700">
+                    <td colSpan={14} className="border border-gray-300 px-2 py-1.5 text-[11px] font-bold text-gray-700">
                       Totals ({filteredRateRows.length} lifts)
                     </td>
                     <td className="border border-gray-300 px-2 py-1.5 text-[11px] font-bold text-right text-purple-700 bg-purple-50">—</td>
                     <td className="border border-gray-300 px-2 py-1.5 text-[11px] font-bold text-right text-orange-700 bg-orange-50">—</td>
                     <td className="border border-gray-300 px-2 py-1.5 text-[11px] font-bold text-right text-blue-700 bg-blue-50">
                       ₹{filteredRateRows
-                        .reduce((sum, r) => sum + (r.transportCostValue || 0), 0)
+                        .reduce((sum, r) => sum + (r.transportTotalCost || 0), 0)
                         .toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                   </tr>
@@ -1117,6 +1269,113 @@ export default function LabReportPage() {
           </div>
         </>
       )}
+
+      {/* --- Transporter Summary Tab --- */}
+      {activeTab === "transporter" && (
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Transporter-Wise Summary</h3>
+                <p className="text-sm text-gray-500">Aggregated by transporter with automatic Bill No. matching</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    const headers = ["Transporter", "Bills", "Total Qty", "Total Transport Cost"];
+                    const data = transporterSummaryData.map(t => [
+                      t.name,
+                      t.billCount.size,
+                      t.totalQty.toFixed(2),
+                      t.totalTransportCost.toFixed(2)
+                    ]);
+                    const csvContent = [headers.join(","), ...data.map(r => r.join(","))].join("\n");
+                    const blob = new Blob([csvContent], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `transporter-summary-${new Date().toISOString().slice(0,10)}.csv`;
+                    a.click();
+                  }}
+                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-2"
+                >
+                  <Download className="w-3.5 h-3.5" /> Export Summary
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <TH className="text-left w-1/3">Transporter Name</TH>
+                    <TH>Total Bills</TH>
+                    <TH>Total Qty (MT)</TH>
+                    <TH className="text-right">Total Transport Cost (₹)</TH>
+                    <TH className="w-10"></TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transporterSummaryData.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center text-gray-400">No data available for the selected filters.</td>
+                    </tr>
+                  ) : (
+                    transporterSummaryData.map((t, idx) => (
+                      <tr key={idx} className={`hover:bg-blue-50/30 transition-colors ${t.isUnassigned ? "bg-red-50/50" : ""}`}>
+                        <TD className={`font-semibold ${t.isUnassigned ? "text-red-600" : "text-gray-700"}`}>
+                          {t.isUnassigned ? (
+                            <span className="flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4" /> {t.name}
+                            </span>
+                          ) : (
+                            t.name
+                          )}
+                        </TD>
+                        <TD className="text-center font-medium">{t.billCount.size}</TD>
+                        <TD className="text-center">{t.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TD>
+                        <TD className="text-right font-bold text-blue-700">₹{t.totalTransportCost.toLocaleString("en-IN", { minimumFractionDigits: 0 })}</TD>
+                        <TD className="text-center">
+                          {t.isUnassigned && (
+                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="Missing Transporter Info"></div>
+                          )}
+                        </TD>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                {transporterSummaryData.length > 0 && (
+                  <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                    <tr>
+                      <TD>Total Summary</TD>
+                      <TD className="text-center">
+                        {transporterSummaryData.reduce((s, t) => s + t.billCount.size, 0)}
+                      </TD>
+                      <TD className="text-center">
+                        {transporterSummaryData.reduce((s, t) => s + t.totalQty, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </TD>
+                      <TD className="text-right text-blue-800">
+                        ₹{transporterSummaryData.reduce((s, t) => s + t.totalTransportCost, 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                      </TD>
+                      <TD></TD>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 flex gap-2">
+            <Info className="w-4 h-4 flex-shrink-0" />
+            <div>
+              <strong>Note:</strong> The Transporter Name is automatically propagated across all rows sharing the same <strong>Bill No.</strong> if at least one row in that group has a transporter assigned.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+// Add these to imports at the top
+// AlertTriangle, Info from lucide-react

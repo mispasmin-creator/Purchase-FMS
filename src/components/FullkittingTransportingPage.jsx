@@ -64,6 +64,7 @@ export default function FullkittingTransportingPage() {
         productName: "all",
         transporterName: "all",
         liftNumber: "all",
+        firmName: "all",
     });
 
     // Modal state for Create Kitting
@@ -317,12 +318,14 @@ export default function FullkittingTransportingPage() {
         const products = new Set();
         const transporters = new Set();
         const lifts = new Set();
+        const firms = new Set();
 
         kittingData.forEach(item => {
             if (item.partyName) parties.add(item.partyName);
             if (item.productName) products.add(item.productName);
             if (item.transporterName) transporters.add(item.transporterName);
             if (item.liftNumber) lifts.add(item.liftNumber);
+            if (item.firmName) firms.add(item.firmName);
         });
 
         return {
@@ -330,6 +333,7 @@ export default function FullkittingTransportingPage() {
             productName: [...products].sort(),
             transporterName: [...transporters].sort(),
             liftNumber: [...lifts].sort(),
+            firmName: [...firms].sort(),
         };
     }, [kittingData]);
 
@@ -356,6 +360,9 @@ export default function FullkittingTransportingPage() {
         if (filters.liftNumber !== "all") {
             baseData = baseData.filter(item => item.liftNumber === filters.liftNumber);
         }
+        if (filters.firmName !== "all") {
+            baseData = baseData.filter(item => item.firmName === filters.firmName);
+        }
 
         return {
             pendingKitting: baseData.filter(d => d.isPending),
@@ -373,6 +380,7 @@ export default function FullkittingTransportingPage() {
             productName: "all",
             transporterName: "all",
             liftNumber: "all",
+            firmName: "all",
         });
     };
 
@@ -635,6 +643,45 @@ export default function FullkittingTransportingPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-4">
+                    {/* Filters Section */}
+                    <div className="flex flex-wrap gap-4 mb-6 p-4 bg-muted/20 rounded-xl border border-muted-foreground/10">
+                        <div className="flex flex-col gap-1.5 min-w-[180px]">
+                            <Label className="text-xs font-semibold text-muted-foreground ml-1">Party Name</Label>
+                            <Select value={filters.partyName} onValueChange={(val) => handleFilterChange("partyName", val)}>
+                                <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Parties" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Parties</SelectItem>
+                                    {uniqueFilterOptions.partyName.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-1.5 min-w-[180px]">
+                            <Label className="text-xs font-semibold text-muted-foreground ml-1">Product Name</Label>
+                            <Select value={filters.productName} onValueChange={(val) => handleFilterChange("productName", val)}>
+                                <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Products" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Products</SelectItem>
+                                    {uniqueFilterOptions.productName.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-1.5 min-w-[180px]">
+                            <Label className="text-xs font-semibold text-muted-foreground ml-1">Firm Name</Label>
+                            <Select value={filters.firmName} onValueChange={(val) => handleFilterChange("firmName", val)}>
+                                <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Firms" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Firms</SelectItem>
+                                    {uniqueFilterOptions.firmName.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex items-end pb-0.5">
+                            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-9 text-muted-foreground hover:text-foreground">
+                                <X className="mr-1.5 h-3.5 w-3.5" /> Clear
+                            </Button>
+                        </div>
+                    </div>
+
                     {/* Render Kitting Modal */}
                     {isKittingModalOpen && (
                         <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">

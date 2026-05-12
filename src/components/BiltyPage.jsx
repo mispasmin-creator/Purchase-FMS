@@ -38,6 +38,9 @@ const PENDING_BILTY_COLUMNS_META = [
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Type Of Transporting Rate", dataKey: "rateType", toggleable: true },
   { header: "Transporting Per MT Rate", dataKey: "transportingRate", toggleable: true },
+  { header: "Bill Copy", dataKey: "billImage", isLink: true, linkText: "View Bill" },
+  { header: "PO Copy", dataKey: "poCopy", isLink: true, linkText: "View PO" },
+  { header: "PO Rate", dataKey: "poRate", toggleable: true },
   { header: "Original Qty", dataKey: "originalQty", toggleable: true },
   { header: "Total Bill Qty", dataKey: "totalBillQuantity", toggleable: true },
   { header: "Actual Qty", dataKey: "actualQty", toggleable: true },
@@ -57,6 +60,9 @@ const BILTY_HISTORY_COLUMNS_META = [
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Type Of Transporting Rate", dataKey: "rateType", toggleable: true },
   { header: "Transporting Per MT Rate", dataKey: "transportingRate", toggleable: true },
+  { header: "Bill Copy", dataKey: "billImage", isLink: true, linkText: "View Bill" },
+  { header: "PO Copy", dataKey: "poCopy", isLink: true, linkText: "View PO" },
+  { header: "PO Rate", dataKey: "poRate", toggleable: true },
   { header: "Original Qty", dataKey: "originalQty", toggleable: true },
   { header: "Total Bill Qty", dataKey: "totalBillQuantity", toggleable: true },
   { header: "Actual Qty", dataKey: "actualQty", toggleable: true },
@@ -89,6 +95,7 @@ export default function BiltyPage() {
     materialName: "all",
     liftType: "all",
     orderNumber: "all",
+    firmName: "all",
   });
 
   const handleFilterChange = (key, value) => {
@@ -101,6 +108,7 @@ export default function BiltyPage() {
       materialName: "all",
       liftType: "all",
       orderNumber: "all",
+      firmName: "all",
     });
   };
 
@@ -120,12 +128,16 @@ export default function BiltyPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from("LIFT-ACCOUNTS")
-        .select("*")
-        .order("Timestamp", { ascending: false });
-
-      if (fetchError) throw fetchError;
+      const [
+        { data: liftData, error: liftErr },
+        { data: poData, error: poErr }
+      ] = await Promise.all([
+        supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
+        supabase.from("INDENT-PO").select("*"),
+      ]);
+ 
+      if (liftErr) throw liftErr;
+      if (poErr) throw poErr;
 
       const formatTimestamp = (dateValue) => {
         if (!dateValue) return "";
@@ -148,7 +160,24 @@ export default function BiltyPage() {
         return String(dateValue);
       };
 
-      let processedRawRows = (data || []).map((row) => {
+      const findPoRow = (indentNo, material) => {
+        if (!indentNo) return null;
+        const key = String(indentNo).trim().toLowerCase();
+        const mat = String(material || "").trim().toLowerCase();
+
+        const candidates = (poData || []).filter(r => {
+          const k1 = String(r["Indent Id."] || "").trim().toLowerCase();
+          const k2 = String(r["po_number"] || "").trim().toLowerCase();
+          return k1 === key || k2 === key || (key.match(/\d+/)?.[0] && (k1.includes(key.match(/\d+/)[0]) || k2.includes(key.match(/\d+/)[0])));
+        });
+
+        if (candidates.length === 0) return null;
+        if (candidates.length === 1) return candidates[0];
+        
+        return candidates.find(c => String(c["Raw Material Name"] || "").trim().toLowerCase() === mat) || candidates[0];
+      };
+
+      let processedRawRows = (liftData || []).map((row) => {
         const firmNameStr = String(row["Firm Name"] || "").trim().toUpperCase();
         const transporterNameStr = String(row["Transporter Name"] || "").trim().toUpperCase();
 
@@ -188,7 +217,16 @@ export default function BiltyPage() {
           isHistory: row["Planned 3"] && (row["Actual 3"] || row["Bilty No."]),
           biltyNumber: String(row["Bilty No."] || "").trim(),
           biltyImageUrl: String(row["Bilty Image"] || "").trim(),
+          billImage: String(row["Bill Image"] || "").trim(),
           timestamp: formatTimestamp(row["Actual 3"]),
+          // PO Info
+          ...(() => {
+            const po = findPoRow(row["Indent no."], row["Raw Material Name"]);
+            return {
+              poCopy: po ? String(po["PO Copy"] || "").trim() : "",
+              poRate: po ? String(po["Rate"] || "").trim() : "",
+            };
+          })()
         };
       }).filter(row => row && row.id);
 
@@ -223,6 +261,7 @@ export default function BiltyPage() {
     if (filters.materialName !== "all") filtered = filtered.filter(lift => lift.rawMaterialName === filters.materialName);
     if (filters.liftType !== "all") filtered = filtered.filter(lift => lift.liftType === filters.liftType);
     if (filters.orderNumber !== "all") filtered = filtered.filter(lift => lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
+    if (filters.firmName !== "all") filtered = filtered.filter(lift => lift.firmName === filters.firmName);
     return filtered;
   }, [liftData, filters]);
 
@@ -232,6 +271,7 @@ export default function BiltyPage() {
     if (filters.materialName !== "all") filtered = filtered.filter(lift => lift.rawMaterialName === filters.materialName);
     if (filters.liftType !== "all") filtered = filtered.filter(lift => lift.liftType === filters.liftType);
     if (filters.orderNumber !== "all") filtered = filtered.filter(lift => lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
+    if (filters.firmName !== "all") filtered = filtered.filter(lift => lift.firmName === filters.firmName);
     return filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }, [liftData, filters]);
 
@@ -254,6 +294,7 @@ export default function BiltyPage() {
       materialName: [...materials].sort(),
       liftType: [...types].sort(),
       orderNumber: [...orders].sort(),
+      firmName: [...new Set(liftData.map(l => l.firmName).filter(Boolean))].sort(),
     };
   }, [liftData]);
 
@@ -495,6 +536,13 @@ export default function BiltyPage() {
                 <SelectContent>
                   <SelectItem value="all">All Materials</SelectItem>
                   {uniqueFilterOptions.materialName.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filters.firmName} onValueChange={(value) => handleFilterChange("firmName", value)}>
+                <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Firms" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Firms</SelectItem>
+                  {uniqueFilterOptions.firmName.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Button variant="outline" size="sm" onClick={clearAllFilters}>Clear Filters</Button>
