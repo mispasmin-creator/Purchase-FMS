@@ -970,18 +970,17 @@ const CallTrackerPage = () => {
       // Build a set of Bilty Numbers that have been kitted
       const kittedBiltyNos = new Set((fullkittingData || []).map(fk => String(fk["Bilty Number"] || "").trim()).filter(Boolean));
 
-      // Filter: Show data ONLY when Actual2 is null AND (Planned2 is set OR kitted OR matches Skip Kitting criteria)
+      // Filter: Show data ONLY when Actual2 is null AND Bilty No is present (after Bilty stage)
       const filteredByActual = (mismatchData || []).filter(row => {
         if (row.Actual2) return false;
 
-        // Normal flow: Planned2 is set
-        if (row.Planned2 !== null) return true;
+        // NEW FLOW: Show in Audit as soon as Bilty No. is present in LIFT-ACCOUNTS
+        const rowLiftId = String(row["Lift ID"] || "").trim();
+        const biltyNo = liftBiltyNoMap[rowLiftId] || row["Bilty No."] || row["Bilty No"] || "";
+        
+        if (String(biltyNo).trim() !== "") return true;
 
-        // Kitted flow: Exists in fullkittin table by Bilty No
-        const rowBiltyNo = String(row["Bilty No."] || row["Bilty No"] || "").trim();
-        if (rowBiltyNo && kittedBiltyNos.has(rowBiltyNo)) return true;
-
-        // Bypass flow: Skip Kitting Criteria
+        // Bypass flow: Keep Skip Kitting Criteria just in case Bilty is delayed but kitting is skipped
         const firmName = String(row["Firm Name"] || "").trim().toUpperCase();
         const transporterName = String(row["Transporter Name"] || "").trim().toUpperCase();
 

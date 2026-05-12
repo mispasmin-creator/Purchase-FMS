@@ -238,13 +238,10 @@ export default function FullkittingTransportingPage() {
                 const hasRealMismatch = hasRateDiff || hasQtyDiff || hasAluminaDiff || hasIronDiff || hasApDiff || hasBdDiff
                     || hasAluminaLive || hasIronLive || hasApLive || hasBdLive;
 
-                // Block if there's a real mismatch AND the Mismatch entry (if exists) is not resolved
-                if (hasRealMismatch) {
-                    const mismatchStatus = mismatch?.Status;
-                    // If resolved (Credit Notes or Others), allow through
-                    if (mismatchStatus !== "Credit Notes" && mismatchStatus !== "Others") {
-                        return false;
-                    }
+                // NEW FLOW: Only show in Full Kitting if Accounts Audit is FULLY DONE 
+                // (Wait for Actual6 which corresponds to the Bill Received stage completion)
+                if (!mismatch?.Actual6) {
+                    return false;
                 }
 
                 return true;

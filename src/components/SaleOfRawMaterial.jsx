@@ -49,10 +49,78 @@ const formatDisplayDate = (val) => {
 
 // ─── Tab config ────────────────────────────────────────────────────────
 const TABS = [
+  { id: 'purchase-items',    label: 'Purchase Items',                icon: <Package size={16}/> },
   { id: 'receive-order',      label: 'Receive Order Of Raw Material', icon: <ClipboardList size={16}/> },
   { id: 'make-invoice',       label: 'Make Invoice',                   icon: <FileText size={16}/> },
   { id: 'make-payment',       label: 'Make Payment',                   icon: <CreditCard size={16}/> },
 ];
+
+// ═══════════════════════════════════════════════════════════════════════
+// NEW TAB – Purchase Items (From Full Kitting)
+// ═══════════════════════════════════════════════════════════════════════
+const PurchaseItemsTab = () => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('fullkittin')
+        .select('*')
+        .order('id', { ascending: false });
+
+      if (error) throw error;
+      setItems(data || []);
+    } catch (err) {
+      console.error('Error fetching purchase items:', err);
+      toast.error('Failed to load purchase items');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const columns = [
+    { key: 'Bilty Number',       label: 'Bilty No.' },
+    { key: 'Vehicle Number',     label: 'Vehicle No.' },
+    { key: 'Material Load Details', label: 'Material' },
+    { key: 'Transporter Name',   label: 'Transporter' },
+    { key: 'From',               label: 'From (Vendor)' },
+    { key: 'To',                 label: 'To (Factory)' },
+    { key: 'Amount',             label: 'Freight Amount' },
+    { key: 'Status',             label: 'Status' },
+    { key: 'Bilty Image',        label: 'Bilty Image', render: r => {
+      const url = r['Bilty Image'];
+      if (!url) return '-';
+      return (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 underline text-xs font-medium">
+          View
+        </a>
+      );
+    } },
+  ];
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+          <Package size={20} className="text-[#7da23a]"/> Items from Purchase (Kitted)
+        </h2>
+        <button onClick={fetchData} className="p-2 text-gray-500 hover:text-[#7da23a] transition">
+          <RefreshCw size={18} className={loading ? 'animate-spin' : ''}/>
+        </button>
+      </div>
+      <DataTable 
+        columns={columns} 
+        data={items} 
+        emptyText="No kitted items found from the purchase workflow." 
+      />
+    </div>
+  );
+};
+
 
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 1 – Receive Order Of Raw Material
@@ -1119,10 +1187,11 @@ const SaleOfRawMaterial = () => {
       </div>
 
       {/* Tab content */}
-      <div className="min-h-[calc(100vh-10rem)]">
-        {activeTab === 'receive-order'     && <ReceiveOrderTab onOrderSubmitted={() => {}}/>}
-        {activeTab === 'make-invoice'      && <MakeInvoiceTab/>}
-        {activeTab === 'make-payment'      && <MakePaymentTab/>}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 min-h-[400px]">
+        {activeTab === 'purchase-items' && <PurchaseItemsTab />}
+        {activeTab === 'receive-order' && <ReceiveOrderTab onOrderSubmitted={() => setActiveTab('make-invoice')} />}
+        {activeTab === 'make-invoice'  && <MakeInvoiceTab />}
+        {activeTab === 'make-payment'  && <MakePaymentTab />}
       </div>
     </div>
   );
