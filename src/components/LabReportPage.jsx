@@ -139,31 +139,52 @@ export default function LabReportPage() {
         if (key) poMap[key] = row;
       });
 
-      const findPo = (indentNo) => {
+      const findPo = (indentNo, vendorName = "") => {
         if (!indentNo) return null;
         const key = String(indentNo).trim().toLowerCase();
+        const vendor = String(vendorName || "").trim().toLowerCase();
 
-        // 1. Direct match with Indent Id.
-        let match = Object.values(poMap).find(r => String(r["Indent Id."] || "").trim().toLowerCase() === key);
-        if (match) return match;
+        const allPos = Object.values(poMap);
 
-        // 2. Direct match with po_number
-        match = Object.values(poMap).find(r => String(r["po_number"] || "").trim().toLowerCase() === key);
-        if (match) return match;
-
-        // 3. Match numeric part
-        const numPart = key.match(/\d+/)?.[0];
-        if (!numPart) return null;
-        return Object.values(poMap).find((r) => {
+        // 1. Direct match with Indent Id. or po_number
+        let match = allPos.find(r => {
           const k1 = String(r["Indent Id."] || "").trim().toLowerCase();
           const k2 = String(r["po_number"] || "").trim().toLowerCase();
-          return k1.match(/\d+/)?.[0] === numPart || k2.match(/\d+/)?.[0] === numPart;
-        }) || null;
+          return k1 === key || k2 === key;
+        });
+        if (match) return match;
+
+        // 2. Strict Numeric Match (Matching the unique serial number part, usually at the end)
+        const parts = key.match(/\d+/g);
+        const lastNumPart = parts ? parts[parts.length - 1] : null;
+        
+        if (lastNumPart && lastNumPart.length >= 3) {
+          match = allPos.find((r) => {
+            const k1 = String(r["Indent Id."] || "").trim().toLowerCase();
+            const k2 = String(r["po_number"] || "").trim().toLowerCase();
+            const p1 = k1.match(/\d+/g);
+            const p2 = k2.match(/\d+/g);
+            const r1 = p1 ? p1[p1.length - 1] : null;
+            const r2 = p2 ? p2[p2.length - 1] : null;
+            
+            const isNumMatch = r1 === lastNumPart || r2 === lastNumPart;
+            if (!isNumMatch) return false;
+
+            // If vendor provided, verify vendor match to avoid cross-vendor matching
+            if (vendor) {
+              const poVendor = String(r["Vendor name"] || r["Vendor"] || "").trim().toLowerCase();
+              return poVendor.includes(vendor) || vendor.includes(poVendor);
+            }
+            return true;
+          });
+        }
+        return match || null;
       };
 
       let data = (liftData || []).map((row) => {
         const indentNo = String(row["Indent no."] || "").trim();
-        const poRow = findPo(indentNo);
+        const vendorName = String(row["Vendor Name"] || "").trim();
+        const poRow = findPo(indentNo, vendorName);
         const g = (f1, f2) => {
           if (!poRow) return "";
           const val = poRow[f1] ?? poRow[f2] ?? "";
@@ -453,30 +474,53 @@ export default function LabReportPage() {
       if (liftErr) throw liftErr;
       if (poErr) throw poErr;
 
-      // Same robust findPo logic as main lab report
-      const findPoRow = (indentNo, material) => {
+      const findPoRow = (indentNo, material, vendorName = "") => {
         if (!indentNo) return null;
         const key = String(indentNo).trim().toLowerCase();
         const mat = String(material || "").trim().toLowerCase();
+        const vendor = String(vendorName || "").trim().toLowerCase();
 
-        // Find all possible matches for the indent
-        const candidates = (poData || []).filter(r => {
+        const allPos = poData || [];
+
+        // Try direct match first
+        let candidates = allPos.filter(r => {
           const k1 = String(r["Indent Id."] || "").trim().toLowerCase();
           const k2 = String(r["po_number"] || "").trim().toLowerCase();
-          if (k1 === key || k2 === key) return true;
-
-          const numPart = key.match(/\d+/)?.[0];
-          if (numPart) {
-            return k1.match(/\d+/)?.[0] === numPart || k2.match(/\d+/)?.[0] === numPart;
-          }
-          return false;
+          return k1 === key || k2 === key;
         });
+
+        // If no direct match, try stricter numeric match
+        if (candidates.length === 0) {
+          const parts = key.match(/\d+/g);
+          const lastNumPart = parts ? parts[parts.length - 1] : null;
+
+          if (lastNumPart && lastNumPart.length >= 3) {
+            candidates = allPos.filter(r => {
+              const k1 = String(r["Indent Id."] || "").trim().toLowerCase();
+              const k2 = String(r["po_number"] || "").trim().toLowerCase();
+              const p1 = k1.match(/\d+/g);
+              const p2 = k2.match(/\d+/g);
+              const r1 = p1 ? p1[p1.length - 1] : null;
+              const r2 = p2 ? p2[p2.length - 1] : null;
+              
+              const isNumMatch = r1 === lastNumPart || r2 === lastNumPart;
+              if (!isNumMatch) return false;
+
+              // Verify vendor if possible
+              if (vendor) {
+                const poVendor = String(r["Vendor name"] || r["Vendor"] || "").trim().toLowerCase();
+                return poVendor.includes(vendor) || vendor.includes(poVendor);
+              }
+              return true;
+            });
+          }
+        }
 
         if (candidates.length === 0) return null;
         if (candidates.length === 1) return candidates[0];
 
         // If multiple candidates, prioritize the one matching the material
-        const exactMaterialMatch = candidates.find(r =>
+        const exactMaterialMatch = candidates.find(r => 
           String(r["Material"] || "").trim().toLowerCase() === mat
         );
         if (exactMaterialMatch) return exactMaterialMatch;
@@ -486,14 +530,15 @@ export default function LabReportPage() {
           const items = Array.isArray(r["PO Items"]) ? r["PO Items"] : [];
           return items.some(it => String(it.material || it.productName || "").trim().toLowerCase() === mat);
         });
-
+        
         return itemMatch || candidates[0];
       };
 
       let data = (liftData || []).map((row) => {
         const liftIndentRef = String(row["Indent no."] || "").trim();
-        const liftMaterial = String(row["Raw Material Name"] || "").trim();
-        const poRow = findPoRow(liftIndentRef, liftMaterial);
+        const liftMaterial  = String(row["Raw Material Name"] || "").trim();
+        const liftVendor = String(row["Vendor Name"] || "").trim();
+        const poRow = findPoRow(liftIndentRef, liftMaterial, liftVendor);
 
         // Use true values from PO record if matched, otherwise fallback to lift reference
         const indentId = poRow ? String(poRow["Indent Id."] || "").trim() : liftIndentRef;
@@ -588,11 +633,11 @@ export default function LabReportPage() {
     if (!rateSearch) return true;
     const s = rateSearch.toLowerCase();
     return (
-      r.liftNo.toLowerCase().includes(s) ||
-      r.indentNo.toLowerCase().includes(s) ||
-      r.partyName.toLowerCase().includes(s) ||
-      r.productName.toLowerCase().includes(s) ||
-      r.billNo.toLowerCase().includes(s)
+      (r.liftNo || "").toLowerCase().includes(s) ||
+      (r.indentNo || "").toLowerCase().includes(s) ||
+      (r.partyName || "").toLowerCase().includes(s) ||
+      (r.productName || "").toLowerCase().includes(s) ||
+      (r.billNo || "").toLowerCase().includes(s)
     );
   });
   // ── End Rate Report State ──────────────────────────────────────────────────

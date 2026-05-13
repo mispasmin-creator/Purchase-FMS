@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink } from 'lucide-react';
+import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink, Search } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
 import { AuthContext } from '../context/AuthContext';
@@ -54,6 +54,7 @@ const CallTrackerPage = () => {
     debitNoteUrl: true,
     totalFreight: true,
     dateOfReceiving: true,
+    remarks: true,
     status: false,
     actions: true
   });
@@ -67,22 +68,31 @@ const CallTrackerPage = () => {
   const [activeTab, setActiveTab] = useState('AUDIT'); // Default to Audit tab
   const [poToIndentMap, setPoToIndentMap] = useState({});
   const [poToRateMap, setPoToRateMap] = useState({});
+  const [poToAluminaMap, setPoToAluminaMap] = useState({});
+  const [poToIronMap, setPoToIronMap] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchPOMapping = async () => {
       try {
         const { data, error } = await supabase
           .from("INDENT-PO")
-          .select('po_number, "Indent Id.", Rate');
+          .select('po_number, "Indent Id.", Rate, "Alumina %", "Iron %"');
         
         if (!error && data) {
           const indentMap = {};
           const rateMap = {};
+          const aluminaMap = {};
+          const ironMap = {};
           data.forEach(row => {
             const rawPo = String(row.po_number || "").trim().toUpperCase();
+            const rawIndent = String(row["Indent Id."] || "").trim().toUpperCase();
+
             if (rawPo) {
               indentMap[rawPo] = row["Indent Id."];
               rateMap[rawPo] = row["Rate"];
+              aluminaMap[rawPo] = row["Alumina %"];
+              ironMap[rawPo] = row["Iron %"];
               
               // Also add a normalized version (e.g. PO/26-27/15 instead of PMMPL/PO/26-27/15)
               const parts = rawPo.split('/');
@@ -91,12 +101,22 @@ const CallTrackerPage = () => {
                 if (!indentMap[normalizedPo]) {
                   indentMap[normalizedPo] = row["Indent Id."];
                   rateMap[normalizedPo] = row["Rate"];
+                  aluminaMap[normalizedPo] = row["Alumina %"];
+                  ironMap[normalizedPo] = row["Iron %"];
                 }
               }
+            }
+            
+            if (rawIndent) {
+              rateMap[rawIndent] = row["Rate"];
+              aluminaMap[rawIndent] = row["Alumina %"];
+              ironMap[rawIndent] = row["Iron %"];
             }
           });
           setPoToIndentMap(indentMap);
           setPoToRateMap(rateMap);
+          setPoToAluminaMap(aluminaMap);
+          setPoToIronMap(ironMap);
         }
       } catch (err) {
         console.error("Error fetching PO mapping:", err);
@@ -958,21 +978,123 @@ const CallTrackerPage = () => {
   const fetchAuditDataFromSupabase = async () => {
     setLoadingAudit(true);
     try {
-      // Fetch both Mismatch and fullkittin data
-      const [{ data: mismatchData, error: mismatchError }, { data: fullkittingData, error: fkError }] = await Promise.all([
+      // Fetch Mismatch, fullkittin AND LIFT-ACCOUNTS data together
+      const [
+        { data: mismatchData, error: mismatchError },
+        { data: fullkittingData, error: fkError },
+        { data: liftAccountsData, error: laError },
+        { data: tlData, error: tlError }
+      ] = await Promise.all([
         supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
-        supabase.from("fullkittin").select('"Bilty Number"')
+        supabase.from("fullkittin").select('"Bilty Number"'),
+        supabase.from("LIFT-ACCOUNTS").select('"Lift No", "Alumina Percent Age %", "Iron Percent Age %", "AP Percent Age %", "BD Percent Age %", "Status", "Physical Condition", "Moisture"'),
+        supabase.from("TL").select("*")
       ]);
 
       if (mismatchError) throw mismatchError;
       if (fkError) throw fkError;
+      // laError is non-fatal, just log it
+      if (laError) console.warn('LIFT-ACCOUNTS fetch warning:', laError);
 
       // Build a set of Bilty Numbers that have been kitted
       const kittedBiltyNos = new Set((fullkittingData || []).map(fk => String(fk["Bilty Number"] || "").trim()).filter(Boolean));
 
+      // Build a map of Lift No → actual lab values from LIFT-ACCOUNTS
+      const liftLabMap = {};
+      (liftAccountsData || []).forEach(row => {
+        const liftNo = String(row["Lift No"] || "").trim();
+        if (liftNo) {
+          liftLabMap[liftNo] = {
+            alumina: row["Alumina Percent Age %"],
+            iron: row["Iron Percent Age %"],
+            ap: row["AP Percent Age %"],
+            bd: row["BD Percent Age %"],
+            status: row["Status"],
+            physicalCondition: row["Physical Condition"],
+            moisture: row["Moisture"]
+          };
+        }
+      });
+
       // Filter: Show data ONLY when Actual2 is null AND Bilty No is present (after Bilty stage)
       const filteredByActual = (mismatchData || []).filter(row => {
         if (row.Actual2) return false;
+
+        // MISMATCH BLOCK: Only block if lab values ACTUALLY EXIST in LIFT-ACCOUNTS
+        // AND they show a real mismatch. If lab values are empty → no test yet → DO NOT block.
+        const resolvedStatuses = ["Credit Notes", "Credit Notes - Transporter", "Purchase Return", "Others"];
+        const currentStatus = String(row["Status"] || "").trim();
+        const isResolved = resolvedStatuses.includes(currentStatus);
+
+        if (!isResolved) {
+          const liftId = String(row["Lift ID"] || "").trim();
+          const labData = liftLabMap[liftId] || {};
+
+          const actualAlumina = parseFloat(labData.alumina ?? "");
+          const actualIron = parseFloat(labData.iron ?? "");
+          const actualAp = parseFloat(labData.ap ?? "");
+          const actualBd = parseFloat(labData.bd ?? "");
+          
+          const labAluminaExists = !isNaN(actualAlumina);
+          const labIronExists = !isNaN(actualIron);
+          const labApExists = !isNaN(actualAp);
+          const labBdExists = !isNaN(actualBd);
+
+          // Get PO values for comparison
+          const rawPo = String(row["Indent Number"] || row["Indent No"] || row["Indent No."] || '').trim().toUpperCase();
+          const parts = rawPo.split('/');
+          const normalizedPo = parts.length > 1 ? parts.slice(1).join('/') : rawPo;
+          
+          const expectedAluminaStr = poToAluminaMap[rawPo] || poToAluminaMap[normalizedPo] || "";
+          const expectedIronStr = poToIronMap[rawPo] || poToIronMap[normalizedPo] || "";
+          
+          const expectedAlumina = parseFloat(expectedAluminaStr);
+          const expectedIron = parseFloat(expectedIronStr);
+
+          // Get TL values for comparison (matching Mis-match.jsx exactly)
+          const productNameForTL = String(row["Product Name"] || "").trim().toLowerCase();
+          const tlRow = (tlData || []).find((tl) => String(tl.productName || "").trim().toLowerCase() === productNameForTL) || {};
+          const tlAluminaMinVal = parseFloat(tlRow.tlAluminaMin ?? "");
+          const tlIronMaxVal = parseFloat(tlRow.tlIronMax ?? "");
+          const tlApMaxVal = parseFloat(tlRow.tlApMax ?? "");
+          const tlBdMinVal = parseFloat(tlRow.tlBdMin ?? "");
+
+          // Only check mismatch if lab values exist
+          const hasAluminaStored = parseFloat(row["Alumina Difference"] || 0) !== 0;
+          const hasIronStored = parseFloat(row["Iron Difference"] || 0) !== 0;
+          const hasApStored = parseFloat(row["AP Difference"] || 0) !== 0;
+          const hasBdStored = parseFloat(row["BD Difference"] || 0) !== 0;
+
+          // PO-based live check (User explicit rule)
+          const hasAluminaPoLive = labAluminaExists && !isNaN(expectedAlumina) && (expectedAlumina > actualAlumina);
+          const hasIronPoLive = labIronExists && !isNaN(expectedIron) && (expectedIron < actualIron);
+
+          // TL-based live check (Mis-match.jsx logic)
+          const hasAluminaTlLive = labAluminaExists && !isNaN(tlAluminaMinVal) && actualAlumina < tlAluminaMinVal;
+          const hasIronTlLive = labIronExists && !isNaN(tlIronMaxVal) && actualIron > tlIronMaxVal;
+          const hasApTlLive = labApExists && !isNaN(tlApMaxVal) && actualAp > tlApMaxVal;
+          const hasBdTlLive = labBdExists && !isNaN(tlBdMinVal) && actualBd < tlBdMinVal;
+
+          const isRejected = String(labData.status || "").toLowerCase() === "rejected";
+          const isBadPhysical = String(labData.physicalCondition || "") === "Bad" && String(labData.moisture || "") === "Yes";
+
+          const hasAluminaMismatch = hasAluminaStored || hasAluminaPoLive || hasAluminaTlLive;
+          const hasIronMismatch = hasIronStored || hasIronPoLive || hasIronTlLive;
+          const hasApMismatch = hasApStored || hasApTlLive;
+          const hasBdMismatch = hasBdStored || hasBdTlLive;
+
+          const hasLabMismatch = hasAluminaMismatch || hasIronMismatch || hasApMismatch || hasBdMismatch || isRejected || isBadPhysical;
+
+          const hasRateMismatch = parseFloat(row["Rate Difference"] || 0) !== 0;
+          const hasQtyMismatch = parseFloat(row["Quantity Difference"] || 0) < -0.001 ||
+                                 parseFloat(row["Diff Qty"] || 0) < -0.001 ||
+                                 (row["Qty Diff Status"] === "Mismatch" && parseFloat(row["Quantity Difference"] || 0) < 0);
+
+          const isActiveMismatch = hasLabMismatch || hasRateMismatch || hasQtyMismatch;
+
+          // If it has an ACTIVE mismatch → block from Audit
+          if (isActiveMismatch) return false;
+        }
 
         // NEW FLOW: Show in Audit as soon as Bilty No. is present in LIFT-ACCOUNTS
         const rowLiftId = String(row["Lift ID"] || "").trim();
@@ -1016,14 +1138,14 @@ const CallTrackerPage = () => {
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status2 || row.Status || '',
-        remarks: row.Remarks2 || row.Remarks || '',
+        remarks: row.Remarks || row.Remark || '',
         currentStage: 'AUDIT',
         supabaseId: row.id, // Store the actual Supabase ID for updates
         indentNumber: (() => {
-          const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
+          const raw = String(row["Indent Number"] || row["Indent No"] || row["Indent No."] || '').trim().toUpperCase();
           const parts = raw.split('/');
           const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
-          return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent Number"] || row["Indent No"] || '';
+          return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent Number"] || row["Indent No"] || row["Indent No."] || '';
         })(),
         firmName: row["Firm Name"] || '',
         poRate: (() => {
@@ -1101,7 +1223,7 @@ const CallTrackerPage = () => {
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status4 || '',
-        remarks: row.Remarks4 || '',
+        remarks: row.Remarks2 || row.Remarks3 || row.Remarks5 || '',
         currentStage: 'TALLY_ENTRY',
         supabaseId: row.id, // Store the actual Supabase ID for updates
         indentNumber: (() => {
@@ -1191,7 +1313,7 @@ const CallTrackerPage = () => {
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status6 || '',
-        remarks: row.Remarks6 || '',
+        remarks: row.Remarks4 || '',
         currentStage: 'BILL_ENTRY',
         supabaseId: row.id, // Store the actual Supabase ID for updates
         indentNumber: (() => {
@@ -1281,7 +1403,7 @@ const CallTrackerPage = () => {
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status3 || '',
-        remarks: row.Remarks3 || '',
+        remarks: row.Remarks2 || '',
         currentStage: 'RECTIFY',
         supabaseId: row.id, // Store the actual Supabase ID for updates
         indentNumber: (() => {
@@ -1371,7 +1493,7 @@ const CallTrackerPage = () => {
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status5 || '',
-        remarks: row.Remarks5 || '',
+        remarks: row.Remarks3 || '',
         currentStage: 'RE_AUDIT',
         supabaseId: row.id, // Store the actual Supabase ID for updates
         indentNumber: (() => {
@@ -1495,7 +1617,11 @@ const CallTrackerPage = () => {
           weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
           totalFreight: row["Total Freight"] || '',
           status: row[`Status${currentStage === 'AUDIT' ? '2' : currentStage === 'RECTIFY' ? '3' : currentStage === 'TALLY_ENTRY' ? '4' : currentStage === 'REAUDIT' ? '5' : '6'}`] || '',
-          remarks: row[`Remarks${currentStage === 'AUDIT' ? '2' : currentStage === 'RECTIFY' ? '3' : currentStage === 'TALLY_ENTRY' ? '4' : currentStage === 'REAUDIT' ? '5' : '6'}`] || '',
+          remarks: currentStage === 'AUDIT' ? (row.Remarks || row.Remark || '') : 
+                   currentStage === 'RECTIFY' ? (row.Remarks2 || '') :
+                   currentStage === 'REAUDIT' ? (row.Remarks3 || '') :
+                   currentStage === 'TALLY_ENTRY' ? (row.Remarks5 || row.Remarks3 || row.Remarks2 || '') :
+                   currentStage === 'BILL_ENTRY' ? (row.Remarks4 || '') : '',
           currentStage: currentStage,
           indentNumber: (() => {
             const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
@@ -1779,7 +1905,7 @@ const CallTrackerPage = () => {
     return uniqueData;
   };
 
-  const filteredData = activeTab === 'ALL'
+  const filteredData = (activeTab === 'ALL'
     ? getAllStagesData()
     : activeTab === 'AUDIT'
       ? auditMismatchData
@@ -1793,7 +1919,21 @@ const CallTrackerPage = () => {
               ? reAuditMismatchData
               : activeTab === 'HISTORY'
                 ? historyData
-                : accountsData.filter(row => row.currentStage === activeTab);
+                : accountsData.filter(row => row.currentStage === activeTab)
+  ).filter(item => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      String(item.liftNumber || '').toLowerCase().includes(searchLower) ||
+      String(item.partyName || '').toLowerCase().includes(searchLower) ||
+      String(item.productName || '').toLowerCase().includes(searchLower) ||
+      String(item.billNo || '').toLowerCase().includes(searchLower) ||
+      String(item.indentNumber || '').toLowerCase().includes(searchLower) ||
+      String(item.firmName || '').toLowerCase().includes(searchLower) ||
+      String(item.transporterName || '').toLowerCase().includes(searchLower) ||
+      String(item.remarks || '').toLowerCase().includes(searchLower)
+    );
+  });
 
   // Calculate counts for each tab
   const getStageCount = (stage) => {
@@ -1850,6 +1990,18 @@ const CallTrackerPage = () => {
                 <p className="text-sm text-gray-600 mt-1">Track all stages of account processing</p>
               </div>
               <div className="flex items-center space-x-3">
+                <div className="relative w-64 hidden sm:block">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#7da23a] focus:border-[#7da23a] sm:text-sm"
+                    placeholder="Search records..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
                 <div className="relative">
                   <button
                     onClick={toggleColumnFilter}
@@ -1899,6 +2051,7 @@ const CallTrackerPage = () => {
                               debitNoteUrl: 'Debit Image',
                               totalFreight: 'Total Freight',
                               status: 'Status',
+                              remarks: 'Remarks',
                               actions: 'Actions'
                             }).map(([key, label]) => (
                               <label key={key} className="flex items-center space-x-2 text-sm py-1 hover:bg-gray-50 px-2 rounded cursor-pointer">
@@ -2047,6 +2200,7 @@ const CallTrackerPage = () => {
                   {visibleColumns.dateOfReceiving && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Receiving Date</th>}
                   {visibleColumns.partyName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party Name</th>}
                   {visibleColumns.productName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>}
+                  {visibleColumns.remarks && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>}
                   {visibleColumns.qty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Qty</th>}
                   {visibleColumns.areaLifting && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area Lifting</th>}
                   {visibleColumns.truckNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck No.</th>}
@@ -2125,6 +2279,13 @@ const CallTrackerPage = () => {
                         {visibleColumns.dateOfReceiving && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.dateOfReceiving || '-'}</td>}
                         {visibleColumns.partyName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.partyName || '-'}</td>}
                         {visibleColumns.productName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.productName || '-'}</td>}
+                        {visibleColumns.remarks && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="max-w-xs truncate" title={row.remarks}>
+                              {row.remarks || '-'}
+                            </div>
+                          </td>
+                        )}
                         {visibleColumns.qty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qty || '-'}</td>}
                         {visibleColumns.areaLifting && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.areaLifting || '-'}</td>}
                         {visibleColumns.truckNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.truckNo || '-'}</td>}

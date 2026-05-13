@@ -64,25 +64,31 @@ export default function POHistory() {
 
       if (error) throw error;
 
-      // Group by PO number to avoid duplicates if multiple indents are in one PO
+      // Group by PO number, Vendor, and Firm to avoid incorrect merging of different POs with same ID
       const groupedPOs = (data || []).reduce((acc, row) => {
         const poId = row.po_number || "Draft";
-        if (!acc[poId]) {
-          acc[poId] = {
+        const vendorName = row["Vendor name"] || row["Vendor Name 1"] || "N/A";
+        const firmName = row["Firm Name"] || "N/A";
+        
+        // Composite key ensures unique grouping
+        const groupKey = `${poId}_${vendorName}_${firmName}`;
+        
+        if (!acc[groupKey]) {
+          acc[groupKey] = {
             id: row.id,
             poId: poId,
             date: row.Actual2,
-            vendorName: row["Vendor name"] || row["Vendor Name 1"] || "N/A",
+            vendorName: vendorName,
             items: [],
             totalAmount: row["Total Amount"] || 0,
             pdfUrl: row["PO Copy"],
-            firmName: row["Firm Name"],
+            firmName: firmName,
             status: row.ActualLogistics ? "Logistics Arranged" : 
                     row.Actual3 ? "Entered in Tally" : "PO Created"
           };
         }
-        if (row.Material && !acc[poId].items.includes(row.Material)) {
-          acc[poId].items.push(row.Material);
+        if (row.Material && !acc[groupKey].items.includes(row.Material)) {
+          acc[groupKey].items.push(row.Material);
         }
         return acc;
       }, {});
