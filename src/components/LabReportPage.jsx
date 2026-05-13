@@ -644,6 +644,9 @@ export default function LabReportPage() {
       
       const mappedData = (data || []).map(row => ({
         indentNo: String(row["Indent Id."] || "").trim(),
+        poNo: String(row["po_number"] || "").trim(),
+        poCopy: String(row["PO Copy"] || "").trim(),
+        timestamp: row["Timestamp"] || "",
         firmName: String(row["Firm Name"] || "").trim(),
         haveToMakePo: String(row["Have To Make PO"] || "").trim(),
         partyName: String(row["Vendor"] || row["Vendor name"] || "").trim(),
@@ -793,9 +796,12 @@ export default function LabReportPage() {
         toast.error("No data to export");
         return;
       }
-      const headers = ["Indent No", "Firm Name", "Have to make a po", "Party name", "Product Name", "Quantity", "Rate"];
+      const headers = ["Timestamp", "Indent No", "PO No", "PO Copy", "Firm Name", "Have to make a po", "Party name", "Product Name", "Quantity", "Rate"];
       const dataRows = filteredIndentRows.map(r => [
+        r.timestamp ? new Date(r.timestamp).toLocaleString() : "-",
         r.indentNo,
+        r.poNo,
+        r.poCopy,
         r.firmName,
         r.haveToMakePo,
         r.partyName,
@@ -1503,7 +1509,10 @@ export default function LabReportPage() {
               <table className="w-full border-collapse text-left">
                 <thead className="sticky top-0 z-10 bg-gray-100">
                   <tr>
+                    <TH className="bg-blue-600 text-white border-blue-700">Timestamp</TH>
                     <TH className="bg-blue-600 text-white border-blue-700">Indent No</TH>
+                    <TH className="bg-blue-600 text-white border-blue-700">PO No</TH>
+                    <TH className="bg-blue-600 text-white border-blue-700">PO Copy</TH>
                     <TH className="bg-blue-600 text-white border-blue-700">Firm Name</TH>
                     <TH className="bg-blue-600 text-white border-blue-700">Have to make a po</TH>
                     <TH className="bg-blue-600 text-white border-blue-700">Party name</TH>
@@ -1515,7 +1524,22 @@ export default function LabReportPage() {
                 <tbody>
                   {filteredIndentRows.map((row, i) => (
                     <tr key={i} className={`${i % 2 === 0 ? "bg-white" : "bg-blue-50/20"} hover:bg-blue-50/40`}>
+                      <TD className="text-[10px] text-gray-500 font-medium">{row.timestamp ? fmtDate(row.timestamp) : "-"}</TD>
                       <TD className="font-medium text-blue-700">{row.indentNo || "-"}</TD>
+                      <TD className="font-medium text-indigo-600">{row.poNo || "-"}</TD>
+                      <TD className="text-center">
+                        {row.poCopy ? (
+                          <a
+                            href={row.poCopy.startsWith("http") ? row.poCopy : `https://${row.poCopy}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline font-medium"
+                          >
+                            View PO
+                          </a>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TD>
                       <TD>{row.firmName || "-"}</TD>
                       <TD>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
