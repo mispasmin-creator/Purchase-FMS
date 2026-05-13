@@ -206,19 +206,39 @@ export default function OriginalBillsFiledPage() {
 
       if (fetchError) throw fetchError;
 
-      let parsedData = (data || [])
+      const groupedData = (data || []).reduce((acc, row) => {
+        const poId = String(row.po_number || row["Indent Id."] || "").trim();
+        if (!acc[poId]) {
+          acc[poId] = {
+            ...row,
+            allMaterials: new Set(),
+            totalPOQty: 0,
+            dbRowIds: [row.id]
+          };
+        } else {
+          acc[poId].dbRowIds.push(row.id);
+        }
+        
+        if (row.Material) acc[poId].allMaterials.add(String(row.Material).trim());
+        acc[poId].totalPOQty += parseFloat(row["Total Quantity"] || row["Approved Qty"] || 0);
+        
+        return acc;
+      }, {});
+
+      let parsedData = Object.values(groupedData)
         .map((row) => {
+          const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
           return {
             ...row,
             _id: row.id || `adv-pay-${row["Indent Id."]}-${row.Timestamp}`,
             dbIndentId: row["Indent Id."],
             indentId: cleanIndentId(row["Indent Id."]),
             firmName: String(row["Firm Name"] || ""),
-            poNumber: String(row["Indent Id."] || ""),
+            poNumber: poNumber,
             deliveryOrderNo: String(row["Delivery Order No."] || ""),
             vendorName: String(row["Vendor name"] || row["Vendor"] || ""),
-            rawMaterialName: String(row["Material"] || ""),
-            approvedQty: String(row["Total Quantity"] || row["Approved Qty"] || ""),
+            rawMaterialName: Array.from(row.allMaterials).join(", "),
+            approvedQty: String(row.totalPOQty || ""),
             advanceAmount: String(row["To Be Paid Amount"] || ""),
             totalAmount: String(row["Total Amount"] || ""),
             typeOfIndent: String(row["Priority"] || ""),
@@ -230,6 +250,7 @@ export default function OriginalBillsFiledPage() {
             actual5: row["Actual5"],
             status: row["Status5"],
             paymentLink: String(row["Payment Link"] || ""),
+            dbRowIds: row.dbRowIds
           };
         })
         .filter((row) => row.indentId);

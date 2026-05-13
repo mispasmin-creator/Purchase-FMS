@@ -101,21 +101,24 @@ export default function LogisticsApproval() {
           ).trim();
           if (!poNumber) return acc;
           if (!acc[poNumber]) {
-            acc[poNumber] = { primaryRow: row, rowIds: [] };
+            acc[poNumber] = { primaryRow: row, rowIds: [], allMaterials: new Set() };
           }
           acc[poNumber].rowIds.push(row.id);
+          if (row["Material"]) {
+            acc[poNumber].allMaterials.add(String(row["Material"]).trim());
+          }
           return acc;
         }, {}),
       );
 
       const pending = groupedData
-        .map(({ primaryRow: row, rowIds }) => ({
+        .map(({ primaryRow: row, rowIds, allMaterials }) => ({
           id: row.id,
           rowIds,
           indentId: String(row.po_number || row["Indent Id."] || ""),
           firmName: row["Firm Name"] || "",
           vendorName: row["Vendor name"] || row["Vendor"] || "",
-          material: row["Material"] || "",
+          material: Array.from(allMaterials).filter(m => m !== "").join(", "),
           poNumber: String(row.po_number || row["Indent Id."] || ""),
           totalQuantity: row["Total Quantity"] || row["Approved Qty"] || "",
           totalAmount: row["Total Amount"] || "",
@@ -130,13 +133,13 @@ export default function LogisticsApproval() {
         .filter((row) => row.planned9 && !row.actualLogistics);
 
       const history = groupedData
-        .map(({ primaryRow: row, rowIds }) => ({
+        .map(({ primaryRow: row, rowIds, allMaterials }) => ({
           id: row.id,
           rowIds,
           indentId: String(row.po_number || row["Indent Id."] || ""),
           firmName: row["Firm Name"] || "",
           vendorName: row["Vendor name"] || row["Vendor"] || "",
-          material: row["Material"] || "",
+          material: Array.from(allMaterials).filter(m => m !== "").join(", "),
           poNumber: String(row.po_number || row["Indent Id."] || ""),
           totalQuantity: row["Total Quantity"] || row["Approved Qty"] || "",
           totalAmount: row["Total Amount"] || "",

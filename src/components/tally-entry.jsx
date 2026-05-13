@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -219,7 +219,7 @@ export default function TallyEntry() {
           if (!groupKey) return acc;
           if (!acc[groupKey]) {
             acc[groupKey] = {
-            ...row,
+              ...row,
               _id: row.id || `po-entry-${poNumber}-${row.Timestamp}`,
               dbRowIds: [],
               indentId: poNumber,
@@ -228,6 +228,7 @@ export default function TallyEntry() {
               deliveryOrderNo: String(row["Delivery Order No."] || ""),
               vendorName: String(row["Vendor name"] || row["Vendor"] || ""),
               rawMaterialName: String(row["Material"] || ""),
+              allMaterials: new Set([String(row["Material"] || "").trim()]),
               approvedQty: String(row["Total Quantity"] || row["Approved Qty"] || ""),
               advanceAmount: String(row["To Be Paid Amount"] || ""),
               typeOfIndent: String(row["Priority"] || ""),
@@ -244,10 +245,16 @@ export default function TallyEntry() {
             };
           }
           acc[groupKey].dbRowIds.push(row.id);
+          if (row["Material"]) {
+            acc[groupKey].allMaterials.add(String(row["Material"]).trim());
+          }
           return acc;
         }, {});
 
-      parsedData = Object.values(parsedData).filter((row) => row.indentId);
+      parsedData = Object.values(parsedData).map(row => ({
+        ...row,
+        rawMaterialName: Array.from(row.allMaterials).filter(m => m !== "").join(", ")
+      })).filter((row) => row.indentId);
 
       if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
         const userFirmNameLower = String(user.firmName).toLowerCase();

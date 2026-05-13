@@ -184,13 +184,24 @@ export function NotificationProvider({ children }) {
 
             if (error) throw error;
 
-            let filtered = data.filter(item => item.Planned9 && !item.ActualLogistics);
+            const grouped = data.reduce((acc, row) => {
+                const poId = String(row.po_number || row["Indent Id."] || "").trim();
+                if (poId) acc.add(poId);
+                return acc;
+            }, new Set());
+
+            let filtered = Array.from(grouped).filter(poId => {
+                const poRows = data.filter(r => String(r.po_number || r["Indent Id."] || "").trim() === poId);
+                const first = poRows[0];
+                return first.Planned9 && !first.ActualLogistics;
+            });
 
             if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
                 const userFirmNameLower = String(user.firmName).toLowerCase();
-                filtered = filtered.filter(
-                    (indent) => indent["Firm Name"] && String(indent["Firm Name"]).toLowerCase().trim() === userFirmNameLower,
-                );
+                filtered = filtered.filter(poId => {
+                    const first = data.find(r => String(r.po_number || r["Indent Id."] || "").trim() === poId);
+                    return first && first["Firm Name"] && String(first["Firm Name"]).toLowerCase().trim() === userFirmNameLower;
+                });
             }
             return filtered.length;
         } catch (error) {
@@ -350,14 +361,25 @@ export function NotificationProvider({ children }) {
                 firmName: row["Firm Name"]
             }));
 
+            const grouped = data.reduce((acc, row) => {
+                const poId = String(row.po_number || row["Indent Id."] || "").trim();
+                if (poId) acc.add(poId);
+                return acc;
+            }, new Set());
+
+            let filtered = Array.from(grouped).filter(poId => {
+                const poRows = data.filter(r => String(r.po_number || r["Indent Id."] || "").trim() === poId);
+                const first = poRows[0];
+                return first.Planned5 && !first.Actual5;
+            });
+
             if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
                 const userFirmNameLower = String(user.firmName).toLowerCase();
-                processedData = processedData.filter(
-                    (indent) => indent.firmName && String(indent.firmName).toLowerCase().trim() === userFirmNameLower,
-                );
+                filtered = filtered.filter(poId => {
+                    const first = data.find(r => String(r.po_number || r["Indent Id."] || "").trim() === poId);
+                    return first && first["Firm Name"] && String(first["Firm Name"]).toLowerCase().trim() === userFirmNameLower;
+                });
             }
-
-            const filtered = processedData.filter(item => item.planned && !item.actual);
             return filtered.length;
         } catch (error) {
             console.error("Error fetching pending original bills:", error);

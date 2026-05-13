@@ -118,9 +118,14 @@ const PO_COLUMNS_META = [
   },
   {
     header: "PO Number",
-    dataKey: "indentNo",
+    dataKey: "poNumber",
     toggleable: true,
     alwaysVisible: true,
+  },
+  {
+    header: "Indent Number",
+    dataKey: "indentNo",
+    toggleable: true,
   },
   { header: "Planned Date", dataKey: "planned", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
@@ -525,15 +530,20 @@ export default function LiftMaterial() {
           ).trim();
           if (!poNumber) return acc;
           if (!acc[poNumber]) {
-            acc[poNumber] = { primaryRow: row, dbRowIds: [] };
+            acc[poNumber] = { primaryRow: { ...row }, dbRowIds: [], allItems: [] };
           }
           acc[poNumber].dbRowIds.push(row.id);
+          acc[poNumber].allItems.push({
+            material: String(row["Material"] || "").trim(),
+            quantity: parseFloat(row["Total Quantity"] || row["Quantity"] || 0),
+            rate: parseFloat(row["Rate"] || 0),
+          });
           return acc;
         }, {}),
       );
       updateCount("lift-material", groupedRows.length);
 
-      let formattedData = groupedRows.map(({ primaryRow: row, dbRowIds }) => {
+      let formattedData = groupedRows.map(({ primaryRow: row, dbRowIds, allItems }) => {
         const poNumber = String(
           row.po_number || row["Indent Id."] || "",
         ).trim();
@@ -542,6 +552,8 @@ export default function LiftMaterial() {
         );
         const liftedSoFar = liftedQtyMap[poNumber] || 0;
         const dbPendingPOQty = parseFloat(row["Pending PO Qty"]);
+        
+        row["PO Items"] = allItems; // Inject aggregated items
         const items = normalizePoItems(row, liftedQtyByItem);
         const pendingQuantity = roundQuantity(
           items.length
@@ -559,9 +571,9 @@ export default function LiftMaterial() {
           vendorName: String(row["Vendor name"] || row["Vendor"] || "").trim(),
           rawMaterialName:
             items.length > 1
-              ? `${items[0].material} +${items.length - 1} more`
+              ? items.map(it => it.material).join(", ")
               : items[0]?.material || String(row["Material"] || "").trim(),
-          quantity: String(totalQty || ""),
+          quantity: String(items.reduce((sum, item) => sum + item.quantity, 0) || totalQty || ""),
           _rowIndex: row.id,
           dbRowIds,
           rate: String(row["Rate"] || "").trim(),
@@ -579,7 +591,7 @@ export default function LiftMaterial() {
             : "",
           whatIsToBeDone: String(row["PO Notes"] || "").trim(),
           pendingLiftQty: String(pendingQuantity),
-          receivedQty: String(liftedSoFar),
+          receivedQty: String(items.reduce((sum, item) => sum + item.liftedQuantity, 0) || liftedSoFar || ""),
           pendingPOQty: String(pendingQuantity),
           pendingPOQty_DB: row["Pending PO Qty"], // Store DB value for logic
           orderCancelQty: String(row["Order Cancel Qty"] || "0"),
@@ -1926,8 +1938,9 @@ export default function LiftMaterial() {
                               ).map((column) => (
                                 <TableCell
                                   key={column.dataKey}
+                                  title={String(po[column.dataKey] || "")}
                                   className={`whitespace-nowrap text-xs px-3 py-2 ${
-                                    column.dataKey === "indentNo"
+                                    column.dataKey === "indentNo" || column.dataKey === "poNumber"
                                       ? "font-medium text-primary"
                                       : "text-gray-700"
                                   } ${
@@ -2395,10 +2408,7 @@ export default function LiftMaterial() {
                       label: "Transporter Name",
                       name: "TransporterName",
                       type: "select",
-                      disabled:
-                        String(selectedPO?.transportType || "")
-                          .trim()
-                          .toUpperCase() === "EX-FACTORY",
+                      disabled: false,
                       options: [
                         { value: "", label: "Select transporter" },
                         ...transporterOptions,
