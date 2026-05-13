@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink, Search } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
@@ -27,6 +27,8 @@ const CallTrackerPage = () => {
   const [formData, setFormData] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submittedRows, setSubmittedRows] = useState(new Set());
+  const [firmFilter, setFirmFilter] = useState('all');
+
   const [visibleColumns, setVisibleColumns] = useState({
     stage: true,
     timestamp: true,
@@ -1881,7 +1883,22 @@ const CallTrackerPage = () => {
     );
   };
 
-  // Filter data based on active tab
+  // Extract unique firms from all data sources
+  const uniqueFirms = useMemo(() => {
+    const allData = [
+      ...auditMismatchData,
+      ...rectifyMismatchData,
+      ...tallyEntryMismatchData,
+      ...reAuditMismatchData,
+      ...billEntryMismatchData,
+      ...accountsData,
+      ...historyData
+    ];
+    const firms = [...new Set(allData.map(item => item.firmName).filter(Boolean))];
+    return firms.sort();
+  }, [auditMismatchData, rectifyMismatchData, tallyEntryMismatchData, reAuditMismatchData, billEntryMismatchData, accountsData, historyData]);
+
+  // Filter data based on active tab and firm filter
   // For ALL tab, combine data from all individual tabs to ensure consistency
   const getAllStagesData = () => {
     // Combine all individual tab data - this ensures whatever shows in individual tabs also shows in All Stages
@@ -1905,22 +1922,23 @@ const CallTrackerPage = () => {
     return uniqueData;
   };
 
-  const filteredData = (activeTab === 'ALL'
-    ? getAllStagesData()
-    : activeTab === 'AUDIT'
-      ? auditMismatchData
-      : activeTab === 'TALLY_ENTRY'
-        ? tallyEntryMismatchData
-        : activeTab === 'BILL_ENTRY'
-          ? billEntryMismatchData
-          : activeTab === 'RECTIFY'
-            ? rectifyMismatchData
-            : activeTab === 'REAUDIT'
-              ? reAuditMismatchData
-              : activeTab === 'HISTORY'
-                ? historyData
-                : accountsData.filter(row => row.currentStage === activeTab)
-  ).filter(item => {
+  const getFilteredByTab = (tab) => {
+    if (tab === 'ALL') return getAllStagesData();
+    if (tab === 'AUDIT') return auditMismatchData;
+    if (tab === 'TALLY_ENTRY') return tallyEntryMismatchData;
+    if (tab === 'BILL_ENTRY') return billEntryMismatchData;
+    if (tab === 'RECTIFY') return rectifyMismatchData;
+    if (tab === 'REAUDIT') return reAuditMismatchData;
+    if (tab === 'HISTORY') return historyData;
+    return accountsData.filter(row => row.currentStage === tab);
+  };
+
+  const filteredData = getFilteredByTab(activeTab).filter(item => {
+    // Firm Filter
+    const matchesFirm = firmFilter === 'all' || (item.firmName && item.firmName === firmFilter);
+    if (!matchesFirm) return false;
+
+    // Search Filter
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -1935,16 +1953,10 @@ const CallTrackerPage = () => {
     );
   });
 
-  // Calculate counts for each tab
+  // Calculate counts for each tab, respecting the firm filter
   const getStageCount = (stage) => {
-    if (stage === 'ALL') return getAllStagesData().length; // Use combined data count for ALL
-    if (stage === 'AUDIT') return auditMismatchData.length; // Use Supabase count for AUDIT
-    if (stage === 'TALLY_ENTRY') return tallyEntryMismatchData.length; // Use Supabase count for TALLY_ENTRY
-    if (stage === 'BILL_ENTRY') return billEntryMismatchData.length; // Use Supabase count for BILL_ENTRY
-    if (stage === 'RECTIFY') return rectifyMismatchData.length; // Use Supabase count for RECTIFY
-    if (stage === 'REAUDIT') return reAuditMismatchData.length;
-    if (stage === 'HISTORY') return historyData.length;
-    return accountsData.filter(row => row.currentStage === stage).length;
+    const data = getFilteredByTab(stage);
+    return data.filter(item => firmFilter === 'all' || (item.firmName && item.firmName === firmFilter)).length;
   };
 
   if (loading || (activeTab === 'ALL' && (loadingAudit || loadingRectify || loadingTallyEntry || loadingReAudit || loadingBillEntry)) || (activeTab === 'AUDIT' && loadingAudit) || (activeTab === 'TALLY_ENTRY' && loadingTallyEntry) || (activeTab === 'BILL_ENTRY' && loadingBillEntry) || (activeTab === 'RECTIFY' && loadingRectify) || (activeTab === 'REAUDIT' && loadingReAudit) || (activeTab === 'HISTORY' && loadingHistory)) {
@@ -2001,6 +2013,18 @@ const CallTrackerPage = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
+                </div>
+                <div className="flex items-center space-x-2 mr-2">
+                  <select
+                    value={firmFilter}
+                    onChange={(e) => setFirmFilter(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-[#6b8e2f] outline-none"
+                  >
+                    <option value="all">All Firms</option>
+                    {uniqueFirms.map(f => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="relative">
                   <button
