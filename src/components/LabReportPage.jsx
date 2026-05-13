@@ -396,6 +396,12 @@ export default function LabReportPage() {
   const [rateSearch, setRateSearch] = useState("");
   const [rateFirmFilter, setRateFirmFilter] = useState("all");
 
+  // ── Indent Report State ────────────────────────────────────────────────────
+  const [indentRows, setIndentRows] = useState([]);
+  const [indentLoading, setIndentLoading] = useState(false);
+  const [indentSearch, setIndentSearch] = useState("");
+  const [indentFirmFilter, setIndentFirmFilter] = useState("all");
+
   // --- Transporter Summary Logic ---
   const transporterSummaryData = useMemo(() => {
     if (!rateRows.length) return [];
@@ -626,6 +632,50 @@ export default function LabReportPage() {
 
   useEffect(() => { if (activeTab === "rate") fetchRateData(); }, [activeTab, fetchRateData]);
 
+  const fetchIndentData = useCallback(async () => {
+    setIndentLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("INDENT-PO")
+        .select("*")
+        .order("Timestamp", { ascending: false });
+
+      if (error) throw error;
+      
+      const mappedData = (data || []).map(row => ({
+        indentNo: String(row["Indent Id."] || "").trim(),
+        firmName: String(row["Firm Name"] || "").trim(),
+        haveToMakePo: String(row["Have To Make PO"] || "").trim(),
+        partyName: String(row["Vendor"] || row["Vendor name"] || "").trim(),
+        productName: String(row["Material"] || "").trim(),
+        qty: String(row["Quantity"] || "").trim(),
+        rate: String(row["Rate"] || "").trim(),
+      }));
+
+      // Firm filter logic based on user access
+      let filteredData = mappedData;
+      if (user?.firmName) {
+        const uf = user.firmName;
+        if (Array.isArray(uf)) {
+          const set = new Set(uf.map((f) => f.toLowerCase()));
+          filteredData = filteredData.filter((r) => r.firmName && set.has(r.firmName.toLowerCase()));
+        } else if (String(uf).toLowerCase() !== "all") {
+          const userFirm = String(uf).toLowerCase();
+          filteredData = filteredData.filter((r) => r.firmName && r.firmName.toLowerCase() === userFirm);
+        }
+      }
+      
+      setIndentRows(filteredData);
+    } catch (err) {
+      console.error(err);
+      toast.error(`Failed to load indent data: ${err.message}`);
+    } finally {
+      setIndentLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { if (activeTab === "indent") fetchIndentData(); }, [activeTab, fetchIndentData]);
+
   const rateFirmOptions = ["all", ...Array.from(new Set(rateRows.map((r) => r.firmName).filter(Boolean))).sort()];
 
   const filteredRateRows = rateRows.filter((r) => {
@@ -638,6 +688,20 @@ export default function LabReportPage() {
       (r.partyName || "").toLowerCase().includes(s) ||
       (r.productName || "").toLowerCase().includes(s) ||
       (r.billNo || "").toLowerCase().includes(s)
+    );
+  });
+
+  const indentFirmOptions = ["all", ...Array.from(new Set(indentRows.map((r) => r.firmName).filter(Boolean))).sort()];
+
+  const filteredIndentRows = indentRows.filter((r) => {
+    if (indentFirmFilter !== "all" && r.firmName !== indentFirmFilter) return false;
+    if (!indentSearch) return true;
+    const s = indentSearch.toLowerCase();
+    return (
+      (r.indentNo || "").toLowerCase().includes(s) ||
+      (r.partyName || "").toLowerCase().includes(s) ||
+      (r.productName || "").toLowerCase().includes(s) ||
+      (r.firmName || "").toLowerCase().includes(s)
     );
   });
   // ── End Rate Report State ──────────────────────────────────────────────────
@@ -723,6 +787,62 @@ export default function LabReportPage() {
     }
   };
 
+  const exportIndentExcel = () => {
+    try {
+      if (filteredIndentRows.length === 0) {
+        toast.error("No data to export");
+        return;
+      }
+      const headers = ["Indent No", "Firm Name", "Have to make a po", "Party name", "Product Name", "Quantity", "Rate"];
+      const dataRows = filteredIndentRows.map(r => [
+        r.indentNo,
+        r.firmName,
+        r.haveToMakePo,
+        r.partyName,
+        r.productName,
+        r.qty,
+        r.rate
+      ]);
+
+      // Using HTML table trick to support colors in Excel
+      const tableHtml = `
+        <html>
+        <head><meta charset="UTF-8"></head>
+        <body>
+          <table border="1">
+            <thead>
+              <tr style="background-color: #2563eb; color: #ffffff; font-weight: bold;">
+                ${headers.map(h => `<th style="background-color: #2563eb; color: #ffffff;">${h}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${dataRows.map(row => `
+                <tr>
+                  ${row.map(val => `<td>${val ?? "-"}</td>`).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob([tableHtml], { type: "application/vnd.ms-excel" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `indent-report-${new Date().toISOString().slice(0, 10)}.xls`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Excel exported successfully with purple header");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export Excel: " + err.message);
+    }
+  };
+
   return (
     <div className="p-4 min-h-screen bg-gray-50">
       {/* Page Tabs */}
@@ -744,6 +864,15 @@ export default function LabReportPage() {
             }`}
         >
           💰 Rate Report
+        </button>
+        <button
+          onClick={() => setActiveTab("indent")}
+          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${activeTab === "indent"
+              ? "border-orange-600 text-orange-700 bg-orange-50"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+        >
+          📋 Indent Report
         </button>
       </div>
 
@@ -1307,6 +1436,105 @@ export default function LabReportPage() {
           <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-500">
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 inline-block border border-red-300" /> Lifting Rate &gt; PO Rate (over budget)</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-100 inline-block border border-green-300" /> Lifting Rate ≤ PO Rate (within budget)</span>
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════════════════════ INDENT REPORT TAB ═══════════════════════════════ */}
+      {activeTab === "indent" && (
+        <>
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">Indent Report</h1>
+              <p className="text-xs text-gray-500 mt-0.5">List of all indents from INDENT-PO table</p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <select
+                value={indentFirmFilter}
+                onChange={(e) => setIndentFirmFilter(e.target.value)}
+                className="py-1.5 px-2 text-xs border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {indentFirmOptions.map((f) => (
+                  <option key={f} value={f}>{f === "all" ? "All Firms" : f}</option>
+                ))}
+              </select>
+              <div className="relative">
+                <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search indent, party..."
+                  value={indentSearch}
+                  onChange={(e) => setIndentSearch(e.target.value)}
+                  className="pl-8 pr-8 py-1.5 text-xs border border-gray-300 rounded-lg w-48 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                {indentSearch && (
+                  <button onClick={() => setIndentSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <X className="h-3.5 w-3.5 text-gray-400" />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={fetchIndentData}
+                disabled={indentLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${indentLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
+              <button
+                onClick={exportIndentExcel}
+                disabled={indentLoading || filteredIndentRows.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                Export Excel
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {indentLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <RefreshCw className="h-8 w-8 text-blue-500 animate-spin" />
+              </div>
+            ) : filteredIndentRows.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-gray-400">No indents found</div>
+            ) : (
+              <table className="w-full border-collapse text-left">
+                <thead className="sticky top-0 z-10 bg-gray-100">
+                  <tr>
+                    <TH className="bg-blue-600 text-white border-blue-700">Indent No</TH>
+                    <TH className="bg-blue-600 text-white border-blue-700">Firm Name</TH>
+                    <TH className="bg-blue-600 text-white border-blue-700">Have to make a po</TH>
+                    <TH className="bg-blue-600 text-white border-blue-700">Party name</TH>
+                    <TH className="bg-blue-600 text-white border-blue-700">Product Name</TH>
+                    <TH className="bg-blue-600 text-white border-blue-700">Quantity</TH>
+                    <TH className="bg-blue-600 text-white border-blue-700 text-right">Rate (₹)</TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredIndentRows.map((row, i) => (
+                    <tr key={i} className={`${i % 2 === 0 ? "bg-white" : "bg-blue-50/20"} hover:bg-blue-50/40`}>
+                      <TD className="font-medium text-blue-700">{row.indentNo || "-"}</TD>
+                      <TD>{row.firmName || "-"}</TD>
+                      <TD>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          row.haveToMakePo?.toLowerCase() === "yes" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                        }`}>
+                          {row.haveToMakePo || "-"}
+                        </span>
+                      </TD>
+                      <TD className="max-w-[180px] truncate" title={row.partyName}>{row.partyName || "-"}</TD>
+                      <TD className="max-w-[150px] truncate" title={row.productName}>{row.productName || "-"}</TD>
+                      <TD className="font-semibold">{row.qty || "-"}</TD>
+                      <TD className="text-right font-bold text-blue-700">
+                        {row.rate ? `₹${parseFloat(row.rate).toLocaleString("en-IN")}` : "-"}
+                      </TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}
