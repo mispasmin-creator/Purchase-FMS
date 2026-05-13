@@ -248,7 +248,7 @@ const normalizePoItems = (row, liftedQtyByItem) => {
   const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
   const fallbackMaterial = String(row["Material"] || "").trim();
   const fallbackRate = toNumber(row["Rate"]);
-  const fallbackQuantity = toNumber(row["Total Quantity"] || row["Quantity"]);
+  const fallbackQuantity = toNumber(row["Quantity"] || row["Total Quantity"]);
   const rawItems =
     Array.isArray(row["PO Items"]) && row["PO Items"].length
       ? row["PO Items"]
@@ -504,7 +504,7 @@ export default function LiftMaterial() {
           row.po_number || row["Indent Id."] || "",
         ).trim();
         const totalQty = parseFloat(
-          row["Total Quantity"] || row["Quantity"] || 0,
+          row["Quantity"] || row["Total Quantity"] || 0,
         );
         const liftedSoFar = liftedQtyMap[poNumber] || 0;
 
@@ -535,7 +535,7 @@ export default function LiftMaterial() {
           acc[poNumber].dbRowIds.push(row.id);
           acc[poNumber].allItems.push({
             material: String(row["Material"] || "").trim(),
-            quantity: parseFloat(row["Total Quantity"] || row["Quantity"] || 0),
+            quantity: parseFloat(row["Quantity"] || row["Total Quantity"] || 0),
             rate: parseFloat(row["Rate"] || 0),
           });
           return acc;
@@ -548,7 +548,7 @@ export default function LiftMaterial() {
           row.po_number || row["Indent Id."] || "",
         ).trim();
         const totalQty = parseFloat(
-          row["Total Quantity"] || row["Quantity"] || 0,
+          row["Quantity"] || row["Total Quantity"] || 0,
         );
         const liftedSoFar = liftedQtyMap[poNumber] || 0;
         const dbPendingPOQty = parseFloat(row["Pending PO Qty"]);
