@@ -19,6 +19,7 @@ import {
   Save,
   X,
   History,
+  CheckCircle2,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import {
@@ -70,9 +71,9 @@ const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Difference Summary", dataKey: "diffSummary", toggleable: true },
   // Core fields for visibility
   { header: "PO Rate", dataKey: "poRate", toggleable: true },
-  { header: "Lift Rate", dataKey: "materialRate", toggleable: true },
-  { header: "PO Qty", dataKey: "poQuantity", toggleable: true },
-  { header: "Lift Qty", dataKey: "liftingQty", toggleable: true },
+  { header: "Bill Rate", dataKey: "materialRate", toggleable: true },
+  { header: "Bill Qty", dataKey: "billQuantity", toggleable: true },
+  { header: "Receive Qty", dataKey: "actualQuantity", toggleable: true },
 ];
 
 const HISTORY_COLUMNS_META = [
@@ -103,7 +104,7 @@ const HISTORY_COLUMNS_META = [
   { header: "Lift Number", dataKey: "Lift Number", toggleable: true },
   { header: "Type", dataKey: "Type", toggleable: true },
   { header: "Bill No.", dataKey: "Bill No.", toggleable: true },
-  { header: "Qty", dataKey: "Qty", toggleable: true },
+  { header: "Bill Qty", dataKey: "Qty", toggleable: true },
   { header: "Area Lifting", dataKey: "Area Lifting", toggleable: true },
   { header: "Truck No.", dataKey: "Truck No.", toggleable: true },
   {
@@ -115,8 +116,8 @@ const HISTORY_COLUMNS_META = [
   },
   { header: "Bilty No.", dataKey: "Bilty No.", toggleable: true },
   { header: "Type Of Rate", dataKey: "Type Of Rate", toggleable: true },
-  { header: "Rate", dataKey: "Rate", toggleable: true },
-  { header: "Truck Qty", dataKey: "Truck Qty", toggleable: true },
+  { header: "Bill Rate", dataKey: "Rate", toggleable: true },
+  { header: "Receive Qty", dataKey: "Actual Quantity", toggleable: true },
   {
     header: "Bilty Image",
     dataKey: "Bilty Image",
@@ -403,6 +404,41 @@ export default function MismatchAnalysis() {
       toast.error(`❌ SUBMISSION FAILED: ${error.message}`);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleAcknowledgeMismatch = async (item) => {
+    const recordId = item.id || item.supabaseId;
+    if (!recordId) {
+      toast.error("Cannot acknowledge: Missing record ID");
+      return;
+    }
+
+    if (!window.confirm(`Mark Lift Number ${item.liftNo || item.liftIdDisplay} as proper/resolved?`)) {
+      return;
+    }
+
+    try {
+      const { error: updateError } = await supabase
+        .from("Mismatch")
+        .update({ 
+          Status: "Acknowledge",
+          "Action Type": "Manual Acknowledge",
+          Remarks: "Marked as proper by user"
+        })
+        .eq("id", recordId);
+
+      if (updateError) throw updateError;
+
+      toast.success(`✅ SUCCESS: Record marked as Acknowledged (Proper).`);
+      
+      // Refresh data
+      setTimeout(() => {
+        fetchMismatchSheetData();
+      }, 500);
+    } catch (error) {
+      console.error("Acknowledge error:", error);
+      toast.error(`❌ UPDATE FAILED: ${error.message}`);
     }
   };
 
@@ -1043,10 +1079,12 @@ export default function MismatchAnalysis() {
         diffSummary,
 
         // Explicit Mapping for Mismatch Summaries
-        materialRate: lift.materialRate || mismatchItem["Material Rate (Lift)"],
-        poRate: po.poRate || mismatchItem["PO Rate (Original)"],
+        materialRate: lift.materialRate || mismatchItem["Rate"] || mismatchItem["Material Rate (Lift)"],
+        poRate: po.poRate || mismatchItem["PO Rate"] || mismatchItem["PO Rate (Original)"],
         liftingQty: lift.liftingQty || lift.quantity || mismatchItem["Billing Quantity"],
         poQuantity: po.poQuantity || po.quantity || mismatchItem["Quantity (PO)"],
+        billQuantity: lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Qty"] || "N/A",
+        actualQuantity: lift.actualQuantity || mismatchItem["Actual Quantity"] || "N/A",
       };
     },
     [liftAccountsData, purchaseOrdersData, tlData],
@@ -1058,7 +1096,8 @@ export default function MismatchAnalysis() {
         (item) =>
           item["Status"] !== "Credit Notes" &&
           item["Status"] !== "Others" &&
-          item["Status"] !== "Purchase Return",
+          item["Status"] !== "Purchase Return" &&
+          item["Status"] !== "Acknowledge",
       )
       .map(getHybridRow)
       .filter(row => row.mismatchTypes.length > 0);
@@ -1159,24 +1198,45 @@ export default function MismatchAnalysis() {
 
       if (activeTab === "history") {
         return (
-          <Badge
-            variant="outline"
-            className="bg-green-50 text-[#6b8e2f] border-green-200"
-          >
-            Submitted
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="bg-green-50 text-[#6b8e2f] border-green-200"
+            >
+              Submitted
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-200 font-bold"
+              onClick={() => handleAcknowledgeMismatch(item)}
+              title="Mark as Proper"
+              disabled={item.Status === "Acknowledge"}
+            >
+              {item.Status === "Acknowledge" ? "Proper" : "OK"}
+            </Button>
+          </div>
         );
       }
 
       return (
-        <div className="flex gap-2 whitespace-nowrap">
+        <div className="flex gap-2 whitespace-nowrap items-center">
           <button
             onClick={() => handleCorrectData(item, mismatchType)}
-            className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-green-500 to-green-600 rounded-md hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-linear-to-r from-green-500 to-green-600 rounded-md hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <Edit className="w-3 h-3 mr-1" />
             Management Approval
           </button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-200 font-bold"
+            onClick={() => handleAcknowledgeMismatch(item)}
+            title="Mark as Proper"
+          >
+            OK
+          </Button>
         </div>
       );
     }
@@ -1597,7 +1657,7 @@ export default function MismatchAnalysis() {
                   "history",
                   "Resolution History",
                   "View previously resolved mismatches and management actions taken.",
-                  mismatchSheetData.filter(item => item.Status !== "Pending"),
+                  mismatchSheetData.filter(item => item.Status !== "Pending" && item.Status !== "Not Done"),
                   HISTORY_COLUMNS_META,
                   visibleHistoryColumns,
                 )}

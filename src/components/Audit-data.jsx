@@ -22,6 +22,7 @@ const CallTrackerPage = () => {
   const [loadingRectify, setLoadingRectify] = useState(true); // Separate loading state for Supabase rectify data
   const [loadingReAudit, setLoadingReAudit] = useState(true); // Separate loading state for Supabase re-audit data
   const [loadingAll, setLoadingAll] = useState(true); // Separate loading state for Supabase all data
+  const [liftAccountsRawData, setLiftAccountsRawData] = useState([]); // Raw LIFT-ACCOUNTS records
   const [error, setError] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
   const [formData, setFormData] = useState({});
@@ -425,6 +426,74 @@ const CallTrackerPage = () => {
       } catch (error) {
         console.error('Submission error:', error);
         toast.error(`❌ SUBMISSION FAILED: ${error.message}`);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Check if this is a NEW LIFT-ACCOUNTS record (needs insertion into Mismatch)
+    const newLiftRow = auditMismatchData.find(r => r.id === editingRow && r.isNewFromLift);
+
+    if (newLiftRow) {
+      setSubmitting(true);
+      try {
+        const currentDate = new Date();
+        const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
+
+        // Get the full raw data for this lift to populate Mismatch columns
+        const rawLift = liftAccountsRawData.find(l => String(l["Lift No"] || "").trim() === newLiftRow.liftNumber);
+        
+        if (!rawLift) throw new Error("Could not find raw lift data for insertion");
+
+        // Insert new record into Mismatch table
+        const { data: insertData, error: insertError } = await supabase
+          .from("Mismatch")
+          .insert({
+            "Lift ID": newLiftRow.liftNumber,
+            "Type": newLiftRow.type || rawLift["Type"] || "",
+            "Bill No.": newLiftRow.billNo || rawLift["Bill No."] || "",
+            "Party Name": newLiftRow.partyName || rawLift["Vendor Name"] || "",
+            "Product Name": newLiftRow.productName || rawLift["Raw Material Name"] || "",
+            "Qty": newLiftRow.qty || rawLift["Qty"] || "",
+            "Area Lifting": newLiftRow.areaLifting || rawLift["Area lifting"] || "",
+            "Truck No.": newLiftRow.truckNo || rawLift["Truck No."] || "",
+            "Transporter Name": newLiftRow.transporterName || rawLift["Transporter Name"] || "",
+            "Bill Image": newLiftRow.billImage || rawLift["Bill Image"] || "",
+            "Bilty No.": newLiftRow.biltyNo || rawLift["Bilty No."] || "",
+            "Rate": newLiftRow.rate || rawLift["Rate"] || "",
+            "Truck Qty": newLiftRow.truckQty || rawLift["Truck Qty"] || "",
+            "Bilty Image": newLiftRow.biltyImage || rawLift["Bilty Image"] || "",
+            "Weight Slip": newLiftRow.weightSlip || rawLift["Image Of Weight Slip"] || "",
+            "Total Freight": newLiftRow.totalFreight || rawLift["Total Freight"] || "",
+            "Firm Name": newLiftRow.firmName || rawLift["Firm Name"] || "",
+            "Vendor Name": newLiftRow.vendorName || rawLift["Vendor Name"] || "",
+            "Date Of Receiving": newLiftRow.dateOfReceiving || rawLift["Date Of Receiving"] || "",
+            "Actual2": actualDateTime,
+            "Planned2": rawLift["Timestamp"] || actualDateTime,
+            "Status2": formData.status || 'Done',
+            "Remarks2": formData.remarks || '',
+            "Planned3": actualDateTime // Automatically plan the next stage (Rectify)
+          })
+          .select();
+
+        if (insertError) throw insertError;
+
+        // Mark as submitted
+        setSubmittedRows(prev => new Set([...prev, `AUDIT_${editingRow}`]));
+        setEditingRow(null);
+
+        toast.success(`✅ SUCCESS: New record created in Mismatch table for: ${newLiftRow.liftNumber}`);
+
+        // Refresh data
+        setTimeout(() => {
+          fetchAuditDataFromSupabase();
+          fetchAllDataFromSupabase();
+        }, 1000);
+
+      } catch (error) {
+        console.error('Insertion error:', error);
+        toast.error(`❌ INSERTION FAILED: ${error.message}`);
       } finally {
         setSubmitting(false);
       }
@@ -989,7 +1058,7 @@ const CallTrackerPage = () => {
       ] = await Promise.all([
         supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
         supabase.from("fullkittin").select('"Bilty Number"'),
-        supabase.from("LIFT-ACCOUNTS").select('"Lift No", "Alumina Percent Age %", "Iron Percent Age %", "AP Percent Age %", "BD Percent Age %", "Status", "Physical Condition", "Moisture"'),
+        supabase.from("LIFT-ACCOUNTS").select("*"),
         supabase.from("TL").select("*")
       ]);
 
@@ -1000,6 +1069,9 @@ const CallTrackerPage = () => {
 
       // Build a set of Bilty Numbers that have been kitted
       const kittedBiltyNos = new Set((fullkittingData || []).map(fk => String(fk["Bilty Number"] || "").trim()).filter(Boolean));
+
+      // Store raw lift accounts for submission lookup
+      setLiftAccountsRawData(liftAccountsData || []);
 
       // Build a map of Lift No → actual lab values from LIFT-ACCOUNTS
       const liftLabMap = {};
@@ -1013,105 +1085,23 @@ const CallTrackerPage = () => {
             bd: row["BD Percent Age %"],
             status: row["Status"],
             physicalCondition: row["Physical Condition"],
-            moisture: row["Moisture"]
+            moisture: row["Moisture"],
+            raw: row
           };
         }
       });
 
-      // Filter: Show data ONLY when Actual2 is null AND Bilty No is present (after Bilty stage)
+      // Filter: Show Mismatch data ONLY when Actual2 is null
       const filteredByActual = (mismatchData || []).filter(row => {
         if (row.Actual2) return false;
+        return true;
+      });
 
-        // MISMATCH BLOCK: Only block if lab values ACTUALLY EXIST in LIFT-ACCOUNTS
-        // AND they show a real mismatch. If lab values are empty → no test yet → DO NOT block.
-        const resolvedStatuses = ["Credit Notes", "Credit Notes - Transporter", "Purchase Return", "Others"];
-        const currentStatus = String(row["Status"] || "").trim();
-        const isResolved = resolvedStatuses.includes(currentStatus);
-
-        if (!isResolved) {
-          const liftId = String(row["Lift ID"] || "").trim();
-          const labData = liftLabMap[liftId] || {};
-
-          const actualAlumina = parseFloat(labData.alumina ?? "");
-          const actualIron = parseFloat(labData.iron ?? "");
-          const actualAp = parseFloat(labData.ap ?? "");
-          const actualBd = parseFloat(labData.bd ?? "");
-          
-          const labAluminaExists = !isNaN(actualAlumina);
-          const labIronExists = !isNaN(actualIron);
-          const labApExists = !isNaN(actualAp);
-          const labBdExists = !isNaN(actualBd);
-
-          // Get PO values for comparison
-          const rawPo = String(row["Indent Number"] || row["Indent No"] || row["Indent No."] || '').trim().toUpperCase();
-          const parts = rawPo.split('/');
-          const normalizedPo = parts.length > 1 ? parts.slice(1).join('/') : rawPo;
-          
-          const expectedAluminaStr = poToAluminaMap[rawPo] || poToAluminaMap[normalizedPo] || "";
-          const expectedIronStr = poToIronMap[rawPo] || poToIronMap[normalizedPo] || "";
-          
-          const expectedAlumina = parseFloat(expectedAluminaStr);
-          const expectedIron = parseFloat(expectedIronStr);
-
-          // Get TL values for comparison (matching Mis-match.jsx exactly)
-          const productNameForTL = String(row["Product Name"] || "").trim().toLowerCase();
-          const tlRow = (tlData || []).find((tl) => String(tl.productName || "").trim().toLowerCase() === productNameForTL) || {};
-          const tlAluminaMinVal = parseFloat(tlRow.tlAluminaMin ?? "");
-          const tlIronMaxVal = parseFloat(tlRow.tlIronMax ?? "");
-          const tlApMaxVal = parseFloat(tlRow.tlApMax ?? "");
-          const tlBdMinVal = parseFloat(tlRow.tlBdMin ?? "");
-
-          // Only check mismatch if lab values exist
-          const hasAluminaStored = parseFloat(row["Alumina Difference"] || 0) !== 0;
-          const hasIronStored = parseFloat(row["Iron Difference"] || 0) !== 0;
-          const hasApStored = parseFloat(row["AP Difference"] || 0) !== 0;
-          const hasBdStored = parseFloat(row["BD Difference"] || 0) !== 0;
-
-          // PO-based live check (User explicit rule)
-          const hasAluminaPoLive = labAluminaExists && !isNaN(expectedAlumina) && (expectedAlumina > actualAlumina);
-          const hasIronPoLive = labIronExists && !isNaN(expectedIron) && (expectedIron < actualIron);
-
-          // TL-based live check (Mis-match.jsx logic)
-          const hasAluminaTlLive = labAluminaExists && !isNaN(tlAluminaMinVal) && actualAlumina < tlAluminaMinVal;
-          const hasIronTlLive = labIronExists && !isNaN(tlIronMaxVal) && actualIron > tlIronMaxVal;
-          const hasApTlLive = labApExists && !isNaN(tlApMaxVal) && actualAp > tlApMaxVal;
-          const hasBdTlLive = labBdExists && !isNaN(tlBdMinVal) && actualBd < tlBdMinVal;
-
-          const isRejected = String(labData.status || "").toLowerCase() === "rejected";
-          const isBadPhysical = String(labData.physicalCondition || "") === "Bad" && String(labData.moisture || "") === "Yes";
-
-          const hasAluminaMismatch = hasAluminaStored || hasAluminaPoLive || hasAluminaTlLive;
-          const hasIronMismatch = hasIronStored || hasIronPoLive || hasIronTlLive;
-          const hasApMismatch = hasApStored || hasApTlLive;
-          const hasBdMismatch = hasBdStored || hasBdTlLive;
-
-          const hasLabMismatch = hasAluminaMismatch || hasIronMismatch || hasApMismatch || hasBdMismatch || isRejected || isBadPhysical;
-
-          const hasRateMismatch = parseFloat(row["Rate Difference"] || 0) !== 0;
-          const hasQtyMismatch = parseFloat(row["Quantity Difference"] || 0) < -0.001 ||
-                                 parseFloat(row["Diff Qty"] || 0) < -0.001 ||
-                                 (row["Qty Diff Status"] === "Mismatch" && parseFloat(row["Quantity Difference"] || 0) < 0);
-
-          const isActiveMismatch = hasLabMismatch || hasRateMismatch || hasQtyMismatch;
-
-          // If it has an ACTIVE mismatch → block from Audit
-          if (isActiveMismatch) return false;
-        }
-
-        // NEW FLOW: Show in Audit as soon as Bilty No. is present in LIFT-ACCOUNTS
-        const rowLiftId = String(row["Lift ID"] || "").trim();
-        const biltyNo = liftBiltyNoMap[rowLiftId] || row["Bilty No."] || row["Bilty No"] || "";
-        
-        if (String(biltyNo).trim() !== "") return true;
-
-        // Bypass flow: Keep Skip Kitting Criteria just in case Bilty is delayed but kitting is skipped
-        const firmName = String(row["Firm Name"] || "").trim().toUpperCase();
-        const transporterName = String(row["Transporter Name"] || "").trim().toUpperCase();
-
-        if ((firmName === "RKL" || firmName === "PURAB") && transporterName === "FOR") return true;
-        if ((firmName === "PMMPL" || firmName === "PMPL") && (transporterName === "EX FACTORY TRANSPORTER" || transporterName === "EX FACTORY")) return true;
-
-        return false;
+      // IDENTIFY LIFT-ACCOUNTS records not yet in Mismatch
+      const mismatchLiftIds = new Set((mismatchData || []).map(m => String(m["Lift ID"] || "").trim()).filter(Boolean));
+      const newFromLift = (liftAccountsData || []).filter(la => {
+        const liftNo = String(la["Lift No"] || "").trim();
+        return liftNo && !mismatchLiftIds.has(liftNo);
       });
 
       // Map Supabase data to match the expected format
@@ -1161,8 +1151,57 @@ const CallTrackerPage = () => {
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || ''
       }));
 
+      // Map NEW LIFT-ACCOUNTS records to the Audit format
+      const formattedLiftData = newFromLift.map((row, index) => ({
+        id: `lift_${row.id || index}`,
+        timestamp: formatDate(row["Timestamp"]) || '',
+        liftNumber: row["Lift No"] || '',
+        type: row["Type"] || '',
+        billNo: row["Bill No."] || '',
+        partyName: row["Vendor Name"] || '',
+        productName: row["Raw Material Name"] || '',
+        qty: row["Qty"] || '',
+        areaLifting: row["Area lifting"] || '',
+        truckNo: row["Truck No."] || '',
+        transporterName: row["Transporter Name"] || '',
+        billImage: row["Bill Image"] || '',
+        biltyNo: row["Bilty No."] || '',
+        typeOfRate: row["Type Of Transporting Rate"] || '',
+        rate: row["Rate"] || '',
+        truckQty: row["Truck Qty"] || '',
+        biltyImage: row["Bilty Image"] || '',
+        qtyDifferenceStatus: '0.000',
+        differenceQty: '0.000',
+        weightSlip: row["Image Of Weight Slip"] || '',
+        totalFreight: row["Total Freight"] || '',
+        status: row["Status"] || '',
+        remarks: '',
+        currentStage: 'AUDIT',
+        isNewFromLift: true, // Mark for submission handling
+        supabaseId: `lift_${row.id || index}`, // Unique ID for deduplication in ALL tab
+        indentNumber: (() => {
+          const raw = String(row["Indent no."] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToIndentMap[raw] || poToIndentMap[normalized] || row["Indent no."] || '';
+        })(),
+        firmName: row["Firm Name"] || '',
+        poRate: (() => {
+          const raw = String(row["Indent no."] || '').trim().toUpperCase();
+          const parts = raw.split('/');
+          const normalized = parts.length > 1 ? parts.slice(1).join('/') : raw;
+          return poToRateMap[raw] || poToRateMap[normalized] || '';
+        })(),
+        vendorName: row["Vendor Name"] || '',
+        liftingQty: row["Actual Quantity"] || row["Qty"] || '',
+        dateOfReceiving: row["Date Of Receiving"] || ''
+      }));
+
+      // Combine existing Mismatch Audit rows and new LIFT-ACCOUNTS rows
+      const allAuditRows = [...formattedData, ...formattedLiftData];
+
       // Filter out submitted rows
-      const filteredData = formattedData.filter(item => {
+      const filteredData = allAuditRows.filter(item => {
         const submittedKey = `AUDIT_${item.id}`;
         return !submittedRows.has(submittedKey);
       });
@@ -1571,23 +1610,11 @@ const CallTrackerPage = () => {
         const rowBiltyNo = String(row["Bilty No."] || row["Bilty No"] || "").trim();
         const isKitted = rowBiltyNo && kittedBiltyNos.has(rowBiltyNo);
 
-        if ((row.Planned2 || isKitted) && !row.Actual2) activeStages.push('AUDIT');
+        if (!row.Actual2) activeStages.push('AUDIT');
         if (row.Planned3 && !row.Actual3) activeStages.push('RECTIFY');
         if (row.Planned4 && !row.Actual4) activeStages.push('TALLY_ENTRY');
         if (row.Planned5 && !row.Actual5) activeStages.push('REAUDIT');
         if (row.Planned6 && !row.Actual6) activeStages.push('BILL_ENTRY');
-
-        // Check if it's a skipped record that hasn't been audited
-        if (!row.Actual2 && !row.Planned2) {
-          const firmName = String(row["Firm Name"] || "").trim().toUpperCase();
-          const transporterName = String(row["Transporter Name"] || "").trim().toUpperCase();
-
-          if ((firmName === "RKL" || firmName === "PURAB") && transporterName === "FOR") {
-            activeStages.push('AUDIT');
-          } else if ((firmName === "PMMPL" || firmName === "PMPL") && (transporterName === "EX FACTORY TRANSPORTER" || transporterName === "EX FACTORY")) {
-            activeStages.push('AUDIT');
-          }
-        }
 
         // Return the first active stage found, or COMPLETED if none
         return activeStages.length > 0 ? activeStages[0] : 'COMPLETED';
@@ -1951,6 +1978,10 @@ const CallTrackerPage = () => {
       String(item.transporterName || '').toLowerCase().includes(searchLower) ||
       String(item.remarks || '').toLowerCase().includes(searchLower)
     );
+  }).sort((a, b) => {
+    const liftA = String(a.liftNumber || '');
+    const liftB = String(b.liftNumber || '');
+    return liftB.localeCompare(liftA, undefined, { numeric: true, sensitivity: 'base' });
   });
 
   // Calculate counts for each tab, respecting the firm filter
