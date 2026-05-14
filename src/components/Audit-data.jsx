@@ -435,7 +435,7 @@ const CallTrackerPage = () => {
     // Check if this is a NEW LIFT-ACCOUNTS record (needs insertion into Mismatch)
     const newLiftRow = auditMismatchData.find(r => r.id === editingRow && r.isNewFromLift);
 
-    if (newLiftRow) {
+    if (newLiftRow) { 
       setSubmitting(true);
       try {
         const currentDate = new Date();
