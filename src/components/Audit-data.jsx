@@ -387,8 +387,8 @@ const CallTrackerPage = () => {
   const submitFormData = async () => {
     if (!editingRow) return;
 
-    // Check if this is an AUDIT tab item from Supabase
-    const auditRow = auditMismatchData.find(r => r.id === editingRow);
+    // Check if this is an AUDIT tab item from Supabase (existing record)
+    const auditRow = auditMismatchData.find(r => r.id === editingRow && !r.isNewFromLift);
 
     if (auditRow) {
       // Handle AUDIT tab submission to Supabase
@@ -446,29 +446,34 @@ const CallTrackerPage = () => {
         
         if (!rawLift) throw new Error("Could not find raw lift data for insertion");
 
+        const parseNumeric = (val) => {
+          if (val === null || val === undefined || val === '') return null;
+          const num = parseFloat(val);
+          return isNaN(num) ? null : num;
+        };
+
         // Insert new record into Mismatch table
         const { data: insertData, error: insertError } = await supabase
           .from("Mismatch")
           .insert({
             "Lift ID": newLiftRow.liftNumber,
+            "Lift Number": newLiftRow.liftNumber,
             "Type": newLiftRow.type || rawLift["Type"] || "",
             "Bill No.": newLiftRow.billNo || rawLift["Bill No."] || "",
             "Party Name": newLiftRow.partyName || rawLift["Vendor Name"] || "",
             "Product Name": newLiftRow.productName || rawLift["Raw Material Name"] || "",
-            "Qty": newLiftRow.qty || rawLift["Qty"] || "",
+            "Qty": parseNumeric(newLiftRow.qty || rawLift["Qty"]),
             "Area Lifting": newLiftRow.areaLifting || rawLift["Area lifting"] || "",
             "Truck No.": newLiftRow.truckNo || rawLift["Truck No."] || "",
             "Transporter Name": newLiftRow.transporterName || rawLift["Transporter Name"] || "",
             "Bill Image": newLiftRow.billImage || rawLift["Bill Image"] || "",
             "Bilty No.": newLiftRow.biltyNo || rawLift["Bilty No."] || "",
-            "Rate": newLiftRow.rate || rawLift["Rate"] || "",
-            "Truck Qty": newLiftRow.truckQty || rawLift["Truck Qty"] || "",
+            "Rate": parseNumeric(newLiftRow.rate || rawLift["Rate"]),
+            "Truck Qty": parseNumeric(newLiftRow.truckQty || rawLift["Truck Qty"]),
             "Bilty Image": newLiftRow.biltyImage || rawLift["Bilty Image"] || "",
             "Weight Slip": newLiftRow.weightSlip || rawLift["Image Of Weight Slip"] || "",
-            "Total Freight": newLiftRow.totalFreight || rawLift["Total Freight"] || "",
+            "Total Freight": parseNumeric(newLiftRow.totalFreight || rawLift["Total Freight"]),
             "Firm Name": newLiftRow.firmName || rawLift["Firm Name"] || "",
-            "Vendor Name": newLiftRow.vendorName || rawLift["Vendor Name"] || "",
-            "Date Of Receiving": newLiftRow.dateOfReceiving || rawLift["Date Of Receiving"] || "",
             "Actual2": actualDateTime,
             "Planned2": rawLift["Timestamp"] || actualDateTime,
             "Status2": formData.status || 'Done',
