@@ -1101,7 +1101,8 @@ const CallTrackerPage = () => {
       const mismatchLiftIds = new Set((mismatchData || []).map(m => String(m["Lift ID"] || "").trim()).filter(Boolean));
       const newFromLift = (liftAccountsData || []).filter(la => {
         const liftNo = String(la["Lift No"] || "").trim();
-        return liftNo && !mismatchLiftIds.has(liftNo);
+        // Only show records that have been received (Actual 1 is set)
+        return liftNo && !mismatchLiftIds.has(liftNo) && la["Actual 1"];
       });
 
       // Map Supabase data to match the expected format
