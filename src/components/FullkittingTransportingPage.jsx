@@ -187,58 +187,25 @@ export default function FullkittingTransportingPage() {
             });
 
             let parsedData = (liftData || []).filter(row => {
-                const biltyNo = String(row["Bilty No."] || "").trim();
-                if (biltyNo === "") return false;
-
-                // Skip Kitting Logic
-                const firmName = String(row["Firm Name"] || "").trim().toUpperCase();
-                const transporterName = String(row["Transporter Name"] || "").trim().toUpperCase();
-
-                // Condition 1: RKL or Purab AND Transporter is "For"
-                if ((firmName === "RKL" || firmName === "PURAB") && transporterName === "FOR") {
-                    return false;
-                }
-                // Condition 2: PMMPL or PMPL AND Transporter is "Ex Factory Transporter"
-                if ((firmName === "PMMPL" || firmName === "PMPL") && (transporterName === "EX FACTORY TRANSPORTER" || transporterName === "EX FACTORY")) {
-                    return false;
-                }
-
-                // Quality Gating: Block only if there is a Mismatch record with Pending/Purchase Return status
-                // AND at least one actual difference value exists (non-zero)
                 const liftNum = String(row["Lift No"] || "").trim();
                 const mismatch = mismatchLookup[liftNum];
+                
+                // Prioritize updated data from Mismatch table over original LIFT-ACCOUNTS data
+                const biltyNo = String(mismatch?.["Bilty No."] || row["Bilty No."] || "").trim();
+                
+                // Determine if already kitted
+                const isDone = doneLiftNos.has(liftNum) || (biltyNo && doneLiftNos.has(`bilty:${biltyNo}`));
 
-                // Check stored differences in Mismatch table
-                const hasRateDiff = Math.abs(parseFloat(mismatch?.["Rate Difference"] || 0)) > 0.001;
-                const hasQtyDiff = parseFloat(mismatch?.["Quantity Difference"] || mismatch?.["Diff Qty"] || 0) < -0.001;
-                const hasAluminaDiff = Math.abs(parseFloat(mismatch?.["Alumina Difference"] || 0)) > 0;
-                const hasIronDiff = Math.abs(parseFloat(mismatch?.["Iron Difference"] || 0)) > 0;
-                const hasApDiff = Math.abs(parseFloat(mismatch?.["AP Difference"] || 0)) > 0;
-                const hasBdDiff = Math.abs(parseFloat(mismatch?.["BD Difference"] || 0)) > 0;
+                // If already kitted, it MUST show up in the History tab, so bypass blocking filters
+                if (isDone) {
+                    return true;
+                }
 
-                // LIVE comparison: check lab values from LIFT-ACCOUNTS directly against TL thresholds
-                const productKey = String(row["Raw Material Name"] || "").trim().toLowerCase();
-                const tlRow = tlLookup[productKey];
-                const labAlumina = parseFloat(row["Alumina Percent Age %"] ?? "");
-                const labIron = parseFloat(row["Iron Percent Age %"] ?? "");
-                const labAp = parseFloat(row["AP Percent Age %"] ?? "");
-                const labBd = parseFloat(row["BD Percent Age %"] ?? "");
-                const tlAluminaMin = parseFloat(tlRow?.["TL Alumina"] ?? "");
-                const tlIronMax = parseFloat(tlRow?.["TL Iron"] ?? "");
-                const tlApMax = parseFloat(tlRow?.["AP%"] ?? "");
-                const tlBdMin = parseFloat(tlRow?.["BD%"] ?? "");
+                // --- PENDING KITTING LOGIC BELOW ---
 
-                // Only gate if lab test has been done (Actual 2 is set)
-                const labDone = row["Actual 2"] && String(row["Actual 2"]).trim() !== "";
-                const hasAluminaLive = labDone && !isNaN(labAlumina) && !isNaN(tlAluminaMin) && labAlumina < tlAluminaMin;
-                const hasIronLive = labDone && !isNaN(labIron) && !isNaN(tlIronMax) && labIron > tlIronMax;
-                const hasApLive = labDone && !isNaN(labAp) && !isNaN(tlApMax) && labAp > tlApMax;
-                const hasBdLive = labDone && !isNaN(labBd) && !isNaN(tlBdMin) && labBd < tlBdMin;
+                // (Rules for requiring Bilty No. and skipping specific Firm/Transporter combinations have been removed as per user request)
 
-                const hasRealMismatch = hasRateDiff || hasQtyDiff || hasAluminaDiff || hasIronDiff || hasApDiff || hasBdDiff
-                    || hasAluminaLive || hasIronLive || hasApLive || hasBdLive;
-
-                // NEW FLOW: Only show in Full Kitting if Accounts Audit is FULLY DONE 
+                // NEW FLOW: Only show in Full Kitting (Pending) if Accounts Audit pipeline is FULLY DONE 
                 // (Wait for Actual6 which corresponds to the Bill Received stage completion)
                 if (!mismatch?.Actual6) {
                     return false;
@@ -247,10 +214,13 @@ export default function FullkittingTransportingPage() {
                 return true;
             }).map((row) => {
                 const liftNum = String(row["Lift No"] || "").trim();
-                const biltyNo = String(row["Bilty No."] || "").trim();
+                const mismatch = mismatchLookup[liftNum];
+                
+                const biltyNo = String(mismatch?.["Bilty No."] || row["Bilty No."] || "").trim();
                 const indentNum = String(row["Indent no."] || "").trim();
                 const poInfo = poLookup[indentNum] || {};
-                const isDone = doneLiftNos.has(liftNum) || doneLiftNos.has(`bilty:${biltyNo}`);
+                const isDone = doneLiftNos.has(liftNum) || (biltyNo && doneLiftNos.has(`bilty:${biltyNo}`));
+                const transporterName = String(mismatch?.["Transporter Name"] || mismatch?.["Transporter"] || row["Transporter Name"] || "").trim();
 
                 return {
                     id: `kitting-${row.id}`,
@@ -262,7 +232,7 @@ export default function FullkittingTransportingPage() {
                     liftNumber: liftNum,
                     partyName: String(row["Vendor Name"] || "").trim(),
                     productName: String(row["Raw Material Name"] || "").trim(),
-                    transporterName: String(row["Transporter Name"] || "").trim(),
+                    transporterName: transporterName,
                     kittingLink: null,
                     isPending: !isDone,
                     isHistory: isDone,
