@@ -74,6 +74,10 @@ const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Bill Rate", dataKey: "materialRate", toggleable: true },
   { header: "Bill Qty", dataKey: "billQuantity", toggleable: true },
   { header: "Receive Qty", dataKey: "actualQuantity", toggleable: true },
+  { header: "PO Al2O3%", dataKey: "poAlumina", toggleable: true },
+  { header: "PO Fe%", dataKey: "poIron", toggleable: true },
+  { header: "Lab Al2O3%", dataKey: "aluminaPercent", toggleable: true },
+  { header: "Lab Fe%", dataKey: "ironPercent", toggleable: true },
 ];
 
 const HISTORY_COLUMNS_META = [
@@ -134,7 +138,10 @@ const HISTORY_COLUMNS_META = [
     isLink: true,
     linkText: "View",
   },
-  { header: "Total Freight", dataKey: "Total Freight", toggleable: true },
+  { header: "PO Al2O3%", dataKey: "poAlumina", toggleable: true },
+  { header: "PO Fe%", dataKey: "poIron", toggleable: true },
+  { header: "Lab Al2O3%", dataKey: "aluminaPercent", toggleable: true },
+  { header: "Lab Fe%", dataKey: "ironPercent", toggleable: true },
   {
     header: "Actions",
     dataKey: "actions",
@@ -754,10 +761,11 @@ export default function MismatchAnalysis() {
           canViewFirm(user.firmName, lift.firmName),
         );
       }
-      // Show only Independent type lifts
-      formattedData = formattedData.filter(
-        (lift) => String(lift.liftType || "").toLowerCase() === "independent",
-      );
+      
+      // Removed strict 'independent' filter to allow lookups for all lift types in Mismatch
+      // formattedData = formattedData.filter(
+      //   (lift) => String(lift.liftType || "").toLowerCase() === "independent",
+      // );
 
       setLiftAccountsData(formattedData);
     } catch (err) {
@@ -834,6 +842,8 @@ export default function MismatchAnalysis() {
           orderCancelQty: String(row["Order Cancel Qty"] || "").trim(),
           reasonOfCancelQty: String(row["Reason Of Cancel Qty"] || "").trim(),
           poStatus: String(row["Status"] || "").trim(),
+          poAlumina: String(row["Alumina %"] || "").trim(),
+          poIron: String(row["Iron %"] || "").trim(),
           poTimestamp: poTimestamp,
         };
       });
@@ -942,18 +952,19 @@ export default function MismatchAnalysis() {
   // Calculate mismatch data (Hybrid: Differences from DB, Details from Source Tables)
   const getHybridRow = useCallback(
     (mismatchItem) => {
+      const liftId = String(mismatchItem["Lift Number"] || mismatchItem["Lift ID"] || "").trim();
+      const indentId = String(mismatchItem["Indent Number"] || mismatchItem["Indent Id."] || "").trim();
+
       const lift =
         liftAccountsData.find(
           (l) =>
-            String(l.liftNo || "").trim() ===
-            String(mismatchItem["Lift Number"] || "").trim(),
+            String(l.liftNo || "").trim() === liftId
         ) || {};
 
       const po =
         purchaseOrdersData.find(
           (p) =>
-            String(p.indentNo || "").trim() ===
-            String(mismatchItem["Indent Number"] || "").trim(),
+            String(p.indentNo || "").trim() === indentId
         ) || {};
 
       // Match TL row by Product Name (from Mismatch table) or Raw Material Name (from LIFT-ACCOUNTS)
@@ -1085,6 +1096,14 @@ export default function MismatchAnalysis() {
         poQuantity: po.poQuantity || po.quantity || mismatchItem["Quantity (PO)"],
         billQuantity: lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Qty"] || "N/A",
         actualQuantity: lift.actualQuantity || mismatchItem["Actual Quantity"] || "N/A",
+        
+        // Lab Data Explicit Mapping
+        aluminaPercent: lift.aluminaPercent || "",
+        ironPercent: lift.ironPercent || "",
+        apPercent: lift.apPercent || "",
+        bdPercent: lift.bdPercent || "",
+        poAlumina: po.poAlumina || "",
+        poIron: po.poIron || ""
       };
     },
     [liftAccountsData, purchaseOrdersData, tlData],
@@ -1657,7 +1676,9 @@ export default function MismatchAnalysis() {
                   "history",
                   "Resolution History",
                   "View previously resolved mismatches and management actions taken.",
-                  mismatchSheetData.filter(item => item.Status !== "Pending" && item.Status !== "Not Done"),
+                  mismatchSheetData
+                    .filter(item => item.Status !== "Pending" && item.Status !== "Not Done")
+                    .map(getHybridRow),
                   HISTORY_COLUMNS_META,
                   visibleHistoryColumns,
                 )}
