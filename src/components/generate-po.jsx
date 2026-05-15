@@ -606,7 +606,11 @@ export default function CreatePO() {
       for (const indent of formData.indents) {
         const { error } = await supabase
           .from("INDENT-PO")
-          .update(updates)
+          .update({
+            ...updates,
+            "Approved Qty": Number(indent.quantity) || 0,
+            Rate: Number(indent.rate) || 0,
+          })
           .eq('"Indent Id."', indent.id);
         if (error) throw error;
       }
@@ -1227,9 +1231,8 @@ export default function CreatePO() {
                         <td className="px-4 py-3">
                           <Input
                             type="number"
-                            className={`w-20 text-center h-9 ${mode === "revise" ? "" : "bg-gray-50"}`}
+                            className="w-20 text-center h-9 no-spinner"
                             value={item.quantity || 0}
-                            readOnly={mode !== "revise"}
                             onChange={(e) =>
                               updateIndent(index, "quantity", e.target.value)
                             }
@@ -1245,7 +1248,7 @@ export default function CreatePO() {
                         <td className="px-4 py-3">
                           <Input
                             type="number"
-                            className="w-24 text-center h-9"
+                            className="w-24 text-center h-9 no-spinner"
                             value={item.rate || 0}
                             onChange={(e) =>
                               updateIndent(index, "rate", e.target.value)
@@ -1255,7 +1258,7 @@ export default function CreatePO() {
                         <td className="px-4 py-3">
                           <Input
                             type="number"
-                            className="w-16 text-center h-9"
+                            className="w-16 text-center h-9 no-spinner"
                             value={item.gstPercent || 0}
                             onChange={(e) =>
                               updateIndent(index, "gstPercent", e.target.value)
