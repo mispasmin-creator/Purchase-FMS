@@ -1907,36 +1907,36 @@ export default function LiftMaterial() {
                       </p>
                     </div>
                   ) : (
-                    <div className="flex-1 overflow-x-auto rounded-b-lg">
-                      <Table>
-                        <TableHeader className="sticky top-0 z-10 bg-muted/50">
-                          <TableRow>
+                    <div className="flex-1 overflow-auto max-h-[calc(100vh-500px)] relative custom-scrollbar rounded-b-lg">
+                      <table className="w-full text-sm border-collapse">
+                        <thead className="sticky top-0 z-30">
+                          <tr className="bg-gray-50 border-b border-gray-200">
                             {PO_COLUMNS_META.filter(
                               (col) =>
                                 col.alwaysVisible ||
                                 visiblePoColumns[col.dataKey] !== false,
                             ).map((col) => (
-                              <TableHead
+                              <th
                                 key={col.dataKey}
-                                className="px-3 py-2 text-xs whitespace-nowrap"
+                                className="px-3 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap"
                               >
                                 {col.header}
-                              </TableHead>
+                              </th>
                             ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
                           {filteredPurchaseOrders.map((po) => (
-                            <TableRow
+                            <tr
                               key={po.id}
-                              className={`hover:bg-green-50/50 ${selectedPO?.id === po.id ? "bg-green-100 ring-1 ring-green-300" : ""}`}
+                              className={`hover:bg-green-50/50 transition-colors border-b border-gray-100 ${selectedPO?.id === po.id ? "bg-green-100 ring-1 ring-green-300" : ""}`}
                             >
                               {PO_COLUMNS_META.filter(
                                 (col) =>
                                   col.alwaysVisible ||
                                   visiblePoColumns[col.dataKey] !== false,
                               ).map((column) => (
-                                <TableCell
+                                <td
                                   key={column.dataKey}
                                   title={String(po[column.dataKey] || "")}
                                   className={`whitespace-nowrap text-xs px-3 py-2 ${
@@ -1988,12 +1988,12 @@ export default function LiftMaterial() {
                                       {renderCell(po, column)}
                                     </span>
                                   )}
-                                </TableCell>
+                                </td>
                               ))}
-                            </TableRow>
+                            </tr>
                           ))}
-                        </TableBody>
-                      </Table>
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </CardContent>
@@ -2139,32 +2139,32 @@ export default function LiftMaterial() {
                       </p>
                     </div>
                   ) : (
-                    <div className="flex-1 overflow-x-auto rounded-b-lg">
-                      <Table>
-                        <TableHeader className="sticky top-0 z-10 bg-muted/50">
-                          <TableRow>
+                    <div className="flex-1 overflow-auto max-h-[calc(100vh-500px)] relative custom-scrollbar rounded-b-lg">
+                      <table className="w-full text-sm border-collapse">
+                        <thead className="sticky top-0 z-30">
+                          <tr className="bg-gray-50 border-b border-gray-200">
                             {LIFTS_COLUMNS_META.filter(
                               (col) => visibleLiftsColumns[col.dataKey],
                             ).map((col) => (
-                              <TableHead
+                              <th
                                 key={col.dataKey}
-                                className="px-3 py-2 text-xs whitespace-nowrap"
+                                className="px-3 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap"
                               >
                                 {col.header}
-                              </TableHead>
+                              </th>
                             ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
                           {filteredMaterialLifts.map((lift) => (
-                            <TableRow
+                            <tr
                               key={lift.id}
-                              className="hover:bg-green-50/50"
+                              className="hover:bg-green-50/50 transition-colors border-b border-gray-100"
                             >
                               {LIFTS_COLUMNS_META.filter(
                                 (col) => visibleLiftsColumns[col.dataKey],
                               ).map((column) => (
-                                <TableCell
+                                <td
                                   key={column.dataKey}
                                   className={`whitespace-nowrap text-xs px-3 py-2 ${
                                     column.dataKey === "id"
@@ -2179,12 +2179,12 @@ export default function LiftMaterial() {
                                   }`}
                                 >
                                   {renderCell(lift, column)}
-                                </TableCell>
+                                </td>
                               ))}
-                            </TableRow>
+                            </tr>
                           ))}
-                        </TableBody>
-                      </Table>
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </CardContent>
@@ -2273,38 +2273,36 @@ export default function LiftMaterial() {
                       </p>
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead className="text-right">
-                            Indent Qty
-                          </TableHead>
-                          <TableHead className="text-right">Lifted</TableHead>
-                          <TableHead className="text-right">Pending</TableHead>
-                          <TableHead className="text-right">Bill Rate</TableHead>
-                          <TableHead className="text-right">Lift Qty</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                          <TableHead className="text-center">Remove</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                  <div className="overflow-auto max-h-[300px] relative custom-scrollbar">
+                    <table className="w-full text-sm border-collapse">
+                      <thead className="sticky top-0 z-30">
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product</th>
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Indent Qty</th>
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lifted</th>
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Pending</th>
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Rate</th>
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift Qty</th>
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Amount</th>
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-center bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Remove</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-slate-100">
                         {selectedLiftItems.map((item) => (
-                          <TableRow key={item.key}>
-                            <TableCell className="font-medium text-slate-700">
+                          <tr key={item.key} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                            <td className="px-3 py-2 font-medium text-slate-700 text-xs">
                               {item.material}
-                            </TableCell>
-                            <TableCell className="text-right">
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs">
                               {item.maxQuantity}
-                            </TableCell>
-                            <TableCell className="text-right">
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs">
                               {item.liftedQuantity}
-                            </TableCell>
-                            <TableCell className="text-right">
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs">
                               {item.pendingQuantity}
-                            </TableCell>
-                            <TableCell className="text-right">
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs">
                               <Input
                                 type="number"
                                 min="0"
@@ -2316,10 +2314,10 @@ export default function LiftMaterial() {
                                     e.target.value,
                                   )
                                 }
-                                className="h-8 ml-auto text-right w-24"
+                                className="h-8 ml-auto text-right w-24 text-xs"
                               />
-                            </TableCell>
-                            <TableCell className="text-right">
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs">
                               <Input
                                 type="number"
                                 min="0"
@@ -2331,35 +2329,35 @@ export default function LiftMaterial() {
                                     e.target.value,
                                   )
                                 }
-                                className="h-8 ml-auto text-right w-28"
+                                className="h-8 ml-auto text-right w-28 text-xs"
                               />
                               {formErrors[`liftItem-${item.key}`] && (
                                 <p className="mt-1 text-xs text-red-600">
                                   {formErrors[`liftItem-${item.key}`]}
                                 </p>
                               )}
-                            </TableCell>
-                            <TableCell className="text-right">
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs">
                               Rs.{" "}
                               {formatMoney(
                                 toNumber(item.quantityToLift) * item.rate,
                               )}
-                            </TableCell>
-                            <TableCell className="text-center">
+                            </td>
+                            <td className="px-3 py-2 text-center">
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleRemoveLiftItem(item.key)}
-                                className="text-red-600 hover:text-red-700"
+                                className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
                               >
                                 <X className="w-4 h-4" />
                               </Button>
-                            </TableCell>
-                          </TableRow>
+                            </td>
+                          </tr>
                         ))}
-                      </TableBody>
-                    </Table>
+                      </tbody>
+                    </table>
                   </div>
                   {formErrors.liftItems && (
                     <p className="px-4 py-2 text-xs text-red-600 border-t border-slate-200">

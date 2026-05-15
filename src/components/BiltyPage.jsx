@@ -468,29 +468,44 @@ export default function BiltyPage() {
               <p className="font-medium text-foreground">No Data Found</p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-b-lg flex-1">
-              <Table>
-                <TableHeader className="bg-muted/50 sticky top-0 z-10">
-                  <TableRow>
+            <div className="overflow-auto max-h-[calc(100vh-500px)] relative custom-scrollbar rounded-b-lg flex-1">
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 z-30">
+                  <tr className="bg-gray-50 border-b border-gray-200">
                     {columnsMeta.filter(col => visibilityState[col.dataKey]).map(col => (
-                      <TableHead key={col.dataKey} className="whitespace-nowrap text-xs px-3 py-2">{col.header}</TableHead>
+                      <th
+                        key={col.dataKey}
+                        className="px-3 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap"
+                      >
+                        {col.header}
+                      </th>
                     ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
                   {data.map(item => (
-                    <TableRow key={item._id} className="hover:bg-green-50/50">
+                    <tr key={item._id} className="hover:bg-green-50/50 transition-colors border-b border-gray-100">
                       {columnsMeta.filter(col => visibilityState[col.dataKey]).map(column => (
-                        <TableCell key={column.dataKey} className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === 'id' ? 'font-medium text-primary' : 'text-gray-700'}`}>
+                        <td
+                          key={column.dataKey}
+                          className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === 'id' ? 'font-medium text-primary' : 'text-gray-700'}`}
+                        >
                           {column.dataKey === "actionColumn" ? (
-                            <Button onClick={() => handleLiftSelect(item)} size="sm" variant="outline" className="text-xs h-7 px-2">Enter Bilty</Button>
+                            <Button
+                              onClick={() => handleLiftSelect(item)}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7 px-2"
+                            >
+                              Enter Bilty
+                            </Button>
                           ) : renderCell(item, column)}
-                        </TableCell>
+                        </td>
                       ))}
-                    </TableRow>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

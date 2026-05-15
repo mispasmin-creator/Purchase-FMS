@@ -1190,41 +1190,41 @@ export default function CreatePO() {
             <hr />
 
             <div className="grid mx-4">
-              <div className="min-w-full w-full overflow-x-auto rounded-[3px]">
-                <Table>
-                  <TableHeader className="bg-muted">
-                    <TableRow>
-                      <TableHead>S/N</TableHead>
-                      <TableHead>Internal Code</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead>Rate</TableHead>
-                      <TableHead>GST (%)</TableHead>
-                      <TableHead>Discount (%)</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead className="text-center">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="min-w-full w-full overflow-auto rounded-lg border border-gray-200 max-h-[500px] relative custom-scrollbar">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="sticky top-0 z-30">
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">S/N</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Internal Code</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Product</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Description</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Qty</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Unit</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Rate</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">GST (%)</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Discount (%)</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Amount</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-center bg-gray-50/95 backdrop-blur-sm shadow-sm">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
                     {formData.indents.map((item, index) => (
-                      <TableRow key={`${item.id}-${index}`}>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell className="font-medium">
+                      <tr key={`${item.id}-${index}`} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                        <td className="px-4 py-3">{index + 1}</td>
+                        <td className="px-4 py-3 font-medium">
                           {item.indentNumber || "N/A"}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           {item.productName || "No Product"}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           {item.specifications || (
                             <span className="italic text-muted-foreground">
                               No description
                             </span>
                           )}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           <Input
                             type="number"
                             className={`w-20 text-center h-9 ${mode === "revise" ? "" : "bg-gray-50"}`}
@@ -1234,15 +1234,15 @@ export default function CreatePO() {
                               updateIndent(index, "quantity", e.target.value)
                             }
                           />
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           <Input
                             className="w-20 text-center h-9 bg-gray-50"
                             value={item.unit || ""}
                             readOnly
                           />
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           <Input
                             type="number"
                             className="w-24 text-center h-9"
@@ -1251,8 +1251,8 @@ export default function CreatePO() {
                               updateIndent(index, "rate", e.target.value)
                             }
                           />
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           <Input
                             type="number"
                             className="w-16 text-center h-9"
@@ -1261,19 +1261,19 @@ export default function CreatePO() {
                               updateIndent(index, "gstPercent", e.target.value)
                             }
                           />
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           <Input
                             type="number"
                             className="w-16 text-center h-9 bg-gray-50"
                             value={item.discountPercent || 0}
                             readOnly
                           />
-                        </TableCell>
-                        <TableCell className="font-medium">
+                        </td>
+                        <td className="px-4 py-3 font-medium">
                           Rs. {money(lineTotal(item))}
-                        </TableCell>
-                        <TableCell className="text-center">
+                        </td>
+                        <td className="px-4 py-3 text-center">
                           <Button
                             type="button"
                             variant="ghost"
@@ -1283,11 +1283,11 @@ export default function CreatePO() {
                           >
                             <Trash size={14} />
                           </Button>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
               {errors.indents && (
                 <p className="mt-2 text-xs text-red-500">{errors.indents}</p>

@@ -178,28 +178,28 @@ export default function POHistory() {
             <p className="text-gray-500 font-medium">No purchase orders found</p>
           </div>
         ) : (
-          <div className="border rounded-xl overflow-hidden shadow-sm">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="font-bold">PO ID</TableHead>
-                  <TableHead className="font-bold">Creation Date</TableHead>
-                  <TableHead className="font-bold">Firm Name</TableHead>
-                  <TableHead className="font-bold">Vendor Name</TableHead>
-                  <TableHead className="font-bold">Items</TableHead>
-                  <TableHead className="font-bold">Amount</TableHead>
-                  <TableHead className="font-bold">Status</TableHead>
-                  <TableHead className="text-right font-bold">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+          <div className="overflow-auto border border-gray-200 rounded-xl max-h-[calc(100vh-350px)] relative custom-scrollbar shadow-sm">
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 z-30">
+                <tr className="bg-slate-50 border-b border-gray-200">
+                  <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm">PO ID</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm">Creation Date</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm">Firm Name</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm">Vendor Name</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm">Items</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm">Amount</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm">Status</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
                 {filteredPOs.map((po) => (
-                  <TableRow key={po.id} className="hover:bg-slate-50 transition-colors">
-                    <TableCell className="font-medium text-blue-600">{po.poId}</TableCell>
-                    <TableCell className="text-gray-600">{formatDate(po.date)}</TableCell>
-                    <TableCell className="text-gray-700 font-medium">{po.firmName || "N/A"}</TableCell>
-                    <TableCell className="font-semibold text-gray-800">{po.vendorName}</TableCell>
-                    <TableCell>
+                  <tr key={po.id} className="hover:bg-slate-50 transition-colors border-b border-gray-100">
+                    <td className="px-4 py-3 font-medium text-blue-600">{po.poId}</td>
+                    <td className="px-4 py-3 text-gray-600">{formatDate(po.date)}</td>
+                    <td className="px-4 py-3 text-gray-700 font-medium">{po.firmName || "N/A"}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-800">{po.vendorName}</td>
+                    <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {po.items.map((item, idx) => (
                           <Badge key={idx} variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100">
@@ -207,9 +207,9 @@ export default function POHistory() {
                           </Badge>
                         ))}
                       </div>
-                    </TableCell>
-                    <TableCell className="font-bold">₹{Number(po.totalAmount).toLocaleString('en-IN')}</TableCell>
-                    <TableCell>
+                    </td>
+                    <td className="px-4 py-3 font-bold">₹{Number(po.totalAmount).toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3">
                       <Badge className={
                         po.status === "Logistics Arranged" ? "bg-green-100 text-green-700 border-green-200" :
                         po.status === "Entered in Tally" ? "bg-blue-100 text-blue-700 border-blue-200" :
@@ -217,8 +217,8 @@ export default function POHistory() {
                       }>
                         {po.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </td>
+                    <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         {po.pdfUrl && (
                           <Button 
@@ -236,11 +236,11 @@ export default function POHistory() {
                            <Badge variant="outline" className="text-gray-400">No PDF</Badge>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         )}
       </CardContent>

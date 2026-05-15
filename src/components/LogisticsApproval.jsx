@@ -316,24 +316,24 @@ export default function LogisticsApproval() {
                   <p className="font-semibold">No logistics pending approval</p>
                 </div>
               ) : (
-                <div className="overflow-auto h-full border rounded-lg">
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow>
-                        <TableHead>Action</TableHead>
-                        <TableHead>PO Number</TableHead>
-                        <TableHead>Firm</TableHead>
-                        <TableHead>Vendor</TableHead>
-                        <TableHead>Material</TableHead>
-                        <TableHead>Proposed Transporter</TableHead>
-                        <TableHead>Proposed Rate</TableHead>
-                        <TableHead>Submitted On</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                <div className="overflow-auto border border-gray-200 rounded-xl max-h-[calc(100vh-450px)] relative custom-scrollbar">
+                  <table className="w-full text-sm border-collapse">
+                    <thead className="sticky top-0 z-30">
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Action</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">PO Number</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Firm</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Vendor</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Material</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Proposed Transporter</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Proposed Rate</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Submitted On</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
                       {filteredPendingData.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
+                        <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                          <td className="px-4 py-3">
                             <Button
                               size="sm"
                               className="bg-[#7da23a] hover:bg-[#6b8e2f]"
@@ -347,62 +347,62 @@ export default function LogisticsApproval() {
                             >
                               Review
                             </Button>
-                          </TableCell>
-                          <TableCell className="font-medium">
+                          </td>
+                          <td className="px-4 py-3 font-medium">
                             {item.poNumber}
-                          </TableCell>
-                          <TableCell>{item.firmName}</TableCell>
-                          <TableCell>{item.vendorName}</TableCell>
-                          <TableCell>{item.material}</TableCell>
-                          <TableCell>
+                          </td>
+                          <td className="px-4 py-3">{item.firmName}</td>
+                          <td className="px-4 py-3">{item.vendorName}</td>
+                          <td className="px-4 py-3">{item.material}</td>
+                          <td className="px-4 py-3">
                             {item.proposedTransporter?.name || "-"}
-                          </TableCell>
-                          <TableCell>
+                          </td>
+                          <td className="px-4 py-3">
                             Rs {item.proposedTransporter?.cost || "-"}
-                          </TableCell>
-                          <TableCell>{formatDateTime(item.planned9)}</TableCell>
-                        </TableRow>
+                          </td>
+                          <td className="px-4 py-3">{formatDateTime(item.planned9)}</td>
+                        </tr>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </tbody>
+                  </table>
                 </div>
               )}
             </TabsContent>
 
             <TabsContent value="history" className="flex-1 mt-0">
-              <div className="overflow-auto h-full border rounded-lg">
-                <Table>
-                  <TableHeader className="bg-muted/50">
-                    <TableRow>
-                      <TableHead>PO Number</TableHead>
-                      <TableHead>Firm</TableHead>
-                      <TableHead>Vendor</TableHead>
-                      <TableHead>Material</TableHead>
-                      <TableHead>Approved Transporter</TableHead>
-                      <TableHead>Rate</TableHead>
-                      <TableHead>Approved On</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="overflow-auto border border-gray-200 rounded-xl max-h-[calc(100vh-450px)] relative custom-scrollbar">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="sticky top-0 z-30">
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">PO Number</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Firm</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Vendor</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Material</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Approved Transporter</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Rate</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Approved On</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
                     {filteredHistoryData.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">
+                      <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                        <td className="px-4 py-3 font-medium">
                           {item.poNumber}
-                        </TableCell>
-                        <TableCell>{item.firmName}</TableCell>
-                        <TableCell>{item.vendorName}</TableCell>
-                        <TableCell>{item.material}</TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">{item.firmName}</td>
+                        <td className="px-4 py-3">{item.vendorName}</td>
+                        <td className="px-4 py-3">{item.material}</td>
+                        <td className="px-4 py-3">
                           {item.selectedTransporter?.name || "-"}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           Rs {item.selectedTransporter?.cost || "-"}
-                        </TableCell>
-                        <TableCell>{formatDateTime(item.actual9)}</TableCell>
-                      </TableRow>
+                        </td>
+                        <td className="px-4 py-3">{formatDateTime(item.actual9)}</td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             </TabsContent>
           </Tabs>

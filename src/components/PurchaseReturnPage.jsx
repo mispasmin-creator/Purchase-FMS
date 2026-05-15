@@ -17,14 +17,6 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableHeader,
-    TableRow,
-    TableHead,
-    TableCell,
-} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
@@ -335,59 +327,66 @@ export default function PurchaseReturnPage() {
                 </TabsList>
 
                 <TabsContent value="finalized">
-                    <Card>
-                        <CardHeader className="pb-3 border-b border-gray-50 bg-gray-50/30">
+                    <Card className="shadow-sm border border-border overflow-hidden flex flex-col">
+                        <CardHeader className="pb-3 border-b border-gray-100 bg-gray-50/30">
                             <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-[#7da23a]" />
                                 Finalized Return Records
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-0">
+                        <CardContent className="p-0 flex-1 flex flex-col">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                                     <Loader2 className="w-10 h-10 animate-spin mb-4" />
                                     <span>Loading finalized returns...</span>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow>
-                                                <TableHead className="w-[50px]">#</TableHead>
-                                                <TableHead>PR No.</TableHead>
-                                                <TableHead>PO No.</TableHead>
-                                                <TableHead>Party Name</TableHead>
-                                                <TableHead>Product Name</TableHead>
-                                                <TableHead>Qty</TableHead>
-                                                <TableHead className="text-right">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
+                                <div className="overflow-auto max-h-[calc(100vh-250px)] relative custom-scrollbar">
+                                    <table className="w-full text-sm border-collapse">
+                                        <thead className="sticky top-0 z-30">
+                                            <tr className="bg-gray-50 border-b border-gray-200">
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm w-[60px]">#</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR No.</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No.</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Qty</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-right bg-gray-50/95 backdrop-blur-sm shadow-sm sticky right-0 z-40">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-100">
                                             {records.map((rec, idx) => (
-                                                <TableRow key={rec.id} className="hover:bg-green-50/50 transition-colors">
-                                                    <TableCell className="text-gray-500 font-mono text-xs">{idx + 1}</TableCell>
-                                                    <TableCell className="font-medium text-[#6b8e2f]">{rec["Purchase Return No."]}</TableCell>
-                                                    <TableCell className="text-sm">{rec["Po No."] || "—"}</TableCell>
-                                                    <TableCell className="text-sm italic">{rec["Party Name"]}</TableCell>
-                                                    <TableCell className="text-sm">{rec["Product Name"]}</TableCell>
-                                                    <TableCell className="font-semibold">{rec["Qty"]}</TableCell>
-                                                    <TableCell className="text-right flex items-center justify-end gap-2">
-                                                        <Button variant="ghost" size="sm" onClick={() => setViewRecord(rec)}>
-                                                            <Eye className="w-4 h-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="sm" onClick={() => handleEditRecord(rec)}>
-                                                            <Edit className="w-4 h-4" />
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
+                                                <tr key={rec.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-green-50/50 transition-colors border-b border-gray-100`}>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-[#6b8e2f]">{rec["Purchase Return No."]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{rec["Po No."] || "—"}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{rec["Party Name"]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Product Name"]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{rec["Qty"]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-right sticky right-0 z-20 bg-inherit shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.05)]">
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button variant="ghost" size="xs" className="h-7 w-7 p-0 text-[#7da23a] hover:bg-[#7da23a]/10" onClick={() => setViewRecord(rec)}>
+                                                                <Eye className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="xs" className="h-7 w-7 p-0 text-primary hover:bg-primary/10" onClick={() => handleEditRecord(rec)}>
+                                                                <Edit className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             ))}
                                             {records.length === 0 && (
-                                                <TableRow>
-                                                    <TableCell colSpan={7} className="text-center py-16 text-gray-400">No finalized returns found.</TableCell>
-                                                </TableRow>
+                                                <tr>
+                                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                                        <div className="flex flex-col items-center justify-center">
+                                                            <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
+                                                            <p className="text-sm font-medium">No finalized returns found.</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             )}
-                                        </TableBody>
-                                    </Table>
+                                        </tbody>
+                                    </table>
                                 </div>
                             )}
                         </CardContent>
@@ -395,53 +394,58 @@ export default function PurchaseReturnPage() {
                 </TabsContent>
 
                 <TabsContent value="pending">
-                    <Card>
-                        <CardHeader className="pb-3 border-b border-orange-50 bg-orange-50/10">
+                    <Card className="shadow-sm border border-border overflow-hidden flex flex-col">
+                        <CardHeader className="pb-3 border-b border-orange-100 bg-orange-50/20">
                             <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
                                 <RotateCcw className="w-4 h-4 text-orange-500" />
                                 Pending Mismatches Needs Return
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow>
-                                            <TableHead className="w-[50px]">#</TableHead>
-                                            <TableHead>Lift No</TableHead>
-                                            <TableHead>PO No</TableHead>
-                                            <TableHead>Party Name</TableHead>
-                                            <TableHead>Product Name</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
+                        <CardContent className="p-0 flex-1 flex flex-col">
+                            <div className="overflow-auto max-h-[calc(100vh-250px)] relative custom-scrollbar">
+                                <table className="w-full text-sm border-collapse">
+                                    <thead className="sticky top-0 z-30">
+                                        <tr className="bg-gray-50 border-b border-gray-200">
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm w-[60px]">#</th>
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift No</th>
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No</th>
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-right bg-gray-50/95 backdrop-blur-sm shadow-sm sticky right-0 z-40">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-100">
                                         {pendingMismatches.map((m, idx) => (
-                                            <TableRow key={m.id} className="hover:bg-orange-50/30 transition-colors">
-                                                <TableCell className="text-gray-500 font-mono text-xs">{idx + 1}</TableCell>
-                                                <TableCell className="font-medium text-orange-700">{m["Lift Number"]}</TableCell>
-                                                <TableCell className="text-sm">{m["Indent Number"] || "—"}</TableCell>
-                                                <TableCell className="text-sm italic">{m["Party Name"]}</TableCell>
-                                                <TableCell className="text-sm">{m["Product Name"]}</TableCell>
-                                                <TableCell className="text-right">
+                                            <tr key={m.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-orange-50/10'} hover:bg-orange-50/20 transition-colors border-b border-gray-100`}>
+                                                <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700">{m["Lift Number"]}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{m["Indent Number"] || "—"}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{m["Party Name"]}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{m["Product Name"]}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-right sticky right-0 z-20 bg-inherit shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.05)]">
                                                     <Button 
-                                                        size="sm" 
-                                                        className="bg-orange-600 hover:bg-orange-700 text-white shadow-sm"
+                                                        size="xs" 
+                                                        className="bg-orange-600 hover:bg-orange-700 text-white shadow-sm h-7 text-[10px] font-bold uppercase tracking-wider px-3"
                                                         onClick={() => handleCreateFromMismatch(m)}
                                                     >
-                                                        <Plus className="w-4 h-4 mr-1" />
+                                                        <Plus className="w-3 h-3 mr-1" />
                                                         Create PR
                                                     </Button>
-                                                </TableCell>
-                                            </TableRow>
+                                                </td>
+                                            </tr>
                                         ))}
                                         {pendingMismatches.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="text-center py-16 text-gray-400">No pending mismatches found.</TableCell>
-                                            </TableRow>
+                                            <tr>
+                                                <td colSpan={6} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
+                                                        <p className="text-sm font-medium">No pending mismatches found.</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         )}
-                                    </TableBody>
-                                </Table>
+                                    </tbody>
+                                </table>
                             </div>
                         </CardContent>
                     </Card>

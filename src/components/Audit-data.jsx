@@ -2255,50 +2255,54 @@ const CallTrackerPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {visibleColumns.actions && activeTab !== 'HISTORY' && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
-                  {activeTab === 'HISTORY' && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed At</th>}
-                  {visibleColumns.stage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stage</th>}
-                  {visibleColumns.timestamp && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>}
-                  {visibleColumns.indentNumber && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Indent No.</th>}
-                  {visibleColumns.firmName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Firm Name</th>}
-                  {visibleColumns.poRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Rate</th>}
-                  {visibleColumns.liftNumber && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lift Number</th>}
-                  {visibleColumns.billNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill No.</th>}
-                  {visibleColumns.dateOfReceiving && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Receiving Date</th>}
-                  {visibleColumns.partyName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party Name</th>}
-                  {visibleColumns.productName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>}
-                  {visibleColumns.remarks && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>}
-                  {visibleColumns.qty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Qty</th>}
-                  {visibleColumns.areaLifting && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area Lifting</th>}
-                  {visibleColumns.truckNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck No.</th>}
-                  {visibleColumns.transporterName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transporter</th>}
-                  {visibleColumns.transporterRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transporter Rate</th>}
-                  {visibleColumns.billImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Image</th>}
-                  {visibleColumns.biltyNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty No.</th>}
-                  {visibleColumns.typeOfRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type Of Rate</th>}
-                  {visibleColumns.rate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Rate</th>}
-                  {visibleColumns.truckQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Qty</th>}
-                  {visibleColumns.liftingQty && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck Qty</th>}
-                  {visibleColumns.biltyImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty Image</th>}
-                  {visibleColumns.qtyDifferenceStatus && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Diff Status</th>}
-                  {visibleColumns.weightSlip && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight Slip</th>}
-                  {visibleColumns.debitAmount && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Debit Amount</th>}
-                  {visibleColumns.debitNoteUrl && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Debit Image</th>}
-                  {visibleColumns.totalFreight && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Freight</th>}
-                  {visibleColumns.status && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+          <div className="overflow-auto max-h-[calc(100vh-250px)] relative custom-scrollbar">
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 z-30">
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  {activeTab === 'HISTORY' ? (
+                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Completed At</th>
+                  ) : visibleColumns.actions && (
+                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Actions</th>
+                  )}
+                  {visibleColumns.stage && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Stage</th>}
+                  {visibleColumns.timestamp && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Date</th>}
+                  {visibleColumns.indentNumber && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Indent No.</th>}
+                  {visibleColumns.firmName && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Firm Name</th>}
+                  {visibleColumns.poRate && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO Rate</th>}
+                  {visibleColumns.liftNumber && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift Number</th>}
+                  {visibleColumns.billNo && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill No.</th>}
+                  {visibleColumns.dateOfReceiving && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Receiving Date</th>}
+                  {visibleColumns.partyName && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>}
+                  {visibleColumns.productName && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>}
+                  {visibleColumns.remarks && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Remarks</th>}
+                  {visibleColumns.qty && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO Qty</th>}
+                  {visibleColumns.areaLifting && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Area Lifting</th>}
+                  {visibleColumns.truckNo && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Truck No.</th>}
+                  {visibleColumns.transporterName && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Transporter</th>}
+                  {visibleColumns.transporterRate && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Transporter Rate</th>}
+                  {visibleColumns.billImage && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Image</th>}
+                  {visibleColumns.biltyNo && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bilty No.</th>}
+                  {visibleColumns.typeOfRate && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Type Of Rate</th>}
+                  {visibleColumns.rate && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Material Rate</th>}
+                  {visibleColumns.truckQty && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Material Qty</th>}
+                  {visibleColumns.liftingQty && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Truck Qty</th>}
+                  {visibleColumns.biltyImage && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bilty Image</th>}
+                  {visibleColumns.qtyDifferenceStatus && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Qty Diff Status</th>}
+                  {visibleColumns.weightSlip && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Weight Slip</th>}
+                  {visibleColumns.debitAmount && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Debit Amount</th>}
+                  {visibleColumns.debitNoteUrl && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Debit Image</th>}
+                  {visibleColumns.totalFreight && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Freight</th>}
+                  {visibleColumns.status && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Status</th>}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {filteredData.length === 0 ? (
                   <tr>
-                    <td colSpan={Object.values(visibleColumns).filter(Boolean).length} className="px-6 py-12 text-center text-gray-500">
-                      <div className="flex flex-col items-center">
-                        <p className="text-lg font-medium mb-2">No records available</p>
+                    <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 2} className="px-6 py-12 text-center text-gray-500 bg-gray-50/50">
+                      <div className="flex flex-col items-center justify-center">
+                        <AlertCircle className="w-10 h-10 text-gray-300 mb-3" />
+                        <p className="text-lg font-medium text-gray-600">No records found</p>
                         <p className="text-sm">
                           {activeTab === 'ALL'
                             ? 'All entries have been processed or no data is available.'
@@ -2318,65 +2322,69 @@ const CallTrackerPage = () => {
                     };
                     const StageIcon = stageInfo.icon;
                     return (
-                      <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr key={row.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-gray-50 transition-colors border-b border-gray-100`}>
                         {activeTab === 'HISTORY' ? (
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-700 font-medium">{row.completedAt || '-'}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-xs text-purple-700 font-medium">{row.completedAt || '-'}</td>
                         ) : visibleColumns.actions && (
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <button
                               onClick={() => {
                                 setEditingRow(row.id);
                                 initializeFormData(row.currentStage);
                               }}
-                              className="inline-flex items-center px-4 py-2 bg-linear-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
+                              className="inline-flex items-center px-3 py-1.5 bg-linear-to-r from-green-500 to-green-600 text-white text-xs font-medium rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
                             >
-                              <Edit2 className="w-4 h-4 mr-2" />
+                              <Edit2 className="w-3 h-3 mr-1" />
                               Add Entry
                             </button>
                           </td>
                         )}
                         {visibleColumns.stage && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${stageInfo.color}`}>
-                              <StageIcon className="w-3 h-3 mr-1" />
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${stageInfo.color} uppercase tracking-wider`}>
+                              <StageIcon className="w-2.5 h-2.5 mr-1" />
                               {stageInfo.name}
                             </span>
                           </td>
                         )}
-                        {visibleColumns.timestamp && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.timestamp || '-'}</td>}
-                        {visibleColumns.indentNumber && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.indentNumber || '-'}</td>}
-                        {visibleColumns.firmName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.firmName || '-'}</td>}
-                        {visibleColumns.poRate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.poRate || '-'}</td>}
-                        {visibleColumns.liftNumber && <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.liftNumber || '-'}</td>}
-                        {visibleColumns.billNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.billNo || '-'}</td>}
-                        {visibleColumns.dateOfReceiving && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.dateOfReceiving || '-'}</td>}
-                        {visibleColumns.partyName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.partyName || '-'}</td>}
-                        {visibleColumns.productName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.productName || '-'}</td>}
+                        {visibleColumns.timestamp && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{row.timestamp || '-'}</td>}
+                        {visibleColumns.indentNumber && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-primary">{row.indentNumber || '-'}</td>}
+                        {visibleColumns.firmName && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 font-medium">{row.firmName || '-'}</td>}
+                        {visibleColumns.poRate && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-[#7da23a]">{row.poRate ? `₹${row.poRate}` : '-'}</td>}
+                        {visibleColumns.liftNumber && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-primary">{row.liftNumber || '-'}</td>}
+                        {visibleColumns.billNo && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.billNo || '-'}</td>}
+                        {visibleColumns.dateOfReceiving && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{row.dateOfReceiving || '-'}</td>}
+                        {visibleColumns.partyName && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 font-medium">{row.partyName || '-'}</td>}
+                        {visibleColumns.productName && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.productName || '-'}</td>}
                         {visibleColumns.remarks && (
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="max-w-xs truncate" title={row.remarks}>
-                              {row.remarks || '-'}
-                            </div>
+                          <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.remarks}>
+                            {row.remarks || '-'}
                           </td>
                         )}
-                        {visibleColumns.qty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qty || '-'}</td>}
-                        {visibleColumns.areaLifting && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.areaLifting || '-'}</td>}
-                        {visibleColumns.truckNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.truckNo || '-'}</td>}
-                        {visibleColumns.transporterName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.transporterName || '-'}</td>}
-                        {visibleColumns.transporterRate && <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-700">{row.transporterRate ? `₹${row.transporterRate}` : '-'}</td>}
-                        {visibleColumns.billImage && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.billImage ? (<a href={row.billImage} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
-                        {visibleColumns.biltyNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.biltyNo || '-'}</td>}
-                        {visibleColumns.typeOfRate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.typeOfRate || '-'}</td>}
-                        {visibleColumns.rate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.rate || '-'}</td>}
-                        {visibleColumns.truckQty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.truckQty || '-'}</td>}
-                        {visibleColumns.liftingQty && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.liftingQty || '-'}</td>}
-                        {visibleColumns.biltyImage && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.biltyImage ? (<a href={row.biltyImage} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
-                        {visibleColumns.qtyDifferenceStatus && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.qtyDifferenceStatus || '-'}</td>}
-                        {visibleColumns.weightSlip && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.weightSlip ? (<a href={row.weightSlip} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
-                        {visibleColumns.debitAmount && <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">{row.debitAmount ? `₹${row.debitAmount}` : '-'}</td>}
-                        {visibleColumns.debitNoteUrl && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.debitNoteUrl ? (<a href={row.debitNoteUrl} target='_blank' rel='noopener noreferrer' className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center"><ExternalLink className="h-3 w-3 mr-1" /> View Image</a>) : ("-")}</td>}
-                        {visibleColumns.totalFreight && <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{row.totalFreight ? `₹${row.totalFreight}` : '-'}</td>}
-                        {visibleColumns.status && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.status || '-'}</td>}
+                        {visibleColumns.qty && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.qty || '-'}</td>}
+                        {visibleColumns.areaLifting && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{row.areaLifting || '-'}</td>}
+                        {visibleColumns.truckNo && <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-gray-700">{row.truckNo || '-'}</td>}
+                        {visibleColumns.transporterName && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.transporterName || '-'}</td>}
+                        {visibleColumns.transporterRate && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-orange-600">{row.transporterRate ? `₹${row.transporterRate}` : '-'}</td>}
+                        {visibleColumns.billImage && <td className="px-4 py-3 whitespace-nowrap text-xs">{row.billImage ? (<a href={row.billImage} target='_blank' rel='noopener noreferrer' className="text-[#7da23a] hover:text-[#6b8e2f] flex items-center font-medium"><Image size={14} className="mr-1" /> View</a>) : ("-")}</td>}
+                        {visibleColumns.biltyNo && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.biltyNo || '-'}</td>}
+                        {visibleColumns.typeOfRate && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{row.typeOfRate || '-'}</td>}
+                        {visibleColumns.rate && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-green-600">{row.rate ? `₹${row.rate}` : '-'}</td>}
+                        {visibleColumns.truckQty && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.truckQty || '-'}</td>}
+                        {visibleColumns.liftingQty && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.liftingQty || '-'}</td>}
+                        {visibleColumns.biltyImage && <td className="px-4 py-3 whitespace-nowrap text-xs">{row.biltyImage ? (<a href={row.biltyImage} target='_blank' rel='noopener noreferrer' className="text-[#7da23a] hover:text-[#6b8e2f] flex items-center font-medium"><Image size={14} className="mr-1" /> View</a>) : ("-")}</td>}
+                        {visibleColumns.qtyDifferenceStatus && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-red-600">{row.qtyDifferenceStatus || '-'}</td>}
+                        {visibleColumns.weightSlip && <td className="px-4 py-3 whitespace-nowrap text-xs">{row.weightSlip ? (<a href={row.weightSlip} target='_blank' rel='noopener noreferrer' className="text-[#7da23a] hover:text-[#6b8e2f] flex items-center font-medium"><Image size={14} className="mr-1" /> View</a>) : ("-")}</td>}
+                        {visibleColumns.debitAmount && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-red-600">{row.debitAmount ? `₹${row.debitAmount}` : '-'}</td>}
+                        {visibleColumns.debitNoteUrl && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">{row.debitNoteUrl ? (<a href={row.debitNoteUrl} target='_blank' rel='noopener noreferrer' className="text-red-600 hover:text-red-800 font-medium inline-flex items-center"><ExternalLink className="h-3 w-3 mr-1" /> View</a>) : ("-")}</td>}
+                        {visibleColumns.totalFreight && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-800">{row.totalFreight ? `₹${row.totalFreight}` : '-'}</td>}
+                        {visibleColumns.status && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${row.status === 'Done' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {row.status || '-'}
+                            </span>
+                          </td>
+                        )}
                       </tr>
                     );
                   })

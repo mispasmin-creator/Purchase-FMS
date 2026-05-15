@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback, useContext, useMemo } from "react";
 import {
@@ -833,41 +833,38 @@ export default function DebitNote() {
                           </p>
                         </div>
                       ) : (
-                        <div className="overflow-x-auto rounded-b-lg">
-                          <Table>
-                            <TableHeader className="bg-yellow-50/50 sticky top-0 z-10">
-                              <TableRow>
+                        <div className="overflow-auto max-h-[calc(100vh-600px)] relative custom-scrollbar rounded-b-lg">
+                          <table className="w-full text-sm border-collapse">
+                            <thead className="sticky top-0 z-30">
+                              <tr className="bg-yellow-50 border-b border-yellow-200">
                                 {DEBIT_NOTE_COLUMNS_META.map((col) => (
-                                  <TableHead
+                                  <th
                                     key={col.dataKey}
-                                    className={`whitespace-nowrap text-xs px-3 py-2 ${col.dataKey === "actions" ? "w-[150px]" : ""
-                                      }`}
+                                    className={`px-3 py-3 text-xs font-bold text-yellow-800 uppercase text-left bg-yellow-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap ${col.dataKey === "actions" ? "w-[150px]" : ""}`}
                                   >
                                     {col.header}
-                                  </TableHead>
+                                  </th>
                                 ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
                               {filteredData.map((item) => (
-                                <TableRow
+                                <tr
                                   key={item.id}
-                                  className={`hover:bg-yellow-50/50 ${editingRow === item.id ? "bg-yellow-100 ring-1 ring-yellow-300" : ""
-                                    }`}
+                                  className={`hover:bg-yellow-50/50 transition-colors border-b border-gray-100 ${editingRow === item.id ? "bg-yellow-100 ring-1 ring-yellow-300" : ""}`}
                                 >
                                   {DEBIT_NOTE_COLUMNS_META.map((column) => (
-                                    <TableCell
+                                    <td
                                       key={`${item.id}-${column.dataKey}`}
-                                      className={`text-xs px-3 py-2 ${column.dataKey === "actions" ? "w-[150px]" : ""
-                                        }`}
+                                      className={`text-xs px-3 py-2 ${column.dataKey === "actions" ? "w-[150px]" : ""}`}
                                     >
                                       {renderCell(item, column)}
-                                    </TableCell>
+                                    </td>
                                   ))}
-                                </TableRow>
+                                </tr>
                               ))}
-                            </TableBody>
-                          </Table>
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </CardContent>
@@ -925,40 +922,38 @@ export default function DebitNote() {
                         </p>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto rounded-b-lg">
-                        <Table>
-                          <TableHeader className="bg-green-50/50 sticky top-0 z-10">
-                            <TableRow>
+                      <div className="overflow-auto max-h-[calc(100vh-600px)] relative custom-scrollbar rounded-b-lg">
+                        <table className="w-full text-sm border-collapse">
+                          <thead className="sticky top-0 z-30">
+                            <tr className="bg-green-50 border-b border-green-200">
                               {DEBIT_NOTE_COLUMNS_META.map((col) => (
-                                <TableHead
+                                <th
                                   key={col.dataKey}
-                                  className={`whitespace-nowrap text-xs px-3 py-2 ${col.dataKey === "actions" ? "w-[150px]" : ""
-                                    }`}
+                                  className={`px-3 py-3 text-xs font-bold text-green-800 uppercase text-left bg-green-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap ${col.dataKey === "actions" ? "w-[150px]" : ""}`}
                                 >
                                   {col.header}
-                                </TableHead>
+                                </th>
                               ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-100">
                             {history.map((item) => (
-                              <TableRow
+                              <tr
                                 key={item.id}
-                                className="hover:bg-green-50/50"
+                                className="hover:bg-green-50/50 transition-colors border-b border-gray-100"
                               >
                                 {DEBIT_NOTE_COLUMNS_META.map((column) => (
-                                  <TableCell
+                                  <td
                                     key={`${item.id}-${column.dataKey}`}
-                                    className={`text-xs px-3 py-2 ${column.dataKey === "actions" ? "w-[150px]" : ""
-                                      }`}
+                                    className={`text-xs px-3 py-2 ${column.dataKey === "actions" ? "w-[150px]" : ""}`}
                                   >
                                     {renderCell(item, column)}
-                                  </TableCell>
+                                  </td>
                                 ))}
-                              </TableRow>
+                              </tr>
                             ))}
-                          </TableBody>
-                        </Table>
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </CardContent>

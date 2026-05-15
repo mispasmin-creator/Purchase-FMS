@@ -470,25 +470,25 @@ export default function ManagementApprovals() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto border border-gray-200 rounded-xl">
-                <Table>
-                  <TableHeader className="bg-gray-50">
-                    <TableRow>
-                      <TableHead>Action</TableHead>
-                      <TableHead>Indent</TableHead>
-                      <TableHead>Firm</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Required On</TableHead>
-                      <TableHead>Current Stock</TableHead>
-                      <TableHead>Rate</TableHead>
-                      <TableHead>Tagged Vendors</TableHead>
-                      <TableHead>Factory Done</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="overflow-auto border border-gray-200 rounded-xl max-h-[calc(100vh-400px)] relative custom-scrollbar">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="sticky top-0 z-30">
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Action</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Indent</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Firm</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Product</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Required On</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Current Stock</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Rate</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Tagged Vendors</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Factory Done</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
                     {filteredPendingData.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
+                      <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                        <td className="px-4 py-3">
                           <Button
                             className="bg-[#7da23a] hover:bg-[#6b8e2f]"
                             onClick={() => {
@@ -499,19 +499,19 @@ export default function ManagementApprovals() {
                           >
                             Review
                           </Button>
-                        </TableCell>
-                        <TableCell className="font-medium">
+                        </td>
+                        <td className="px-4 py-3 font-medium">
                           {item.indentId}
-                        </TableCell>
-                        <TableCell>{item.firmName}</TableCell>
-                        <TableCell>{item.product}</TableCell>
-                        <TableCell className="text-xs font-medium text-blue-600">
+                        </td>
+                        <td className="px-4 py-3">{item.firmName}</td>
+                        <td className="px-4 py-3">{item.product}</td>
+                        <td className="px-4 py-3 text-xs font-medium text-blue-600">
                           {formatDate(item.expectedRequirementDate)}
-                        </TableCell>
-                        <TableCell className="text-sm font-medium text-gray-700">
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-700">
                           {item.currentStock || "-"}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           <div className="flex flex-col gap-0.5">
                             {item.vendors.map((vendor) => (
                               <span key={vendor.slot} className="text-xs text-gray-700 whitespace-nowrap">
@@ -519,8 +519,8 @@ export default function ManagementApprovals() {
                               </span>
                             ))}
                           </div>
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-1.5 focus-within:z-10">
                             {item.vendors.map((vendor) => (
                               <Badge
@@ -531,12 +531,12 @@ export default function ManagementApprovals() {
                               </Badge>
                             ))}
                           </div>
-                        </TableCell>
-                        <TableCell className="text-[10px] text-gray-500 whitespace-nowrap">{formatDateTime(item.planned8)}</TableCell>
-                      </TableRow>
+                        </td>
+                        <td className="px-4 py-3 text-[10px] text-gray-500 whitespace-nowrap">{formatDateTime(item.planned8)}</td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                  </table>
               </div>
             )}
           </TabsContent>
@@ -564,27 +564,27 @@ export default function ManagementApprovals() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto border border-gray-200 rounded-xl">
-                <Table>
-                  <TableHeader className="bg-gray-50">
-                    <TableRow>
-                      <TableHead>Indent</TableHead>
-                      <TableHead>Firm</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Approved Vendor</TableHead>
-                      <TableHead>Tag</TableHead>
-                      <TableHead>Rate</TableHead>
-                      <TableHead>Approved On</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="overflow-auto border border-gray-200 rounded-xl max-h-[calc(100vh-400px)] relative custom-scrollbar">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="sticky top-0 z-30">
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Indent</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Firm</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Product</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Approved Vendor</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Tag</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Rate</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Approved On</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
                     {filteredHistoryData.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.indentId}</TableCell>
-                        <TableCell>{item.firmName}</TableCell>
-                        <TableCell>{item.product}</TableCell>
-                        <TableCell>{item.approvedVendorName}</TableCell>
-                        <TableCell>
+                      <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                        <td className="px-4 py-3">{item.indentId}</td>
+                        <td className="px-4 py-3">{item.firmName}</td>
+                        <td className="px-4 py-3">{item.product}</td>
+                        <td className="px-4 py-3">{item.approvedVendorName}</td>
+                        <td className="px-4 py-3">
                           {item.approvedTag ? (
                             <Badge className={getTagTone(item.approvedTag)}>
                               {item.approvedTag}
@@ -592,15 +592,15 @@ export default function ManagementApprovals() {
                           ) : (
                             "-"
                           )}
-                        </TableCell>
-                        <TableCell className="font-semibold">
+                        </td>
+                        <td className="px-4 py-3 font-semibold">
                           ₹{item.approvedRate}
-                        </TableCell>
-                        <TableCell>{formatDateTime(item.actual8)}</TableCell>
-                      </TableRow>
+                        </td>
+                        <td className="px-4 py-3">{formatDateTime(item.actual8)}</td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
           </TabsContent>

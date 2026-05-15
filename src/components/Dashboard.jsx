@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   LayoutDashboard,
   CheckCircle,
@@ -186,31 +186,35 @@ const StatCard = ({
   return (
     <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
       <div
-        className={`absolute inset-0 bg-gradient-to-br ${colorClasses[color]} opacity-5 group-hover:opacity-10 transition-opacity`}
+        className={`absolute inset-0 bg-linear-to-br ${colorClasses[color]} opacity-5 group-hover:opacity-10 transition-opacity`}
       ></div>
-      <CardContent className="p-6 relative">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-gray-600 mb-2">{title}</p>
-            <h3 className="text-4xl font-bold text-gray-900 mb-1">
+      <CardContent className="p-4 sm:p-6 relative">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs sm:text-sm font-semibold text-gray-600 mb-1 sm:mb-2 truncate">
+              {title}
+            </p>
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-1 truncate">
               {typeof value === "number" ? value.toLocaleString() : value}
             </h3>
             {description && (
-              <p className="text-xs text-gray-500 mt-1">{description}</p>
+              <p className="text-[10px] sm:text-xs text-gray-500 mt-1 truncate">
+                {description}
+              </p>
             )}
             {trend && (
-              <div className="flex items-center gap-2 mt-3">
+              <div className="flex items-center gap-2 mt-2 sm:mt-3">
                 {trend === "up" && (
-                  <ArrowUpRight className="h-4 w-4 text-green-500" />
+                  <ArrowUpRight className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
                 )}
                 {trend === "down" && (
-                  <ArrowDownRight className="h-4 w-4 text-red-500" />
+                  <ArrowDownRight className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
                 )}
                 {trend === "neutral" && (
-                  <Minus className="h-4 w-4 text-gray-400" />
+                  <Minus className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                 )}
                 <span
-                  className={`text-sm font-semibold ${trend === "up" ? "text-[#7da23a]" : trend === "down" ? "text-red-600" : "text-gray-500"}`}
+                  className={`text-xs sm:text-sm font-semibold ${trend === "up" ? "text-[#7da23a]" : trend === "down" ? "text-red-600" : "text-gray-500"}`}
                 >
                   {trendValue}
                 </span>
@@ -218,9 +222,9 @@ const StatCard = ({
             )}
           </div>
           <div
-            className={`p-4 rounded-2xl bg-gradient-to-br ${colorClasses[color]} shadow-lg`}
+            className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl bg-linear-to-br ${colorClasses[color]} shadow-lg shrink-0`}
           >
-            <Icon className="h-7 w-7 text-white" />
+            <Icon className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
           </div>
         </div>
       </CardContent>
@@ -263,9 +267,16 @@ export default function Dashboard() {
   });
 
   // Fetch Data
+  const isFetchingRef = useRef(false);
+  const refreshTimeoutRef = useRef(null);
+
   // Fetch Data
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (isRealtime = false) => {
+    // If already fetching, don't start another one unless it's a direct call
+    if (isFetchingRef.current && isRealtime) return;
+    
+    isFetchingRef.current = true;
+    if (!isRealtime) setLoading(true);
     setError(null);
     try {
       // Fetch from Supabase
@@ -298,17 +309,6 @@ export default function Dashboard() {
             row["Quantity"] || row["Total Quantity"] || 0,
           ),
           poTimestamp: row["Actual2"], // Generate PO Status
-          // pendingQty used for "materialLiftStatus" (Pending/Complete).
-          // If pendingQty === 0 it's complete.
-          // In sheet logic: row.c[33]?
-          // We can calculate pendingQty from "Quantity" - "Lifted Quantity"?
-          // Or check "Actual4" (Lift Item Status)?
-          // Let's assume if Actual4 (Lift) is done, pending is 0?
-          // Or just use 0 if not available to avoid breaking.
-          // Actual calculation: Quantity - (Lifted Qty from LIFT-ACCOUNTS)?
-          // Simplifying: If Actual4 (Lift Status) is present, pending = 0?
-          // Let's use logic: if Actual3 (PO Entry) done, maybe?
-          // Better: If row["Actual4"] (Lift) is present, pending = 0, else Quantity.
           pendingQty: row["Actual4"]
             ? 0
             : Number.parseFloat(row["Quantity"] || 0),
@@ -350,10 +350,8 @@ export default function Dashboard() {
         .map((row) => ({
           id: row.id,
           rlNo: row.liftNumber, // Mapping liftNumber to rlNo for consistency? Or keep liftNumber?
-          // Dashboard uses rlNo for filtering? "uniquePOsByRlNo" uses INDENT-PO.
-          // Accounts data is used for pending counts.
           actualAA: row["Actual2"], // Audit
-          actualAF: row["Actual3"], // Rectify (using Actual3 as placeholder for Rectify 2 if needed or assuming mapped)
+          actualAF: row["Actual3"], // Rectify
           actualAK: row["Actual4"], // Tally
           actualAP: row["Actual5"], // ReAudit
           actualAU: row["Actual6"], // Bill Entry
@@ -382,6 +380,7 @@ export default function Dashboard() {
       console.error("Error:", e);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }, [user, allowedSteps]);
 
@@ -392,7 +391,7 @@ export default function Dashboard() {
   // Realtime: Listen for changes in core tables and refresh dashboard
   useRealtime(["INDENT-PO", "LIFT-ACCOUNTS", "Mismatch"], () => {
     console.log("[Realtime] Dashboard refreshing due to table change");
-    fetchData();
+    fetchData(true);
   });
 
 
@@ -781,7 +780,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-slate-50 via-green-50 to-slate-50 flex items-center justify-center">
         <div className="text-center space-y-6">
           <div className="relative">
             <Loader2 className="w-16 h-16 text-[#7da23a] animate-spin mx-auto" />
@@ -802,7 +801,7 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-slate-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-red-50 to-slate-50 flex items-center justify-center p-4">
         <Card className="max-w-lg w-full shadow-2xl border-red-200">
           <CardContent className="text-center p-8 space-y-6">
             <div className="p-4 bg-red-100 rounded-full inline-block">
@@ -814,7 +813,7 @@ export default function Dashboard() {
             <p className="text-gray-600 text-sm leading-relaxed">{error}</p>
             <Button
               onClick={fetchData}
-              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg"
+              className="bg-linear-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Retry Connection
@@ -826,50 +825,52 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-slate-50">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-green-50 to-slate-50">
       <div className="container mx-auto p-4 sm:p-6 max-w-full">
         {/* Header */}
-        <div className="mb-8">
-          <Card className="border-0 shadow-xl bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] text-white">
-            <CardHeader className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                      <LayoutDashboard className="h-8 w-8" />
+        <div className="mb-6 sm:mb-8">
+          <Card className="border-0 shadow-xl bg-linear-to-r from-[#7da23a] to-[#6b8e2f] text-white">
+            <CardHeader className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1 sm:space-y-2">
+                  <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold flex items-center gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg sm:rounded-xl backdrop-blur-sm shrink-0">
+                      <LayoutDashboard className="h-5 w-5 sm:h-8 sm:w-8" />
                     </div>
-                    Purchase Management Dashboard
+                    <span className="leading-tight">Dashboard Overview</span>
                   </CardTitle>
-                  <CardDescription className="text-green-100 text-base">
-                    Real-time insights into your purchase operations and
-                    material logistics
+                  <CardDescription className="text-green-50 text-xs sm:text-base leading-snug">
+                    Real-time insights into your purchase operations
                     {user?.firmName && (
-                      <span className="ml-2 text-white font-semibold">
-                        • Filtered by:{" "}
-                        {user.firmName === "all"
-                          ? "All"
-                          : Array.isArray(user.firmName)
-                            ? user.firmName.join(", ")
-                            : user.firmName}
-                      </span>
+                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                        <Badge className="bg-white/20 text-white border-0 text-[10px] sm:text-xs">
+                          {user.firmName === "all"
+                            ? "All Firms"
+                            : Array.isArray(user.firmName)
+                              ? user.firmName.join(", ")
+                              : user.firmName}
+                        </Badge>
+                      </div>
                     )}
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <Button
                     onClick={() => setIsDropdownModalOpen(true)}
                     variant="outline"
-                    className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm shadow-lg"
+                    size="sm"
+                    className="flex-1 sm:flex-none bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm shadow-lg text-xs sm:text-sm h-9 sm:h-10"
                   >
-                    Add Dropdowns
+                    Add Data
                   </Button>
                   <Button
                     onClick={fetchData}
                     variant="secondary"
-                    className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-lg"
+                    size="sm"
+                    className="flex-1 sm:flex-none bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-lg text-xs sm:text-sm h-9 sm:h-10"
                   >
                     <RefreshCw
-                      className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                      className={`h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 ${loading ? "animate-spin" : ""}`}
                     />
                     Refresh
                   </Button>
@@ -1009,29 +1010,31 @@ export default function Dashboard() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto mb-8 bg-white border-0 shadow-lg rounded-2xl p-2 h-auto">
-            <TabsTrigger
-              value="overview"
-              className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
-            >
-              <TrendingUp className="h-5 w-5" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="purchase"
-              className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
-            >
-              <List className="h-5 w-5" />
-              Purchase Data
-            </TabsTrigger>
-            <TabsTrigger
-              value="pending"
-              className="flex items-center justify-center gap-2 py-4 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300"
-            >
-              <AlertTriangle className="h-5 w-5" />
-              Workflow
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex justify-center mb-6 sm:mb-8">
+            <TabsList className="flex w-full sm:w-auto overflow-x-auto no-scrollbar bg-white border-0 shadow-lg rounded-xl sm:rounded-2xl p-1 sm:p-2 h-auto gap-1">
+              <TabsTrigger
+                value="overview"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-4 px-3 sm:px-6 text-xs sm:text-base font-semibold rounded-lg sm:rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300 whitespace-nowrap"
+              >
+                <TrendingUp className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="purchase"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-4 px-3 sm:px-6 text-xs sm:text-base font-semibold rounded-lg sm:rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300 whitespace-nowrap"
+              >
+                <List className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                Data
+              </TabsTrigger>
+              <TabsTrigger
+                value="pending"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-4 px-3 sm:px-6 text-xs sm:text-base font-semibold rounded-lg sm:rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300 whitespace-nowrap"
+              >
+                <AlertTriangle className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                Workflow
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-8">
@@ -1063,57 +1066,57 @@ export default function Dashboard() {
             {/* Quantity Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg">
-                      <Package className="h-6 w-6 text-white" />
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <div className="p-2 sm:p-3 bg-linear-to-br from-green-500 to-green-600 rounded-xl sm:rounded-2xl shadow-lg">
+                      <Package className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
-                    <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">
+                    <Badge className="bg-green-100 text-[#6b8e2f] font-semibold text-[10px] sm:text-xs">
                       Total
                     </Badge>
                   </div>
-                  <p className="text-sm font-semibold text-gray-600 mb-1">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-600 mb-1 truncate">
                     Total PO Quantity
                   </p>
-                  <p className="text-3xl font-bold text-gray-900">
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">
                     {overviewData.kpis.totalPoQuantity.toLocaleString()}
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl shadow-lg">
-                      <Hourglass className="h-6 w-6 text-white" />
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <div className="p-2 sm:p-3 bg-linear-to-br from-amber-500 to-amber-600 rounded-xl sm:rounded-2xl shadow-lg">
+                      <Hourglass className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
-                    <Badge className="bg-amber-100 text-amber-700 font-semibold">
+                    <Badge className="bg-amber-100 text-amber-700 font-semibold text-[10px] sm:text-xs">
                       Pending
                     </Badge>
                   </div>
-                  <p className="text-sm font-semibold text-gray-600 mb-1">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-600 mb-1 truncate">
                     Pending Quantity
                   </p>
-                  <p className="text-3xl font-bold text-gray-900">
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">
                     {overviewData.kpis.totalPendingQuantity.toLocaleString()}
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg">
-                      <CheckCircle2 className="h-6 w-6 text-white" />
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <div className="p-2 sm:p-3 bg-linear-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl shadow-lg">
+                      <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
-                    <Badge className="bg-green-100 text-[#6b8e2f] font-semibold">
+                    <Badge className="bg-blue-100 text-blue-700 font-semibold text-[10px] sm:text-xs">
                       Received
                     </Badge>
                   </div>
-                  <p className="text-sm font-semibold text-gray-600 mb-1">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-600 mb-1 truncate">
                     Received Quantity
                   </p>
-                  <p className="text-3xl font-bold text-gray-900">
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">
                     {overviewData.kpis.totalReceivedQuantity.toLocaleString()}
                   </p>
                 </CardContent>
@@ -1187,43 +1190,42 @@ export default function Dashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <div className="h-80">
+                  <div className="h-[450px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={overviewData.top10Vendors}
                         layout="vertical"
-                        margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis type="number" stroke="#64748b" />
+                        <defs>
+                          <linearGradient id="vendorGradient" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#7da23a" />
+                            <stop offset="100%" stopColor="#6b8e2f" />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                        <XAxis type="number" stroke="#64748b" tick={{ fontSize: 11 }} hide />
                         <YAxis
                           dataKey="name"
                           type="category"
-                          width={100}
-                          tick={{ fontSize: 12, fill: "#64748b" }}
                           stroke="#64748b"
+                          tick={{ fontSize: 11, fill: "#64748b", fontWeight: 500 }}
+                          width={180}
+                          interval={0}
+                          tickFormatter={(value) => 
+                            value.length > 25 ? `${value.substring(0, 22)}...` : value
+                          }
                         />
                         <Tooltip
                           content={<CustomTooltip />}
-                          cursor={{ fill: "rgba(139, 92, 246, 0.1)" }}
+                          cursor={{ fill: "rgba(110, 142, 47, 0.1)" }}
                         />
                         <Bar
                           dataKey="quantity"
-                          fill="url(#colorGradient)"
-                          radius={[0, 8, 8, 0]}
+                          fill="url(#vendorGradient)"
+                          radius={[0, 4, 4, 0]}
+                          barSize={24}
                         />
-                        <defs>
-                          <linearGradient
-                            id="colorGradient"
-                            x1="0"
-                            y1="0"
-                            x2="1"
-                            y2="0"
-                          >
-                            <stop offset="0%" stopColor="#8B5CF6" />
-                            <stop offset="100%" stopColor="#6366F1" />
-                          </linearGradient>
-                        </defs>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1243,40 +1245,42 @@ export default function Dashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="h-96">
+                <div className="h-[450px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={overviewData.top10Materials}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis
+                    <BarChart
+                      data={overviewData.top10Materials}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <defs>
+                        <linearGradient id="materialGradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#10B981" />
+                          <stop offset="100%" stopColor="#059669" />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                      <XAxis type="number" stroke="#64748b" tick={{ fontSize: 11 }} hide />
+                      <YAxis
                         dataKey="name"
-                        angle={-45}
-                        textAnchor="end"
-                        height={100}
-                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        type="category"
                         stroke="#64748b"
+                        tick={{ fontSize: 11, fill: "#64748b", fontWeight: 500 }}
+                        width={180}
+                        interval={0}
+                        tickFormatter={(value) => 
+                          value.length > 25 ? `${value.substring(0, 22)}...` : value
+                        }
                       />
-                      <YAxis stroke="#64748b" tick={{ fill: "#64748b" }} />
                       <Tooltip
                         content={<CustomTooltip />}
-                        cursor={{ fill: "rgba(139, 92, 246, 0.1)" }}
+                        cursor={{ fill: "rgba(16, 185, 129, 0.1)" }}
                       />
                       <Bar
                         dataKey="quantity"
                         fill="url(#materialGradient)"
-                        radius={[8, 8, 0, 0]}
+                        radius={[0, 4, 4, 0]}
+                        barSize={24}
                       />
-                      <defs>
-                        <linearGradient
-                          id="materialGradient"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop offset="0%" stopColor="#8B5CF6" />
-                          <stop offset="100%" stopColor="#6366F1" />
-                        </linearGradient>
-                      </defs>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -1290,21 +1294,21 @@ export default function Dashboard() {
               <TabsList className="grid w-full grid-cols-3 max-w-xl mx-auto mb-6 bg-white border-0 shadow-lg rounded-2xl p-2 h-auto">
                 <TabsTrigger
                   value="pending-lift"
-                  className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
+                  className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
                 >
                   <Hourglass className="h-5 w-5" />
                   Pending
                 </TabsTrigger>
                 <TabsTrigger
                   value="in-transit"
-                  className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
+                  className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-green-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
                 >
                   <Truck className="h-5 w-5" />
                   In-Transit
                 </TabsTrigger>
                 <TabsTrigger
                   value="received"
-                  className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
+                  className="flex items-center justify-center gap-2 py-3 text-base font-semibold rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-green-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
                 >
                   <CheckCircle2 className="h-5 w-5" />
                   Received
@@ -1313,7 +1317,7 @@ export default function Dashboard() {
 
               <TabsContent value="pending-lift">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader className="p-6 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50">
+                  <CardHeader className="p-6 border-b border-gray-100 bg-linear-to-r from-amber-50 to-orange-50">
                     <CardTitle className="text-xl flex items-center gap-2">
                       <Hourglass className="h-6 w-6 text-amber-600" />
                       Purchase Orders Pending Lift
@@ -1406,7 +1410,7 @@ export default function Dashboard() {
 
               <TabsContent value="in-transit">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader className="p-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+                  <CardHeader className="p-6 border-b border-gray-100 bg-linear-to-r from-green-50 to-emerald-50">
                     <CardTitle className="text-xl flex items-center gap-2">
                       <Truck className="h-6 w-6 text-[#7da23a]" />
                       Materials In-Transit
@@ -1489,7 +1493,7 @@ export default function Dashboard() {
 
               <TabsContent value="received">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader className="p-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+                  <CardHeader className="p-6 border-b border-gray-100 bg-linear-to-r from-green-50 to-emerald-50">
                     <CardTitle className="text-xl flex items-center gap-2">
                       <CheckCircle2 className="h-6 w-6 text-[#7da23a]" />
                       Received Materials
@@ -1759,7 +1763,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* INDENT-PO */}
               <Card className="border-0 shadow-lg">
-                <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+                <CardHeader className="p-4 border-b border-gray-100 bg-linear-to-r from-green-50 to-emerald-50">
                   <CardTitle className="text-lg font-bold text-[#6b8e2f]">
                     INDENT-PO Stages
                   </CardTitle>
@@ -1799,7 +1803,7 @@ export default function Dashboard() {
 
               {/* LIFT-ACCOUNTS */}
               <Card className="border-0 shadow-lg">
-                <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-cyan-50">
+                <CardHeader className="p-4 border-b border-gray-100 bg-linear-to-r from-green-50 to-cyan-50">
                   <CardTitle className="text-lg font-bold text-[#6b8e2f]">
                     LIFT-ACCOUNTS Stages
                   </CardTitle>
@@ -1839,7 +1843,7 @@ export default function Dashboard() {
 
               {/* ACCOUNTS */}
               <Card className="border-0 shadow-lg">
-                <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+                <CardHeader className="p-4 border-b border-gray-100 bg-linear-to-r from-green-50 to-emerald-50">
                   <CardTitle className="text-lg font-bold text-[#6b8e2f]">
                     ACCOUNTS Stages
                   </CardTitle>

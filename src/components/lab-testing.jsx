@@ -1565,27 +1565,27 @@ export default function LabTesting() {
               </p>
             </div>
           ) : (
-            <div className="flex-1 overflow-x-auto rounded-b-lg">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-muted/50">
-                  <TableRow>
+            <div className="flex-1 overflow-auto max-h-[calc(100vh-500px)] relative custom-scrollbar rounded-b-lg">
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 z-30">
+                  <tr className="bg-gray-50 border-b border-gray-200">
                     {visibleCols.map((col) => (
-                      <TableHead
+                      <th
                         key={col.dataKey}
-                        className="text-xs whitespace-nowrap"
+                        className="px-3 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap"
                       >
                         {col.header}
-                      </TableHead>
+                      </th>
                     ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
                   {data.map((item) => (
-                    <TableRow key={item._id} className="hover:bg-green-50/50">
+                    <tr key={item._id} className="hover:bg-green-50/50 transition-colors border-b border-gray-100">
                       {visibleCols.map((column) => (
-                        <TableCell
+                        <td
                           key={column.dataKey}
-                          className={`whitespace-nowrap text-xs ${column.dataKey === "liftNo" ? "font-medium text-primary" : "text-gray-700"}`}
+                          className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "liftNo" ? "font-medium text-primary" : "text-gray-700"}`}
                         >
                           {column.dataKey === "actionColumn" &&
                           tabKey === "eligibleForTest" ? (
@@ -1593,19 +1593,19 @@ export default function LabTesting() {
                               variant="outline"
                               size="xs"
                               onClick={() => handleOpenLabTestModal(item)}
-                              className="h-7 px-2.5 py-1 text-xs bg-green-100 text-[#6b8e2f] hover:bg-green-200"
+                              className="h-7 px-2.5 py-1 text-xs bg-green-100 text-[#6b8e2f] hover:bg-green-200 border-green-200"
                             >
                               Record Lab Test
                             </Button>
                           ) : (
                             renderCell(item, column)
                           )}
-                        </TableCell>
+                        </td>
                       ))}
-                    </TableRow>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

@@ -1481,28 +1481,28 @@ export default function MismatchAnalysis() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-b-lg flex-1">
-              <Table>
-                <TableHeader className="bg-red-50 sticky top-0 z-10">
-                  <TableRow>
+            <div className="overflow-auto max-h-[calc(100vh-550px)] relative custom-scrollbar rounded-b-lg flex-1">
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 z-30">
+                  <tr className="bg-red-50 border-b border-red-200">
                     {visibleCols.map((col) => (
-                      <TableHead
+                      <th
                         key={col.dataKey}
-                        className={`whitespace-nowrap text-xs px-3 py-2 ${col.dataKey === "actions" ? "w-[150px]" : ""}`}
+                        className={`px-3 py-3 text-xs font-bold text-red-800 uppercase text-left bg-red-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap ${col.dataKey === "actions" ? "w-[150px]" : ""}`}
                       >
                         {col.header}
-                      </TableHead>
+                      </th>
                     ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
                   {data.map((item, index) => (
-                    <TableRow
+                    <tr
                       key={`${tabKey}-${item.id || item.liftNo}-${index}`}
-                      className="hover:bg-red-50/50 bg-red-100/30 border-l-4 border-l-red-500"
+                      className="hover:bg-red-50/50 bg-red-100/30 border-l-4 border-l-red-500 transition-colors border-b border-gray-100"
                     >
                       {visibleCols.map((column) => (
-                        <TableCell
+                        <td
                           key={`${item.id || item.liftNo}-${column.dataKey}`}
                           className={`text-xs px-3 py-2 ${
                             column.dataKey === "id" ||
@@ -1515,12 +1515,12 @@ export default function MismatchAnalysis() {
                           }`}
                         >
                           {renderCell(item, column)}
-                        </TableCell>
+                        </td>
                       ))}
-                    </TableRow>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

@@ -133,6 +133,13 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: oklch(0.8 0 0);
   }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 /* ============================================

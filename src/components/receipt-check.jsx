@@ -1136,32 +1136,32 @@ export default function ReceiptCheck() {
               </p>
             </div>
           ) : (
-            <div className="flex-1 overflow-x-auto rounded-b-lg">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-muted/50">
-                  <TableRow>
+            <div className="flex-1 overflow-auto max-h-[calc(100vh-500px)] relative custom-scrollbar rounded-b-lg">
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 z-30">
+                  <tr className="bg-gray-50 border-b border-gray-200">
                     {visibleCols.map((col) => (
-                      <TableHead
+                      <th
                         key={col.dataKey}
-                        className="px-3 py-2 text-xs whitespace-nowrap"
+                        className="px-3 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap"
                       >
                         {col.header}
-                      </TableHead>
+                      </th>
                     ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
                   {data.map((item) => (
-                    <TableRow
+                    <tr
                       key={item._id}
-                      className={`hover:bg-green-50/50 ${
+                      className={`hover:bg-green-50/50 transition-colors border-b border-gray-100 ${
                         tabKey === "processedReceipts" && !item._quantitiesMatch
                           ? "bg-red-100 hover:bg-red-200/70 border-l-4 border-l-red-500"
                           : ""
                       }`}
                     >
                       {visibleCols.map((column) => (
-                        <TableCell
+                        <td
                           key={`${item._id}-${column.dataKey}`}
                           className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === "id" || column.dataKey === "liftNo" ? "font-medium text-primary" : "text-gray-700"}`}
                         >
@@ -1181,12 +1181,12 @@ export default function ReceiptCheck() {
                           ) : (
                             renderCell(item, column)
                           )}
-                        </TableCell>
+                        </td>
                       ))}
-                    </TableRow>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

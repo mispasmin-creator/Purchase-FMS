@@ -771,99 +771,99 @@ export default function ThreeParty() {
                 <p className="text-gray-500">No pending approvals</p>
               </div>
             ) : (
-              <div className="overflow-x-auto border border-gray-100 rounded-xl">
-                <Table>
-                  <TableHeader className="bg-gray-50">
-                    <TableRow className="border-b border-gray-200">
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Action
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Indent & Product
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Firm & Department
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Indenter
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Quantity
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Planned Date
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPendingData.map((indent) => (
-                      <TableRow
-                        key={indent.id}
-                        className="cursor-pointer transition-colors border-b border-gray-100 hover:bg-gray-50/50"
-                        onClick={() => {
-                          setSelectedIndent(indent);
-                          setSelectedHistory(null);
-                          setOpenDialog(true);
-                          setVendorForms(
-                            indent.vendors.map(normalizeVendorForm),
-                          );
-                          setVendorSearchTerms(["", "", ""]);
-                          setVendorPopoverOpen([false, false, false]);
-                          setSelectedVendorIndex(0);
-                        }}
-                      >
-                        <TableCell className="px-4 py-3">
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedIndent(indent);
-                              setSelectedHistory(null);
-                              setOpenDialog(true);
-                              setVendorForms(
-                                indent.vendors.map(normalizeVendorForm),
-                              );
-                              setVendorSearchTerms(["", "", ""]);
-                              setVendorPopoverOpen([false, false, false]);
-                              setSelectedVendorIndex(0);
-                            }}
-                            className="h-8 px-3 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white shadow-none"
-                          >
-                            Approve
-                          </Button>
-                        </TableCell>
-                        <TableCell className="px-4 py-3">
-                          <div className="text-sm font-medium text-gray-800">
-                            {indent.indentId}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-0.5">
-                            {indent.product}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-3">
-                          <div className="text-sm text-gray-700">
-                            {indent.firmName}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {indent.department}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-sm text-gray-600">
-                          {indent.indenter || <span className="text-gray-400 text-xs">—</span>}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-sm font-medium text-gray-700">
-                          {indent.quantity}{" "}
-                          <span className="text-xs text-gray-400 font-normal">
-                            {indent.uom}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-sm text-gray-600">
-                          {formatDateTime(indent.planned6)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                <div className="overflow-auto border border-gray-100 rounded-xl max-h-[calc(100vh-450px)] relative custom-scrollbar">
+                  <table className="w-full text-sm border-collapse">
+                    <thead className="sticky top-0 z-30">
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Action
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Indent & Product
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Firm & Department
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Indenter
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Quantity
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Planned Date
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                      {filteredPendingData.map((indent) => (
+                        <tr
+                          key={indent.id}
+                          className="cursor-pointer transition-colors border-b border-gray-100 hover:bg-gray-50/50"
+                          onClick={() => {
+                            setSelectedIndent(indent);
+                            setSelectedHistory(null);
+                            setOpenDialog(true);
+                            setVendorForms(
+                              indent.vendors.map(normalizeVendorForm),
+                            );
+                            setVendorSearchTerms(["", "", ""]);
+                            setVendorPopoverOpen([false, false, false]);
+                            setSelectedVendorIndex(0);
+                          }}
+                        >
+                          <td className="px-4 py-3">
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedIndent(indent);
+                                setSelectedHistory(null);
+                                setOpenDialog(true);
+                                setVendorForms(
+                                  indent.vendors.map(normalizeVendorForm),
+                                );
+                                setVendorSearchTerms(["", "", ""]);
+                                setVendorPopoverOpen([false, false, false]);
+                                setSelectedVendorIndex(0);
+                              }}
+                              className="h-8 px-3 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white shadow-none"
+                            >
+                              Approve
+                            </Button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm font-medium text-gray-800">
+                              {indent.indentId}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {indent.product}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm text-gray-700">
+                              {indent.firmName}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {indent.department}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {indent.indenter || <span className="text-gray-400 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-700">
+                            {indent.quantity}{" "}
+                            <span className="text-xs text-gray-400 font-normal">
+                              {indent.uom}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {formatDateTime(indent.planned6)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
             )}
           </TabsContent>
 
@@ -925,96 +925,96 @@ export default function ThreeParty() {
                 <p className="text-gray-500">No history found</p>
               </div>
             ) : (
-              <div className="overflow-x-auto border border-gray-100 rounded-xl">
-                <Table>
-                  <TableHeader className="bg-gray-50">
-                    <TableRow className="border-b border-gray-200">
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Action
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Approval Date
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Indent & Product
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Firm &amp; Dept.
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Indenter
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Quantity
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Approved Vendor
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase">
-                        Rate
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredHistoryData.map((indent) => (
-                      <TableRow
-                        key={indent.id}
-                        className="border-b border-gray-100 hover:bg-gray-50/50"
-                      >
-                        <TableCell className="px-4 py-3">
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedHistory(indent);
-                              setSelectedIndent(null);
-                              setOpenDialog(true);
-                            }}
-                            className="h-8 px-3 text-xs"
-                          >
-                            Update
-                          </Button>
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-sm text-gray-600">
-                          {formatDateTime(indent.actual6)}
-                        </TableCell>
-                        <TableCell className="px-4 py-3">
-                          <div className="text-sm font-medium text-gray-800">
-                            {indent.indentId}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {indent.product}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-3">
-                          <div className="text-sm text-gray-700">
-                            {indent.firmName}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {indent.department}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-sm text-gray-600">
-                          {indent.indenter || <span className="text-gray-400 text-xs">—</span>}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-sm font-medium text-gray-700">
-                          {indent.quantity}{" "}
-                          <span className="text-xs text-gray-400 font-normal">
-                            {indent.uom}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-4 py-3">
-                          <Badge className="text-green-700 bg-green-100 border-0">
-                            {indent.vendor[0]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-sm font-medium">
-                          ₹{indent.vendor[1]}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                <div className="overflow-auto border border-gray-100 rounded-xl max-h-[calc(100vh-450px)] relative custom-scrollbar">
+                  <table className="w-full text-sm border-collapse">
+                    <thead className="sticky top-0 z-30">
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Action
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Approval Date
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Indent & Product
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Firm & Dept.
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Indenter
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Quantity
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Approved Vendor
+                        </th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                          Rate
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                      {filteredHistoryData.map((indent) => (
+                        <tr
+                          key={indent.id}
+                          className="border-b border-gray-100 hover:bg-gray-50/50"
+                        >
+                          <td className="px-4 py-3">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedHistory(indent);
+                                setSelectedIndent(null);
+                                setOpenDialog(true);
+                              }}
+                              className="h-8 px-3 text-xs"
+                            >
+                              Update
+                            </Button>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {formatDateTime(indent.actual6)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm font-medium text-gray-800">
+                              {indent.indentId}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {indent.product}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm text-gray-700">
+                              {indent.firmName}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {indent.department}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {indent.indenter || <span className="text-gray-400 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-700">
+                            {indent.quantity}{" "}
+                            <span className="text-xs text-gray-400 font-normal">
+                              {indent.uom}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge className="text-green-700 bg-green-100 border-0">
+                              {indent.vendor[0]}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium">
+                            ₹{indent.vendor[1]}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
             )}
           </TabsContent>
         </Tabs>

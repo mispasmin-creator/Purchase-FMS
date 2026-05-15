@@ -499,7 +499,7 @@ export default function FullkittingTransportingPage() {
         const hasLocalError = hasError;
 
         return (
-            <Card className="shadow-sm border border-border flex-1 flex flex-col">
+            <Card className="shadow-sm border border-border flex-1 flex flex-col overflow-hidden">
                 <CardHeader className="py-3 px-4 bg-muted/30">
                     <div className="flex justify-between items-center">
                         <div>
@@ -545,44 +545,51 @@ export default function FullkittingTransportingPage() {
                 </CardHeader>
                 <CardContent className="p-0 flex-1 flex flex-col">
                     {isLocalLoading ? (
-                        <div className="flex flex-col justify-center items-center py-10 flex-1"><Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" /><p className="text-muted-foreground ml-2">Loading...</p></div>
+                        <div className="flex flex-col justify-center items-center py-12 flex-1">
+                            <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
+                            <p className="text-muted-foreground ml-2">Loading data...</p>
+                        </div>
                     ) : hasLocalError ? (
-                        <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center flex-1">
-                            <AlertTriangle className="h-10 w-10 text-destructive mb-3" /><p className="font-medium text-destructive">Error Loading Data</p><p className="text-sm text-muted-foreground max-w-md">{error}</p>
+                        <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive/10 bg-destructive/5 rounded-lg mx-4 my-4 text-center flex-1">
+                            <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
+                            <p className="font-medium text-destructive">Error Loading Data</p>
+                            <p className="text-sm text-muted-foreground max-w-md mt-1">{error}</p>
                         </div>
                     ) : data.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center flex-1">
-                            <Info className="h-12 w-12 text-green-500 mb-3" />
-                            <p className="font-medium text-foreground">No Data Found</p>
-                            <p className="text-sm text-muted-foreground text-center">
+                        <div className="flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-muted bg-muted/5 rounded-lg mx-4 my-4 text-center flex-1">
+                            <Info className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+                            <p className="font-medium text-foreground">No Records Found</p>
+                            <p className="text-sm text-muted-foreground text-center mt-1">
                                 {emptyMessage}
                                 {!hasAllFirmAccess && user?.firmName && (
-                                    <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
+                                    <span className="block mt-1 font-medium text-[#7da23a]">(Firm: {user.firmName})</span>
                                 )}
                             </p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto rounded-b-lg flex-1">
-                            <Table>
-                                <TableHeader className="bg-muted/50 sticky top-0 z-10">
-                                    <TableRow>
+                        <div className="overflow-auto max-h-[calc(100vh-250px)] relative custom-scrollbar">
+                            <table className="w-full text-sm border-collapse">
+                                <thead className="sticky top-0 z-30">
+                                    <tr className="bg-gray-50 border-b border-gray-200">
                                         {visibleCols.map(col => (
-                                            <TableHead key={col.dataKey} className="whitespace-nowrap text-xs px-3 py-2">{col.header}</TableHead>
+                                            <th key={col.dataKey} className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">
+                                                {col.header}
+                                            </th>
                                         ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {data.map(item => (
-                                        <TableRow key={item.id} className="hover:bg-green-50/50">
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-100">
+                                    {data.map((item, index) => (
+                                        <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-green-50/50 transition-colors border-b border-gray-100`}>
                                             {visibleCols.map(column => (
-                                                <TableCell key={column.dataKey} className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === 'liftNumber' ? 'font-medium text-primary' : 'text-gray-700'}`}>
+                                                <td key={column.dataKey} className={`px-4 py-3 whitespace-nowrap text-xs ${column.dataKey === 'liftNumber' ? 'font-bold text-primary' : 'text-gray-700'}`}>
                                                     {renderCellContent(item, column)}
-                                                </TableCell>
+                                                </td>
                                             ))}
-                                        </TableRow>
+                                        </tr>
                                     ))}
-                                </TableBody>
-                            </Table>
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </CardContent>

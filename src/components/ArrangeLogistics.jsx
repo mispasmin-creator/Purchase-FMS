@@ -456,11 +456,136 @@ export default function ArrangeLogistics() {
             </div>
 
             <TabsContent value="pending" className="flex-1 mt-0">
-              {loading ? <div className="flex items-center justify-center py-10 text-sm text-gray-500"><Loader2 className="h-5 w-5 mr-2 animate-spin text-[#7da23a]" />Loading pending logistics...</div> : error ? <div className="p-6 rounded-lg border border-dashed border-red-200 bg-red-50 text-red-700 flex items-center gap-3"><AlertTriangle className="h-5 w-5" />{error}</div> : !filteredPendingData.length ? <div className="p-6 rounded-lg border border-dashed bg-secondary/50 text-center"><Info className="h-10 w-10 text-[#7da23a] mx-auto mb-3" /><p className="font-semibold">No pending logistics items</p></div> : <Card className="shadow-none border flex-1 flex flex-col"><CardHeader className="py-3 px-4 border-b"><CardTitle className="flex items-center text-base"><Truck className="w-5 h-5 mr-2 text-[#7da23a]" />Pending Logistics ({filteredPendingData.length})</CardTitle><CardDescription className="mt-1 text-xs">POs waiting for transporter arrangement before Tally entry.</CardDescription></CardHeader><CardContent className="p-0 flex-1 overflow-hidden"><div className="overflow-auto h-full"><Table><TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10"><TableRow><TableHead>Action</TableHead><TableHead>PO Number</TableHead><TableHead>Firm Name</TableHead><TableHead>Vendor</TableHead><TableHead>Material</TableHead><TableHead>PO Qty</TableHead><TableHead>Total Amount</TableHead><TableHead>Planned</TableHead></TableRow></TableHeader><TableBody>{filteredPendingData.map((item) => <TableRow key={item.id}><TableCell><Button size="sm" className="bg-[#7da23a] hover:bg-[#6b8e2f]" onClick={() => openArrangeDialog(item)}>Arrange</Button></TableCell><TableCell>{item.poNumber || item.indentId}</TableCell><TableCell>{item.firmName}</TableCell><TableCell>{item.vendorName}</TableCell><TableCell>{item.material}</TableCell><TableCell>{item.totalQuantity || "-"}</TableCell><TableCell>{item.totalAmount || "-"}</TableCell><TableCell>{formatDateTime(item.plannedLogistics)}</TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>}
+              {loading ? (
+                <div className="flex items-center justify-center py-10 text-sm text-gray-500">
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin text-[#7da23a]" />
+                  Loading pending logistics...
+                </div>
+              ) : error ? (
+                <div className="p-6 rounded-lg border border-dashed border-red-200 bg-red-50 text-red-700 flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5" />
+                  {error}
+                </div>
+              ) : !filteredPendingData.length ? (
+                <div className="p-6 rounded-lg border border-dashed bg-secondary/50 text-center">
+                  <Info className="h-10 w-10 text-[#7da23a] mx-auto mb-3" />
+                  <p className="font-semibold">No pending logistics items</p>
+                </div>
+              ) : (
+                <Card className="shadow-none border flex-1 flex flex-col">
+                  <CardHeader className="py-3 px-4 border-b">
+                    <CardTitle className="flex items-center text-base">
+                      <Truck className="w-5 h-5 mr-2 text-[#7da23a]" />
+                      Pending Logistics ({filteredPendingData.length})
+                    </CardTitle>
+                    <CardDescription className="mt-1 text-xs">
+                      POs waiting for transporter arrangement before Tally entry.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1 overflow-hidden">
+                    <div className="overflow-auto max-h-[calc(100vh-450px)] relative custom-scrollbar">
+                      <table className="w-full text-sm border-collapse">
+                        <thead className="sticky top-0 z-30">
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Action</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">PO Number</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Firm Name</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Vendor</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Material</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">PO Qty</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Total Amount</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Planned</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {filteredPendingData.map((item) => (
+                            <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                              <td className="px-4 py-3">
+                                <Button size="sm" className="bg-[#7da23a] hover:bg-[#6b8e2f]" onClick={() => openArrangeDialog(item)}>Arrange</Button>
+                              </td>
+                              <td className="px-4 py-3">{item.poNumber || item.indentId}</td>
+                              <td className="px-4 py-3">{item.firmName}</td>
+                              <td className="px-4 py-3">{item.vendorName}</td>
+                              <td className="px-4 py-3">{item.material}</td>
+                              <td className="px-4 py-3">{item.totalQuantity || "-"}</td>
+                              <td className="px-4 py-3">{item.totalAmount || "-"}</td>
+                              <td className="px-4 py-3">{formatDateTime(item.plannedLogistics)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="history" className="flex-1 mt-0">
-              {loading ? <div className="flex items-center justify-center py-10 text-sm text-gray-500"><Loader2 className="h-5 w-5 mr-2 animate-spin text-[#7da23a]" />Loading logistics history...</div> : !filteredHistoryData.length ? <div className="p-6 rounded-lg border border-dashed bg-secondary/50 text-center"><Info className="h-10 w-10 text-[#7da23a] mx-auto mb-3" /><p className="font-semibold">No logistics history yet</p></div> : <Card className="shadow-none border flex-1 flex flex-col"><CardHeader className="py-3 px-4 border-b"><CardTitle className="flex items-center text-base"><History className="w-5 h-5 mr-2 text-[#7da23a]" />Logistics History ({filteredHistoryData.length})</CardTitle><CardDescription className="mt-1 text-xs">Completed logistics arrangements with selected transporters.</CardDescription></CardHeader><CardContent className="p-0 flex-1 overflow-hidden"><div className="overflow-auto h-full"><Table><TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10"><TableRow><TableHead>View</TableHead><TableHead>Status</TableHead><TableHead>PO Number</TableHead><TableHead>Firm Name</TableHead><TableHead>Vendor</TableHead><TableHead>Material</TableHead><TableHead>Selected Transporter</TableHead><TableHead>Cost</TableHead><TableHead>Date</TableHead></TableRow></TableHeader><TableBody>{filteredHistoryData.map((item) => <TableRow key={item.id}><TableCell><Button variant="outline" size="sm" onClick={() => openHistoryDialog(item)}>View</Button></TableCell><TableCell>{item.actualLogistics ? <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">Approved</Badge> : <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs">Pending Approval</Badge>}</TableCell><TableCell>{item.poNumber || item.indentId}</TableCell><TableCell>{item.firmName}</TableCell><TableCell>{item.vendorName}</TableCell><TableCell>{item.material}</TableCell><TableCell>{item.selectedTransporter?.name || "-"}</TableCell><TableCell>{item.selectedTransporter?.cost || "-"}</TableCell><TableCell>{formatDateTime(item.actualLogistics || item.planned9)}</TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>}
+              {loading ? (
+                <div className="flex items-center justify-center py-10 text-sm text-gray-500">
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin text-[#7da23a]" />
+                  Loading logistics history...
+                </div>
+              ) : !filteredHistoryData.length ? (
+                <div className="p-6 rounded-lg border border-dashed bg-secondary/50 text-center">
+                  <Info className="h-10 w-10 text-[#7da23a] mx-auto mb-3" />
+                  <p className="font-semibold">No logistics history yet</p>
+                </div>
+              ) : (
+                <Card className="shadow-none border flex-1 flex flex-col">
+                  <CardHeader className="py-3 px-4 border-b">
+                    <CardTitle className="flex items-center text-base">
+                      <History className="w-5 h-5 mr-2 text-[#7da23a]" />
+                      Logistics History ({filteredHistoryData.length})
+                    </CardTitle>
+                    <CardDescription className="mt-1 text-xs">
+                      Completed logistics arrangements with selected transporters.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1 overflow-hidden">
+                    <div className="overflow-auto max-h-[calc(100vh-450px)] relative custom-scrollbar">
+                      <table className="w-full text-sm border-collapse">
+                        <thead className="sticky top-0 z-30">
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">View</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Status</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">PO Number</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Firm Name</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Vendor</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Material</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Selected Transporter</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Cost</th>
+                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {filteredHistoryData.map((item) => (
+                            <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                              <td className="px-4 py-3">
+                                <Button variant="outline" size="sm" onClick={() => openHistoryDialog(item)}>View</Button>
+                              </td>
+                              <td className="px-4 py-3">
+                                {item.actualLogistics ? (
+                                  <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">Approved</Badge>
+                                ) : (
+                                  <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs">Pending Approval</Badge>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">{item.poNumber || item.indentId}</td>
+                              <td className="px-4 py-3">{item.firmName}</td>
+                              <td className="px-4 py-3">{item.vendorName}</td>
+                              <td className="px-4 py-3">{item.material}</td>
+                              <td className="px-4 py-3">{item.selectedTransporter?.name || "-"}</td>
+                              <td className="px-4 py-3">{item.selectedTransporter?.cost || "-"}</td>
+                              <td className="px-4 py-3">{formatDateTime(item.actualLogistics || item.planned9)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

@@ -924,25 +924,25 @@ export default function StockApproval() {
                         </p>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto rounded-lg border border-gray-200 max-h-[calc(100vh-500px)]">
-                        <Table className="w-full text-sm">
-                          <TableHeader className="bg-gray-100 sticky top-0 z-10">
-                            <TableRow>
+                      <div className="overflow-auto rounded-lg border border-gray-200 max-h-[calc(100vh-500px)] relative custom-scrollbar">
+                        <table className="w-full text-sm border-collapse">
+                          <thead className="sticky top-0 z-30">
+                            <tr className="hover:bg-transparent border-b border-gray-200">
                               {getApproveTableColumns.map((col) => (
-                                <TableHead
+                                <th
                                   key={col.dataKey}
-                                  className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap"
+                                  className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-gray-100/95 backdrop-blur-sm shadow-sm"
                                 >
                                   {col.header}
-                                </TableHead>
+                                </th>
                               ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody className="bg-white divide-y divide-gray-200">
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
                             {pendingIndents.map((indent) => (
-                              <TableRow
+                              <tr
                                 key={indent.id}
-                                className={`transition duration-150 ${
+                                className={`transition duration-150 border-b border-gray-100 ${
                                   selectedRows[indent.id]
                                     ? "bg-green-100"
                                     : "hover:bg-gray-50"
@@ -951,9 +951,9 @@ export default function StockApproval() {
                                 {getApproveTableColumns.map((col) => {
                                   if (col.dataKey === "selectRow") {
                                     return (
-                                      <TableCell
+                                      <td
                                         key={col.dataKey}
-                                        className="px-4 py-1.5"
+                                        className="px-4 py-2"
                                       >
                                         <Checkbox
                                           checked={!!selectedRows[indent.id]}
@@ -962,14 +962,14 @@ export default function StockApproval() {
                                           }
                                           className="h-4 w-4"
                                         />
-                                      </TableCell>
+                                      </td>
                                     );
                                   }
                                   if (col.dataKey === "approvedQtyInput") {
                                     return (
-                                      <TableCell
+                                      <td
                                         key={col.dataKey}
-                                        className="px-4 py-1.5"
+                                        className="px-4 py-2"
                                       >
                                         <input
                                           type="text"
@@ -984,14 +984,14 @@ export default function StockApproval() {
                                           disabled={!selectedRows[indent.id]}
                                           className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:ring-[#6b8e2f] focus:border-[#6b8e2f] disabled:bg-gray-100 text-sm"
                                         />
-                                      </TableCell>
+                                      </td>
                                     );
                                   }
                                   if (col.dataKey === "statusDropdown") {
                                     return (
-                                      <TableCell
+                                      <td
                                         key={col.dataKey}
-                                        className="px-4 py-1.5"
+                                        className="px-4 py-2"
                                       >
                                         <select
                                           value={
@@ -1015,14 +1015,14 @@ export default function StockApproval() {
                                           </option>
                                           <option value="Reject">Reject</option>
                                         </select>
-                                      </TableCell>
+                                      </td>
                                     );
                                   }
                                   if (col.dataKey === "remarkInput") {
                                     return (
-                                      <TableCell
+                                      <td
                                         key={col.dataKey}
-                                        className="px-4 py-1.5"
+                                        className="px-4 py-2"
                                       >
                                         <input
                                           type="text"
@@ -1037,13 +1037,13 @@ export default function StockApproval() {
                                           disabled={!selectedRows[indent.id]}
                                           className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-[#6b8e2f] focus:border-[#6b8e2f] disabled:bg-gray-100 text-sm"
                                         />
-                                      </TableCell>
+                                      </td>
                                     );
                                   }
                                   return (
-                                    <TableCell
+                                    <td
                                       key={col.dataKey}
-                                      className="px-4 py-1.5"
+                                      className="px-4 py-2 text-gray-700"
                                     >
                                       {col.dataKey === "Planned1"
                                         ? indent.planned1
@@ -1052,13 +1052,13 @@ export default function StockApproval() {
                                             ).toLocaleString()
                                           : "-"
                                         : indent[col.dataKey]}
-                                    </TableCell>
+                                    </td>
                                   );
                                 })}
-                              </TableRow>
+                              </tr>
                             ))}
-                          </TableBody>
-                        </Table>
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </>
@@ -1216,30 +1216,30 @@ export default function StockApproval() {
                         </p>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto rounded-lg border border-gray-200 max-h-[calc(100vh-500px)]">
-                        <Table className="w-full text-sm">
-                          <TableHeader className="bg-gray-100 sticky top-0 z-10">
-                            <TableRow>
+                      <div className="overflow-auto rounded-lg border border-gray-200 max-h-[calc(100vh-500px)] relative custom-scrollbar">
+                        <table className="w-full text-sm border-collapse">
+                          <thead className="sticky top-0 z-30">
+                            <tr className="hover:bg-transparent border-b border-gray-200">
                               {getHistoryTableColumns.map((col) => (
-                                <TableHead
+                                <th
                                   key={col.dataKey}
-                                  className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap"
+                                  className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-gray-100/95 backdrop-blur-sm shadow-sm"
                                 >
                                   {col.header}
-                                </TableHead>
+                                </th>
                               ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody className="bg-white divide-y divide-gray-200">
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
                             {processedIndents.map((indent) => (
-                              <TableRow
+                              <tr
                                 key={indent.id}
-                                className="hover:bg-gray-50"
+                                className="hover:bg-gray-50 border-b border-gray-100"
                               >
                                 {getHistoryTableColumns.map((col) => (
-                                  <TableCell
+                                  <td
                                     key={col.dataKey}
-                                    className="px-4 py-1.5"
+                                    className="px-4 py-2 text-gray-700"
                                   >
                                     {col.dataKey === "Actual1"
                                       ? indent.actual1
@@ -1256,12 +1256,12 @@ export default function StockApproval() {
                                         : col.dataKey === "Remarks"
                                           ? cleanRemark(indent[col.dataKey])
                                           : indent[col.dataKey]}
-                                  </TableCell>
+                                  </td>
                                 ))}
-                              </TableRow>
+                              </tr>
                             ))}
-                          </TableBody>
-                        </Table>
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </>

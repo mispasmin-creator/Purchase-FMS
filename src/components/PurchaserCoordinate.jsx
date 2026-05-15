@@ -320,45 +320,45 @@ function CoordinationTable({ items, onCoordinate, isHistory, loading, getTypeCol
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader className="bg-slate-50">
-          <TableRow>
-            <TableHead className="w-[120px]">Action</TableHead>
-            <TableHead>PO Number</TableHead>
-            <TableHead>Mismatch Type</TableHead>
-            <TableHead>Involved Party</TableHead>
-            <TableHead>Material</TableHead>
-            <TableHead>Created On</TableHead>
-            {isHistory && <TableHead>Coordinated Info</TableHead>}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+    <div className="overflow-auto max-h-[calc(100vh-450px)] relative custom-scrollbar border border-gray-200 rounded-xl">
+      <table className="w-full text-sm border-collapse">
+        <thead className="sticky top-0 z-30">
+          <tr className="bg-gray-50 border-b border-gray-200">
+            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap w-[120px]">Action</th>
+            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO Number</th>
+            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Mismatch Type</th>
+            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Involved Party</th>
+            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Material</th>
+            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Created On</th>
+            {isHistory && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Coordinated Info</th>}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-100">
           {items.map((item) => (
-            <TableRow key={item.id} className="hover:bg-slate-50/50">
-              <TableCell>
+            <tr key={item.id} className="hover:bg-slate-50/50 transition-colors border-b border-gray-100">
+              <td className="px-4 py-3">
                 {!isHistory ? (
                   <Button 
                     size="sm" 
-                    className="bg-[#7da23a] hover:bg-[#6b8e2f] gap-2"
+                    className="bg-[#7da23a] hover:bg-[#6b8e2f] gap-2 h-8 text-xs"
                     onClick={() => onCoordinate(item)}
                   >
                     Coordinate
                   </Button>
                 ) : (
-                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                  <Badge className="bg-green-100 text-green-700 border-green-200 font-normal text-[10px] px-2 py-0.5">
                     Done
                   </Badge>
                 )}
-              </TableCell>
-              <TableCell className="font-bold">{item.po_number}</TableCell>
-              <TableCell>
-                <Badge variant="outline" className={getTypeColor(item.type)}>
+              </td>
+              <td className="px-4 py-3 font-bold text-primary text-xs">{item.po_number}</td>
+              <td className="px-4 py-3">
+                <Badge variant="outline" className={`${getTypeColor(item.type)} font-normal text-[10px] px-2 py-0.5`}>
                   {getTypeText(item.type)}
                 </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="text-sm">
+              </td>
+              <td className="px-4 py-3">
+                <div className="text-xs">
                   {item.vendor_name && (
                     <div className="flex items-center gap-1.5">
                       <User className="h-3 w-3 text-slate-400" />
@@ -372,26 +372,26 @@ function CoordinationTable({ items, onCoordinate, isHistory, loading, getTypeCol
                     </div>
                   )}
                 </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1.5 text-sm">
+              </td>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-1.5 text-xs text-gray-700">
                   <Package className="h-3 w-3 text-slate-400" />
                   {item.material_name}
                 </div>
-              </TableCell>
-              <TableCell className="text-xs text-gray-500 whitespace-nowrap">
+              </td>
+              <td className="px-4 py-3 text-[11px] text-gray-500 whitespace-nowrap">
                 {new Date(item.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </TableCell>
+              </td>
               {isHistory && (
-                <TableCell className="text-xs">
+                <td className="px-4 py-3 text-[11px]">
                   <p className="font-medium text-gray-700">{item.coordinated_by}</p>
                   <p className="text-gray-400">{new Date(item.coordinated_at).toLocaleDateString()}</p>
-                </TableCell>
+                </td>
               )}
-            </TableRow>
+            </tr>
           ))}
-        </TableBody>
-      </Table>
+        </tbody>
+      </table>
     </div>
   );
 }

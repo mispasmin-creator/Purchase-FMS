@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { Search, X, Settings, Eye, Download, RefreshCw } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
@@ -478,18 +478,18 @@ const formatDate = (dateString) => {
           </div>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
+        <div className="overflow-auto max-h-[calc(100vh-400px)] relative custom-scrollbar">
+          <table className="w-full text-sm border-collapse">
+            <thead className="sticky top-0 z-30">
+              <tr className="bg-gray-50 border-b border-gray-200">
                 {columns.filter(col => visibleColumns[col.key]).map(column => (
-                  <th key={column.key} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th key={column.key} className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">
                     {column.label}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-100">
               {filteredData.length === 0 ? (
                 <tr>
                   <td colSpan={columns.filter(col => visibleColumns[col.key]).length} className="px-4 py-8 text-center text-gray-500">
@@ -501,14 +501,14 @@ const formatDate = (dateString) => {
                 </tr>
               ) : (
                 filteredData.map((row, index) => (
-                  <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <tr key={row.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-gray-100 transition-colors`}>
                     {columns.filter(col => visibleColumns[col.key]).map(column => (
-                      <td key={column.key} className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td key={column.key} className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 border-b border-gray-100">
                         {column.key === 'billImage' || column.key === 'biltyImage' || column.key === 'weightSlip' ? (
                           row[column.key] ? (
                             <button 
                               onClick={() => handleViewImage(row[column.key])}
-                              className="flex items-center text-[#7da23a] hover:text-green-800"
+                              className="flex items-center text-[#7da23a] hover:text-green-800 font-medium"
                             >
                               <Eye className="w-4 h-4 mr-1" />
                               View
