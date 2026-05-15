@@ -44,6 +44,7 @@ const CallTrackerPage = () => {
     areaLifting: true,
     truckNo: true,
     transporterName: true,
+    transporterRate: true,
     billImage: true,
     biltyNo: true,
     typeOfRate: true,
@@ -67,6 +68,7 @@ const CallTrackerPage = () => {
   const [liftBiltyImageMap, setLiftBiltyImageMap] = useState({}); // Lift No → Bilty Image URL
   const [liftActualQtyMap, setLiftActualQtyMap] = useState({}); // Lift No → Actual Quantity from LIFT-ACCOUNTS
   const [liftDateOfReceivingMap, setLiftDateOfReceivingMap] = useState({}); // Lift No → Date Of Receiving from LIFT-ACCOUNTS
+  const [liftTransporterRateMap, setLiftTransporterRateMap] = useState({}); // Lift No → Transporter Rate from LIFT-ACCOUNTS
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('AUDIT'); // Default to Audit tab
   const [poToIndentMap, setPoToIndentMap] = useState({});
@@ -1019,7 +1021,7 @@ const CallTrackerPage = () => {
       try {
         const { data } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Date Of Receiving"');
+          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Date Of Receiving", "Transporter Rate"');
         const weightSlipMap = {};
         const typeMap = {};
         const biltyNoMap = {};
@@ -1035,6 +1037,7 @@ const CallTrackerPage = () => {
             biltyImageMap[key] = String(l["Bilty Image"] || "").trim();
             actualQtyMap[key] = String(l["Actual Quantity"] || "").trim();
             dateOfReceivingMap[key] = String(l["Date Of Receiving"] || "").trim();
+            liftTransporterRateMap[key] = String(l["Transporter Rate"] || "").trim();
           }
         });
         setLiftWeightSlipMap(weightSlipMap);
@@ -1043,6 +1046,7 @@ const CallTrackerPage = () => {
         setLiftBiltyImageMap(biltyImageMap);
         setLiftActualQtyMap(actualQtyMap);
         setLiftDateOfReceivingMap(dateOfReceivingMap);
+        setLiftTransporterRateMap(liftTransporterRateMap);
       } catch (e) {
         console.error('Failed to fetch LIFT-ACCOUNTS meta:', e);
       }
@@ -1154,7 +1158,8 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
-        dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || ''
+        dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
+        transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
       // Map NEW LIFT-ACCOUNTS records to the Audit format
@@ -1170,6 +1175,7 @@ const CallTrackerPage = () => {
         areaLifting: row["Area lifting"] || '',
         truckNo: row["Truck No."] || '',
         transporterName: row["Transporter Name"] || '',
+        transporterRate: row["Transporter Rate"] || '',
         billImage: row["Bill Image"] || '',
         biltyNo: row["Bilty No."] || '',
         typeOfRate: row["Type Of Transporting Rate"] || '',
@@ -1293,7 +1299,8 @@ const CallTrackerPage = () => {
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
         moisture: row["Moisture"] || '',
-        weightSlipQty: row["Weight Slip Qty"] || ''
+        weightSlipQty: row["Weight Slip Qty"] || '',
+        transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
       // Filter out submitted rows
@@ -1383,7 +1390,8 @@ const CallTrackerPage = () => {
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
         moisture: row["Moisture"] || '',
-        weightSlipQty: row["Weight Slip Qty"] || ''
+        weightSlipQty: row["Weight Slip Qty"] || '',
+        transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
       // Filter out submitted rows
@@ -1473,7 +1481,8 @@ const CallTrackerPage = () => {
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
         moisture: row["Moisture"] || '',
-        weightSlipQty: row["Weight Slip Qty"] || ''
+        weightSlipQty: row["Weight Slip Qty"] || '',
+        transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
       // Filter out submitted rows
@@ -1563,7 +1572,8 @@ const CallTrackerPage = () => {
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
         moisture: row["Moisture"] || '',
-        weightSlipQty: row["Weight Slip Qty"] || ''
+        weightSlipQty: row["Weight Slip Qty"] || '',
+        transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
       // Filter out submitted rows
@@ -2099,6 +2109,7 @@ const CallTrackerPage = () => {
                               areaLifting: 'Area Lifting',
                               truckNo: 'Truck No.',
                               transporterName: 'Transporter',
+                              transporterRate: 'Transporter Rate',
                               billImage: 'Bill Image',
                               biltyNo: 'Bilty No.',
                               typeOfRate: 'Type Of Rate',
@@ -2266,6 +2277,7 @@ const CallTrackerPage = () => {
                   {visibleColumns.areaLifting && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area Lifting</th>}
                   {visibleColumns.truckNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck No.</th>}
                   {visibleColumns.transporterName && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transporter</th>}
+                  {visibleColumns.transporterRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transporter Rate</th>}
                   {visibleColumns.billImage && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Image</th>}
                   {visibleColumns.biltyNo && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bilty No.</th>}
                   {visibleColumns.typeOfRate && <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type Of Rate</th>}
@@ -2351,6 +2363,7 @@ const CallTrackerPage = () => {
                         {visibleColumns.areaLifting && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.areaLifting || '-'}</td>}
                         {visibleColumns.truckNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.truckNo || '-'}</td>}
                         {visibleColumns.transporterName && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.transporterName || '-'}</td>}
+                        {visibleColumns.transporterRate && <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-700">{row.transporterRate ? `₹${row.transporterRate}` : '-'}</td>}
                         {visibleColumns.billImage && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.billImage ? (<a href={row.billImage} target='_blank' rel='noopener noreferrer'><Image size={20} /></a>) : ("-")}</td>}
                         {visibleColumns.biltyNo && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.biltyNo || '-'}</td>}
                         {visibleColumns.typeOfRate && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.typeOfRate || '-'}</td>}
