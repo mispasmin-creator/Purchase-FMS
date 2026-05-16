@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { PackageSearch, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X } from "lucide-react";
+import { PackageSearch, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X, Save } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { toast } from "sonner";
 import { canViewFirm } from "../utils/firmFilter";
+import { uploadFileToStorage } from "../utils/storageUtils";
 
 // Shadcn UI components
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -27,6 +28,7 @@ const KITTING_COLUMNS_META = [
     { header: "Firm Name", dataKey: "firmName", toggleable: true },
     { header: "Party Name", dataKey: "partyName", toggleable: true },
     { header: "Product Name", dataKey: "productName", toggleable: true },
+    { header: "Material Load Details", dataKey: "materialLoadDetails", toggleable: true },
     { header: "PO Qty", dataKey: "qty", toggleable: true },
     { header: "Billing Quantity", dataKey: "billingQty", toggleable: true },
     { header: "Bill No.", dataKey: "billNo", toggleable: true },
@@ -43,6 +45,7 @@ const KITTING_COLUMNS_META = [
     { header: "Bilty Number", dataKey: "biltyNo", toggleable: true },
     { header: "Material Rate", dataKey: "materialRate", toggleable: true },
     { header: "Bill Image", dataKey: "billImage", toggleable: true, isLink: true, linkText: "View Bill" },
+    { header: "Bilty Image", dataKey: "biltyImage", toggleable: true, isLink: true, linkText: "View Bilty" },
     { header: "Kitting Link", dataKey: "kittingLink", toggleable: true, isLink: true, linkText: "View Kitting" },
 ];
 
@@ -57,6 +60,11 @@ export default function FullkittingTransportingPage() {
 
     const [visiblePendingColumns, setVisiblePendingColumns] = useState({});
     const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({});
+
+    // State for history editing
+    const [selectedHistoryRows, setSelectedHistoryRows] = useState(new Set());
+    const [historyEditData, setHistoryEditData] = useState({});
+    const [isUpdatingHistory, setIsUpdatingHistory] = useState(false);
 
     // State for filters
     const [filters, setFilters] = useState({
@@ -159,10 +167,18 @@ export default function FullkittingTransportingPage() {
             const doneLiftNos = new Set();
             (fullkittinData || []).forEach(fk => {
                 const liftNo = String(fk["Lift No"] || "").trim();
-                if (liftNo) doneLiftNos.add(liftNo);
-                // Fallback: track by Bilty Number if Lift No not stored
                 const biltyNo = String(fk["Bilty Number"] || "").trim();
-                if (biltyNo) doneLiftNos.add(`bilty:${biltyNo}`);
+                if (liftNo) doneLiftNos.add(liftNo);
+                else if (biltyNo) doneLiftNos.add(`bilty:${biltyNo}`);
+            });
+
+            // Build a lookup map for fullkittin data
+            const fullkittingLookup = {};
+            (fullkittinData || []).forEach(fk => {
+                const liftNo = String(fk["Lift No"] || "").trim();
+                const biltyNo = String(fk["Bilty Number"] || "").trim();
+                if (liftNo) fullkittingLookup[liftNo] = fk;
+                else if (biltyNo) fullkittingLookup[`bilty:${biltyNo}`] = fk;
             });
 
             // Build a lookup map from INDENT-PO
@@ -219,12 +235,15 @@ export default function FullkittingTransportingPage() {
                 const biltyNo = String(mismatch?.["Bilty No."] || row["Bilty No."] || "").trim();
                 const indentNum = String(row["Indent no."] || "").trim();
                 const poInfo = poLookup[indentNum] || {};
+                const fkData = fullkittingLookup[liftNum] || (biltyNo ? fullkittingLookup[`bilty:${biltyNo}`] : null) || {};
+                const transporterName = fkData["Transporter Name"] || String(mismatch?.["Transporter Name"] || mismatch?.["Transporter"] || row["Transporter Name"] || "").trim();
+
                 const isDone = doneLiftNos.has(liftNum) || (biltyNo && doneLiftNos.has(`bilty:${biltyNo}`));
-                const transporterName = String(mismatch?.["Transporter Name"] || mismatch?.["Transporter"] || row["Transporter Name"] || "").trim();
 
                 return {
                     id: `kitting-${row.id}`,
                     originalId: row.id,
+                    fullkittingId: fkData.id,
                     originalRow: row,
                     liftRow: row,
                     poRow: poInfo,
@@ -232,6 +251,7 @@ export default function FullkittingTransportingPage() {
                     liftNumber: liftNum,
                     partyName: String(row["Vendor Name"] || "").trim(),
                     productName: String(row["Raw Material Name"] || "").trim(),
+                    materialLoadDetails: fkData["Material Load Details"] || String(row["Raw Material Name"] || "").trim(),
                     transporterName: transporterName,
                     kittingLink: null,
                     isPending: !isDone,
@@ -248,13 +268,13 @@ export default function FullkittingTransportingPage() {
                     driverNo: String(row["Driver No."] || "").trim(),
                     leadTime: String(row["Lead Time To Reach Factory (days)"] || "").trim(),
                     indentNo: indentNum,
-                    biltyNo: biltyNo,
-                    biltyImage: String(row["Bilty Image"] || "").trim(),
+                    biltyNo: fkData["Bilty Number"] || biltyNo,
+                    biltyImage: fkData["Bilty Image"] || String(row["Bilty Image"] || "").trim(),
                     typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
                     transportingRate: String(row["Transporting Rate"] || "").trim(),
-                    transportRate: String(row["Transporter Rate"] || "").trim(),
+                    transportRate: fkData["Amount"] || String(row["Transporter Rate"] || "").trim(),
                     rate: Number(row["Rate"]) || 0,
-                    truckNo: String(row["Truck No."] || "").trim(),
+                    truckNo: fkData["Vehicle Number"] || String(row["Truck No."] || "").trim(),
                     hasBilty: biltyNo ? "Yes" : "No",
                 };
             });
@@ -465,8 +485,112 @@ export default function FullkittingTransportingPage() {
         }
     };
 
-    const renderCellContent = (item, column) => {
+    const handleHistorySubmit = async () => {
+        if (selectedHistoryRows.size === 0) {
+            toast.error("Please select at least one row to update.");
+            return;
+        }
+
+        setIsUpdatingHistory(true);
+        try {
+            const updates = await Promise.all(Array.from(selectedHistoryRows).map(async id => {
+                const edit = historyEditData[id] || {};
+                const original = kittingData.find(item => item.id === id);
+                
+                if (!original?.fullkittingId) return null;
+
+                const updateObj = {};
+                if (edit.transporterName !== undefined) updateObj["Transporter Name"] = edit.transporterName;
+                if (edit.truckNo !== undefined) updateObj["Vehicle Number"] = edit.truckNo;
+                if (edit.materialLoadDetails !== undefined) updateObj["Material Load Details"] = edit.materialLoadDetails;
+                if (edit.biltyNo !== undefined) updateObj["Bilty Number"] = edit.biltyNo;
+                if (edit.transportRate !== undefined) updateObj["Amount"] = edit.transportRate === "" ? null : Number(edit.transportRate);
+                
+                if (edit.biltyImage !== undefined) {
+                    if (edit.biltyImage instanceof File) {
+                        try {
+                            const { url } = await uploadFileToStorage(edit.biltyImage, 'image', 'lift-bilty');
+                            updateObj["Bilty Image"] = url;
+                        } catch (err) {
+                            console.error("Error uploading bilty image:", err);
+                            throw new Error(`Failed to upload bilty image for ${original.liftNumber}: ${err.message}`);
+                        }
+                    } else {
+                        updateObj["Bilty Image"] = edit.biltyImage;
+                    }
+                }
+
+                if (Object.keys(updateObj).length === 0) return null;
+
+                return supabase.from("fullkittin").update(updateObj).eq("id", original.fullkittingId);
+            }));
+
+            const actualUpdates = updates.filter(Boolean);
+            if (actualUpdates.length === 0) {
+                toast.info("No changes to submit.");
+                setIsUpdatingHistory(false);
+                return;
+            }
+
+            const results = actualUpdates;
+            const errors = results.filter(r => r.error);
+            
+            if (errors.length > 0) {
+                console.error("Update errors:", errors);
+                toast.error(`Failed to update some records: ${errors[0].error.message}`);
+            } else {
+                toast.success("History updated successfully.");
+                setSelectedHistoryRows(new Set());
+                setHistoryEditData({});
+                fetchData();
+            }
+        } catch (err) {
+            console.error("Error updating history:", err);
+            toast.error(`Failed to update history: ${err.message}`);
+        } finally {
+            setIsUpdatingHistory(false);
+        }
+    };
+
+    const toggleHistoryRowSelection = (id) => {
+        const newSelection = new Set(selectedHistoryRows);
+        if (newSelection.has(id)) {
+            newSelection.delete(id);
+            // Optionally clear edit data for this row
+            const newEditData = { ...historyEditData };
+            delete newEditData[id];
+            setHistoryEditData(newEditData);
+        } else {
+            newSelection.add(id);
+        }
+        setSelectedHistoryRows(newSelection);
+    };
+
+    const toggleAllHistoryRows = (data) => {
+        if (selectedHistoryRows.size === data.length) {
+            setSelectedHistoryRows(new Set());
+            setHistoryEditData({});
+        } else {
+            const newSelection = new Set(data.map(item => item.id));
+            setSelectedHistoryRows(newSelection);
+        }
+    };
+
+    const handleHistoryEditChange = (id, field, value) => {
+        setHistoryEditData(prev => ({
+            ...prev,
+            [id]: {
+                ...prev[id],
+                [field]: value
+            }
+        }));
+    };
+
+    const renderCellContent = (item, column, tabKey) => {
         const value = item[column.dataKey];
+        const isEditing = tabKey === 'history' && selectedHistoryRows.has(item.id);
+        const editFields = ['transporterName', 'truckNo', 'materialLoadDetails', 'biltyNo', 'transportRate', 'biltyImage'];
+
         if (column.dataKey === 'actionColumn') {
             return (
                 <Button
@@ -479,6 +603,45 @@ export default function FullkittingTransportingPage() {
                 </Button>
             );
         }
+
+        if (isEditing && editFields.includes(column.dataKey)) {
+            if (column.dataKey === 'biltyImage') {
+                return (
+                    <div className="flex flex-col gap-1">
+                        {value ? (
+                            <a 
+                                href={String(value).startsWith("http") ? value : `https://${value}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-[10px]"
+                            >
+                                <ExternalLink className="h-2.5 w-2.5 mr-1" /> View Current
+                            </a>
+                        ) : (
+                            <span className="text-gray-400 text-[10px]">No Current Image</span>
+                        )}
+                        <Input
+                            type="file"
+                            accept="image/*"
+                            className="h-7 text-xs min-w-[150px] py-0"
+                            onChange={(e) => handleHistoryEditChange(item.id, column.dataKey, e.target.files?.[0])}
+                        />
+                    </div>
+                );
+            }
+            const editValue = historyEditData[item.id]?.[column.dataKey] !== undefined 
+                ? historyEditData[item.id][column.dataKey] 
+                : value;
+            
+            return (
+                <Input
+                    className="h-7 text-xs min-w-[100px]"
+                    value={editValue || ""}
+                    onChange={(e) => handleHistoryEditChange(item.id, column.dataKey, e.target.value)}
+                />
+            );
+        }
+
         if (column.isLink) {
             return value ? (
                 <a href={String(value).startsWith("http") ? value : `https://${value}`} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-xs">
@@ -509,38 +672,50 @@ export default function FullkittingTransportingPage() {
                             </CardTitle>
                             <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
                         </div>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 text-xs bg-white">
-                                    <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
+                        <div className="flex items-center gap-2">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-8 text-xs bg-white">
+                                        <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[240px] p-3">
+                                    <div className="grid gap-2">
+                                        <p className="text-sm font-medium">Toggle Columns</p>
+                                        <div className="flex items-center justify-between mt-1 mb-2">
+                                            <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => handleSelectAllColumns(tabKey, columnsMeta, true)}>Select All</Button>
+                                            <span className="text-gray-300 mx-1">|</span>
+                                            <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => handleSelectAllColumns(tabKey, columnsMeta, false)}>Deselect All</Button>
+                                        </div>
+                                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                            {columnsMeta.filter(col => col.toggleable).map(col => (
+                                                <div key={`toggle-${tabKey}-${col.dataKey}`} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`toggle-${tabKey}-${col.dataKey}`}
+                                                        checked={!!visibilityState[col.dataKey]}
+                                                        onCheckedChange={(checked) => handleToggleColumn(tabKey, col.dataKey, Boolean(checked))}
+                                                        disabled={col.alwaysVisible}
+                                                    />
+                                                    <Label htmlFor={`toggle-${tabKey}-${col.dataKey}`} className="text-xs font-normal cursor-pointer">
+                                                        {col.header} {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                            {tabKey === 'history' && (
+                                <Button 
+                                    onClick={handleHistorySubmit} 
+                                    disabled={isUpdatingHistory || selectedHistoryRows.size === 0}
+                                    className="h-8 text-xs bg-teal-500 hover:bg-teal-600 text-white font-semibold"
+                                >
+                                    {isUpdatingHistory ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                                    Submit Changes
                                 </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[240px] p-3">
-                                <div className="grid gap-2">
-                                    <p className="text-sm font-medium">Toggle Columns</p>
-                                    <div className="flex items-center justify-between mt-1 mb-2">
-                                        <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => handleSelectAllColumns(tabKey, columnsMeta, true)}>Select All</Button>
-                                        <span className="text-gray-300 mx-1">|</span>
-                                        <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => handleSelectAllColumns(tabKey, columnsMeta, false)}>Deselect All</Button>
-                                    </div>
-                                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                                        {columnsMeta.filter(col => col.toggleable).map(col => (
-                                            <div key={`toggle-${tabKey}-${col.dataKey}`} className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={`toggle-${tabKey}-${col.dataKey}`}
-                                                    checked={!!visibilityState[col.dataKey]}
-                                                    onCheckedChange={(checked) => handleToggleColumn(tabKey, col.dataKey, Boolean(checked))}
-                                                    disabled={col.alwaysVisible}
-                                                />
-                                                <Label htmlFor={`toggle-${tabKey}-${col.dataKey}`} className="text-xs font-normal cursor-pointer">
-                                                    {col.header} {col.alwaysVisible && <span className="text-gray-400 ml-0.5 text-xs">(Fixed)</span>}
-                                                </Label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
+                            )}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0 flex-1 flex flex-col">
@@ -571,6 +746,14 @@ export default function FullkittingTransportingPage() {
                             <table className="w-full text-sm border-collapse">
                                 <thead className="sticky top-0 z-30">
                                     <tr className="bg-gray-50 border-b border-gray-200">
+                                        {tabKey === 'history' && (
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">
+                                                <Checkbox 
+                                                    checked={data.length > 0 && selectedHistoryRows.size === data.length}
+                                                    onCheckedChange={() => toggleAllHistoryRows(data)}
+                                                />
+                                            </th>
+                                        )}
                                         {visibleCols.map(col => (
                                             <th key={col.dataKey} className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">
                                                 {col.header}
@@ -580,10 +763,18 @@ export default function FullkittingTransportingPage() {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-100">
                                     {data.map((item, index) => (
-                                        <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-green-50/50 transition-colors border-b border-gray-100`}>
+                                        <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-green-50/50 transition-colors border-b border-gray-100 ${tabKey === 'history' && selectedHistoryRows.has(item.id) ? 'bg-teal-50/30' : ''}`}>
+                                            {tabKey === 'history' && (
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <Checkbox 
+                                                        checked={selectedHistoryRows.has(item.id)} 
+                                                        onCheckedChange={() => toggleHistoryRowSelection(item.id)} 
+                                                    />
+                                                </td>
+                                            )}
                                             {visibleCols.map(column => (
                                                 <td key={column.dataKey} className={`px-4 py-3 whitespace-nowrap text-xs ${column.dataKey === 'liftNumber' ? 'font-bold text-primary' : 'text-gray-700'}`}>
-                                                    {renderCellContent(item, column)}
+                                                    {renderCellContent(item, column, tabKey)}
                                                 </td>
                                             ))}
                                         </tr>

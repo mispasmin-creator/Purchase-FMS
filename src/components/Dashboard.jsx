@@ -24,6 +24,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  Search,
 } from "lucide-react";
 import {
   Card,
@@ -58,7 +59,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -327,28 +328,36 @@ export default function Dashboard() {
 
       // Process LIFT-ACCOUNTS data
       let processedLiftAccountData = (liftAccountsRes.data || [])
-        .map((row) => ({
-          id: row["Lift No"] || `lift-${Math.random()}`,
-          rlNo: row["Indent no."],
-          deliveryOrderNo: row["Delivery Order No."], // Check column name
-          liftedQty: Number.parseFloat(row["Qty"] || 0), // is this Lifted Qty?
-          receivedTimestamp: row["Actual 1"], // Receipt Timestamp
-          receivedQty: Number.parseFloat(row["Actual Quantity"] || 0),
-          firmName: row["Firm Name"],
-          vendorName: row["Vendor Name"],
-          material: row["Raw Material Name"],
-          notes: row["Notes"] || "", // If exists
-          actualU: row["Actual 1"], // Receipt
-          actualAE: row["Actual 2"], // Bilty
-          actualAJ: row["Actual 3"], // Lab
-          actualBB: row["Actual 4"], // Final Tally
-        }))
+        .map((row) => {
+          const liftDate = row["Timestamp"] ? new Date(row["Timestamp"]) : null;
+          const receiptDate = row["Actual 1"] ? new Date(row["Actual 1"]) : null;
+          
+          return {
+            id: row["Lift No"] || `lift-${Math.random()}`,
+            // Prioritize Receipt Date for received items, otherwise use Lift Date
+            date: (row["Actual 1"] && receiptDate && !isNaN(receiptDate.getTime())) ? receiptDate : liftDate,
+            rlNo: row["Indent no."],
+            deliveryOrderNo: row["Delivery Order No."], // Check column name
+            liftedQty: Number.parseFloat(row["Qty"] || 0), // is this Lifted Qty?
+            receivedTimestamp: row["Actual 1"], // Receipt Timestamp
+            receivedQty: Number.parseFloat(row["Actual Quantity"] || 0),
+            firmName: row["Firm Name"],
+            vendorName: row["Vendor Name"],
+            material: row["Raw Material Name"],
+            notes: row["Notes"] || "", // If exists
+            actualU: row["Actual 1"], // Receipt
+            actualAE: row["Actual 2"], // Bilty
+            actualAJ: row["Actual 3"], // Lab
+            actualBB: row["Actual 4"], // Final Tally
+          };
+        })
         .filter((l) => l && l.rlNo);
 
       // Process ACCOUNTS (Mismatch) data
       let processedAccountsData = (mismatchRes.data || [])
         .map((row) => ({
           id: row.id,
+          date: row["Timestamp"] ? new Date(row["Timestamp"]) : null,
           rlNo: row.liftNumber, // Mapping liftNumber to rlNo for consistency? Or keep liftNumber?
           actualAA: row["Actual2"], // Audit
           actualAF: row["Actual3"], // Rectify
@@ -425,9 +434,9 @@ export default function Dashboard() {
     return allPurchaseData
       .filter((po) => {
         const materialLiftStatus = po.pendingQty === 0 ? "Complete" : "Pending";
-        if (dateRange?.from && po.date && po.date < dateRange.from)
+        if (dateRange?.from && po.date && po.date < startOfDay(dateRange.from))
           return false;
-        if (dateRange?.to && po.date && po.date > dateRange.to) return false;
+        if (dateRange?.to && po.date && po.date > endOfDay(dateRange.to)) return false;
         if (
           filters.rlNo &&
           !po.rlNo?.toLowerCase().includes(filters.rlNo.toLowerCase())
@@ -454,6 +463,9 @@ export default function Dashboard() {
 
   const filteredLiftAccountData = useMemo(() => {
     return allLiftAccountData.filter((lift) => {
+      if (dateRange?.from && lift.date && lift.date < startOfDay(dateRange.from))
+        return false;
+      if (dateRange?.to && lift.date && lift.date > endOfDay(dateRange.to)) return false;
       if (
         filters.rlNo &&
         !lift.rlNo?.toLowerCase().includes(filters.rlNo.toLowerCase())
@@ -470,7 +482,18 @@ export default function Dashboard() {
         return false;
       return true;
     });
-  }, [allLiftAccountData, filters]);
+  }, [allLiftAccountData, filters, dateRange]);
+
+  const filteredAccountsData = useMemo(() => {
+    return allAccountsData.filter((account) => {
+      if (dateRange?.from && account.date && account.date < startOfDay(dateRange.from))
+        return false;
+      if (dateRange?.to && account.date && account.date > endOfDay(dateRange.to)) return false;
+      if (filters.firmName !== "all" && account.firmName !== filters.firmName)
+        return false;
+      return true;
+    });
+  }, [allAccountsData, filters, dateRange]);
 
   // Pending Stages Data
   const pendingStagesData = useMemo(() => {
@@ -581,7 +604,7 @@ export default function Dashboard() {
     ];
 
     accountsStages.forEach(({ key, columnName }) => {
-      const pendingCount = allAccountsData.filter(
+      const pendingCount = filteredAccountsData.filter(
         (account) =>
           !account[key] || account[key] === null || account[key] === "",
       ).length;
@@ -593,7 +616,7 @@ export default function Dashboard() {
     });
 
     return pendingCounts;
-  }, [filteredIndentPoData, filteredLiftAccountData, allAccountsData]);
+  }, [filteredIndentPoData, filteredLiftAccountData, filteredAccountsData]);
 
   // Overview Data
   const overviewData = useMemo(() => {
@@ -854,159 +877,80 @@ export default function Dashboard() {
                     )}
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Button
-                    onClick={() => setIsDropdownModalOpen(true)}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 sm:flex-none bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm shadow-lg text-xs sm:text-sm h-9 sm:h-10"
-                  >
-                    Add Data
-                  </Button>
-                  <Button
-                    onClick={fetchData}
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1 sm:flex-none bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-lg text-xs sm:text-sm h-9 sm:h-10"
-                  >
-                    <RefreshCw
-                      className={`h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 ${loading ? "animate-spin" : ""}`}
-                    />
-                    Refresh
-                  </Button>
+                <div className="flex flex-col items-end gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                    <Button
+                      onClick={() => setIsDropdownModalOpen(true)}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 sm:flex-none bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm shadow-lg text-xs sm:text-sm h-9 sm:h-10 px-4"
+                    >
+                      Add Data
+                    </Button>
+                    <Button
+                      onClick={fetchData}
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 sm:flex-none bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-lg text-xs sm:text-sm h-9 sm:h-10 px-4"
+                    >
+                      <RefreshCw
+                        className={`h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 ${loading ? "animate-spin" : ""}`}
+                      />
+                      Refresh
+                    </Button>
+                  </div>
+
+                  {/* Separate From and To Date Inputs Integrated into Header */}
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="flex flex-col gap-1 min-w-[130px]">
+                      <Label className="text-[10px] font-bold text-green-50 uppercase tracking-wider ml-1">From Date</Label>
+                      <div className="relative">
+                        <Input 
+                          type="date" 
+                          className="h-9 text-xs bg-white/10 text-white border-white/20 focus:bg-white/20 focus:ring-1 focus:ring-white/30 transition-all cursor-pointer scheme-dark"
+                          value={dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setDateRange(prev => ({ ...prev, from: val ? new Date(val) : undefined }));
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 min-w-[130px]">
+                      <Label className="text-[10px] font-bold text-green-50 uppercase tracking-wider ml-1">To Date</Label>
+                      <div className="relative">
+                        <Input 
+                          type="date" 
+                          className="h-9 text-xs bg-white/10 text-white border-white/20 focus:bg-white/20 focus:ring-1 focus:ring-white/30 transition-all cursor-pointer scheme-dark"
+                          value={dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setDateRange(prev => ({ ...prev, to: val ? new Date(val) : undefined }));
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {(dateRange?.from || dateRange?.to) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-5 h-9 w-9 p-0 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                        onClick={clearFilters}
+                        title="Clear Dates"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardHeader>
           </Card>
         </div>
 
-        {/* Filters */}
-        {/* <Card className="mb-8 border-0 shadow-lg">
-          <CardHeader className="p-6 border-b border-gray-100">
-            <CardTitle className="text-xl flex items-center gap-2">
-              <Filter className="h-5 w-5 text-[#7da23a]" />
-              Advanced Filters
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Date Range</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal h-10 border-gray-200 hover:border-green-300"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4 text-[#7da23a]" />
-                      {dateRange?.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}
-                          </>
-                        ) : (
-                          format(dateRange.from, "MMM dd, y")
-                        )
-                      ) : (
-                        <span>Select dates</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 shadow-xl" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Firm Name</Label>
-                <Select value={filters.firmName} onValueChange={(v) => handleFilterChange("firmName", v)}>
-                  <SelectTrigger className="h-10 border-gray-200 hover:border-green-300">
-                    <SelectValue placeholder="All Firms" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Firms</SelectItem>
-                    {firmOptions.map((f) => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Vendor</Label>
-                <Select value={filters.vendorName} onValueChange={(v) => handleFilterChange("vendorName", v)}>
-                  <SelectTrigger className="h-10 border-gray-200 hover:border-green-300">
-                    <SelectValue placeholder="All Vendors" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Vendors</SelectItem>
-                    {vendorOptions.map((v) => (
-                      <SelectItem key={v} value={v}>{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Material</Label>
-                <Select value={filters.material} onValueChange={(v) => handleFilterChange("material", v)}>
-                  <SelectTrigger className="h-10 border-gray-200 hover:border-green-300">
-                    <SelectValue placeholder="All Materials" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Materials</SelectItem>
-                    {materialOptions.map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Status</Label>
-                <Select value={filters.status} onValueChange={(v) => handleFilterChange("status", v)}>
-                  <SelectTrigger className="h-10 border-gray-200 hover:border-green-300">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Complete">Complete</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Indent No.</Label>
-                <Input
-                  placeholder="Search..."
-                  value={filters.rlNo}
-                  onChange={(e) => handleFilterChange("rlNo", e.target.value)}
-                  className="h-10 border-gray-200 hover:border-green-300"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button 
-                  onClick={clearFilters} 
-                  variant="outline" 
-                  className="flex-1 h-10 border-gray-200 hover:border-green-300"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Clear
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card> */}
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1428,6 +1372,9 @@ export default function Dashboard() {
                               Indent No.
                             </TableHead>
                             <TableHead className="font-bold text-gray-700">
+                              Date
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
                               Delivery Order
                             </TableHead>
                             <TableHead className="font-bold text-gray-700">
@@ -1455,6 +1402,9 @@ export default function Dashboard() {
                                   {lift.rlNo}
                                 </TableCell>
                                 <TableCell className="text-gray-700">
+                                  {lift.date ? format(lift.date, "dd-MMM-yyyy") : "N/A"}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
                                   {lift.deliveryOrderNo || "N/A"}
                                 </TableCell>
                                 <TableCell className="text-gray-700">
@@ -1474,7 +1424,7 @@ export default function Dashboard() {
                           ) : (
                             <TableRow>
                               <TableCell
-                                colSpan={6}
+                                colSpan={7}
                                 className="text-center h-32 text-gray-500"
                               >
                                 <Truck className="h-12 w-12 mx-auto mb-2 text-gray-400" />
@@ -1511,6 +1461,9 @@ export default function Dashboard() {
                               Indent No.
                             </TableHead>
                             <TableHead className="font-bold text-gray-700">
+                              Date
+                            </TableHead>
+                            <TableHead className="font-bold text-gray-700">
                               Firm
                             </TableHead>
                             <TableHead className="font-bold text-gray-700">
@@ -1539,6 +1492,9 @@ export default function Dashboard() {
                               >
                                 <TableCell className="font-semibold text-[#7da23a]">
                                   {lift.rlNo}
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {lift.date ? format(lift.date, "dd-MMM-yyyy") : "N/A"}
                                 </TableCell>
                                 <TableCell className="text-gray-700">
                                   {lift.firmName || "N/A"}
