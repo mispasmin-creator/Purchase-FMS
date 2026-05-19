@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink, Search } from 'lucide-react';
+import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink, Search, ShieldCheck } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
 import { AuthContext } from '../context/AuthContext';
+import SuperAdminEditModal from './SuperAdminEditModal';
 
 const CallTrackerPage = () => {
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
+  const [superAdminEditRow, setSuperAdminEditRow] = useState(null);
   const [accountsData, setAccountsData] = useState([]);
   const [auditMismatchData, setAuditMismatchData] = useState([]); // New state for Audit tab from Supabase
   const [tallyEntryMismatchData, setTallyEntryMismatchData] = useState([]); // New state for Tally Entry tab from Supabase
@@ -2039,6 +2041,42 @@ const CallTrackerPage = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-4 sm:p-6 pb-20">
       {renderModal()}
+      {superAdminEditRow && (
+        <SuperAdminEditModal
+          title={`Edit Mismatch Record — ${superAdminEditRow.liftNumber}`}
+          tableName="Mismatch"
+          pkField="id"
+          pkValue={superAdminEditRow.supabaseId}
+          fields={[
+            { label: "Lift ID", dbKey: "Lift ID", value: superAdminEditRow.liftNumber, type: "text" },
+            { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditRow.billNo, type: "text" },
+            { label: "Party Name", dbKey: "Party Name", value: superAdminEditRow.partyName, type: "text" },
+            { label: "Product Name", dbKey: "Product Name", value: superAdminEditRow.productName, type: "text" },
+            { label: "Qty", dbKey: "Qty", value: superAdminEditRow.qty, type: "number" },
+            { label: "Area Lifting", dbKey: "Area Lifting", value: superAdminEditRow.areaLifting, type: "text" },
+            { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditRow.truckNo, type: "text" },
+            { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditRow.transporterName, type: "text" },
+            { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditRow.billImage, type: "text" },
+            { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditRow.biltyNo, type: "text" },
+            { label: "Type Of Rate", dbKey: "Type Of Rate", value: superAdminEditRow.typeOfRate, type: "text" },
+            { label: "Rate", dbKey: "Rate", value: superAdminEditRow.rate, type: "number" },
+            { label: "Truck Qty", dbKey: "Truck Qty", value: superAdminEditRow.truckQty, type: "number" },
+            { label: "Bilty Image URL", dbKey: "Bilty Image", value: superAdminEditRow.biltyImage, type: "text" },
+            { label: "Weight Slip URL", dbKey: "Weight Slip", value: superAdminEditRow.weightSlip, type: "text" },
+            { label: "Total Freight", dbKey: "Total Freight", value: superAdminEditRow.totalFreight, type: "number" },
+            { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditRow.debitAmount, type: "number" },
+            { label: "Debit Note URL", dbKey: "Debit Note URL", value: superAdminEditRow.debitNoteUrl, type: "text" },
+            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditRow.firmName, type: "text" },
+            { label: "Vendor Name", dbKey: "Vendor Name", value: superAdminEditRow.vendorName, type: "text" },
+            { label: "Indent Number", dbKey: "Indent Number", value: superAdminEditRow.indentNumber, type: "text" },
+            { label: "Lifting Qty", dbKey: "Lifting Qty", value: superAdminEditRow.liftingQty, type: "number" },
+            { label: "Date Of Receiving", dbKey: "Date Of Receiving", value: superAdminEditRow.dateOfReceiving, type: "date" },
+            { label: "Remarks", dbKey: "Remarks", value: superAdminEditRow.remarks, type: "textarea" },
+          ]}
+          onClose={() => setSuperAdminEditRow(null)}
+          onSaved={() => { setSuperAdminEditRow(null); fetchData(); }}
+        />
+      )}
 
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
@@ -2327,16 +2365,27 @@ const CallTrackerPage = () => {
                           <td className="px-4 py-3 whitespace-nowrap text-xs text-purple-700 font-medium">{row.completedAt || '-'}</td>
                         ) : visibleColumns.actions && (
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <button
-                              onClick={() => {
-                                setEditingRow(row.id);
-                                initializeFormData(row.currentStage);
-                              }}
-                              className="inline-flex items-center px-3 py-1.5 bg-linear-to-r from-green-500 to-green-600 text-white text-xs font-medium rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
-                            >
-                              <Edit2 className="w-3 h-3 mr-1" />
-                              Add Entry
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setEditingRow(row.id);
+                                  initializeFormData(row.currentStage);
+                                }}
+                                className="inline-flex items-center px-3 py-1.5 bg-linear-to-r from-green-500 to-green-600 text-white text-xs font-medium rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
+                              >
+                                <Edit2 className="w-3 h-3 mr-1" />
+                                Add Entry
+                              </button>
+                              {isSuperAdmin && !row.isNewFromLift && row.supabaseId && (
+                                <button
+                                  onClick={() => setSuperAdminEditRow(row)}
+                                  className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300 transition-all duration-200"
+                                >
+                                  <ShieldCheck className="w-3 h-3 mr-1" />
+                                  Edit
+                                </button>
+                              )}
+                            </div>
                           </td>
                         )}
                         {visibleColumns.stage && (

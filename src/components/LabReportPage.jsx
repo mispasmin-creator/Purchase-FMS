@@ -2,10 +2,11 @@
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { supabase } from "../supabase";
 import { AuthContext } from "../context/AuthContext";
-import { RefreshCw, Filter, X, Download, Settings, Check, FileDown, TrendingUp, IndentIcon, DollarSign, Truck, AlertTriangle, Info } from "lucide-react";
+import { RefreshCw, Filter, X, Download, Settings, Check, FileDown, TrendingUp, Truck, AlertTriangle, Info, Edit2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 
 const COLUMN_GROUPS = [
   {
@@ -99,8 +100,9 @@ const TD = ({ children, className = "" }) => (
 );
 
 export default function LabReportPage() {
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
   const [rows, setRows] = useState([]);
+  const [editRecord, setEditRecord] = useState(null); // { row, tab }
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [firmFilter, setFirmFilter] = useState("all");
@@ -191,6 +193,7 @@ export default function LabReportPage() {
           return String(val).trim();
         };
         return {
+          _rawId: row.id,
           liftNo: String(row["Lift No"] || "").trim(),
           poNumber: indentNo,
           billNo: String(row["Bill No."] || "").trim(),
@@ -577,6 +580,7 @@ export default function LabReportPage() {
         const effectiveRatePerMT = isFixed ? (liftQty > 0 ? transRate / liftQty : 0) : unitRate;
 
         return {
+          _rawId: row.id,
           liftNo: String(row["Lift No"] || "").trim(),
           indentId,
           poNumber,
@@ -643,6 +647,7 @@ export default function LabReportPage() {
       if (error) throw error;
       
       const mappedData = (data || []).map(row => ({
+        _rawId: row.id,
         indentNo: String(row["Indent Id."] || "").trim(),
         poNo: String(row["po_number"] || "").trim(),
         poCopy: String(row["PO Copy"] || "").trim(),
@@ -849,8 +854,75 @@ export default function LabReportPage() {
     }
   };
 
+  // Build field definitions for the edit modal based on tab
+  const buildEditFields = (record) => {
+    if (!record) return [];
+    const { row, tab } = record;
+    if (tab === "lab" || tab === "rate") {
+      return [
+        { label: "Party Name (Vendor)", dbKey: "Vendor Name", value: row.partyName, type: "text" },
+        { label: "Product Name", dbKey: "Raw Material Name", value: row.productName, type: "text" },
+        { label: "Qty", dbKey: "Qty", value: row.qty, type: "number" },
+        { label: "Truck No.", dbKey: "Truck No.", value: row.truckNo, type: "text" },
+        { label: "Bill No.", dbKey: "Bill No.", value: row.billNo, type: "text" },
+        { label: "Status", dbKey: "Status", value: row.status, type: "text" },
+        { label: "Date Of Test", dbKey: "Date Of Test", value: row.dateOfTest, type: "date" },
+        { label: "Moisture %", dbKey: "Moisture Percent Age %", value: row.moisture, type: "number" },
+        { label: "BD %", dbKey: "BD Percent Age %", value: row.bd, type: "number" },
+        { label: "AP %", dbKey: "AP Percent Age %", value: row.ap, type: "number" },
+        { label: "Alumina %", dbKey: "Alumina Percent Age %", value: row.alumina, type: "number" },
+        { label: "Iron %", dbKey: "Iron Percent Age %", value: row.iron, type: "number" },
+        { label: "LOI %", dbKey: "LOI %", value: row.loi, type: "number" },
+        { label: "SIO2 %", dbKey: "SIO2 %", value: row.sio2, type: "number" },
+        { label: "CaO %", dbKey: "CaO %", value: row.cao, type: "number" },
+        { label: "MgO %", dbKey: "MgO %", value: row.mgo, type: "number" },
+        { label: "TiO2 %", dbKey: "TiO2 %", value: row.tio2, type: "number" },
+        { label: "K2O+Na2O %", dbKey: "K2O + Na2O %", value: row.kna2o, type: "number" },
+        { label: "Free Iron %", dbKey: "Free Iron %", value: row.freeIron, type: "number" },
+        { label: "TL", dbKey: "TL", value: row.tl, type: "text" },
+      ];
+    }
+    if (tab === "indent") {
+      return [
+        { label: "Indent No.", dbKey: "Indent Id.", value: row.indentNo, type: "text" },
+        { label: "PO No.", dbKey: "po_number", value: row.poNo, type: "text" },
+        { label: "Firm Name", dbKey: "Firm Name", value: row.firmName, type: "text" },
+        { label: "Party Name", dbKey: "Vendor", value: row.partyName, type: "text" },
+        { label: "Product Name", dbKey: "Material", value: row.productName, type: "text" },
+        { label: "Quantity", dbKey: "Quantity", value: row.qty, type: "number" },
+        { label: "Rate (₹)", dbKey: "Rate", value: row.rate, type: "number" },
+        { label: "Have To Make PO", dbKey: "Have To Make PO", value: row.haveToMakePo, type: "text" },
+        { label: "PO Copy URL", dbKey: "PO Copy", value: row.poCopy, type: "text" },
+      ];
+    }
+    return [];
+  };
+
+  const getEditTableName = (tab) => {
+    if (tab === "lab" || tab === "rate") return "LIFT-ACCOUNTS";
+    return "INDENT-PO";
+  };
+
   return (
     <div className="p-4 min-h-screen bg-gray-50">
+      {/* Super Admin Edit Modal */}
+      {isSuperAdmin && editRecord && (
+        <SuperAdminEditModal
+          title={`Edit ${editRecord.tab === "indent" ? "Indent" : "Lift"} Record — ${editRecord.row.liftNo || editRecord.row.indentNo || ""}`}
+          tableName={getEditTableName(editRecord.tab)}
+          pkField="id"
+          pkValue={editRecord.row._rawId}
+          fields={buildEditFields(editRecord)}
+          onClose={() => setEditRecord(null)}
+          onSaved={() => {
+            setEditRecord(null);
+            if (editRecord.tab === "lab") fetchData();
+            else if (editRecord.tab === "rate") fetchRateData();
+            else fetchIndentData();
+          }}
+        />
+      )}
+
       {/* Page Tabs */}
       <div className="mb-4 flex items-center gap-1 border-b border-gray-200 pb-0">
         <button
@@ -888,7 +960,14 @@ export default function LabReportPage() {
           {/* Header */}
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl font-bold text-gray-800">Lab Report</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-800">Lab Report</h1>
+                {isSuperAdmin && (
+                  <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    <ShieldCheck size={12} /> Super Admin
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-500 mt-0.5">
                 Lift & PO data combined with Lab Test results &nbsp;|&nbsp;
                 <span className="text-green-600 font-medium">{tested} Tested</span> &nbsp;|&nbsp;
@@ -1103,6 +1182,7 @@ export default function LabReportPage() {
                     {visibleColumns.kna2o && <TH className="bg-teal-50">K2O + Na2O %</TH>}
                     {visibleColumns.freeIron && <TH className="bg-teal-50">Free Iron %</TH>}
                     {visibleColumns.tl && <TH className="bg-teal-50">TL</TH>}
+                    {isSuperAdmin && <TH className="bg-purple-50 text-purple-700">Edit</TH>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1205,6 +1285,16 @@ export default function LabReportPage() {
                           </TD>
                         )}
                         {visibleColumns.tl && <TD className="text-center">{row.tl || "-"}</TD>}
+                        {isSuperAdmin && (
+                          <TD className="text-center">
+                            <button
+                              onClick={() => setEditRecord({ row, tab: "lab" })}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-purple-600 border border-purple-200 bg-purple-50 hover:bg-purple-100 rounded"
+                            >
+                              <Edit2 size={11} /> Edit
+                            </button>
+                          </TD>
+                        )}
                       </tr>
                     );
                   })}
@@ -1315,6 +1405,7 @@ export default function LabReportPage() {
                     <TH className="bg-orange-50">Lifting Bill Rate (₹)</TH>
                     <TH className="bg-blue-50">Transport Cost (₹)</TH>
                     <TH className="bg-blue-50">Rate Type</TH>
+                    {isSuperAdmin && <TH className="bg-purple-50 text-purple-700">Edit</TH>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1416,6 +1507,16 @@ export default function LabReportPage() {
                         <TD className="text-center text-[10px] text-gray-500 bg-blue-50/40">
                           {row.transportRateType || "-"}
                         </TD>
+                        {isSuperAdmin && (
+                          <TD className="text-center">
+                            <button
+                              onClick={() => setEditRecord({ row, tab: "rate" })}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-purple-600 border border-purple-200 bg-purple-50 hover:bg-purple-100 rounded"
+                            >
+                              <Edit2 size={11} /> Edit
+                            </button>
+                          </TD>
+                        )}
                       </tr>
                     );
                   })}
@@ -1519,6 +1620,7 @@ export default function LabReportPage() {
                     <TH className="bg-blue-600 text-white border-blue-700">Product Name</TH>
                     <TH className="bg-blue-600 text-white border-blue-700">Quantity</TH>
                     <TH className="bg-blue-600 text-white border-blue-700 text-right">Rate (₹)</TH>
+                    {isSuperAdmin && <TH className="bg-purple-600 text-white border-purple-700">Edit</TH>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1554,6 +1656,16 @@ export default function LabReportPage() {
                       <TD className="text-right font-bold text-blue-700">
                         {row.rate ? `₹${parseFloat(row.rate).toLocaleString("en-IN")}` : "-"}
                       </TD>
+                      {isSuperAdmin && (
+                        <TD className="text-center">
+                          <button
+                            onClick={() => setEditRecord({ row, tab: "indent" })}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-purple-600 border border-purple-200 bg-purple-50 hover:bg-purple-100 rounded"
+                          >
+                            <Edit2 size={11} /> Edit
+                          </button>
+                        </TD>
+                      )}
                     </tr>
                   ))}
                 </tbody>

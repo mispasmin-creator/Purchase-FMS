@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
-import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter } from "lucide-react";
+import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter, ShieldCheck, Edit2 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 
 // Shadcn UI components
@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { AuthContext } from "../context/AuthContext";
 import { supabase } from "../supabase";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 import { uploadFileToStorage } from "../utils/storageUtils";
 import { useRealtime } from "../hooks/useRealtime";
 
@@ -71,7 +72,8 @@ const BILTY_HISTORY_COLUMNS_META = [
 ];
 
 export default function BiltyPage() {
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
+  const [superAdminEditLift, setSuperAdminEditLift] = useState(null);
   const [liftData, setLiftData] = useState([]);
   const [selectedLift, setSelectedLift] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -480,6 +482,11 @@ export default function BiltyPage() {
                         {col.header}
                       </th>
                     ))}
+                    {isSuperAdmin && tabKey === 'biltyHistory' && (
+                      <th className="px-3 py-3 text-xs font-bold text-purple-700 uppercase text-left bg-purple-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">
+                        SA Edit
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -491,17 +498,39 @@ export default function BiltyPage() {
                           className={`whitespace-nowrap text-xs px-3 py-2 ${column.dataKey === 'id' ? 'font-medium text-primary' : 'text-gray-700'}`}
                         >
                           {column.dataKey === "actionColumn" ? (
-                            <Button
-                              onClick={() => handleLiftSelect(item)}
-                              size="sm"
-                              variant="outline"
-                              className="text-xs h-7 px-2"
-                            >
-                              Enter Bilty
-                            </Button>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                onClick={() => handleLiftSelect(item)}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 px-2"
+                              >
+                                Enter Bilty
+                              </Button>
+                              {isSuperAdmin && (
+                                <button
+                                  onClick={() => setSuperAdminEditLift(item)}
+                                  className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 border border-purple-300"
+                                >
+                                  <ShieldCheck className="w-3 h-3 mr-1" />
+                                  Edit
+                                </button>
+                              )}
+                            </div>
                           ) : renderCell(item, column)}
                         </td>
                       ))}
+                      {isSuperAdmin && tabKey === 'biltyHistory' && (
+                        <td className="whitespace-nowrap text-xs px-3 py-2">
+                          <button
+                            onClick={() => setSuperAdminEditLift(item)}
+                            className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 border border-purple-300"
+                          >
+                            <ShieldCheck className="w-3 h-3 mr-1" />
+                            Edit
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -515,6 +544,32 @@ export default function BiltyPage() {
 
   return (
     <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen">
+      {superAdminEditLift && (
+        <SuperAdminEditModal
+          title={`Edit Lift — ${superAdminEditLift.id}`}
+          tableName="LIFT-ACCOUNTS"
+          pkField="id"
+          pkValue={superAdminEditLift._dbId}
+          fields={[
+            { label: "Lift No.", dbKey: "Lift No", value: superAdminEditLift.id, type: "text" },
+            { label: "Vendor Name", dbKey: "Vendor Name", value: superAdminEditLift.vendorName, type: "text" },
+            { label: "Raw Material Name", dbKey: "Raw Material Name", value: superAdminEditLift.rawMaterialName, type: "text" },
+            { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditLift.truckNo, type: "text" },
+            { label: "Driver No.", dbKey: "Driver No.", value: superAdminEditLift.driverNo, type: "text" },
+            { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditLift.transporterName, type: "text" },
+            { label: "Type Of Transporting Rate", dbKey: "Type Of Transporting Rate", value: superAdminEditLift.rateType, type: "text" },
+            { label: "Transporting Per MT Rate", dbKey: "Transporting Per MT Rate", value: superAdminEditLift.transportingRate, type: "number" },
+            { label: "Qty", dbKey: "Qty", value: superAdminEditLift.originalQty, type: "number" },
+            { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditLift.billNo, type: "text" },
+            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditLift.firmName, type: "text" },
+            { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditLift.biltyNumber, type: "text" },
+            { label: "Bilty Image URL", dbKey: "Bilty Image", value: superAdminEditLift.biltyImageUrl, type: "text" },
+            { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditLift.billImage, type: "text" },
+          ]}
+          onClose={() => setSuperAdminEditLift(null)}
+          onSaved={() => { setSuperAdminEditLift(null); fetchLiftData(); }}
+        />
+      )}
       <Card className="shadow-md border-none">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">

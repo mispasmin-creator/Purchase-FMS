@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { PackageSearch, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X, Save } from "lucide-react";
+import { PackageSearch, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X, Save, ShieldCheck } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { useAuth } from "../context/AuthContext";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { toast } from "sonner";
@@ -51,7 +52,8 @@ const KITTING_COLUMNS_META = [
 
 
 export default function FullkittingTransportingPage() {
-    const { user } = useAuth();
+    const { user, isSuperAdmin } = useAuth();
+    const [superAdminEditKitItem, setSuperAdminEditKitItem] = useState(null);
     const { refreshCounts } = useNotification();
     const [kittingData, setKittingData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -593,14 +595,25 @@ export default function FullkittingTransportingPage() {
 
         if (column.dataKey === 'actionColumn') {
             return (
-                <Button
-                    size="xs"
-                    className="h-7 px-2 py-1 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white font-semibold"
-                    onClick={() => openKittingModal(item)}
-                >
-                    <ExternalLink className="mr-1 h-3 w-3" />
-                    Create Kitting
-                </Button>
+                <div className="flex items-center gap-1.5">
+                    <Button
+                        size="xs"
+                        className="h-7 px-2 py-1 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white font-semibold"
+                        onClick={() => openKittingModal(item)}
+                    >
+                        <ExternalLink className="mr-1 h-3 w-3" />
+                        Create Kitting
+                    </Button>
+                    {isSuperAdmin && (
+                        <button
+                            onClick={() => setSuperAdminEditKitItem(item)}
+                            className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 border border-purple-300"
+                        >
+                            <ShieldCheck className="w-3 h-3 mr-1" />
+                            Edit
+                        </button>
+                    )}
+                </div>
             );
         }
 
@@ -794,6 +807,33 @@ export default function FullkittingTransportingPage() {
 
     return (
         <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen">
+            {superAdminEditKitItem && (
+                <SuperAdminEditModal
+                    title={`Edit Lift — ${superAdminEditKitItem.liftNumber}`}
+                    tableName="LIFT-ACCOUNTS"
+                    pkField="id"
+                    pkValue={superAdminEditKitItem.originalId}
+                    fields={[
+                        { label: "Lift No.", dbKey: "Lift No", value: superAdminEditKitItem.liftNumber, type: "text" },
+                        { label: "Vendor Name", dbKey: "Vendor Name", value: superAdminEditKitItem.partyName, type: "text" },
+                        { label: "Raw Material Name", dbKey: "Raw Material Name", value: superAdminEditKitItem.productName, type: "text" },
+                        { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditKitItem.firmName, type: "text" },
+                        { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditKitItem.billNo, type: "text" },
+                        { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditKitItem.truckNo, type: "text" },
+                        { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditKitItem.transporterName, type: "text" },
+                        { label: "Type Of Transporting Rate", dbKey: "Type Of Transporting Rate", value: superAdminEditKitItem.typeOfRate, type: "text" },
+                        { label: "Transporting Rate", dbKey: "Transporter Rate", value: superAdminEditKitItem.transportingRate, type: "number" },
+                        { label: "Qty", dbKey: "Qty", value: superAdminEditKitItem.qty, type: "number" },
+                        { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditKitItem.billImage, type: "text" },
+                        { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditKitItem.biltyNo, type: "text" },
+                        { label: "Bilty Image URL", dbKey: "Bilty Image", value: superAdminEditKitItem.biltyImage, type: "text" },
+                        { label: "Rate", dbKey: "Rate", value: superAdminEditKitItem.materialRate, type: "number" },
+                        { label: "Indent No.", dbKey: "Indent no.", value: superAdminEditKitItem.indentNo, type: "text" },
+                    ]}
+                    onClose={() => setSuperAdminEditKitItem(null)}
+                    onSaved={() => { setSuperAdminEditKitItem(null); }}
+                />
+            )}
             <Card className="shadow-md border-none">
                 <CardHeader className="p-4 border-b border-gray-200">
                     <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { RefreshCw, Save, X, Edit2, Filter, CheckCircle, AlertCircle } from 'lucide-react';
+import { RefreshCw, Save, X, Edit2, Filter, CheckCircle, AlertCircle, ShieldCheck } from 'lucide-react';
 import { supabase } from '../supabase';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -52,7 +52,7 @@ const COLUMN_DEFINITIONS = [
 ];
 
 const AccountsAudit = () => {
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
   const [auditData, setAuditData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -96,12 +96,33 @@ const AccountsAudit = () => {
     }
   };
 
-  // Initialize form data
-  const initializeFormData = () => {
-    setFormData({
-      status: 'Done',
-      remarks: ''
-    });
+  // Initialize form data — Super Admin gets all fields pre-filled
+  const initializeFormData = (row = null) => {
+    if (isSuperAdmin && row) {
+      setFormData({
+        partyName: row.partyName || '',
+        productName: row.productName || '',
+        firmName: row.firmName || '',
+        transporterName: row.transporterName || '',
+        billNo: row.billNo || '',
+        qty: row.qty || '',
+        areaLifting: row.areaLifting || '',
+        truckNo: row.truckNo || '',
+        rate: row.rate || '',
+        truckQty: row.truckQty || '',
+        biltyNo: row.biltyNo || '',
+        diffQty: row.diffQty || '',
+        totalFreight: row.totalFreight || '',
+        rateDifference: row.rateDifference || '',
+        aluminaDifference: row.aluminaDifference || '',
+        ironDifference: row.ironDifference || '',
+        quantityDifference: row.quantityDifference || '',
+        status: row.status || 'Done',
+        remarks: row.remarks || '',
+      });
+    } else {
+      setFormData({ status: 'Done', remarks: '' });
+    }
   };
 
   // Handle form changes
@@ -284,14 +305,34 @@ const AccountsAudit = () => {
       const currentDate = new Date();
       const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
 
-      // Update the Actual2 column in Supabase
-      const { data: updateData, error: updateError } = await supabase
+      // Update Mismatch record — Super Admin can edit all fields
+      const updatePayload = {
+        Actual2: actualDateTime,
+        Status: formData.status || 'Done',
+        Remarks: formData.remarks || '',
+        ...(isSuperAdmin ? {
+          'Party Name': formData.partyName,
+          'Product Name': formData.productName,
+          'Firm Name': formData.firmName,
+          'Transporter Name': formData.transporterName,
+          'Bill No.': formData.billNo,
+          'Qty': formData.qty,
+          'Area Lifting': formData.areaLifting,
+          'Truck No.': formData.truckNo,
+          'Rate': formData.rate,
+          'Truck Qty': formData.truckQty,
+          'Bilty No.': formData.biltyNo,
+          'Diff Qty': formData.diffQty,
+          'Total Freight': formData.totalFreight,
+          'Rate Difference': formData.rateDifference,
+          'Alumina Difference': formData.aluminaDifference,
+          'Iron Difference': formData.ironDifference,
+          'Quantity Difference': formData.quantityDifference,
+        } : {}),
+      };
+      const { error: updateError } = await supabase
         .from("Mismatch")
-        .update({
-          Actual2: actualDateTime,
-          Status: formData.status || 'Done',
-          Remarks: formData.remarks || ''
-        })
+        .update(updatePayload)
         .eq("id", row.id)
         .select();
 
@@ -338,11 +379,20 @@ const AccountsAudit = () => {
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
-                <h3 className="text-xl font-semibold text-gray-900">Add Audit Entry</h3>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                  <CheckCircle className="w-4 h-4 mr-1" />
-                  Audit
-                </span>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {isSuperAdmin ? 'Super Admin Edit' : 'Add Audit Entry'}
+                </h3>
+                {isSuperAdmin ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700">
+                    <ShieldCheck className="w-4 h-4 mr-1" />
+                    Super Admin
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Audit
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => setEditingRow(null)}
@@ -365,6 +415,56 @@ const AccountsAudit = () => {
             </div>
 
             <div className="space-y-4">
+              {/* Super Admin — all editable fields */}
+              {isSuperAdmin && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-3">
+                  <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-2">Super Admin — Edit All Fields</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { field: 'partyName', label: 'Party Name' },
+                      { field: 'productName', label: 'Product Name' },
+                      { field: 'firmName', label: 'Firm Name' },
+                      { field: 'transporterName', label: 'Transporter Name' },
+                      { field: 'billNo', label: 'Bill No.' },
+                      { field: 'biltyNo', label: 'Bilty No.' },
+                      { field: 'truckNo', label: 'Truck No.' },
+                      { field: 'areaLifting', label: 'Area Lifting' },
+                    ].map(({ field, label }) => (
+                      <div key={field}>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+                        <input
+                          type="text"
+                          value={formData[field] || ''}
+                          onChange={(e) => handleFormChange(field, e.target.value)}
+                          className="w-full px-2 py-1.5 border border-purple-200 rounded-md text-sm focus:ring-1 focus:ring-purple-400 focus:border-purple-400 bg-white"
+                        />
+                      </div>
+                    ))}
+                    {[
+                      { field: 'qty', label: 'Qty' },
+                      { field: 'rate', label: 'Rate' },
+                      { field: 'truckQty', label: 'Truck Qty' },
+                      { field: 'diffQty', label: 'Diff Qty' },
+                      { field: 'totalFreight', label: 'Total Freight' },
+                      { field: 'rateDifference', label: 'Rate Difference' },
+                      { field: 'aluminaDifference', label: 'Alumina Difference' },
+                      { field: 'ironDifference', label: 'Iron Difference' },
+                      { field: 'quantityDifference', label: 'Qty Difference' },
+                    ].map(({ field, label }) => (
+                      <div key={field}>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+                        <input
+                          type="number"
+                          value={formData[field] || ''}
+                          onChange={(e) => handleFormChange(field, e.target.value)}
+                          className="w-full px-2 py-1.5 border border-purple-200 rounded-md text-sm focus:ring-1 focus:ring-purple-400 focus:border-purple-400 bg-white"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                 <select
@@ -481,7 +581,15 @@ const AccountsAudit = () => {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Accounts Audit</h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-gray-900">Accounts Audit</h1>
+                  {isSuperAdmin && (
+                    <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Super Admin
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-gray-600 mt-1">Review and process pending audit items</p>
               </div>
               <div className="flex items-center space-x-3">
@@ -579,7 +687,7 @@ const AccountsAudit = () => {
                             <button
                               onClick={() => {
                                 setEditingRow(row.id);
-                                initializeFormData();
+                                initializeFormData(row);
                               }}
                               className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-[#7da23a] hover:bg-[#6b8e2f] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] transition-colors duration-200"
                             >

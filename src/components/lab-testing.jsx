@@ -61,9 +61,11 @@ import {
   FileCheckIcon,
   Filter,
   ChevronsUpDown,
+  ShieldCheck,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
 
@@ -379,8 +381,9 @@ const SearchableSelect = ({
 };
 
 export default function LabTesting() {
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
   const [allLiftsData, setAllLiftsData] = useState([]);
+  const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
   const [indentData, setIndentData] = useState([]);
   const [selectedReceiptForModal, setSelectedReceiptForModal] = useState(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -1577,6 +1580,11 @@ export default function LabTesting() {
                         {col.header}
                       </th>
                     ))}
+                    {isSuperAdmin && tabKey === "recordedTests" && (
+                      <th className="px-3 py-3 text-xs font-bold text-purple-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">
+                        SA Edit
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -1589,19 +1597,39 @@ export default function LabTesting() {
                         >
                           {column.dataKey === "actionColumn" &&
                           tabKey === "eligibleForTest" ? (
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              onClick={() => handleOpenLabTestModal(item)}
-                              className="h-7 px-2.5 py-1 text-xs bg-green-100 text-[#6b8e2f] hover:bg-green-200 border-green-200"
-                            >
-                              Record Lab Test
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                onClick={() => handleOpenLabTestModal(item)}
+                                className="h-7 px-2.5 py-1 text-xs bg-green-100 text-[#6b8e2f] hover:bg-green-200 border-green-200"
+                              >
+                                Record Lab Test
+                              </Button>
+                              {isSuperAdmin && (
+                                <button
+                                  onClick={() => setSuperAdminEditItem(item)}
+                                  className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300"
+                                >
+                                  <ShieldCheck className="w-3 h-3 mr-1" />Edit
+                                </button>
+                              )}
+                            </div>
                           ) : (
                             renderCell(item, column)
                           )}
                         </td>
                       ))}
+                      {isSuperAdmin && tabKey === "recordedTests" && (
+                        <td className="whitespace-nowrap text-xs px-3 py-2">
+                          <button
+                            onClick={() => setSuperAdminEditItem(item)}
+                            className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300"
+                          >
+                            <ShieldCheck className="w-3 h-3 mr-1" />Edit
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -1785,6 +1813,41 @@ export default function LabTesting() {
         </CardContent>
       </Card>
 
+      {superAdminEditItem && (
+        <SuperAdminEditModal
+          title={`Edit Lab Record: ${superAdminEditItem.liftNo}`}
+          tableName="LIFT-ACCOUNTS"
+          pkField="id"
+          pkValue={superAdminEditItem._dbId}
+          fields={[
+            { label: "Lift No", dbKey: "Lift No", value: superAdminEditItem.liftNo, type: "text" },
+            { label: "Indent No.", dbKey: "Indent no.", value: superAdminEditItem.indentNo, type: "text" },
+            { label: "Vendor Name", dbKey: "Vendor Name", value: superAdminEditItem.vendorName, type: "text" },
+            { label: "Raw Material Name", dbKey: "Raw Material Name", value: superAdminEditItem.rawMaterialName, type: "text" },
+            { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditItem.billNo, type: "text" },
+            { label: "Qty", dbKey: "Qty", value: superAdminEditItem.qty, type: "number" },
+            { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditItem.truckNo, type: "text" },
+            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+            { label: "Status", dbKey: "Status", value: superAdminEditItem.alStatus_val, type: "select", options: ["Accepted", "Rejected"] },
+            { label: "Moisture %", dbKey: "Moisture Percent Age %", value: superAdminEditItem.anMoisturePercent_val, type: "number" },
+            { label: "BD %", dbKey: "BD Percent Age %", value: superAdminEditItem.aoBdPercent_val, type: "number" },
+            { label: "AP %", dbKey: "AP Percent Age %", value: superAdminEditItem.apApPercent_val, type: "number" },
+            { label: "Alumina %", dbKey: "Alumina Percent Age %", value: superAdminEditItem.aqAluminaPercent_val, type: "number" },
+            { label: "Iron %", dbKey: "Iron Percent Age %", value: superAdminEditItem.arIronPercent_val, type: "number" },
+            { label: "Sieve Analysis", dbKey: "Sieve Analysis", value: superAdminEditItem.asSieveAnalysis_val, type: "number" },
+            { label: "LOI %", dbKey: "LOI %", value: superAdminEditItem.atLoiPercent_val, type: "number" },
+            { label: "SiO2 %", dbKey: "SIO2 %", value: superAdminEditItem.auSio2Percent_val, type: "number" },
+            { label: "CaO %", dbKey: "CaO %", value: superAdminEditItem.avCaoPercent_val, type: "number" },
+            { label: "MgO %", dbKey: "MgO %", value: superAdminEditItem.awMgoPercent_val, type: "number" },
+            { label: "TiO2 %", dbKey: "TiO2 %", value: superAdminEditItem.axTio2Percent_val, type: "number" },
+            { label: "K2O+Na2O %", dbKey: "K2O + Na2O %", value: superAdminEditItem.ayKna2oPercent_val, type: "number" },
+            { label: "Free Iron %", dbKey: "Free Iron %", value: superAdminEditItem.azFreeIronPercent_val, type: "number" },
+            { label: "Reason", dbKey: "Reason", value: superAdminEditItem.baReason_val, type: "text" },
+          ]}
+          onClose={() => setSuperAdminEditItem(null)}
+          onSaved={() => { setSuperAdminEditItem(null); setRefreshTrigger((p) => p + 1); }}
+        />
+      )}
       <Dialog open={isModalOpen} onOpenChange={handleModalClose}>
         <DialogContent className="sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-4 mb-4 border-b">

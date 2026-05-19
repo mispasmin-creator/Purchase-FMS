@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FilePlus2, Pencil, Save, Trash, Eye } from "lucide-react";
+import { FilePlus2, Pencil, Save, Trash, Eye, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import {
@@ -32,6 +32,7 @@ import { ClipLoader as Loader } from "react-spinners";
 import { toast } from "sonner";
 import POPdf from "./POPdf";
 import { AuthContext } from "../context/AuthContext";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 import { supabase } from "../supabase";
 import { uploadFileToStorage } from "../utils/storageUtils";
 import { useRealtime } from "../hooks/useRealtime";
@@ -101,6 +102,7 @@ const money = (value) =>
 
 const mapRow = (row) => ({
   id: row["Indent Id."],
+  supabaseId: row.id,
   firmName: row["Firm Name"] || "",
   vendorName: row["Vendor"] || "",
   rawMaterialName: row["Material"] || "",
@@ -151,7 +153,8 @@ const groupByVendor = (rows) => {
 
 export default function CreatePO() {
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
+  const [superAdminEditRow, setSuperAdminEditRow] = useState(null);
   const [mode, setMode] = useState("create");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -335,6 +338,7 @@ export default function CreatePO() {
 
       indents: currentGroup.indents.map((indent) => ({
         id: indent.id,
+        supabaseId: indent.supabaseId,
         indentNumber: String(indent.id || ""),
         productName: indent.rawMaterialName || "",
         specifications: [
@@ -683,6 +687,24 @@ export default function CreatePO() {
 
   return (
     <div className="grid w-full rounded-md place-items-center bg-gradient-to-br from-blue-100 via-purple-50 to-blue-50">
+      {superAdminEditRow && (
+        <SuperAdminEditModal
+          title={`Edit Indent — ${superAdminEditRow.id}`}
+          tableName="INDENT-PO"
+          pkField="id"
+          pkValue={superAdminEditRow.supabaseId}
+          fields={[
+            { label: "Indent Id.", dbKey: "Indent Id.", value: superAdminEditRow.id, type: "text" },
+            { label: "Vendor", dbKey: "Vendor", value: superAdminEditRow.productName, type: "text" },
+            { label: "Material", dbKey: "Material", value: superAdminEditRow.productName, type: "text" },
+            { label: "Approved Qty", dbKey: "Approved Qty", value: superAdminEditRow.quantity, type: "number" },
+            { label: "Approved Rate", dbKey: "Approved Rate", value: superAdminEditRow.rate, type: "number" },
+            { label: "UOM", dbKey: "UOM", value: superAdminEditRow.unit, type: "text" },
+          ]}
+          onClose={() => setSuperAdminEditRow(null)}
+          onSaved={() => { setSuperAdminEditRow(null); setRefreshTrigger((p) => p + 1); }}
+        />
+      )}
       <div className="flex justify-between w-full p-5">
         <div className="flex items-center gap-2">
           <FilePlus2 size={50} className="text-primary" />
@@ -1277,15 +1299,26 @@ export default function CreatePO() {
                           Rs. {money(lineTotal(item))}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-8 h-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => removeIndent(index)}
-                          >
-                            <Trash size={14} />
-                          </Button>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-8 h-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => removeIndent(index)}
+                            >
+                              <Trash size={14} />
+                            </Button>
+                            {isSuperAdmin && item.supabaseId && (
+                              <button
+                                type="button"
+                                onClick={() => setSuperAdminEditRow(item)}
+                                className="inline-flex items-center px-1.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded hover:bg-purple-200 border border-purple-300"
+                              >
+                                <ShieldCheck size={12} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

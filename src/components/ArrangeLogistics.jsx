@@ -35,8 +35,10 @@ import {
   ChevronsUpDown,
   Plus,
   Trash,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { fetchMasterData } from "../utils/masterDataUtils";
@@ -111,7 +113,8 @@ export default function ArrangeLogistics() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedHistoryDate, setSelectedHistoryDate] = useState("");
   const [historySearchQuery, setHistorySearchQuery] = useState("");
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
+  const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
   const { updateCount } = useNotification();
   const [transporterMasterOptions, setTransporterMasterOptions] = useState([]);
   const [selectedTransporterIndex, setSelectedTransporterIndex] = useState(0);
@@ -423,6 +426,24 @@ export default function ArrangeLogistics() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 h-full flex flex-col bg-slate-50">
+      {superAdminEditItem && (
+        <SuperAdminEditModal
+          title={`Edit PO — ${superAdminEditItem.poNumber}`}
+          tableName="INDENT-PO"
+          pkField="id"
+          pkValue={superAdminEditItem.id}
+          fields={[
+            { label: "PO Number", dbKey: "po_number", value: superAdminEditItem.poNumber, type: "text" },
+            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+            { label: "Vendor Name", dbKey: "Vendor name", value: superAdminEditItem.vendorName, type: "text" },
+            { label: "Total Amount", dbKey: "Total Amount", value: superAdminEditItem.totalAmount, type: "number" },
+            { label: "Total Quantity", dbKey: "Total Quantity", value: superAdminEditItem.totalQuantity, type: "number" },
+            { label: "Transport Type", dbKey: "Transport Type", value: superAdminEditItem.transportType, type: "text" },
+          ]}
+          onClose={() => setSuperAdminEditItem(null)}
+          onSaved={() => { setSuperAdminEditItem(null); }}
+        />
+      )}
       <Card className="shadow-md border border-gray-200 flex-1 flex flex-col bg-white">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
@@ -501,7 +522,14 @@ export default function ArrangeLogistics() {
                           {filteredPendingData.map((item) => (
                             <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
                               <td className="px-4 py-3">
-                                <Button size="sm" className="bg-[#7da23a] hover:bg-[#6b8e2f]" onClick={() => openArrangeDialog(item)}>Arrange</Button>
+                                <div className="flex items-center gap-1.5">
+                                  <Button size="sm" className="bg-[#7da23a] hover:bg-[#6b8e2f]" onClick={() => openArrangeDialog(item)}>Arrange</Button>
+                                  {isSuperAdmin && (
+                                    <button onClick={() => setSuperAdminEditItem(item)} className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 border border-purple-300">
+                                      <ShieldCheck className="h-3 w-3 mr-1" />Edit
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-4 py-3">{item.poNumber || item.indentId}</td>
                               <td className="px-4 py-3">{item.firmName}</td>
@@ -562,7 +590,14 @@ export default function ArrangeLogistics() {
                           {filteredHistoryData.map((item) => (
                             <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
                               <td className="px-4 py-3">
-                                <Button variant="outline" size="sm" onClick={() => openHistoryDialog(item)}>View</Button>
+                                <div className="flex items-center gap-1.5">
+                                  <Button variant="outline" size="sm" onClick={() => openHistoryDialog(item)}>View</Button>
+                                  {isSuperAdmin && (
+                                    <button onClick={() => setSuperAdminEditItem(item)} className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 border border-purple-300">
+                                      <ShieldCheck className="h-3 w-3 mr-1" />Edit
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-4 py-3">
                                 {item.actualLogistics ? (

@@ -19,7 +19,8 @@ import {
   Clock,
   History,
   UploadCloud,
-  ExternalLink
+  ExternalLink,
+  ShieldCheck,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -31,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AuthContext } from "../context/AuthContext";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { useRealtime } from "../hooks/useRealtime";
@@ -130,7 +132,8 @@ const SearchableSelect = ({
 };
 
 export default function DebitNote() {
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
+  const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
   const [mismatchData, setMismatchData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -218,6 +221,7 @@ export default function DebitNote() {
         const liftId = String(row["Lift ID"] || "").trim();
         return {
           id: `MISMATCH-${index}`,
+          supabaseId: row.id,
           timestamp: formatTimestamp(row["Timestamp"]),
           liftId,
           indentNo: String(row["Indent Number"] || "").trim(),
@@ -501,9 +505,20 @@ export default function DebitNote() {
     if (column.dataKey === "actions") {
       if (activeTab === "history") {
         return (
-          <Badge variant="outline" className="bg-gray-50">
-            Completed
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-gray-50">
+              Completed
+            </Badge>
+            {isSuperAdmin && (
+              <button
+                onClick={() => setSuperAdminEditItem(item)}
+                className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 border border-purple-300"
+              >
+                <ShieldCheck className="h-3 w-3 mr-1" />
+                Edit
+              </button>
+            )}
+          </div>
         );
       }
 
@@ -538,15 +553,26 @@ export default function DebitNote() {
       }
 
       return (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleEditClick(item)}
-          className="h-7 px-2"
-        >
-          <Edit className="h-3 w-3 mr-1" />
-          Make Debit Note
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleEditClick(item)}
+            className="h-7 px-2"
+          >
+            <Edit className="h-3 w-3 mr-1" />
+            Make Debit Note
+          </Button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setSuperAdminEditItem(item)}
+              className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 border border-purple-300"
+            >
+              <ShieldCheck className="h-3 w-3 mr-1" />
+              Edit
+            </button>
+          )}
+        </div>
       );
     }
 
@@ -679,6 +705,27 @@ export default function DebitNote() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
       {renderEditModal()}
+      {superAdminEditItem && (
+        <SuperAdminEditModal
+          title={`Edit Mismatch — ${superAdminEditItem.liftId}`}
+          tableName="Mismatch"
+          pkField="id"
+          pkValue={superAdminEditItem.supabaseId}
+          fields={[
+            { label: "Lift ID", dbKey: "Lift ID", value: superAdminEditItem.liftId, type: "text" },
+            { label: "Party Name", dbKey: "Party Name", value: superAdminEditItem.partyName, type: "text" },
+            { label: "Product Name", dbKey: "Product Name", value: superAdminEditItem.productName, type: "text" },
+            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+            { label: "Indent Number", dbKey: "Indent Number", value: superAdminEditItem.indentNo, type: "text" },
+            { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditItem.transporterName, type: "text" },
+            { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditItem.debitAmount, type: "number" },
+            { label: "Debit Note URL", dbKey: "Debit Note URL", value: superAdminEditItem.debitNoteUrl, type: "text" },
+            { label: "Remarks", dbKey: "Remarks", value: superAdminEditItem.remarks, type: "textarea" },
+          ]}
+          onClose={() => setSuperAdminEditItem(null)}
+          onSaved={() => { setSuperAdminEditItem(null); fetchMismatchData(); }}
+        />
+      )}
 
       <div className="max-w-7xl mx-auto space-y-6">
         <Card className="shadow-md border-none">

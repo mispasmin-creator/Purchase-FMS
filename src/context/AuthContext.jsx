@@ -58,11 +58,15 @@ export function AuthProvider({ children }) {
       const userRecord = data[0]
       let userRoles = [];
       let isReadOnly = false;
+      let isSuperAdminFlag = false;
       const rawPages = userRecord["Pages"];
 
       if (typeof rawPages === "string" && rawPages.trim().toLowerCase() === "viewonly") {
         userRoles = ["admin"];
         isReadOnly = true;
+      } else if (typeof rawPages === "string" && rawPages.trim().toLowerCase() === "super admin") {
+        userRoles = ["admin"];
+        isSuperAdminFlag = true;
       } else if (Array.isArray(rawPages)) {
         userRoles = rawPages.map(p => p.trim().toLowerCase()).filter(Boolean);
       } else if (typeof rawPages === "string") {
@@ -87,7 +91,7 @@ export function AuthProvider({ children }) {
 
       const rawFirm = (userRecord["Firm Name"] || "").trim()
       let userFirm = rawFirm
-      
+
       // Parse multi-firm access if not "all"
       if (rawFirm.toLowerCase() !== "all" && rawFirm !== "") {
         try {
@@ -104,7 +108,7 @@ export function AuthProvider({ children }) {
       }
 
       const currentUserData = JSON.parse(localStorage.getItem("user") || "{}")
-      const updatedUserData = { ...currentUserData, firmName: userFirm, isReadOnly }
+      const updatedUserData = { ...currentUserData, firmName: userFirm, isReadOnly, isSuperAdmin: isSuperAdminFlag }
       localStorage.setItem("user", JSON.stringify(updatedUserData))
       setUser(updatedUserData)
       localStorage.setItem("allowedSteps", JSON.stringify(userRoles))
@@ -123,7 +127,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const login = async (username, password) => {
+  const login = async (username, password, expectSuperAdmin = false) => {
     return new Promise(async (resolve) => {
       try {
         console.log("Attempting login for user:", username)
@@ -158,11 +162,15 @@ export function AuthProvider({ children }) {
         // Extract user data
         let userFoundRoles = [];
         let userIsReadOnly = false;
+        let userIsSuperAdmin = false;
         const rawFoundPages = userRecord["Pages"];
 
         if (typeof rawFoundPages === "string" && rawFoundPages.trim().toLowerCase() === "viewonly") {
           userFoundRoles = ["admin"];
           userIsReadOnly = true;
+        } else if (typeof rawFoundPages === "string" && rawFoundPages.trim().toLowerCase() === "super admin") {
+          userFoundRoles = ["admin"];
+          userIsSuperAdmin = true;
         } else if (Array.isArray(rawFoundPages)) {
           userFoundRoles = rawFoundPages.map(p => p.trim().toLowerCase()).filter(Boolean);
         } else if (typeof rawFoundPages === "string") {
@@ -184,6 +192,12 @@ export function AuthProvider({ children }) {
           }
         }
 
+        // Validate Super Admin role if expected
+        if (expectSuperAdmin && !userIsSuperAdmin) {
+          toast.error("Login Failed", { description: "Is account mein Super Admin access nahi hai." })
+          resolve(false)
+          return
+        }
 
         const rawFoundFirm = (userRecord["Firm Name"] || "").trim()
         let userFoundFirm = rawFoundFirm
@@ -204,7 +218,7 @@ export function AuthProvider({ children }) {
         }
 
         // Save to localStorage
-        const userData = { username, firmName: userFoundFirm, isReadOnly: userIsReadOnly }
+        const userData = { username, firmName: userFoundFirm, isReadOnly: userIsReadOnly, isSuperAdmin: userIsSuperAdmin }
         localStorage.setItem("isAuthenticated", "true")
         localStorage.setItem("user", JSON.stringify(userData))
         localStorage.setItem("allowedSteps", JSON.stringify(userFoundRoles))
@@ -213,7 +227,7 @@ export function AuthProvider({ children }) {
         setIsAuthenticated(true)
         setAllowedSteps(userFoundRoles)
 
-        console.log("Login successful for:", username, "Roles:", userFoundRoles)
+        console.log("Login successful for:", username, "Roles:", userFoundRoles, "SuperAdmin:", userIsSuperAdmin)
         toast.success("Login Successful", { description: "Welcome to the Purchase Management System." })
         resolve(true)
 
@@ -245,9 +259,10 @@ export function AuthProvider({ children }) {
   }
 
   const isReadOnly = !!(user?.isReadOnly)
+  const isSuperAdmin = !!(user?.isSuperAdmin)
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, allowedSteps, login, logout, isLoading, isReadOnly }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, allowedSteps, login, logout, isLoading, isReadOnly, isSuperAdmin }}>
       {!isLoading && children}
     </AuthContext.Provider>
   )

@@ -20,6 +20,7 @@ import {
   X,
   History,
   CheckCircle2,
+  ShieldCheck,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import {
@@ -58,6 +59,7 @@ import { AuthContext } from "../context/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 
 const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
@@ -151,7 +153,8 @@ const HISTORY_COLUMNS_META = [
 ];
 
 export default function MismatchAnalysis() {
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
+  const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
   const navigate = useNavigate();
   const [liftAccountsData, setLiftAccountsData] = useState([]);
   const [purchaseOrdersData, setPurchaseOrdersData] = useState([]);
@@ -1234,6 +1237,15 @@ export default function MismatchAnalysis() {
             >
               {item.Status === "Acknowledge" ? "Proper" : "OK"}
             </Button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => setSuperAdminEditItem(item)}
+                className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 border border-purple-300"
+              >
+                <ShieldCheck className="w-3 h-3 mr-1" />
+                Edit
+              </button>
+            )}
           </div>
         );
       }
@@ -1256,6 +1268,15 @@ export default function MismatchAnalysis() {
           >
             OK
           </Button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setSuperAdminEditItem(item)}
+              className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 border border-purple-300"
+            >
+              <ShieldCheck className="w-3 h-3 mr-1" />
+              Edit
+            </button>
+          )}
         </div>
       );
     }
@@ -1531,6 +1552,30 @@ export default function MismatchAnalysis() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
       {renderModal()}
+      {superAdminEditItem && (
+        <SuperAdminEditModal
+          title={`Edit Mismatch — ${superAdminEditItem.liftIdDisplay || superAdminEditItem.liftNo}`}
+          tableName="Mismatch"
+          pkField="id"
+          pkValue={superAdminEditItem.id}
+          fields={[
+            { label: "Lift ID", dbKey: "Lift ID", value: superAdminEditItem.liftIdDisplay || superAdminEditItem.liftNo, type: "text" },
+            { label: "Party Name", dbKey: "Party Name", value: superAdminEditItem.vendorName, type: "text" },
+            { label: "Product Name", dbKey: "Product Name", value: superAdminEditItem.material, type: "text" },
+            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+            { label: "Indent Number", dbKey: "Indent Number", value: superAdminEditItem.indentNo, type: "text" },
+            { label: "Rate", dbKey: "Rate", value: superAdminEditItem.materialRate, type: "number" },
+            { label: "PO Rate", dbKey: "PO Rate", value: superAdminEditItem.poRate, type: "number" },
+            { label: "Truck Qty", dbKey: "Truck Qty", value: superAdminEditItem.billQuantity, type: "number" },
+            { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditItem.debitAmount, type: "number" },
+            { label: "Debit Note URL", dbKey: "Debit Note URL", value: superAdminEditItem.debitNoteUrl, type: "text" },
+            { label: "Total Freight", dbKey: "Total Freight", value: superAdminEditItem.totalFreight, type: "number" },
+            { label: "Remarks", dbKey: "Remarks", value: superAdminEditItem.remarks, type: "textarea" },
+          ]}
+          onClose={() => setSuperAdminEditItem(null)}
+          onSaved={() => { setSuperAdminEditItem(null); }}
+        />
+      )}
 
       <div className="max-w-7xl mx-auto space-y-6">
         <Card className="shadow-md border-none">

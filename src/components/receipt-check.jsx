@@ -12,6 +12,7 @@ import {
   FileUp,
   ExternalLink,
   Filter,
+  ShieldCheck,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 // Shadcn UI components
@@ -55,7 +56,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AuthContext } from "../context/AuthContext"; // Import AuthContext
+import { AuthContext } from "../context/AuthContext";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 import { useNotification } from "../context/NotificationContext";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
@@ -318,9 +320,10 @@ function ReceiptFormModal({ isOpen, onClose, liftData, children }) {
 }
 
 export default function ReceiptCheck() {
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
   const { updateCount } = useNotification();
   const [allLiftsData, setAllLiftsData] = useState([]);
+  const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
   const [selectedLift, setSelectedLift] = useState(null);
   const [loadingData, setLoadingData] = useState(true);
   const [errorData, setErrorData] = useState(null);
@@ -1148,6 +1151,11 @@ export default function ReceiptCheck() {
                         {col.header}
                       </th>
                     ))}
+                    {isSuperAdmin && tabKey === "processedReceipts" && (
+                      <th className="px-3 py-3 text-xs font-bold text-purple-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">
+                        SA Edit
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -1167,22 +1175,43 @@ export default function ReceiptCheck() {
                         >
                           {column.dataKey === "actionColumn" &&
                           tabKey === "awaitingReceipt" ? (
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              onClick={() => handleOpenReceiptModal(item)}
-                              disabled={item.unloadApprovalStatus === "Pending"}
-                              className="h-7 px-2.5 py-1 text-xs"
-                            >
-                              {item.unloadApprovalStatus === "Pending"
-                                ? "Pending Approval"
-                                : "Record Receipt"}
-                            </Button>
+
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                onClick={() => handleOpenReceiptModal(item)}
+                                disabled={item.unloadApprovalStatus === "Pending"}
+                                className="h-7 px-2.5 py-1 text-xs"
+                              >
+                                {item.unloadApprovalStatus === "Pending"
+                                  ? "Pending Approval"
+                                  : "Record Receipt"}
+                              </Button>
+                              {isSuperAdmin && (
+                                <button
+                                  onClick={() => setSuperAdminEditItem(item)}
+                                  className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300"
+                                >
+                                  <ShieldCheck className="w-3 h-3 mr-1" />Edit
+                                </button>
+                              )}
+                            </div>
                           ) : (
                             renderCell(item, column)
                           )}
                         </td>
                       ))}
+                      {isSuperAdmin && tabKey === "processedReceipts" && (
+                        <td className="whitespace-nowrap text-xs px-3 py-2">
+                          <button
+                            onClick={() => setSuperAdminEditItem(item)}
+                            className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300"
+                          >
+                            <ShieldCheck className="w-3 h-3 mr-1" />Edit
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -1379,6 +1408,32 @@ export default function ReceiptCheck() {
           </Tabs>
         </CardContent>
       </Card>
+      {superAdminEditItem && (
+        <SuperAdminEditModal
+          title={`Edit Receipt Record: ${superAdminEditItem.liftNo || superAdminEditItem.id}`}
+          tableName="LIFT-ACCOUNTS"
+          pkField="id"
+          pkValue={superAdminEditItem._dbId}
+          fields={[
+            { label: "Lift No", dbKey: "Lift No", value: superAdminEditItem.liftNo, type: "text" },
+            { label: "Indent No.", dbKey: "Indent no.", value: superAdminEditItem.indentNo, type: "text" },
+            { label: "Vendor Name", dbKey: "Vendor Name", value: superAdminEditItem.vendorName, type: "text" },
+            { label: "Raw Material Name", dbKey: "Raw Material Name", value: superAdminEditItem.rawMaterialName, type: "text" },
+            { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditItem.billNo, type: "text" },
+            { label: "Qty", dbKey: "Qty", value: superAdminEditItem.qty, type: "number" },
+            { label: "Lifting Qty", dbKey: "Lifting Qty", value: superAdminEditItem.liftingQty, type: "number" },
+            { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditItem.truckNo, type: "text" },
+            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+            { label: "Physical Condition", dbKey: "Physical Condition", value: superAdminEditItem.physicalCondition_fromSheet, type: "select", options: ["Good", "Bad"] },
+            { label: "Moisture", dbKey: "Moisture", value: superAdminEditItem.moisture_fromSheet, type: "select", options: ["Yes", "No"] },
+            { label: "Total Bill Quantity", dbKey: "Total Bill Quantity", value: superAdminEditItem.totalBillQuantity_fromSheet, type: "number" },
+            { label: "Actual Quantity", dbKey: "Actual Quantity", value: superAdminEditItem.actualQuantity_fromSheet, type: "number" },
+            { label: "Weight Slip Qty", dbKey: "Weight Slip Qty", value: superAdminEditItem.weightSlipQty_fromSheet, type: "number" },
+          ]}
+          onClose={() => setSuperAdminEditItem(null)}
+          onSaved={() => { setSuperAdminEditItem(null); setRefreshTrigger((p) => p + 1); }}
+        />
+      )}
       <ReceiptFormModal
         isOpen={isModalOpen}
         onClose={handleModalClose}

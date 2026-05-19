@@ -16,6 +16,7 @@ import {
   FileUp,
   Plus,
   Check,
+  ShieldCheck,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import {
@@ -52,6 +53,7 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AuthContext } from "../context/AuthContext";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 import { useNotification } from "../context/NotificationContext";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
@@ -301,8 +303,9 @@ const normalizePoItems = (row, liftedQtyByItem) => {
 };
 
 export default function LiftMaterial() {
-  const { user } = useContext(AuthContext);
+  const { user, isSuperAdmin } = useContext(AuthContext);
   const { updateCount } = useNotification();
+  const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [materialLifts, setMaterialLifts] = useState([]);
   const [selectedPO, setSelectedPO] = useState(null);
@@ -700,6 +703,7 @@ export default function LiftMaterial() {
         }
 
         return {
+          _dbId: row.id,
           id: String(row["Lift No"] || "").trim(),
           indentNo:
             indentToPoMap[String(row["Indent no."] || "").trim()] ||
@@ -1952,7 +1956,7 @@ export default function LiftMaterial() {
                                   }`}
                                 >
                                   {column.dataKey === "actionColumn" ? (
-                                    <div className="flex justify-center">
+                                    <div className="flex items-center gap-1">
                                       <Button
                                         onClick={() => handlePOSelect(po)}
                                         size="xs"
@@ -1962,6 +1966,14 @@ export default function LiftMaterial() {
                                       >
                                         Create Lift
                                       </Button>
+                                      {isSuperAdmin && (
+                                        <button
+                                          onClick={() => setSuperAdminEditItem({ ...po, _isPORow: true })}
+                                          className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300"
+                                        >
+                                          <ShieldCheck className="w-3 h-3 mr-1" />Edit
+                                        </button>
+                                      )}
                                     </div>
                                   ) : column.dataKey === "cancelAction" ? (
                                     <div className="flex justify-center">
@@ -2153,6 +2165,11 @@ export default function LiftMaterial() {
                                 {col.header}
                               </th>
                             ))}
+                            {isSuperAdmin && (
+                              <th className="px-3 py-3 text-xs font-bold text-purple-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">
+                                SA Edit
+                              </th>
+                            )}
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
@@ -2181,6 +2198,16 @@ export default function LiftMaterial() {
                                   {renderCell(lift, column)}
                                 </td>
                               ))}
+                              {isSuperAdmin && (
+                                <td className="whitespace-nowrap text-xs px-3 py-2">
+                                  <button
+                                    onClick={() => setSuperAdminEditItem(lift)}
+                                    className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300"
+                                  >
+                                    <ShieldCheck className="w-3 h-3 mr-1" />Edit
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -2194,6 +2221,45 @@ export default function LiftMaterial() {
         </CardContent>
       </Card>
 
+      {superAdminEditItem && (
+        <SuperAdminEditModal
+          title={superAdminEditItem._isPORow
+            ? `Edit PO: ${superAdminEditItem.indentNo}`
+            : `Edit Lift: ${superAdminEditItem.id}`}
+          tableName={superAdminEditItem._isPORow ? "INDENT-PO" : "LIFT-ACCOUNTS"}
+          pkField="id"
+          pkValue={superAdminEditItem._isPORow ? superAdminEditItem._rowIndex : superAdminEditItem._dbId}
+          fields={superAdminEditItem._isPORow ? [
+            { label: "Indent Id.", dbKey: "Indent Id.", value: superAdminEditItem.indentNo, type: "text" },
+            { label: "Vendor Name", dbKey: "Vendor name", value: superAdminEditItem.vendorName, type: "text" },
+            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+            { label: "Quantity", dbKey: "Quantity", value: superAdminEditItem.quantity, type: "number" },
+            { label: "Rate", dbKey: "Rate", value: superAdminEditItem.rate, type: "number" },
+            { label: "Alumina %", dbKey: "Alumina %", value: superAdminEditItem.alumina, type: "number" },
+            { label: "Iron %", dbKey: "Iron %", value: superAdminEditItem.iron, type: "number" },
+            { label: "Status", dbKey: "Status", value: superAdminEditItem.status, type: "text" },
+            { label: "Order Cancel Qty", dbKey: "Order Cancel Qty", value: superAdminEditItem.orderCancelQty, type: "number" },
+            { label: "Cancel Reason", dbKey: "Reason Of Cancel Qty", value: superAdminEditItem.cancelReason, type: "text" },
+          ] : [
+            { label: "Lift No", dbKey: "Lift No", value: superAdminEditItem.id, type: "text" },
+            { label: "Indent No.", dbKey: "Indent no.", value: superAdminEditItem.indentNo, type: "text" },
+            { label: "Vendor Name", dbKey: "Vendor Name", value: superAdminEditItem.vendorName, type: "text" },
+            { label: "Raw Material Name", dbKey: "Raw Material Name", value: superAdminEditItem.material, type: "text" },
+            { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditItem.billNo, type: "text" },
+            { label: "Qty", dbKey: "Qty", value: superAdminEditItem.quantity, type: "number" },
+            { label: "Lifting Qty", dbKey: "Lifting Qty", value: superAdminEditItem.liftingQty, type: "number" },
+            { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditItem.truckNo, type: "text" },
+            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+            { label: "Rate", dbKey: "Rate", value: superAdminEditItem.rate, type: "number" },
+            { label: "Transporter Rate", dbKey: "Transporter Rate", value: superAdminEditItem.transportRate, type: "number" },
+            { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditItem.transporterName, type: "text" },
+            { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditItem.biltyNo, type: "text" },
+            { label: "Bill Image", dbKey: "Bill Image", value: superAdminEditItem.billImageUrl, type: "file", folder: "bill-images" },
+          ]}
+          onClose={() => setSuperAdminEditItem(null)}
+          onSaved={() => { setSuperAdminEditItem(null); fetchMaterialLifts(); fetchPurchaseOrders(); }}
+        />
+      )}
       {showPopup && selectedPO && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <Card className="w-full max-w-3xl max-h-[95vh] flex flex-col shadow-2xl">
