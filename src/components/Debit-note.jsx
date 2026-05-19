@@ -97,7 +97,7 @@ const SearchableSelect = ({
             <div
               className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 ${value === "all" ? "bg-green-50" : ""}`}
               onClick={() => {
-                onValueChange("all");
+                onValueChange("all"); 
                 setOpen(false);
                 setSearchTerm("");
               }}
