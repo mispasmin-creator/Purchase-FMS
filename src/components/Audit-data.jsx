@@ -2123,11 +2123,11 @@ const CallTrackerPage = () => {
                   {showColumnFilter && (
                     <>
                       <div
-                        className="fixed inset-0 z-10"
+                        className="fixed inset-0 z-40"
                         onClick={() => setShowColumnFilter(false)}
                       ></div>
 
-                      <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-20 max-h-80 overflow-y-auto">
+                      <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-80 overflow-y-auto">
                         <div className="p-4">
                           <h3 className="text-sm font-medium text-gray-700 mb-3">Show/Hide Columns</h3>
                           <div className="grid grid-cols-1 gap-2">

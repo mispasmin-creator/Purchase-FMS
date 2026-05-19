@@ -154,6 +154,11 @@ const PO_COLUMNS_META = [
     toggleable: true,
   },
   {
+    header: "Transporter Name",
+    dataKey: "transporterName",
+    toggleable: true,
+  },
+  {
     header: "Cancel PO",
     dataKey: "cancelAction",
     toggleable: false,
@@ -164,6 +169,7 @@ const LIFTS_COLUMNS_META = [
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
   { header: "Lifted On", dataKey: "createdAt", toggleable: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true },
+  { header: "RI Number", dataKey: "riNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "material", toggleable: true },
@@ -246,7 +252,7 @@ const makeLiftItemKey = (poNumber, material, uniqueId = "") => {
   return uniqueId ? `${baseKey}::${uniqueId}` : baseKey;
 };
 
-const normalizePoItems = (row, liftedQtyByItem) => {
+const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
   const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
   const fallbackMaterial = String(row["Material"] || "").trim();
   const fallbackRate = toNumber(row["Rate"]);
@@ -277,7 +283,7 @@ const normalizePoItems = (row, liftedQtyByItem) => {
     const maxQuantity = toNumber(item.quantity || fallbackQuantity);
     // Use the specific key if available (future proofing), otherwise fallback to aggregated material key
     const liftedQuantity = roundQuantity(
-      liftedQtyByItem[key] || liftedQtyByItem[aggregationKey] || 0,
+      liftedQtyByItem[key] || liftedQtyByBaseItem[aggregationKey] || 0,
     );
     const pendingQuantity = Math.max(
       0,
@@ -340,6 +346,7 @@ export default function LiftMaterial() {
     liftType: "all",
     totalQuantity: "all",
     orderNumber: "all",
+    transporterName: "all",
   });
 
   useEffect(() => {
@@ -483,6 +490,7 @@ export default function LiftMaterial() {
       // Build a map: poNumber -> total lifted billing qty so far
       const liftedQtyMap = {};
       const liftedQtyByItem = {};
+      const liftedQtyByBaseItem = {};
       (liftData || []).forEach((row) => {
         const indent = String(row["Indent no."] || "").trim();
         const poNumber = indentToPoMap[indent] || indent;
@@ -491,52 +499,45 @@ export default function LiftMaterial() {
         if (poNumber)
           liftedQtyMap[poNumber] = (liftedQtyMap[poNumber] || 0) + qty;
         if (poNumber && material) {
-          const itemKey = makeLiftItemKey(poNumber, material);
+          const itemKey = makeLiftItemKey(poNumber, material, indent);
           liftedQtyByItem[itemKey] = (liftedQtyByItem[itemKey] || 0) + qty;
+          
+          // Fallback for older code that doesn't use uniqueId
+          const baseKey = makeLiftItemKey(poNumber, material);
+          liftedQtyByBaseItem[baseKey] = (liftedQtyByBaseItem[baseKey] || 0) + qty;
         }
       });
 
       // Filter: Status pending/empty, Planned4 not null.
       // Actual4 check removed – PO stays visible until pending reaches 0.
-      const filteredRows = data.filter((row) => {
+      const validRows = data.filter((row) => {
         const status = String(row["Status"] || "")
           .trim()
           .toLowerCase();
         const planned4 = row["Planned4"];
-        const poNumber = String(
-          row.po_number || row["Indent Id."] || "",
-        ).trim();
-        const totalQty = parseFloat(
-          row["Quantity"] || row["Total Quantity"] || 0,
-        );
-        const liftedSoFar = liftedQtyMap[poNumber] || 0;
-
-        // Use Pending PO Qty from DB if it exists, else calculate it
-        const dbPendingPOQty = parseFloat(row["Pending PO Qty"]);
-        const pendingPending = isNaN(dbPendingPOQty)
-          ? totalQty - liftedSoFar
-          : dbPendingPOQty;
 
         return (
           (status === "" || status === "pending") &&
           planned4 !== null &&
-          planned4 !== "" &&
-          pendingPending > 0
+          planned4 !== ""
         );
       });
 
-      // Update global notification count with the count of pending lifts
+      // Group valid rows into single Indent entries (separating items by Indent even if they share a PO)
       const groupedRows = Object.values(
-        filteredRows.reduce((acc, row) => {
-          const poNumber = String(
-            row.po_number || row["Indent Id."] || "",
-          ).trim();
-          if (!poNumber) return acc;
-          if (!acc[poNumber]) {
-            acc[poNumber] = { primaryRow: { ...row }, dbRowIds: [], allItems: [] };
+        validRows.reduce((acc, row) => {
+          const indentId = String(row["Indent Id."] || "").trim();
+          const poNumber = String(row.po_number || "").trim();
+          // Use indentId as the primary grouping key. Fallback to poNumber if indentId is missing.
+          const groupKey = indentId || poNumber;
+          
+          if (!groupKey) return acc;
+          if (!acc[groupKey]) {
+            acc[groupKey] = { primaryRow: { ...row }, dbRowIds: [], allItems: [] };
           }
-          acc[poNumber].dbRowIds.push(row.id);
-          acc[poNumber].allItems.push({
+          acc[groupKey].dbRowIds.push(row.id);
+          acc[groupKey].allItems.push({
+            indentId: indentId,
             material: String(row["Material"] || "").trim(),
             quantity: parseFloat(row["Quantity"] || row["Total Quantity"] || 0),
             rate: parseFloat(row["Rate"] || 0),
@@ -544,7 +545,6 @@ export default function LiftMaterial() {
           return acc;
         }, {}),
       );
-      updateCount("lift-material", groupedRows.length);
 
       let formattedData = groupedRows.map(({ primaryRow: row, dbRowIds, allItems }) => {
         const poNumber = String(
@@ -557,7 +557,7 @@ export default function LiftMaterial() {
         const dbPendingPOQty = parseFloat(row["Pending PO Qty"]);
         
         row["PO Items"] = allItems; // Inject aggregated items
-        const items = normalizePoItems(row, liftedQtyByItem);
+        const items = normalizePoItems(row, liftedQtyByItem, liftedQtyByBaseItem);
         const pendingQuantity = roundQuantity(
           items.length
             ? items.reduce((sum, item) => sum + item.pendingQuantity, 0)
@@ -566,9 +566,27 @@ export default function LiftMaterial() {
               : dbPendingPOQty,
         );
 
+        const uniqueIndents = Array.from(
+          new Set(items.map((item) => item.indentId).filter(Boolean)),
+        ).sort((a, b) => {
+          const numA = parseInt(a.replace(/\D/g, ""), 10);
+          const numB = parseInt(b.replace(/\D/g, ""), 10);
+          if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+            return numB - numA;
+          }
+          if (a > b) return -1;
+          if (a < b) return 1;
+          return 0;
+        });
+
+        const displayIndentNo =
+          uniqueIndents.length > 0
+            ? uniqueIndents.join(", ")
+            : String(row["Indent Id."] || row.po_number || "").trim();
+
         return {
           id: `PO-${row.id || Math.random().toString(36).substring(7)}`,
-          indentNo: String(row["Indent Id."] || row.po_number || "").trim(),
+          indentNo: displayIndentNo,
           poNumber: String(row.po_number || row["Indent Id."] || "").trim(),
           firmName: String(row["Firm Name"] || "").trim(),
           vendorName: String(row["Vendor name"] || row["Vendor"] || "").trim(),
@@ -607,19 +625,44 @@ export default function LiftMaterial() {
         };
       });
 
+      // Filter out fully lifted POs based on accurate item-level pending quantity computation
+      formattedData = formattedData.filter(
+        (po) => parseFloat(po.pendingQty) > 0,
+      );
+
+      // Update global notification count with the count of actual pending lifts
+      updateCount("lift-material", formattedData.length);
+
       if (user?.firmName) {
         formattedData = formattedData.filter((po) =>
           canViewFirm(user.firmName, po.firmName),
         );
       }
 
-      // Sort by planned date descending (latest first)
+      // Sort by Indent Number descending
       formattedData.sort((a, b) => {
+        // Extract the first indent from the potentially comma-separated string
+        const indentA = String(a.indentNo || "").split(',')[0].trim();
+        const indentB = String(b.indentNo || "").split(',')[0].trim();
+
+        // Try to sort numerically if they have numbers (e.g., RI-042 -> 42)
+        const numA = parseInt(indentA.replace(/\D/g, ""), 10);
+        const numB = parseInt(indentB.replace(/\D/g, ""), 10);
+
+        if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+          return numB - numA; // Descending numeric
+        }
+
+        // Fallback to string descending
+        if (indentA > indentB) return -1;
+        if (indentA < indentB) return 1;
+
+        // If indent numbers are identical, fallback to planned date descending
         const dateA = new Date(a.planned).getTime();
         const dateB = new Date(b.planned).getTime();
-        if (isNaN(dateA)) return 1;
-        if (isNaN(dateB)) return -1;
-        return dateB - dateA;
+        if (!isNaN(dateA) && !isNaN(dateB)) return dateB - dateA;
+
+        return 0;
       });
 
       setPurchaseOrders(formattedData);
@@ -708,6 +751,7 @@ export default function LiftMaterial() {
           indentNo:
             indentToPoMap[String(row["Indent no."] || "").trim()] ||
             String(row["Indent no."] || "").trim(),
+          riNo: String(row["Indent no."] || "").trim(),
           vendorName: String(row["Vendor Name"] || "").trim(),
           quantity: String(row["Qty"] || "").trim(),
           material: String(row["Raw Material Name"] || "").trim(),
@@ -885,12 +929,14 @@ export default function LiftMaterial() {
     const types = new Set();
     const quantities = new Set();
     const orders = new Set();
+    const transporters = new Set();
 
     purchaseOrders.forEach((po) => {
       if (po.vendorName) vendors.add(po.vendorName);
       if (po.rawMaterialName) materials.add(po.rawMaterialName);
       if (po.quantity) quantities.add(po.quantity);
       if (po.indentNo) orders.add(po.indentNo);
+      if (po.transporterName) transporters.add(po.transporterName);
     });
 
     materialLifts.forEach((lift) => {
@@ -901,6 +947,7 @@ export default function LiftMaterial() {
       if (lift.additionalTruckQty) quantities.add(lift.additionalTruckQty);
       if (lift.indentNo) orders.add(lift.indentNo);
       if (lift.billNo) orders.add(lift.billNo);
+      if (lift.transporterName) transporters.add(lift.transporterName);
     });
 
     return {
@@ -911,6 +958,7 @@ export default function LiftMaterial() {
         (a, b) => parseFloat(a) - parseFloat(b),
       ),
       orderNumber: [...orders].sort(),
+      transporterName: [...transporters].sort(),
     };
   }, [purchaseOrders, materialLifts]);
 
@@ -929,6 +977,11 @@ export default function LiftMaterial() {
     }
     if (filters.orderNumber !== "all") {
       filtered = filtered.filter((po) => po.indentNo === filters.orderNumber);
+    }
+    if (filters.transporterName !== "all") {
+      filtered = filtered.filter(
+        (po) => po.transporterName === filters.transporterName,
+      );
     }
     return filtered;
   }, [purchaseOrders, filters]);
@@ -960,6 +1013,11 @@ export default function LiftMaterial() {
         (lift) =>
           lift.indentNo === filters.orderNumber ||
           lift.billNo === filters.orderNumber,
+      );
+    }
+    if (filters.transporterName !== "all") {
+      filtered = filtered.filter(
+        (lift) => lift.transporterName === filters.transporterName,
       );
     }
     return filtered;
@@ -1409,7 +1467,7 @@ export default function LiftMaterial() {
         return {
           Timestamp: timestamp,
           "Lift No": liftIds[index],
-          "Indent no.": formData.indentNo,
+          "Indent no.": item.indentId || formData.indentNo,
           "Vendor Name": formData.vendorName,
           Qty: item.maxQuantity || null,
           "Raw Material Name": item.material,
@@ -1623,6 +1681,7 @@ export default function LiftMaterial() {
       liftType: "all",
       totalQuantity: "all",
       orderNumber: "all",
+      transporterName: "all",
     });
   };
 
@@ -1703,7 +1762,7 @@ export default function LiftMaterial() {
                   Clear All
                 </Button>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
                 <div>
                   <Label className="block mb-1 text-xs">Vendor Name</Label>
                   <SearchableSelect
@@ -1752,6 +1811,19 @@ export default function LiftMaterial() {
                     }
                     options={["all", ...uniqueFilterOptions.totalQuantity]}
                     placeholder="Quantities"
+                    className="h-9"
+                  />
+                </div>
+
+                <div>
+                  <Label className="block mb-1 text-xs">Transporter Name</Label>
+                  <SearchableSelect
+                    value={filters.transporterName}
+                    onValueChange={(value) =>
+                      handleFilterChange("transporterName", value)
+                    }
+                    options={["all", ...uniqueFilterOptions.transporterName]}
+                    placeholder="Transporters"
                     className="h-9"
                   />
                 </div>
@@ -1950,7 +2022,8 @@ export default function LiftMaterial() {
                                   } ${
                                     column.dataKey === "vendorName" ||
                                     column.dataKey === "rawMaterialName" ||
-                                    column.dataKey === "whatIsToBeDone"
+                                    column.dataKey === "whatIsToBeDone" ||
+                                    column.dataKey === "transporterName"
                                       ? "truncate max-w-[150px]"
                                       : ""
                                   }`}
@@ -2806,7 +2879,7 @@ export default function LiftMaterial() {
 
       {/* Cancel Pending PO Quantity Popup */}
       {cancelPendingPO.show && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-9999 p-4">
           <Card className="w-full max-w-md shadow-2xl">
             <CardHeader className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gray-50">
               <CardTitle className="text-lg font-semibold text-gray-800">

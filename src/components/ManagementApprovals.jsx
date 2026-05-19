@@ -161,6 +161,7 @@ export default function ManagementApprovals() {
             planned8: row["Planned8"] || "",
             expectedRequirementDate: row["expected_requierment_date"] || "",
             currentStock: row["Current Stock As Per factory"] || "0",
+            indentQty: row["Quantity"] || row["Total Quantity"] || "",
             vendors,
           };
         })
@@ -185,6 +186,7 @@ export default function ManagementApprovals() {
             approvedVendorName: row["Approved Vendor Name"] || "",
             approvedRate: row["Approved Rate"] || "0",
             approvedTag: approvedVendor?.technicalTag || "",
+            indentQty: row["Quantity"] || row["Total Quantity"] || "",
           };
         })
         .sort((a, b) => new Date(b.actual8) - new Date(a.actual8));
@@ -478,6 +480,7 @@ export default function ManagementApprovals() {
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Indent</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Firm</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Product</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Indent Qty</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Required On</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Current Stock</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Rate</th>
@@ -505,6 +508,7 @@ export default function ManagementApprovals() {
                         </td>
                         <td className="px-4 py-3">{item.firmName}</td>
                         <td className="px-4 py-3">{item.product}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-900">{item.indentQty || "-"}</td>
                         <td className="px-4 py-3 text-xs font-medium text-blue-600">
                           {formatDate(item.expectedRequirementDate)}
                         </td>
@@ -571,6 +575,7 @@ export default function ManagementApprovals() {
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Indent</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Firm</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Product</th>
+                      <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Indent Qty</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Approved Vendor</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Tag</th>
                       <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Rate</th>
@@ -583,6 +588,7 @@ export default function ManagementApprovals() {
                         <td className="px-4 py-3">{item.indentId}</td>
                         <td className="px-4 py-3">{item.firmName}</td>
                         <td className="px-4 py-3">{item.product}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-900">{item.indentQty || "-"}</td>
                         <td className="px-4 py-3">{item.approvedVendorName}</td>
                         <td className="px-4 py-3">
                           {item.approvedTag ? (
@@ -632,6 +638,9 @@ export default function ManagementApprovals() {
                   <span className="mx-2 text-gray-300">|</span>
                   <span className="font-medium text-gray-700">Product:</span>
                   <span className="font-bold text-gray-900 ml-1">{selectedIndent.product}</span>
+                  <span className="mx-2 text-gray-300">|</span>
+                  <span className="font-medium text-gray-700">Indent Qty:</span>
+                  <span className="font-bold text-gray-900 ml-1">{selectedIndent.indentQty || "-"}</span>
                   <span className="mx-2 text-gray-300">|</span>
                   <span className="font-medium text-gray-700">Stock:</span>
                   <span className="font-bold text-gray-900 ml-1">{selectedIndent.currentStock}</span>

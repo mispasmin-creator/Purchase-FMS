@@ -108,6 +108,7 @@ export default function LabReportPage() {
   const [firmFilter, setFirmFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [testStatusFilter, setTestStatusFilter] = useState("all");
   const [showColSettings, setShowColSettings] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const all = {};
@@ -277,6 +278,12 @@ export default function LabReportPage() {
       if (rowDate > t) return false;
     }
 
+    if (testStatusFilter !== "all") {
+      const isTested = r.dateOfTest && String(r.dateOfTest).trim() !== "";
+      if (testStatusFilter === "tested" && !isTested) return false;
+      if (testStatusFilter === "untested" && isTested) return false;
+    }
+
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -288,7 +295,7 @@ export default function LabReportPage() {
     );
   });
 
-  const tested = filtered.filter((r) => r.status.toLowerCase() === "tested" || r.alumina !== "").length;
+  const tested = filtered.filter((r) => r.dateOfTest && String(r.dateOfTest).trim() !== "").length;
   const notTested = filtered.length - tested;
 
   const exportPdf = () => {
@@ -313,7 +320,7 @@ export default function LabReportPage() {
         return visibleCols.map(c => {
           if (c.id === "dateOfTest") return r.dateOfTest ? fmtDate(r.dateOfTest) : "-";
           if (c.id === "status") {
-            const isTested = r.status.toLowerCase() === "tested" || r.alumina !== "" || r.iron !== "";
+            const isTested = r.dateOfTest && String(r.dateOfTest).trim() !== "";
             return isTested ? "Tested" : "Not Tested";
           }
           if (c.id === "sieve" || c.id === "poSieve") return r[c.id] ? "Link" : "-";
@@ -373,7 +380,7 @@ export default function LabReportPage() {
             }
             // Color logic for Status
             if (col.id === "status") {
-              const isTested = rowData.status.toLowerCase() === "tested" || rowData.alumina !== "" || rowData.iron !== "";
+              const isTested = rowData.dateOfTest && String(rowData.dateOfTest).trim() !== "";
               if (isTested) {
                 data.cell.styles.textColor = [21, 128, 61];
               } else {
@@ -987,6 +994,17 @@ export default function LabReportPage() {
                 ))}
               </select>
 
+              {/* Test Status filter */}
+              <select
+                value={testStatusFilter}
+                onChange={(e) => setTestStatusFilter(e.target.value)}
+                className="py-1.5 px-2 text-xs border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-green-500"
+              >
+                <option value="all">All Status</option>
+                <option value="tested">Tested</option>
+                <option value="untested">Non Tested</option>
+              </select>
+
               {/* Date Range */}
               <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-lg px-2 py-1">
                 <span className="text-[10px] text-gray-400 font-medium">From:</span>
@@ -1187,7 +1205,7 @@ export default function LabReportPage() {
                 </thead>
                 <tbody>
                   {filtered.map((row, i) => {
-                    const isTested = row.status.toLowerCase() === "tested" || row.alumina !== "" || row.iron !== "";
+                    const isTested = row.dateOfTest && String(row.dateOfTest).trim() !== "";
                     const rowBg = i % 2 === 0 ? "bg-white" : "bg-gray-50";
                     return (
                       <tr key={i} className={`${rowBg} hover:bg-blue-50/40`}>
@@ -1771,7 +1789,7 @@ export default function LabReportPage() {
           </div>
 
           <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 flex gap-2">
-            <Info className="w-4 h-4 flex-shrink-0" />
+            <Info className="w-4 h-4 shrink-0" />
             <div>
               <strong>Note:</strong> The Transporter Name is automatically propagated across all rows sharing the same <strong>Bill No.</strong> if at least one row in that group has a transporter assigned.
             </div>
