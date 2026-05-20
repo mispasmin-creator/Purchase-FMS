@@ -21,6 +21,7 @@ import {
   History,
   CheckCircle2,
   ShieldCheck,
+  Download,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import {
@@ -1415,6 +1416,48 @@ export default function MismatchAnalysis() {
                 <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                 Refresh
               </Button>
+              <Button
+                onClick={() => {
+                  const exportHeaders = columnsMeta
+                    .filter((col) => col.dataKey !== "actions")
+                    .map((col) => `"${col.header.replace(/"/g, '""')}"`);
+
+                  const exportRows = data.map((item) => {
+                    return columnsMeta
+                      .filter((col) => col.dataKey !== "actions")
+                      .map((col) => {
+                        let val = item[col.dataKey];
+                        if (val === undefined || val === null) {
+                          val = "";
+                        } else {
+                          val = String(val);
+                        }
+                        return `"${val.replace(/"/g, '""')}"`;
+                      })
+                      .join(",");
+                  });
+
+                  const csvContent = [exportHeaders.join(","), ...exportRows].join("\n");
+                  const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.setAttribute("href", url);
+                  link.setAttribute("download", `${tabKey}_mismatches_${new Date().toISOString().slice(0, 10)}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  toast.success("Excel (CSV) Exported Successfully", {
+                    description: `Downloaded ${data.length} records in Excel format.`,
+                    duration: 3000,
+                  });
+                }}
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs bg-white text-emerald-600 border-emerald-200 hover:text-emerald-700 hover:bg-emerald-50/50"
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Export
+              </Button>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -1502,7 +1545,7 @@ export default function MismatchAnalysis() {
               </p>
             </div>
           ) : (
-            <div className="overflow-auto max-h-[calc(100vh-550px)] relative custom-scrollbar rounded-b-lg flex-1">
+            <div className="overflow-auto max-h-[calc(100vh-280px)] min-h-[400px] relative custom-scrollbar rounded-b-lg flex-1">
               <table className="w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-30">
                   <tr className="bg-red-50 border-b border-red-200">

@@ -285,9 +285,11 @@ const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
     const liftedQuantity = roundQuantity(
       liftedQtyByItem[key] || liftedQtyByBaseItem[aggregationKey] || 0,
     );
+    const isMatchingMaterial = String(materialName).toLowerCase() === String(row["Material"] || "").trim().toLowerCase();
+    const itemCancelQty = isMatchingMaterial ? toNumber(row["Order Cancel Qty"] || row["orderCancelQty"]) : 0;
     const pendingQuantity = Math.max(
       0,
-      roundQuantity(maxQuantity - liftedQuantity),
+      roundQuantity(maxQuantity - liftedQuantity - itemCancelQty),
     );
     const rate = toNumber(item.rate || fallbackRate);
 
@@ -1983,7 +1985,7 @@ export default function LiftMaterial() {
                       </p>
                     </div>
                   ) : (
-                    <div className="flex-1 overflow-auto max-h-[calc(100vh-500px)] relative custom-scrollbar rounded-b-lg">
+                    <div className="flex-1 overflow-auto max-h-[calc(100vh-280px)] min-h-[400px] relative custom-scrollbar rounded-b-lg">
                       <table className="w-full text-sm border-collapse">
                         <thead className="sticky top-0 z-30">
                           <tr className="bg-gray-50 border-b border-gray-200">
@@ -2224,7 +2226,7 @@ export default function LiftMaterial() {
                       </p>
                     </div>
                   ) : (
-                    <div className="flex-1 overflow-auto max-h-[calc(100vh-500px)] relative custom-scrollbar rounded-b-lg">
+                    <div className="flex-1 overflow-auto max-h-[calc(100vh-280px)] min-h-[400px] relative custom-scrollbar rounded-b-lg">
                       <table className="w-full text-sm border-collapse">
                         <thead className="sticky top-0 z-30">
                           <tr className="bg-gray-50 border-b border-gray-200">
