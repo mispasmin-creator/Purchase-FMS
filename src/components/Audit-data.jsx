@@ -5,26 +5,37 @@ import { toast } from 'sonner';
 import { AuthContext } from '../context/AuthContext';
 import SuperAdminEditModal from './SuperAdminEditModal';
 
+// Modular Component Imports
+import AuditEntryModal from './audit/AuditEntryModal';
+import GroupedProductsDetailsModal from './audit/GroupedProductsDetailsModal';
+import AuditTab from './audit/tabs/AuditTab';
+import RectifyTab from './audit/tabs/RectifyTab';
+import TallyEntryTab from './audit/tabs/TallyEntryTab';
+import ReAuditTab from './audit/tabs/ReAuditTab';
+import BillEntryTab from './audit/tabs/BillEntryTab';
+import HistoryTab from './audit/tabs/HistoryTab';
+import AllStagesTab from './audit/tabs/AllStagesTab';
+
 const CallTrackerPage = () => {
   const { user, isSuperAdmin } = useContext(AuthContext);
   const [superAdminEditRow, setSuperAdminEditRow] = useState(null);
   const [accountsData, setAccountsData] = useState([]);
-  const [auditMismatchData, setAuditMismatchData] = useState([]); // New state for Audit tab from Supabase
-  const [tallyEntryMismatchData, setTallyEntryMismatchData] = useState([]); // New state for Tally Entry tab from Supabase
-  const [billEntryMismatchData, setBillEntryMismatchData] = useState([]); // New state for Bill Entry tab from Supabase
-  const [rectifyMismatchData, setRectifyMismatchData] = useState([]); // New state for Rectify tab from Supabase
-  const [reAuditMismatchData, setReAuditMismatchData] = useState([]); // New state for Re-Audit tab from Supabase
-  const [allMismatchData, setAllMismatchData] = useState([]); // New state for ALL tab from Supabase
-  const [historyData, setHistoryData] = useState([]); // History tab - completed records
+  const [auditMismatchData, setAuditMismatchData] = useState([]); 
+  const [tallyEntryMismatchData, setTallyEntryMismatchData] = useState([]); 
+  const [billEntryMismatchData, setBillEntryMismatchData] = useState([]); 
+  const [rectifyMismatchData, setRectifyMismatchData] = useState([]); 
+  const [reAuditMismatchData, setReAuditMismatchData] = useState([]); 
+  const [allMismatchData, setAllMismatchData] = useState([]); 
+  const [historyData, setHistoryData] = useState([]); 
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [loadingAudit, setLoadingAudit] = useState(true); // Separate loading state for Supabase audit data
-  const [loadingTallyEntry, setLoadingTallyEntry] = useState(true); // Separate loading state for Supabase tally entry data
-  const [loadingBillEntry, setLoadingBillEntry] = useState(true); // Separate loading state for Supabase bill entry data
-  const [loadingRectify, setLoadingRectify] = useState(true); // Separate loading state for Supabase rectify data
-  const [loadingReAudit, setLoadingReAudit] = useState(true); // Separate loading state for Supabase re-audit data
-  const [loadingAll, setLoadingAll] = useState(true); // Separate loading state for Supabase all data
-  const [liftAccountsRawData, setLiftAccountsRawData] = useState([]); // Raw LIFT-ACCOUNTS records
+  const [loadingAudit, setLoadingAudit] = useState(true); 
+  const [loadingTallyEntry, setLoadingTallyEntry] = useState(true); 
+  const [loadingBillEntry, setLoadingBillEntry] = useState(true); 
+  const [loadingRectify, setLoadingRectify] = useState(true); 
+  const [loadingReAudit, setLoadingReAudit] = useState(true); 
+  const [loadingAll, setLoadingAll] = useState(true); 
+  const [liftAccountsRawData, setLiftAccountsRawData] = useState([]); 
   const [error, setError] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
   const [formData, setFormData] = useState({});
@@ -64,20 +75,37 @@ const CallTrackerPage = () => {
     status: false,
     actions: true
   });
-  const [liftWeightSlipMap, setLiftWeightSlipMap] = useState({}); // Lift No → Weight Slip Image URL
-  const [liftTypeMap, setLiftTypeMap] = useState({}); // Lift No → Type (Independent/Common)
-  const [liftBiltyNoMap, setLiftBiltyNoMap] = useState({}); // Lift No → Bilty No.
-  const [liftBiltyImageMap, setLiftBiltyImageMap] = useState({}); // Lift No → Bilty Image URL
-  const [liftActualQtyMap, setLiftActualQtyMap] = useState({}); // Lift No → Actual Quantity from LIFT-ACCOUNTS
-  const [liftDateOfReceivingMap, setLiftDateOfReceivingMap] = useState({}); // Lift No → Date Of Receiving from LIFT-ACCOUNTS
-  const [liftTransporterRateMap, setLiftTransporterRateMap] = useState({}); // Lift No → Transporter Rate from LIFT-ACCOUNTS
+  const [liftWeightSlipMap, setLiftWeightSlipMap] = useState({}); 
+  const [liftTypeMap, setLiftTypeMap] = useState({}); 
+  const [liftBiltyNoMap, setLiftBiltyNoMap] = useState({}); 
+  const [liftBiltyImageMap, setLiftBiltyImageMap] = useState({}); 
+  const [liftActualQtyMap, setLiftActualQtyMap] = useState({}); 
+  const [liftDateOfReceivingMap, setLiftDateOfReceivingMap] = useState({}); 
+  const [liftTransporterRateMap, setLiftTransporterRateMap] = useState({}); 
   const [showColumnFilter, setShowColumnFilter] = useState(false);
-  const [activeTab, setActiveTab] = useState('AUDIT'); // Default to Audit tab
+  const [activeTab, setActiveTab] = useState('AUDIT'); 
   const [poToIndentMap, setPoToIndentMap] = useState({});
   const [poToRateMap, setPoToRateMap] = useState({});
   const [poToAluminaMap, setPoToAluminaMap] = useState({});
   const [poToIronMap, setPoToIronMap] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
+
+  // State for collapsible grouped rows in Accounts Audit tab
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [viewGroupItems, setViewGroupItems] = useState(null);
+  const [editingGroupItems, setEditingGroupItems] = useState(null);
+
+  const toggleGroup = (groupKey) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const fetchPOMapping = async () => {
@@ -101,7 +129,6 @@ const CallTrackerPage = () => {
               aluminaMap[rawPo] = row["Alumina %"];
               ironMap[rawPo] = row["Iron %"];
               
-              // Also add a normalized version (e.g. PO/26-27/15 instead of PMMPL/PO/26-27/15)
               const parts = rawPo.split('/');
               if (parts.length > 1) {
                 const normalizedPo = parts.slice(1).join('/');
@@ -135,7 +162,6 @@ const CallTrackerPage = () => {
   const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
   const SHEET_NAME = "ACCOUNTS";
 
-  // Define stages in the required sequence
   const STAGES = {
     AUDIT: {
       name: 'Audit',
@@ -181,7 +207,6 @@ const CallTrackerPage = () => {
     }
   };
 
-  // Define tab order according to requirements
   const TAB_ORDER = ['AUDIT', 'RECTIFY', 'REAUDIT', 'TALLY_ENTRY', 'BILL_ENTRY'];
 
   const formatDate = (dateString) => {
@@ -264,65 +289,42 @@ const CallTrackerPage = () => {
   };
 
   const determineStage = (row) => {
-    // Column V (21) - Actual for Rectify
     const rectifyActual = getCellValue(row, 21);
-
-    // Column AE (30) - Planned for Rectify 2 (trigger)
-    // Column AF (31) - Actual for Rectify 2
     const rectify2Planned = getCellValue(row, 30);
     const rectify2Actual = getCellValue(row, 31);
-
-    // Column AJ (35) - Planned for Tally Entry (trigger)
-    // Column AK (36) - Actual for Tally Entry
     const tallyPlanned = getCellValue(row, 35);
     const tallyActual = getCellValue(row, 36);
-
-    // Column Z (25) - Planned for Audit (trigger)
-    // Column AA (26) - Actual for Audit
     const auditPlanned = getCellValue(row, 25);
     const auditActual = getCellValue(row, 26);
-
-    // Column AO (40) - Planned for Re-Audit (trigger)
-    // Column AP (41) - Actual for Re-Audit
     const reauditPlanned = getCellValue(row, 40);
     const reauditActual = getCellValue(row, 41);
-
-    // Column AT (45) - Planned for Bill Entry (trigger)
-    // Column AU (46) - Actual for Bill Entry
     const billEntryPlanned = getCellValue(row, 45);
     const billEntryActual = getCellValue(row, 46);
 
-    // Check if completed (all stages done - all Actual columns have data)
     if (rectifyActual && rectify2Actual && tallyActual && auditActual && reauditActual && billEntryActual) {
       return 'COMPLETED';
     }
 
-    // Bill Entry stage: AT (Planned) has data but AU (Actual) is empty
     if (billEntryPlanned && billEntryPlanned !== '' && (!billEntryActual || billEntryActual === '')) {
       return 'BILL_ENTRY';
     }
 
-    // Re-Audit stage: AO (Planned) has data AND AP (Actual) is empty
     if (reauditPlanned && reauditPlanned !== '' && (!reauditActual || reauditActual === '')) {
       return 'REAUDIT';
     }
 
-    // Audit stage: Z (Planned) has data but AA (Actual) is empty
     if (auditPlanned && auditPlanned !== '' && (!auditActual || auditActual === '')) {
       return 'AUDIT';
     }
 
-    // Tally Entry stage: AJ (Planned) has data AND AK (Actual) is empty
     if (tallyPlanned && tallyPlanned !== '' && (!tallyActual || tallyActual === '')) {
       return 'TALLY_ENTRY';
     }
 
-    // Rectify 2 stage: AE (Planned) has data AND AF (Actual) is empty
     if (rectify2Planned && rectify2Planned !== '' && (!rectify2Actual || rectify2Actual === '')) {
       return 'RECTIFY_2';
     }
 
-    // Rectify stage: V (Actual) is empty (default initial stage)
     if (!rectifyActual || rectifyActual === '') {
       return 'RECTIFY';
     }
@@ -389,42 +391,162 @@ const CallTrackerPage = () => {
   };
 
   const submitFormData = async () => {
+    if (editingGroupItems && editingGroupItems.length > 0) {
+      setSubmitting(true);
+      try {
+        const currentDate = new Date();
+        const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
+        
+        const parseNumeric = (val) => {
+          if (val === null || val === undefined || val === '') return null;
+          const num = parseFloat(val);
+          return isNaN(num) ? null : num;
+        };
+
+        const promises = editingGroupItems.map(async (item) => {
+          let itemStage = item.currentStage || activeTab;
+          if (itemStage === 'ALL') {
+            itemStage = item.currentStage || 'AUDIT';
+          }
+
+          if (item.isNewFromLift) {
+            const rawLift = liftAccountsRawData.find(l => String(l["Lift No"] || "").trim() === item.liftNumber);
+            if (!rawLift) throw new Error(`Could not find raw lift data for lift ${item.liftNumber}`);
+
+            const { error: insertError } = await supabase
+              .from("Mismatch")
+              .insert({
+                "Lift ID": item.liftNumber,
+                "Lift Number": item.liftNumber,
+                "Type": item.type || rawLift["Type"] || "",
+                "Bill No.": item.billNo || rawLift["Bill No."] || "",
+                "Party Name": item.partyName || rawLift["Vendor Name"] || "",
+                "Product Name": item.productName || rawLift["Raw Material Name"] || "",
+                "Qty": parseNumeric(item.qty || rawLift["Qty"]),
+                "Area Lifting": item.areaLifting || rawLift["Area lifting"] || "",
+                "Truck No.": item.truckNo || rawLift["Truck No."] || "",
+                "Transporter Name": item.transporterName || rawLift["Transporter Name"] || "",
+                "Bill Image": item.billImage || rawLift["Bill Image"] || "",
+                "Bilty No.": item.biltyNo || rawLift["Bilty No."] || "",
+                "Rate": parseNumeric(item.rate || rawLift["Rate"]),
+                "Truck Qty": parseNumeric(item.truckQty || rawLift["Truck Qty"]),
+                "Bilty Image": item.biltyImage || rawLift["Bilty Image"] || "",
+                "Weight Slip": item.weightSlip || rawLift["Image Of Weight Slip"] || "",
+                "Total Freight": parseNumeric(item.totalFreight || rawLift["Total Freight"]),
+                "Firm Name": item.firmName || rawLift["Firm Name"] || "",
+                "Actual2": actualDateTime,
+                "Planned2": rawLift["Timestamp"] || actualDateTime,
+                "Status2": formData.status || 'Done',
+                "Remarks2": formData.remarks || '',
+                "Planned3": actualDateTime
+              });
+
+            if (insertError) throw insertError;
+          } else {
+            let updatePayload = {};
+            if (itemStage === 'AUDIT') {
+              updatePayload = {
+                Actual2: actualDateTime,
+                Status2: formData.status || 'Done',
+                Remarks2: formData.remarks || ''
+              };
+            } else if (itemStage === 'RECTIFY') {
+              updatePayload = {
+                Actual3: actualDateTime,
+                Status3: formData.status || 'Done',
+                Remarks3: formData.remarks || ''
+              };
+            } else if (itemStage === 'TALLY_ENTRY') {
+              updatePayload = {
+                Actual4: actualDateTime,
+                Status4: formData.status || 'Done',
+                Remarks4: formData.remarks || ''
+              };
+            } else if (itemStage === 'REAUDIT' || itemStage === 'RE_AUDIT') {
+              updatePayload = {
+                Actual5: actualDateTime,
+                Status5: formData.status || 'Done',
+                Remarks5: formData.remarks || ''
+              };
+            } else if (itemStage === 'BILL_ENTRY') {
+              updatePayload = {
+                Actual6: actualDateTime,
+                Status6: formData.status || 'Done',
+                Remarks6: formData.remarks || ''
+              };
+            } else {
+              updatePayload = {
+                Actual2: actualDateTime,
+                Status2: formData.status || 'Done',
+                Remarks2: formData.remarks || ''
+              };
+            }
+
+            const { error: updateError } = await supabase
+              .from("Mismatch")
+              .update(updatePayload)
+              .eq("id", item.supabaseId);
+
+            if (updateError) throw updateError;
+          }
+
+          setSubmittedRows(prev => new Set([...prev, `${itemStage}_${item.id}`]));
+        });
+
+        await Promise.all(promises);
+
+        setEditingRow(null);
+        setEditingGroupItems(null);
+        toast.success(`✅ SUCCESS: Group mismatch data submitted for ${editingGroupItems.length} products`);
+
+        setTimeout(() => {
+          fetchAuditDataFromSupabase();
+          fetchRectifyDataFromSupabase();
+          fetchTallyEntryDataFromSupabase();
+          fetchReAuditDataFromSupabase();
+          fetchBillEntryDataFromSupabase();
+          fetchAllDataFromSupabase();
+        }, 1000);
+
+      } catch (error) {
+        console.error('Group submission error:', error);
+        toast.error(`❌ GROUP SUBMISSION FAILED: ${error.message}`);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     if (!editingRow) return;
 
-    // Check if this is an AUDIT tab item from Supabase (existing record)
     const auditRow = auditMismatchData.find(r => r.id === editingRow && !r.isNewFromLift);
 
     if (auditRow) {
-      // Handle AUDIT tab submission to Supabase
       setSubmitting(true);
       try {
         const currentDate = new Date();
         const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
-        // Update the Actual2 column in Supabase Mismatch table
-        const { data: updateData, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from("Mismatch")
           .update({
             Actual2: actualDateTime,
             Status2: formData.status || 'Done',
             Remarks2: formData.remarks || ''
           })
-          .eq("id", auditRow.supabaseId)
-          .select();
+          .eq("id", auditRow.supabaseId);
 
         if (updateError) throw updateError;
 
-        // Mark as submitted
         setSubmittedRows(prev => new Set([...prev, `AUDIT_${editingRow}`]));
         setEditingRow(null);
 
         const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${auditRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
-        // Refresh data
         setTimeout(() => {
           fetchAuditDataFromSupabase();
-          fetchAllDataFromSupabase(); // Also refresh All Stages tab
+          fetchAllDataFromSupabase();
         }, 1000);
 
       } catch (error) {
@@ -436,7 +558,6 @@ const CallTrackerPage = () => {
       return;
     }
 
-    // Check if this is a NEW LIFT-ACCOUNTS record (needs insertion into Mismatch)
     const newLiftRow = auditMismatchData.find(r => r.id === editingRow && r.isNewFromLift);
 
     if (newLiftRow) { 
@@ -445,7 +566,6 @@ const CallTrackerPage = () => {
         const currentDate = new Date();
         const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
-        // Get the full raw data for this lift to populate Mismatch columns
         const rawLift = liftAccountsRawData.find(l => String(l["Lift No"] || "").trim() === newLiftRow.liftNumber);
         
         if (!rawLift) throw new Error("Could not find raw lift data for insertion");
@@ -456,8 +576,7 @@ const CallTrackerPage = () => {
           return isNaN(num) ? null : num;
         };
 
-        // Insert new record into Mismatch table
-        const { data: insertData, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from("Mismatch")
           .insert({
             "Lift ID": newLiftRow.liftNumber,
@@ -482,19 +601,16 @@ const CallTrackerPage = () => {
             "Planned2": rawLift["Timestamp"] || actualDateTime,
             "Status2": formData.status || 'Done',
             "Remarks2": formData.remarks || '',
-            "Planned3": actualDateTime // Automatically plan the next stage (Rectify)
-          })
-          .select();
+            "Planned3": actualDateTime 
+          });
 
         if (insertError) throw insertError;
 
-        // Mark as submitted
         setSubmittedRows(prev => new Set([...prev, `AUDIT_${editingRow}`]));
         setEditingRow(null);
 
         toast.success(`✅ SUCCESS: New record created in Mismatch table for: ${newLiftRow.liftNumber}`);
 
-        // Refresh data
         setTimeout(() => {
           fetchAuditDataFromSupabase();
           fetchAllDataFromSupabase();
@@ -509,40 +625,34 @@ const CallTrackerPage = () => {
       return;
     }
 
-    // Check if this is a TALLY_ENTRY tab item from Supabase
     const tallyEntryRow = tallyEntryMismatchData.find(r => r.id === editingRow);
 
     if (tallyEntryRow) {
-      // Handle TALLY_ENTRY tab submission to Supabase
       setSubmitting(true);
       try {
         const currentDate = new Date();
         const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
-        // Update the Actual4, Status4, and Remarks4 columns in Supabase Mismatch table
-        const { data: updateData, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from("Mismatch")
           .update({
             Actual4: actualDateTime,
             Status4: formData.status || 'Done',
             Remarks4: formData.remarks || ''
           })
-          .eq("id", tallyEntryRow.supabaseId)
-          .select();
+          .eq("id", tallyEntryRow.supabaseId);
 
         if (updateError) throw updateError;
 
-        // Mark as submitted
         setSubmittedRows(prev => new Set([...prev, `TALLY_ENTRY_${editingRow}`]));
         setEditingRow(null);
 
         const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${tallyEntryRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
-        // Refresh data
         setTimeout(() => {
           fetchTallyEntryDataFromSupabase();
-          fetchAllDataFromSupabase(); // Also refresh All Stages tab
+          fetchAllDataFromSupabase(); 
         }, 1000);
 
       } catch (error) {
@@ -554,40 +664,34 @@ const CallTrackerPage = () => {
       return;
     }
 
-    // Check if this is a BILL_ENTRY tab item from Supabase
     const billEntryRow = billEntryMismatchData.find(r => r.id === editingRow);
 
     if (billEntryRow) {
-      // Handle BILL_ENTRY tab submission to Supabase
       setSubmitting(true);
       try {
         const currentDate = new Date();
         const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
-        // Update the Actual6, Status6, and Remarks6 columns in Supabase Mismatch table
-        const { data: updateData, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from("Mismatch")
           .update({
             Actual6: actualDateTime,
             Status6: formData.status || 'Done',
             Remarks6: formData.remarks || ''
           })
-          .eq("id", billEntryRow.supabaseId)
-          .select();
+          .eq("id", billEntryRow.supabaseId);
 
         if (updateError) throw updateError;
 
-        // Mark as submitted
         setSubmittedRows(prev => new Set([...prev, `BILL_ENTRY_${editingRow}`]));
         setEditingRow(null);
 
         const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${billEntryRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
-        // Refresh data
         setTimeout(() => {
           fetchBillEntryDataFromSupabase();
-          fetchAllDataFromSupabase(); // Also refresh All Stages tab
+          fetchAllDataFromSupabase(); 
         }, 1000);
 
       } catch (error) {
@@ -599,40 +703,34 @@ const CallTrackerPage = () => {
       return;
     }
 
-    // Check if this is a RECTIFY tab item from Supabase
     const rectifyRow = rectifyMismatchData.find(r => r.id === editingRow);
 
     if (rectifyRow) {
-      // Handle RECTIFY tab submission to Supabase
       setSubmitting(true);
       try {
         const currentDate = new Date();
         const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
-        // Update the Actual3, Status3, and Remarks3 columns in Supabase Mismatch table
-        const { data: updateData, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from("Mismatch")
           .update({
             Actual3: actualDateTime,
             Status3: formData.status || 'Done',
             Remarks3: formData.remarks || ''
           })
-          .eq("id", rectifyRow.supabaseId)
-          .select();
+          .eq("id", rectifyRow.supabaseId);
 
         if (updateError) throw updateError;
 
-        // Mark as submitted
         setSubmittedRows(prev => new Set([...prev, `RECTIFY_${editingRow}`]));
         setEditingRow(null);
 
         const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${rectifyRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
-        // Refresh data
         setTimeout(() => {
           fetchRectifyDataFromSupabase();
-          fetchAllDataFromSupabase(); // Also refresh All Stages tab
+          fetchAllDataFromSupabase(); 
         }, 1000);
 
       } catch (error) {
@@ -644,40 +742,34 @@ const CallTrackerPage = () => {
       return;
     }
 
-    // Check if this is a RE_AUDIT tab item from Supabase
     const reAuditRow = reAuditMismatchData.find(r => r.id === editingRow);
 
     if (reAuditRow) {
-      // Handle RE_AUDIT tab submission to Supabase
       setSubmitting(true);
       try {
         const currentDate = new Date();
         const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
-        // Update the Actual5, Status5, and Remarks5 columns in Supabase Mismatch table
-        const { data: updateData, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from("Mismatch")
           .update({
             Actual5: actualDateTime,
             Status5: formData.status || 'Done',
             Remarks5: formData.remarks || ''
           })
-          .eq("id", reAuditRow.supabaseId)
-          .select();
+          .eq("id", reAuditRow.supabaseId);
 
         if (updateError) throw updateError;
 
-        // Mark as submitted
         setSubmittedRows(prev => new Set([...prev, `RE_AUDIT_${editingRow}`]));
         setEditingRow(null);
 
         const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${reAuditRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
-        // Refresh data
         setTimeout(() => {
           fetchReAuditDataFromSupabase();
-          fetchAllDataFromSupabase(); // Also refresh All Stages tab
+          fetchAllDataFromSupabase(); 
         }, 1000);
 
       } catch (error) {
@@ -689,20 +781,15 @@ const CallTrackerPage = () => {
       return;
     }
 
-    // Check if this is an ALL tab item from Supabase
     const allRow = allMismatchData.find(r => r.id === editingRow);
 
     if (allRow) {
-      // Handle ALL tab submission to Supabase based on currentStage
       setSubmitting(true);
       try {
         const currentDate = new Date();
         const actualDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
 
-        // Determine which columns to update based on the row's currentStage
         let updateColumns = {};
-        let refreshFunction = null;
-
         switch (allRow.currentStage) {
           case 'AUDIT':
             updateColumns = {
@@ -710,7 +797,6 @@ const CallTrackerPage = () => {
               Status2: formData.status || 'Done',
               Remarks2: formData.remarks || ''
             };
-            refreshFunction = fetchAuditDataFromSupabase;
             break;
           case 'RECTIFY':
             updateColumns = {
@@ -718,7 +804,6 @@ const CallTrackerPage = () => {
               Status3: formData.status || 'Done',
               Remarks3: formData.remarks || ''
             };
-            refreshFunction = fetchRectifyDataFromSupabase;
             break;
           case 'TALLY_ENTRY':
             updateColumns = {
@@ -726,7 +811,6 @@ const CallTrackerPage = () => {
               Status4: formData.status || 'Done',
               Remarks4: formData.remarks || ''
             };
-            refreshFunction = fetchTallyEntryDataFromSupabase;
             break;
           case 'REAUDIT':
             updateColumns = {
@@ -734,7 +818,6 @@ const CallTrackerPage = () => {
               Status5: formData.status || 'Done',
               Remarks5: formData.remarks || ''
             };
-            refreshFunction = fetchReAuditDataFromSupabase;
             break;
           case 'BILL_ENTRY':
             updateColumns = {
@@ -742,29 +825,24 @@ const CallTrackerPage = () => {
               Status6: formData.status || 'Done',
               Remarks6: formData.remarks || ''
             };
-            refreshFunction = fetchBillEntryDataFromSupabase;
             break;
           default:
             throw new Error(`Unknown stage: ${allRow.currentStage}`);
         }
 
-        // Update the corresponding columns in Supabase Mismatch table
-        const { data: updateData, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from("Mismatch")
           .update(updateColumns)
-          .eq("id", allRow.supabaseId)
-          .select();
+          .eq("id", allRow.supabaseId);
 
         if (updateError) throw updateError;
 
-        // Mark as submitted
         setSubmittedRows(prev => new Set([...prev, `ALL_${editingRow}`]));
         setEditingRow(null);
 
         const formattedDateTime = ((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(currentDate);
         toast.success(`✅ SUCCESS: Mismatch data submitted to Mismatch table for: ${allRow.liftNumber} Submitted at: ${formattedDateTime}`);
 
-        // Refresh ALL data and all individual stage tabs for complete sync
         setTimeout(() => {
           fetchAllDataFromSupabase();
           fetchAuditDataFromSupabase();
@@ -783,7 +861,6 @@ const CallTrackerPage = () => {
       return;
     }
 
-    // Original Google Sheets logic for other tabs
     const row = accountsData.find(r => r.id === editingRow);
     if (!row || !row.liftNumber) {
       alert('Error: Could not find lift number for this row');
@@ -811,7 +888,6 @@ const CallTrackerPage = () => {
         remarks: formData.remarks || ''
       };
 
-      // Add delay based on stage and status
       if (stageConfig.includeDelay) {
         if (row.currentStage === 'RECTIFY' && formData.status !== 'Done') {
           submitFormData.delay = String(delayDays);
@@ -965,7 +1041,6 @@ const CallTrackerPage = () => {
         const stage = determineStage(row);
         rowData.currentStage = stage;
 
-        // Get status and remarks based on current stage
         switch (stage) {
           case 'RECTIFY':
             rowData.status = getCellValue(row, 23) || '';
@@ -999,7 +1074,6 @@ const CallTrackerPage = () => {
         return rowData;
       }).filter(Boolean);
 
-      // Filter out completed and submitted rows
       parsedData = parsedData.filter(item => {
         if (item.currentStage === 'COMPLETED') return false;
         const submittedKey = `${item.currentStage}_${item.id}`;
@@ -1016,8 +1090,6 @@ const CallTrackerPage = () => {
     }
   };
 
-
-  // Fetch LIFT-ACCOUNTS weight slip images and type map once on mount
   useEffect(() => {
     const fetchLiftAccountsMeta = async () => {
       try {
@@ -1056,67 +1128,36 @@ const CallTrackerPage = () => {
     fetchLiftAccountsMeta();
   }, []);
 
-  // Fetch Audit data from Supabase Mismatch table
   const fetchAuditDataFromSupabase = async () => {
     setLoadingAudit(true);
     try {
-      // Fetch Mismatch, fullkittin AND LIFT-ACCOUNTS data together
       const [
         { data: mismatchData, error: mismatchError },
         { data: fullkittingData, error: fkError },
-        { data: liftAccountsData, error: laError },
-        { data: tlData, error: tlError }
+        { data: liftAccountsData, error: laError }
       ] = await Promise.all([
         supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
         supabase.from("fullkittin").select('"Bilty Number"'),
-        supabase.from("LIFT-ACCOUNTS").select("*"),
-        supabase.from("TL").select("*")
+        supabase.from("LIFT-ACCOUNTS").select("*")
       ]);
 
       if (mismatchError) throw mismatchError;
       if (fkError) throw fkError;
-      // laError is non-fatal, just log it
       if (laError) console.warn('LIFT-ACCOUNTS fetch warning:', laError);
 
-      // Build a set of Bilty Numbers that have been kitted
-      const kittedBiltyNos = new Set((fullkittingData || []).map(fk => String(fk["Bilty Number"] || "").trim()).filter(Boolean));
-
-      // Store raw lift accounts for submission lookup
       setLiftAccountsRawData(liftAccountsData || []);
 
-      // Build a map of Lift No → actual lab values from LIFT-ACCOUNTS
-      const liftLabMap = {};
-      (liftAccountsData || []).forEach(row => {
-        const liftNo = String(row["Lift No"] || "").trim();
-        if (liftNo) {
-          liftLabMap[liftNo] = {
-            alumina: row["Alumina Percent Age %"],
-            iron: row["Iron Percent Age %"],
-            ap: row["AP Percent Age %"],
-            bd: row["BD Percent Age %"],
-            status: row["Status"],
-            physicalCondition: row["Physical Condition"],
-            moisture: row["Moisture"],
-            raw: row
-          };
-        }
-      });
-
-      // Filter: Show Mismatch data ONLY when Actual2 is null
       const filteredByActual = (mismatchData || []).filter(row => {
         if (row.Actual2) return false;
         return true;
       });
 
-      // IDENTIFY LIFT-ACCOUNTS records not yet in Mismatch
       const mismatchLiftIds = new Set((mismatchData || []).map(m => String(m["Lift ID"] || "").trim()).filter(Boolean));
       const newFromLift = (liftAccountsData || []).filter(la => {
         const liftNo = String(la["Lift No"] || "").trim();
-        // Only show records that have been received (Actual 1 is set)
         return liftNo && !mismatchLiftIds.has(liftNo) && la["Actual 1"];
       });
 
-      // Map Supabase data to match the expected format
       const formattedData = (filteredByActual || []).map((row, index) => ({
         id: `mismatch_${row.id || index}`,
         timestamp: formatDate(row.Planned2) || '',
@@ -1144,7 +1185,7 @@ const CallTrackerPage = () => {
         status: row.Status2 || row.Status || '',
         remarks: row.Remarks || row.Remark || '',
         currentStage: 'AUDIT',
-        supabaseId: row.id, // Store the actual Supabase ID for updates
+        supabaseId: row.id, 
         indentNumber: (() => {
           const raw = String(row["Indent Number"] || row["Indent No"] || row["Indent No."] || '').trim().toUpperCase();
           const parts = raw.split('/');
@@ -1164,7 +1205,6 @@ const CallTrackerPage = () => {
         transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
-      // Map NEW LIFT-ACCOUNTS records to the Audit format
       const formattedLiftData = newFromLift.map((row, index) => ({
         id: `lift_${row.id || index}`,
         timestamp: formatDate(row["Timestamp"]) || '',
@@ -1191,8 +1231,8 @@ const CallTrackerPage = () => {
         status: row["Status"] || '',
         remarks: '',
         currentStage: 'AUDIT',
-        isNewFromLift: true, // Mark for submission handling
-        supabaseId: `lift_${row.id || index}`, // Unique ID for deduplication in ALL tab
+        isNewFromLift: true, 
+        supabaseId: `lift_${row.id || index}`, 
         indentNumber: (() => {
           const raw = String(row["Indent no."] || '').trim().toUpperCase();
           const parts = raw.split('/');
@@ -1211,16 +1251,13 @@ const CallTrackerPage = () => {
         dateOfReceiving: row["Date Of Receiving"] || ''
       }));
 
-      // Combine existing Mismatch Audit rows and new LIFT-ACCOUNTS rows
       const allAuditRows = [...formattedData, ...formattedLiftData];
 
-      // Filter out submitted rows
       const filteredData = allAuditRows.filter(item => {
         const submittedKey = `AUDIT_${item.id}`;
         return !submittedRows.has(submittedKey);
       });
 
-      // Filter by Firm Name
       let finalAuditData = filteredData;
       if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
         const userFirmNameLower = String(user.firmName).toLowerCase();
@@ -1230,16 +1267,13 @@ const CallTrackerPage = () => {
       }
       setAuditMismatchData(finalAuditData);
 
-
     } catch (err) {
       console.error('Error fetching audit data from Supabase:', err);
-      // Don't set error state here, just log it
     } finally {
       setLoadingAudit(false);
     }
   };
 
-  // Fetch Tally Entry data from Supabase Mismatch table where Planned4 is not null AND Actual4 is null
   const fetchTallyEntryDataFromSupabase = async () => {
     setLoadingTallyEntry(true);
     try {
@@ -1252,7 +1286,6 @@ const CallTrackerPage = () => {
 
       if (error) throw error;
 
-      // Map Supabase data to match the expected format - include all columns
       const formattedData = (data || []).map((row, index) => ({
         id: `mismatch_tally_${row.id || index}`,
         timestamp: formatDate(row.Planned4) || '',
@@ -1280,7 +1313,7 @@ const CallTrackerPage = () => {
         status: row.Status4 || '',
         remarks: row.Remarks2 || row.Remarks3 || row.Remarks5 || '',
         currentStage: 'TALLY_ENTRY',
-        supabaseId: row.id, // Store the actual Supabase ID for updates
+        supabaseId: row.id, 
         indentNumber: (() => {
           const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
           const parts = raw.split('/');
@@ -1305,13 +1338,11 @@ const CallTrackerPage = () => {
         transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
-      // Filter out submitted rows
       const filteredData = formattedData.filter(item => {
         const submittedKey = `TALLY_ENTRY_${item.id}`;
         return !submittedRows.has(submittedKey);
       });
 
-      // Filter by Firm Name
       let finalTallyData = filteredData;
       if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
         const userFirmNameLower = String(user.firmName).toLowerCase();
@@ -1321,16 +1352,13 @@ const CallTrackerPage = () => {
       }
       setTallyEntryMismatchData(finalTallyData);
 
-
     } catch (err) {
       console.error('Error fetching tally entry data from Supabase:', err);
-      // Don't set error state here, just log it
     } finally {
       setLoadingTallyEntry(false);
     }
   };
 
-  // Fetch Bill Entry data from Supabase Mismatch table where Planned6 is not null AND Actual6 is null
   const fetchBillEntryDataFromSupabase = async () => {
     setLoadingBillEntry(true);
     try {
@@ -1343,7 +1371,6 @@ const CallTrackerPage = () => {
 
       if (error) throw error;
 
-      // Map Supabase data to match the expected format - include all columns
       const formattedData = (data || []).map((row, index) => ({
         id: `mismatch_bill_${row.id || index}`,
         timestamp: formatDate(row.Planned6) || '',
@@ -1371,7 +1398,7 @@ const CallTrackerPage = () => {
         status: row.Status6 || '',
         remarks: row.Remarks4 || '',
         currentStage: 'BILL_ENTRY',
-        supabaseId: row.id, // Store the actual Supabase ID for updates
+        supabaseId: row.id, 
         indentNumber: (() => {
           const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
           const parts = raw.split('/');
@@ -1396,13 +1423,11 @@ const CallTrackerPage = () => {
         transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
-      // Filter out submitted rows
       const filteredData = formattedData.filter(item => {
         const submittedKey = `BILL_ENTRY_${item.id}`;
         return !submittedRows.has(submittedKey);
       });
 
-      // Filter by Firm Name
       let finalBillData = filteredData;
       if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
         const userFirmNameLower = String(user.firmName).toLowerCase();
@@ -1412,16 +1437,13 @@ const CallTrackerPage = () => {
       }
       setBillEntryMismatchData(finalBillData);
 
-
     } catch (err) {
       console.error('Error fetching bill entry data from Supabase:', err);
-      // Don't set error state here, just log it
     } finally {
       setLoadingBillEntry(false);
     }
   };
 
-  // Fetch Rectify data from Supabase Mismatch table where Planned3 is not null AND Actual3 is null
   const fetchRectifyDataFromSupabase = async () => {
     setLoadingRectify(true);
     try {
@@ -1434,7 +1456,6 @@ const CallTrackerPage = () => {
 
       if (error) throw error;
 
-      // Map Supabase data to match the expected format - include all columns
       const formattedData = (data || []).map((row, index) => ({
         id: `mismatch_rectify_${row.id || index}`,
         timestamp: formatDate(row.Planned3) || '',
@@ -1462,7 +1483,7 @@ const CallTrackerPage = () => {
         status: row.Status3 || '',
         remarks: row.Remarks2 || '',
         currentStage: 'RECTIFY',
-        supabaseId: row.id, // Store the actual Supabase ID for updates
+        supabaseId: row.id, 
         indentNumber: (() => {
           const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
           const parts = raw.split('/');
@@ -1487,13 +1508,11 @@ const CallTrackerPage = () => {
         transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
-      // Filter out submitted rows
       const filteredData = formattedData.filter(item => {
         const submittedKey = `RECTIFY_${item.id}`;
         return !submittedRows.has(submittedKey);
       });
 
-      // Filter by Firm Name
       let finalRectifyData = filteredData;
       if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
         const userFirmNameLower = String(user.firmName).toLowerCase();
@@ -1503,16 +1522,13 @@ const CallTrackerPage = () => {
       }
       setRectifyMismatchData(finalRectifyData);
 
-
     } catch (err) {
       console.error('Error fetching rectify data from Supabase:', err);
-      // Don't set error state here, just log it
     } finally {
       setLoadingRectify(false);
     }
   };
 
-  // Fetch Re-Audit data from Supabase Mismatch table where Planned5 is not null AND Actual5 is null
   const fetchReAuditDataFromSupabase = async () => {
     setLoadingReAudit(true);
     try {
@@ -1525,7 +1541,6 @@ const CallTrackerPage = () => {
 
       if (error) throw error;
 
-      // Map Supabase data to match the expected format - include all columns
       const formattedData = (data || []).map((row, index) => ({
         id: `mismatch_reaudit_${row.id || index}`,
         timestamp: formatDate(row.Planned5) || '',
@@ -1553,7 +1568,7 @@ const CallTrackerPage = () => {
         status: row.Status5 || '',
         remarks: row.Remarks3 || '',
         currentStage: 'RE_AUDIT',
-        supabaseId: row.id, // Store the actual Supabase ID for updates
+        supabaseId: row.id, 
         indentNumber: (() => {
           const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
           const parts = raw.split('/');
@@ -1578,13 +1593,11 @@ const CallTrackerPage = () => {
         transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
 
-      // Filter out submitted rows
       const filteredData = formattedData.filter(item => {
         const submittedKey = `RE_AUDIT_${item.id}`;
         return !submittedRows.has(submittedKey);
       });
 
-      // Filter by Firm Name
       let finalReAuditData = filteredData;
       if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
         const userFirmNameLower = String(user.firmName).toLowerCase();
@@ -1594,20 +1607,16 @@ const CallTrackerPage = () => {
       }
       setReAuditMismatchData(finalReAuditData);
 
-
     } catch (err) {
       console.error('Error fetching re-audit data from Supabase:', err);
-      // Don't set error state here, just log it
     } finally {
       setLoadingReAudit(false);
     }
   };
 
-  // Fetch ALL data from Supabase Mismatch table (no filtering)
   const fetchAllDataFromSupabase = async () => {
     setLoadingAll(true);
     try {
-      // Fetch both Mismatch and fullkittin data
       const [{ data: mismatchData, error: mismatchError }, { data: fullkittingData, error: fkError }] = await Promise.all([
         supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
         supabase.from("fullkittin").select('"Bilty Number"')
@@ -1616,29 +1625,19 @@ const CallTrackerPage = () => {
       if (mismatchError) throw mismatchError;
       if (fkError) throw fkError;
 
-      // Build a set of Bilty Numbers that have been kitted
       const kittedBiltyNos = new Set((fullkittingData || []).map(fk => String(fk["Bilty Number"] || "").trim()).filter(Boolean));
 
-      // Determine the current stage for each row based on Planned/Actual logic
-      // Check ALL stages and return ANY active stage (Planned set, Actual not set)
       const determineCurrentStage = (row) => {
-        // Check all stages - return any that has Planned set but Actual not set
-        // This ensures data shows up in ALL tab regardless of workflow order
         const activeStages = [];
-        const rowBiltyNo = String(row["Bilty No."] || row["Bilty No"] || "").trim();
-        const isKitted = rowBiltyNo && kittedBiltyNos.has(rowBiltyNo);
-
         if (!row.Actual2) activeStages.push('AUDIT');
         if (row.Planned3 && !row.Actual3) activeStages.push('RECTIFY');
         if (row.Planned4 && !row.Actual4) activeStages.push('TALLY_ENTRY');
         if (row.Planned5 && !row.Actual5) activeStages.push('REAUDIT');
         if (row.Planned6 && !row.Actual6) activeStages.push('BILL_ENTRY');
 
-        // Return the first active stage found, or COMPLETED if none
         return activeStages.length > 0 ? activeStages[0] : 'COMPLETED';
       };
 
-      // Map Supabase data to match the expected format - include all columns
       const formattedData = (mismatchData || []).map((row, index) => {
         const currentStage = determineCurrentStage(row);
         return {
@@ -1694,14 +1693,12 @@ const CallTrackerPage = () => {
         };
       });
 
-      // Filter out COMPLETED rows and submitted rows
       let filteredData = formattedData.filter(item => {
         if (item.currentStage === 'COMPLETED') return false;
         const submittedKey = `ALL_${item.id}`;
         return !submittedRows.has(submittedKey);
       });
 
-      // Filter by Firm Name
       if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
         const userFirmNameLower = String(user.firmName).toLowerCase();
         filteredData = filteredData.filter(
@@ -1712,13 +1709,11 @@ const CallTrackerPage = () => {
 
     } catch (err) {
       console.error('Error fetching all data from Supabase:', err);
-      // Don't set error state here, just log it
     } finally {
       setLoadingAll(false);
     }
   };
 
-  // Fetch History data - records where Bill Entry (Actual6) is completed
   const fetchHistoryDataFromSupabase = async () => {
     setLoadingHistory(true);
     try {
@@ -1813,122 +1808,6 @@ const CallTrackerPage = () => {
     setShowColumnFilter(prev => !prev);
   };
 
-  const renderModal = () => {
-    if (!editingRow) return null;
-
-    // Check all Supabase data sources and accountsData
-    let row = auditMismatchData.find(r => r.id === editingRow);
-    if (!row) {
-      row = tallyEntryMismatchData.find(r => r.id === editingRow);
-    }
-    if (!row) {
-      row = billEntryMismatchData.find(r => r.id === editingRow);
-    }
-    if (!row) {
-      row = rectifyMismatchData.find(r => r.id === editingRow);
-    }
-    if (!row) {
-      row = reAuditMismatchData.find(r => r.id === editingRow);
-    }
-    if (!row) {
-      row = allMismatchData.find(r => r.id === editingRow);
-    }
-    if (!row) {
-      row = accountsData.find(r => r.id === editingRow);
-    }
-    if (!row) return null;
-
-    const stageInfo = STAGES[row.currentStage] || {
-      name: row.currentStage || 'Unknown',
-      color: 'bg-gray-100 text-gray-800',
-      icon: AlertCircle
-    };
-    const StageIcon = stageInfo.icon;
-
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-100">
-        <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <h3 className="text-xl font-semibold text-gray-900">Add Entry</h3>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${stageInfo.color}`}>
-                  <StageIcon className="w-3 h-3 mr-1" />
-                  {stageInfo.name}
-                </span>
-              </div>
-              <button
-                onClick={() => setEditingRow(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-gray-700 mb-2">Lift Details</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-gray-600">Lift Number:</span> {row.liftNumber}</div>
-                <div><span className="text-gray-600">Timestamp:</span> {row.timestamp}</div>
-                <div><span className="text-gray-600">Party:</span> {row.partyName}</div>
-                <div><span className="text-gray-600">Product:</span> {row.productName}</div>
-                <div><span className="text-gray-600">Current Stage:</span> <span className={`font-medium ${stageInfo.color.split(' ')[1]}`}>{stageInfo.name}</span></div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={formData.status || 'Not Done'}
-                  onChange={(e) => handleFormChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
-                >
-                  <option value="Done">Done</option>
-                  <option value="Not Done">Not Done</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
-                <textarea
-                  value={formData.remarks || ''}
-                  onChange={(e) => handleFormChange('remarks', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm resize-none"
-                  placeholder="Enter your remarks..."
-                  rows={4}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
-              <button
-                onClick={() => setEditingRow(null)}
-                disabled={submitting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 transition-colors duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitFormData}
-                disabled={submitting || (['RECTIFY', 'TALLY_ENTRY', 'REAUDIT', 'RE_AUDIT', 'BILL_ENTRY'].includes(row.currentStage) && formData.status !== 'Done')}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                {submitting ? (
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                {submitting ? 'Submitting...' : 'Submit Entry'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Extract unique firms from all data sources
   const uniqueFirms = useMemo(() => {
     const allData = [
       ...auditMismatchData,
@@ -1943,10 +1822,7 @@ const CallTrackerPage = () => {
     return firms.sort();
   }, [auditMismatchData, rectifyMismatchData, tallyEntryMismatchData, reAuditMismatchData, billEntryMismatchData, accountsData, historyData]);
 
-  // Filter data based on active tab and firm filter
-  // For ALL tab, combine data from all individual tabs to ensure consistency
   const getAllStagesData = () => {
-    // Combine all individual tab data - this ensures whatever shows in individual tabs also shows in All Stages
     const combinedData = [
       ...auditMismatchData,
       ...rectifyMismatchData,
@@ -1955,7 +1831,6 @@ const CallTrackerPage = () => {
       ...billEntryMismatchData
     ];
 
-    // Remove duplicates based on supabaseId (in case same record appears in multiple stages)
     const uniqueData = combinedData.reduce((acc, current) => {
       const exists = acc.find(item => item.supabaseId === current.supabaseId);
       if (!exists) {
@@ -1979,11 +1854,9 @@ const CallTrackerPage = () => {
   };
 
   const filteredData = getFilteredByTab(activeTab).filter(item => {
-    // Firm Filter
     const matchesFirm = firmFilter === 'all' || (item.firmName && item.firmName === firmFilter);
     if (!matchesFirm) return false;
 
-    // Search Filter
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -1993,8 +1866,7 @@ const CallTrackerPage = () => {
       String(item.billNo || '').toLowerCase().includes(searchLower) ||
       String(item.indentNumber || '').toLowerCase().includes(searchLower) ||
       String(item.firmName || '').toLowerCase().includes(searchLower) ||
-      String(item.transporterName || '').toLowerCase().includes(searchLower) ||
-      String(item.remarks || '').toLowerCase().includes(searchLower)
+      String(item.transporterName || '').toLowerCase().includes(searchLower)
     );
   }).sort((a, b) => {
     const liftA = String(a.liftNumber || '');
@@ -2002,10 +1874,70 @@ const CallTrackerPage = () => {
     return liftB.localeCompare(liftA, undefined, { numeric: true, sensitivity: 'base' });
   });
 
-  // Calculate counts for each tab, respecting the firm filter
+  const getGroupKey = (firmName, billNo) => {
+    const firm = String(firmName || '').trim().toLowerCase();
+    const bill = String(billNo || '').trim().toLowerCase();
+    return `${firm}|||${bill}`;
+  };
+
+  const groupedData = useMemo(() => {
+    const groups = {};
+    filteredData.forEach(row => {
+      const key = getGroupKey(row.firmName, row.billNo);
+      
+      if (!groups[key]) {
+        groups[key] = {
+          firmName: row.firmName || '',
+          billNo: row.billNo || '',
+          items: [],
+        };
+      }
+      groups[key].items.push(row);
+    });
+
+    return Object.values(groups);
+  }, [filteredData, activeTab]);
+
   const getStageCount = (stage) => {
     const data = getFilteredByTab(stage);
     return data.filter(item => firmFilter === 'all' || (item.firmName && item.firmName === firmFilter)).length;
+  };
+
+  const renderActiveTab = () => {
+    const tabProps = {
+      filteredData,
+      groupedData,
+      visibleColumns,
+      activeTab,
+      isSuperAdmin,
+      setEditingRow,
+      initializeFormData,
+      setSuperAdminEditRow,
+      toggleGroup,
+      expandedGroups,
+      setEditingGroupItems,
+      STAGES,
+      getGroupKey
+    };
+
+    switch (activeTab) {
+      case 'ALL':
+        return <AllStagesTab {...tabProps} />;
+      case 'AUDIT':
+        return <AuditTab {...tabProps} />;
+      case 'RECTIFY':
+        return <RectifyTab {...tabProps} />;
+      case 'TALLY_ENTRY':
+        return <TallyEntryTab {...tabProps} />;
+      case 'REAUDIT':
+        return <ReAuditTab {...tabProps} />;
+      case 'BILL_ENTRY':
+        return <BillEntryTab {...tabProps} />;
+      case 'HISTORY':
+        return <HistoryTab {...tabProps} />;
+      default:
+        return null;
+    }
   };
 
   if (loading || (activeTab === 'ALL' && (loadingAudit || loadingRectify || loadingTallyEntry || loadingReAudit || loadingBillEntry)) || (activeTab === 'AUDIT' && loadingAudit) || (activeTab === 'TALLY_ENTRY' && loadingTallyEntry) || (activeTab === 'BILL_ENTRY' && loadingBillEntry) || (activeTab === 'RECTIFY' && loadingRectify) || (activeTab === 'REAUDIT' && loadingReAudit) || (activeTab === 'HISTORY' && loadingHistory)) {
@@ -2040,7 +1972,34 @@ const CallTrackerPage = () => {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-4 sm:p-6 pb-20">
-      {renderModal()}
+      {/* Entry Modal */}
+      <AuditEntryModal
+        editingRow={editingRow}
+        editingGroupItems={editingGroupItems}
+        auditMismatchData={auditMismatchData}
+        tallyEntryMismatchData={tallyEntryMismatchData}
+        billEntryMismatchData={billEntryMismatchData}
+        rectifyMismatchData={rectifyMismatchData}
+        reAuditMismatchData={reAuditMismatchData}
+        allMismatchData={allMismatchData}
+        accountsData={accountsData}
+        STAGES={STAGES}
+        formData={formData}
+        handleFormChange={handleFormChange}
+        submitFormData={submitFormData}
+        submitting={submitting}
+        setEditingRow={setEditingRow}
+        setEditingGroupItems={setEditingGroupItems}
+        activeTab={activeTab}
+      />
+
+      {/* Group Preview Modal */}
+      <GroupedProductsDetailsModal
+        viewGroupItems={viewGroupItems}
+        setViewGroupItems={setViewGroupItems}
+      />
+
+      {/* SuperAdmin Edit Modal */}
       {superAdminEditRow && (
         <SuperAdminEditModal
           title={`Edit Mismatch Record — ${superAdminEditRow.liftNumber}`}
@@ -2293,155 +2252,8 @@ const CallTrackerPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-          <div className="overflow-auto max-h-[calc(100vh-250px)] relative custom-scrollbar">
-            <table className="w-full text-sm border-collapse">
-              <thead className="sticky top-0 z-30">
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  {activeTab === 'HISTORY' ? (
-                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Completed At</th>
-                  ) : visibleColumns.actions && (
-                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Actions</th>
-                  )}
-                  {visibleColumns.stage && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Stage</th>}
-                  {visibleColumns.timestamp && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Date</th>}
-                  {visibleColumns.indentNumber && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Indent No.</th>}
-                  {visibleColumns.firmName && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Firm Name</th>}
-                  {visibleColumns.poRate && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO Rate</th>}
-                  {visibleColumns.liftNumber && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift Number</th>}
-                  {visibleColumns.billNo && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill No.</th>}
-                  {visibleColumns.dateOfReceiving && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Receiving Date</th>}
-                  {visibleColumns.partyName && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>}
-                  {visibleColumns.productName && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>}
-                  {visibleColumns.remarks && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Remarks</th>}
-                  {visibleColumns.qty && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO Qty</th>}
-                  {visibleColumns.areaLifting && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Area Lifting</th>}
-                  {visibleColumns.truckNo && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Truck No.</th>}
-                  {visibleColumns.transporterName && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Transporter</th>}
-                  {visibleColumns.transporterRate && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Transporter Rate</th>}
-                  {visibleColumns.billImage && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Image</th>}
-                  {visibleColumns.biltyNo && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bilty No.</th>}
-                  {visibleColumns.typeOfRate && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Type Of Rate</th>}
-                  {visibleColumns.rate && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Material Rate</th>}
-                  {visibleColumns.truckQty && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Material Qty</th>}
-                  {visibleColumns.liftingQty && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Truck Qty</th>}
-                  {visibleColumns.biltyImage && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bilty Image</th>}
-                  {visibleColumns.qtyDifferenceStatus && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Qty Diff Status</th>}
-                  {visibleColumns.weightSlip && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Weight Slip</th>}
-                  {visibleColumns.debitAmount && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Debit Amount</th>}
-                  {visibleColumns.debitNoteUrl && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Debit Image</th>}
-                  {visibleColumns.totalFreight && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Freight</th>}
-                  {visibleColumns.status && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Status</th>}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {filteredData.length === 0 ? (
-                  <tr>
-                    <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 2} className="px-6 py-12 text-center text-gray-500 bg-gray-50/50">
-                      <div className="flex flex-col items-center justify-center">
-                        <AlertCircle className="w-10 h-10 text-gray-300 mb-3" />
-                        <p className="text-lg font-medium text-gray-600">No records found</p>
-                        <p className="text-sm">
-                          {activeTab === 'ALL'
-                            ? 'All entries have been processed or no data is available.'
-                            : activeTab === 'HISTORY'
-                              ? 'No completed records found.'
-                              : `No entries in ${STAGES[activeTab]?.name} stage.`}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredData.map((row, index) => {
-                    const stageInfo = STAGES[row.currentStage] || {
-                      name: row.currentStage || 'Unknown',
-                      color: 'bg-gray-100 text-gray-800',
-                      icon: AlertCircle
-                    };
-                    const StageIcon = stageInfo.icon;
-                    return (
-                      <tr key={row.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-gray-50 transition-colors border-b border-gray-100`}>
-                        {activeTab === 'HISTORY' ? (
-                          <td className="px-4 py-3 whitespace-nowrap text-xs text-purple-700 font-medium">{row.completedAt || '-'}</td>
-                        ) : visibleColumns.actions && (
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => {
-                                  setEditingRow(row.id);
-                                  initializeFormData(row.currentStage);
-                                }}
-                                className="inline-flex items-center px-3 py-1.5 bg-linear-to-r from-green-500 to-green-600 text-white text-xs font-medium rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
-                              >
-                                <Edit2 className="w-3 h-3 mr-1" />
-                                Add Entry
-                              </button>
-                              {isSuperAdmin && !row.isNewFromLift && row.supabaseId && (
-                                <button
-                                  onClick={() => setSuperAdminEditRow(row)}
-                                  className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300 transition-all duration-200"
-                                >
-                                  <ShieldCheck className="w-3 h-3 mr-1" />
-                                  Edit
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        )}
-                        {visibleColumns.stage && (
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${stageInfo.color} uppercase tracking-wider`}>
-                              <StageIcon className="w-2.5 h-2.5 mr-1" />
-                              {stageInfo.name}
-                            </span>
-                          </td>
-                        )}
-                        {visibleColumns.timestamp && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{row.timestamp || '-'}</td>}
-                        {visibleColumns.indentNumber && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-primary">{row.indentNumber || '-'}</td>}
-                        {visibleColumns.firmName && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 font-medium">{row.firmName || '-'}</td>}
-                        {visibleColumns.poRate && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-[#7da23a]">{row.poRate ? `₹${row.poRate}` : '-'}</td>}
-                        {visibleColumns.liftNumber && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-primary">{row.liftNumber || '-'}</td>}
-                        {visibleColumns.billNo && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.billNo || '-'}</td>}
-                        {visibleColumns.dateOfReceiving && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{row.dateOfReceiving || '-'}</td>}
-                        {visibleColumns.partyName && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 font-medium">{row.partyName || '-'}</td>}
-                        {visibleColumns.productName && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.productName || '-'}</td>}
-                        {visibleColumns.remarks && (
-                          <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.remarks}>
-                            {row.remarks || '-'}
-                          </td>
-                        )}
-                        {visibleColumns.qty && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.qty || '-'}</td>}
-                        {visibleColumns.areaLifting && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{row.areaLifting || '-'}</td>}
-                        {visibleColumns.truckNo && <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-gray-700">{row.truckNo || '-'}</td>}
-                        {visibleColumns.transporterName && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.transporterName || '-'}</td>}
-                        {visibleColumns.transporterRate && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-orange-600">{row.transporterRate ? `₹${row.transporterRate}` : '-'}</td>}
-                        {visibleColumns.billImage && <td className="px-4 py-3 whitespace-nowrap text-xs">{row.billImage ? (<a href={row.billImage} target='_blank' rel='noopener noreferrer' className="text-[#7da23a] hover:text-[#6b8e2f] flex items-center font-medium"><Image size={14} className="mr-1" /> View</a>) : ("-")}</td>}
-                        {visibleColumns.biltyNo && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.biltyNo || '-'}</td>}
-                        {visibleColumns.typeOfRate && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{row.typeOfRate || '-'}</td>}
-                        {visibleColumns.rate && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-green-600">{row.rate ? `₹${row.rate}` : '-'}</td>}
-                        {visibleColumns.truckQty && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.truckQty || '-'}</td>}
-                        {visibleColumns.liftingQty && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.liftingQty || '-'}</td>}
-                        {visibleColumns.biltyImage && <td className="px-4 py-3 whitespace-nowrap text-xs">{row.biltyImage ? (<a href={row.biltyImage} target='_blank' rel='noopener noreferrer' className="text-[#7da23a] hover:text-[#6b8e2f] flex items-center font-medium"><Image size={14} className="mr-1" /> View</a>) : ("-")}</td>}
-                        {visibleColumns.qtyDifferenceStatus && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-red-600">{row.qtyDifferenceStatus || '-'}</td>}
-                        {visibleColumns.weightSlip && <td className="px-4 py-3 whitespace-nowrap text-xs">{row.weightSlip ? (<a href={row.weightSlip} target='_blank' rel='noopener noreferrer' className="text-[#7da23a] hover:text-[#6b8e2f] flex items-center font-medium"><Image size={14} className="mr-1" /> View</a>) : ("-")}</td>}
-                        {visibleColumns.debitAmount && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-red-600">{row.debitAmount ? `₹${row.debitAmount}` : '-'}</td>}
-                        {visibleColumns.debitNoteUrl && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">{row.debitNoteUrl ? (<a href={row.debitNoteUrl} target='_blank' rel='noopener noreferrer' className="text-red-600 hover:text-red-800 font-medium inline-flex items-center"><ExternalLink className="h-3 w-3 mr-1" /> View</a>) : ("-")}</td>}
-                        {visibleColumns.totalFreight && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-800">{row.totalFreight ? `₹${row.totalFreight}` : '-'}</td>}
-                        {visibleColumns.status && (
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${row.status === 'Done' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                              {row.status || '-'}
-                            </span>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Dynamic Active Tab Content */}
+        {renderActiveTab()}
       </div>
     </div>
   );
