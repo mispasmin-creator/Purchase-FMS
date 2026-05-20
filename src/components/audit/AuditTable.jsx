@@ -78,7 +78,7 @@ const AuditTable = ({
               </tr>
             ) : (
               groupedData.map((group, groupIdx) => {
-                const groupKey = getGroupKey(group.firmName, group.billNo);
+                const groupKey = getGroupKey(group.firmName, group.billNo, group.partyName);
                 const isExpanded = expandedGroups.has(groupKey);
                 const hasMultiple = group.items.length > 1;
 

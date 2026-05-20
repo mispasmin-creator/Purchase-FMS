@@ -6,6 +6,7 @@ const GroupedProductsDetailsModal = ({ viewGroupItems, setViewGroupItems }) => {
   if (!viewGroupItems || viewGroupItems.length === 0) return null;
   const firmName = viewGroupItems[0]?.firmName || '-';
   const billNo = viewGroupItems[0]?.billNo || '-';
+  const partyName = viewGroupItems[0]?.partyName || '-';
 
   return (
     <div className="fixed inset-0 z-[110] overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -15,7 +16,7 @@ const GroupedProductsDetailsModal = ({ viewGroupItems, setViewGroupItems }) => {
           <div>
             <h3 className="text-lg font-bold">Grouped Products Details</h3>
             <p className="text-xs text-emerald-100 mt-0.5">
-              Firm: <span className="font-semibold text-white">{firmName}</span> | Bill No: <span className="font-semibold text-white">{billNo}</span>
+              Firm: <span className="font-semibold text-white">{firmName}</span> | Bill No: <span className="font-semibold text-white">{billNo}</span> | Party: <span className="font-semibold text-white">{partyName}</span>
             </p>
           </div>
           <button 

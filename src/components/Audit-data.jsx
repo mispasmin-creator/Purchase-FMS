@@ -1874,21 +1874,23 @@ const CallTrackerPage = () => {
     return liftB.localeCompare(liftA, undefined, { numeric: true, sensitivity: 'base' });
   });
 
-  const getGroupKey = (firmName, billNo) => {
+  const getGroupKey = (firmName, billNo, partyName) => {
     const firm = String(firmName || '').trim().toLowerCase();
     const bill = String(billNo || '').trim().toLowerCase();
-    return `${firm}|||${bill}`;
+    const party = String(partyName || '').trim().toLowerCase();
+    return `${firm}|||${bill}|||${party}`;
   };
 
   const groupedData = useMemo(() => {
     const groups = {};
     filteredData.forEach(row => {
-      const key = getGroupKey(row.firmName, row.billNo);
+      const key = getGroupKey(row.firmName, row.billNo, row.partyName);
       
       if (!groups[key]) {
         groups[key] = {
           firmName: row.firmName || '',
           billNo: row.billNo || '',
+          partyName: row.partyName || '',
           items: [],
         };
       }
