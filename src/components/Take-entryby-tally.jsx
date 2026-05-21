@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Image, Filter } from 'lucide-react';
 import { supabase } from '../supabase';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { canViewFirm } from '../utils/firmFilter';
 
 const TakeEntryTallyPage = () => {
   const { user } = useContext(AuthContext);
@@ -166,13 +167,9 @@ const TakeEntryTallyPage = () => {
         firmName: row["Firm Name"] || ''
       }));
 
-      // Filter by Firm Name
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        parsedData = parsedData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      parsedData = parsedData.filter(
+        (entry) => canViewFirm(user?.firmName, entry.firmName)
+      );
 
       // Filter out submitted locally
       parsedData = parsedData.filter(item => !submittedRows.has(item.id));
@@ -328,8 +325,10 @@ const TakeEntryTallyPage = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Take Entry By Tally</h1>
                 <p className="text-sm text-gray-600 mt-1">Record entries using tally verification</p>
-                {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-                  <span className="text-sm text-[#7da23a] font-medium">Filtered by: {user.firmName}</span>
+                {user?.firmName && (
+                  <span className="text-sm text-[#7da23a] font-medium">
+                    Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+                  </span>
                 )}
               </div>
               <div className="flex items-center space-x-3">

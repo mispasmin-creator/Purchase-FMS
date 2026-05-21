@@ -744,7 +744,7 @@ export default function CreatePO() {
 
         <form onSubmit={handleSubmit} className="flex flex-col items-center">
           <div className="w-full p-4 space-y-4 bg-white rounded-sm shadow-md">
-            {user?.firmName === "all" && (
+            {(user?.firmName === "all" || (Array.isArray(user?.firmName) && user?.firmName.length > 1)) && (
               <div className="flex flex-col items-center justify-center p-4 mb-4 border rounded-md bg-blue-50/50 border-primary/20">
                 <Label className="mb-2 text-lg font-bold text-primary">
                   Choose Firm for PO
@@ -762,11 +762,23 @@ export default function CreatePO() {
                       <SelectValue placeholder="Select the firm to generate PO for" />
                     </SelectTrigger>
                     <SelectContent>
-                      {firms.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.firm_name}
-                        </SelectItem>
-                      ))}
+                      {firms
+                        .filter((f) => {
+                          if (user?.firmName === "all") return true;
+                          if (Array.isArray(user?.firmName)) {
+                            return user.firmName.some(
+                              (allowed) =>
+                                normalize(f.firm_name) === normalize(allowed) ||
+                                normalize(f.data_name) === normalize(allowed)
+                            );
+                          }
+                          return false;
+                        })
+                        .map((f) => (
+                          <SelectItem key={f.id} value={f.id}>
+                            {f.firm_name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

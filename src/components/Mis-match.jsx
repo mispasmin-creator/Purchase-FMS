@@ -194,14 +194,21 @@ export default function MismatchAnalysis() {
 
       if (fetchError) throw fetchError;
 
-      setMismatchSheetData(data || []);
+      let formattedData = data || [];
+      if (user?.firmName) {
+        formattedData = formattedData.filter((item) =>
+          canViewFirm(user.firmName, item["Firm Name"] || item.firmName)
+        );
+      }
+
+      setMismatchSheetData(formattedData);
     } catch (error) {
       console.error("Failed to load Mismatch data:", error);
       setMismatchSheetData([]);
     } finally {
       setLoadingMismatch(false);
     }
-  }, []);
+  }, [user]);
 
   // Initialize column visibility
   useEffect(() => {
@@ -1114,7 +1121,7 @@ export default function MismatchAnalysis() {
   );
 
   const unifiedMismatchData = useMemo(() => {
-    return mismatchSheetData
+    const raw = mismatchSheetData
       .filter(
         (item) =>
           item["Status"] !== "Credit Notes" &&
@@ -1124,7 +1131,24 @@ export default function MismatchAnalysis() {
       )
       .map(getHybridRow)
       .filter(row => row.mismatchTypes.length > 0);
-  }, [mismatchSheetData, getHybridRow]);
+
+    if (user?.firmName) {
+      return raw.filter((item) => canViewFirm(user.firmName, item.firmName));
+    }
+    return raw;
+  }, [mismatchSheetData, getHybridRow, user]);
+
+  const historyMismatchData = useMemo(() => {
+    const raw = mismatchSheetData
+      .filter(item => item.Status !== "Pending" && item.Status !== "Not Done")
+      .map(getHybridRow);
+
+    if (user?.firmName) {
+      return raw.filter((item) => canViewFirm(user.firmName, item.firmName));
+    }
+    return raw;
+  }, [mismatchSheetData, getHybridRow, user]);
+
 
   const filteredUnifiedData = useMemo(() => {
     let filtered = unifiedMismatchData.filter(
@@ -1764,9 +1788,7 @@ export default function MismatchAnalysis() {
                   "history",
                   "Resolution History",
                   "View previously resolved mismatches and management actions taken.",
-                  mismatchSheetData
-                    .filter(item => item.Status !== "Pending" && item.Status !== "Not Done")
-                    .map(getHybridRow),
+                  historyMismatchData,
                   HISTORY_COLUMNS_META,
                   visibleHistoryColumns,
                 )}

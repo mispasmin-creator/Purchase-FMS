@@ -35,6 +35,7 @@ import { AuthContext } from "../context/AuthContext";
 import SuperAdminEditModal from "./SuperAdminEditModal";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
+import { canViewFirm } from "../utils/firmFilter";
 import { useRealtime } from "../hooks/useRealtime";
 
 // Column configuration
@@ -241,14 +242,9 @@ export default function DebitNote() {
         };
       });
 
-      // Filter by user's firm if applicable
-      let filteredData = formattedData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        filteredData = formattedData.filter(
-          (item) => item.firmName && String(item.firmName).toLowerCase() === userFirmNameLower,
-        );
-      }
+      const filteredData = formattedData.filter(
+        (item) => canViewFirm(user?.firmName, item.firmName)
+      );
 
       setMismatchData(filteredData);
     } catch (error) {
@@ -735,8 +731,10 @@ export default function DebitNote() {
             </CardTitle>
             <CardDescription className="text-gray-500 text-sm">
               Manage and update remarks for mismatch entries. Add remarks to track debit note status.
-              {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-                <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
+              {user?.firmName && (
+                <span className="ml-2 text-[#7da23a] font-medium">
+                  • Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+                </span>
               )}
             </CardDescription>
           </CardHeader>

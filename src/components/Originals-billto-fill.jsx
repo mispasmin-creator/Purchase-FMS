@@ -29,6 +29,7 @@ import {
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
 import { supabase } from "../supabase";
+import { canViewFirm } from "../utils/firmFilter";
 
 // Helper Functions
 const cleanIndentId = (indentId) => {
@@ -255,12 +256,9 @@ export default function OriginalBillsFiledPage() {
         })
         .filter((row) => row.indentId);
 
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        parsedData = parsedData.filter(
-          (item) => (item.firmName || "").toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      parsedData = parsedData.filter(
+        (item) => canViewFirm(user?.firmName, item.firmName)
+      );
       setSheetData(parsedData);
     } catch (err) {
       const errorMessage = `Failed to load data. ${err.message}`;
@@ -608,8 +606,10 @@ export default function OriginalBillsFiledPage() {
           </CardTitle>
           <CardDescription className="text-gray-500 mt-1 text-sm">
             Manage advance payments for purchase orders (Stage 5).
-            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
+            {user?.firmName && (
+              <span className="ml-2 text-[#7da23a] font-medium">
+                • Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+              </span>
             )}
           </CardDescription>
         </CardHeader>

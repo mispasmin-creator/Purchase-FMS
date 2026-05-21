@@ -1,6 +1,7 @@
-﻿import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { RefreshCw, Save, X, Edit2, Image, Filter } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import { canViewFirm } from '../utils/firmFilter';
 
 const RectifyMistake2Page = () => {
   const { user } = useContext(AuthContext);
@@ -340,13 +341,9 @@ const RectifyMistake2Page = () => {
         return hasData ? rowData : null;
       }).filter(Boolean);
 
-      // Apply Firm Name filtering
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        parsedData = parsedData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      parsedData = parsedData.filter(
+        (entry) => canViewFirm(user?.firmName, entry.firmName)
+      );
 
       // Filter out submitted rows
       parsedData = parsedData.filter(item => {
@@ -473,8 +470,10 @@ const RectifyMistake2Page = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Rectify The Mistake 2</h1>
                 <p className="text-sm text-gray-600 mt-1">Secondary correction and verification process</p>
-                {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-                  <span className="text-sm text-[#7da23a] font-medium">Filtered by: {user.firmName}</span>
+                {user?.firmName && (
+                  <span className="text-sm text-[#7da23a] font-medium">
+                    Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+                  </span>
                 )}
               </div>
               <div className="flex items-center space-x-3">

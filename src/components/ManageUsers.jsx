@@ -101,6 +101,7 @@ const FIRMS = ["Pmmpl", "Purab", "Rkl", "all"];
 const parsePermissions = (pages) => {
   if (!pages) return [];
   if (Array.isArray(pages)) return pages;
+  if (pages && typeof pages === "object") return Object.keys(pages);
   if (typeof pages !== "string") return [];
 
   const trimmed = pages.trim();
@@ -109,6 +110,9 @@ const parsePermissions = (pages) => {
   try {
     const parsed = JSON.parse(trimmed);
     if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === "object") {
+      return Object.keys(parsed);
+    }
   } catch (e) {
     // Fallback for older CSV-formatted records
     return trimmed.split(",").map((p) => p.trim()).filter(Boolean);
@@ -138,6 +142,48 @@ const parseFirms = (firmName) => {
   return [];
 };
 
+const syncGlobalFirms = (pageFirmsObj) => {
+  const uniqueFirms = new Set();
+  Object.values(pageFirmsObj).forEach((firms) => {
+    if (Array.isArray(firms)) {
+      firms.forEach((f) => uniqueFirms.add(f));
+    }
+  });
+  return Array.from(uniqueFirms);
+};
+
+const getPagePermissionsWithFirms = (rawPages) => {
+  if (!rawPages) return [];
+  
+  if (rawPages && typeof rawPages === "object" && !Array.isArray(rawPages)) {
+    return Object.entries(rawPages).map(([page, firms]) => {
+      if (Array.isArray(firms) && firms.length > 0) {
+        return `${page} (${firms.join(", ")})`;
+      }
+      return page;
+    });
+  }
+
+  const parsedPermissions = parsePermissions(rawPages);
+  
+  if (typeof rawPages === "string") {
+    try {
+      const parsed = JSON.parse(rawPages.trim());
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return Object.entries(parsed).map(([page, firms]) => {
+          if (Array.isArray(firms) && firms.length > 0) {
+            return `${page} (${firms.join(", ")})`;
+          }
+          return page;
+        });
+      }
+    } catch (e) {
+      // Fallback
+    }
+  }
+  return parsedPermissions;
+};
+
 
 export default function ManageUsers() {
   const { user: currentUser, isReadOnly } = useAuth();
@@ -147,6 +193,7 @@ export default function ManageUsers() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pageSearch, setPageSearch] = useState("");
 
   // Form State
   const [formData, setFormData] = useState({
@@ -154,6 +201,7 @@ export default function ManageUsers() {
     password: "",
     firmName: [],
     permissions: [],
+    pageFirms: {},
     isViewOnly: false,
   });
 
@@ -181,11 +229,13 @@ export default function ManageUsers() {
 
   const handleOpenAddDialog = () => {
     setEditingUser(null);
+    setPageSearch("");
     setFormData({
       username: "",
       password: "",
       firmName: [],
       permissions: [],
+      pageFirms: {},
       isViewOnly: false,
     });
     setIsDialogOpen(true);
@@ -193,16 +243,61 @@ export default function ManageUsers() {
 
   const handleOpenEditDialog = (user) => {
     setEditingUser(user);
+    setPageSearch("");
     const rawPages = user["Pages"];
     const isViewOnly = rawPages === "viewonly" ||
       (typeof rawPages === "string" && rawPages.trim().toLowerCase() === "viewonly");
-    const userPermissions = isViewOnly ? [] : parsePermissions(rawPages);
+    
+    let pageFirms = {};
+    let userPermissions = [];
+
+    if (isViewOnly) {
+      // viewonly users
+    } else if (typeof rawPages === "string" && (rawPages.trim().toLowerCase() === "all" || rawPages.trim().toLowerCase() === "super admin")) {
+      userPermissions = ["admin"];
+    } else if (rawPages) {
+      if (Array.isArray(rawPages)) {
+        const globalFirms = parseFirms(user["Firm Name"]);
+        rawPages.forEach((page) => {
+          pageFirms[page] = globalFirms;
+        });
+        userPermissions = rawPages;
+      } else if (typeof rawPages === "object") {
+        pageFirms = rawPages;
+        userPermissions = Object.keys(rawPages);
+      } else if (typeof rawPages === "string") {
+        const trimmed = rawPages.trim();
+        if (trimmed !== "") {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+              const globalFirms = parseFirms(user["Firm Name"]);
+              parsed.forEach((page) => {
+                pageFirms[page] = globalFirms;
+              });
+              userPermissions = parsed;
+            } else if (parsed && typeof parsed === "object") {
+              pageFirms = parsed;
+              userPermissions = Object.keys(parsed);
+            }
+          } catch (e) {
+            const globalFirms = parseFirms(user["Firm Name"]);
+            const pagesArray = trimmed.split(",").map((p) => p.trim()).filter(Boolean);
+            pagesArray.forEach((page) => {
+              pageFirms[page] = globalFirms;
+            });
+            userPermissions = pagesArray;
+          }
+        }
+      }
+    }
 
     setFormData({
       username: user["User Name"] || "",
       password: user["Password"] || "",
       firmName: parseFirms(user["Firm Name"]),
       permissions: userPermissions,
+      pageFirms,
       isViewOnly,
     });
 
@@ -214,24 +309,34 @@ export default function ManageUsers() {
       ...prev,
       isViewOnly: !prev.isViewOnly,
       permissions: [],
+      pageFirms: {},
     }));
   };
 
   const handleTogglePermission = (permission) => {
     setFormData((prev) => {
       let newPermissions;
+      let newPageFirms = { ...prev.pageFirms };
       if (permission === "admin") {
         newPermissions = prev.permissions.includes("admin") ? [] : ["admin"];
+        newPageFirms = {};
       } else {
-        // If admin is selected, unselect it when picking other pages
         const filtered = prev.permissions.filter((p) => p !== "admin");
         if (filtered.includes(permission)) {
           newPermissions = filtered.filter((p) => p !== permission);
+          delete newPageFirms[permission];
         } else {
           newPermissions = [...filtered, permission];
+          newPageFirms[permission] = prev.firmName.length > 0 ? prev.firmName : ["Pmmpl"];
         }
       }
-      return { ...prev, permissions: newPermissions };
+      const newGlobalFirms = permission === "admin" ? prev.firmName : syncGlobalFirms(newPageFirms);
+      return { 
+        ...prev, 
+        permissions: newPermissions, 
+        pageFirms: newPageFirms,
+        firmName: newGlobalFirms 
+      };
     });
   };
 
@@ -252,21 +357,125 @@ export default function ManageUsers() {
     });
   };
 
+  const handleTogglePageFirm = (page, firm) => {
+    setFormData((prev) => {
+      const currentPageFirms = prev.pageFirms?.[page] || [];
+      let newPageFirms;
+      if (currentPageFirms.includes(firm)) {
+        newPageFirms = currentPageFirms.filter((f) => f !== firm);
+      } else {
+        newPageFirms = [...currentPageFirms, firm];
+      }
+
+      const updatedPageFirms = {
+        ...prev.pageFirms,
+        [page]: newPageFirms,
+      };
+
+      if (newPageFirms.length === 0) {
+        delete updatedPageFirms[page];
+      }
+
+      const newPermissions = Object.keys(updatedPageFirms);
+      const newGlobalFirms = syncGlobalFirms(updatedPageFirms);
+
+      return {
+        ...prev,
+        pageFirms: updatedPageFirms,
+        permissions: newPermissions,
+        firmName: newGlobalFirms,
+      };
+    });
+  };
+
+  const handleToggleColumnFirm = (firm, checked) => {
+    setFormData((prev) => {
+      const updatedPageFirms = { ...prev.pageFirms };
+      const activePages = ALL_PAGES.filter(p => p.toLowerCase().includes(pageSearch.toLowerCase()));
+      
+      activePages.forEach((page) => {
+        const currentPageFirms = updatedPageFirms[page] || [];
+        if (checked) {
+          if (!currentPageFirms.includes(firm)) {
+            updatedPageFirms[page] = [...currentPageFirms, firm];
+          }
+        } else {
+          updatedPageFirms[page] = currentPageFirms.filter((f) => f !== firm);
+        }
+
+        if (updatedPageFirms[page] && updatedPageFirms[page].length === 0) {
+          delete updatedPageFirms[page];
+        }
+      });
+
+      const newPermissions = Object.keys(updatedPageFirms);
+      const newGlobalFirms = syncGlobalFirms(updatedPageFirms);
+
+      return {
+        ...prev,
+        pageFirms: updatedPageFirms,
+        permissions: newPermissions,
+        firmName: newGlobalFirms,
+      };
+    });
+  };
+
+  const handleToggleRowAll = (page, checked) => {
+    setFormData((prev) => {
+      const updatedPageFirms = { ...prev.pageFirms };
+      if (checked) {
+        updatedPageFirms[page] = ["Pmmpl", "Purab", "Rkl"];
+      } else {
+        delete updatedPageFirms[page];
+      }
+
+      const newPermissions = Object.keys(updatedPageFirms);
+      const newGlobalFirms = syncGlobalFirms(updatedPageFirms);
+
+      return {
+        ...prev,
+        pageFirms: updatedPageFirms,
+        permissions: newPermissions,
+        firmName: newGlobalFirms,
+      };
+    });
+  };
+
+  const isFirmCheckedForAllPages = (firm) => {
+    const activePages = ALL_PAGES.filter(p => p.toLowerCase().includes(pageSearch.toLowerCase()));
+    if (activePages.length === 0) return false;
+    return activePages.every((page) => {
+      const firms = formData.pageFirms?.[page] || [];
+      return firms.includes(firm);
+    });
+  };
+
+  const isPageCheckedForAllFirms = (page) => {
+    const firms = formData.pageFirms?.[page] || [];
+    return ["Pmmpl", "Purab", "Rkl"].every((f) => firms.includes(f));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.username || !formData.password || !formData.firmName) {
-      toast.error("Username, Password, and Firm Name are required");
+    if (!formData.username || !formData.password) {
+      toast.error("Username and Password are required");
       return;
     }
 
+    if (!formData.isViewOnly && !formData.permissions.includes("admin") && Object.keys(formData.pageFirms || {}).length === 0) {
+      toast.error("Please configure at least one page permission");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
+      const isSuperAdminFlag = editingUser && typeof editingUser["Pages"] === "string" && editingUser["Pages"].trim().toLowerCase() === "super admin";
+      
       const pagesValue = formData.isViewOnly
         ? "viewonly"
         : formData.permissions.includes("admin")
-          ? "all"
-          : formData.permissions;
+          ? (isSuperAdminFlag ? "super admin" : "all")
+          : JSON.stringify(formData.pageFirms || {});
       
       const firmsValue = formData.firmName.includes("all")
         ? "all"
@@ -321,13 +530,13 @@ export default function ManageUsers() {
     }
   };
 
-  const filteredUsers = users.filter(
-    (u) =>
-      (u["User Name"] || "")
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      (u["Firm Name"] || "").toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredUsers = users.filter((u) => {
+    const userName = (u["User Name"] || "").toLowerCase();
+    const query = searchQuery.toLowerCase();
+    const parsedFirms = parseFirms(u["Firm Name"]);
+    const firmsText = (parsedFirms.includes("all") ? "all firms" : parsedFirms.join(", ")).toLowerCase();
+    return userName.includes(query) || firmsText.includes(query);
+  });
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">
@@ -420,7 +629,7 @@ export default function ManageUsers() {
                       (typeof rawPages === "string" && rawPages.trim().toLowerCase() === "viewonly");
                     const userPermsArray = isViewOnly ? [] : parsePermissions(rawPages);
                     const isAdmin = !isViewOnly && userPermsArray.includes("admin");
-                    const perms = isAdmin ? [] : userPermsArray;
+                    const perms = isAdmin ? [] : getPagePermissionsWithFirms(rawPages);
 
                     return (
                       <TableRow
@@ -441,7 +650,12 @@ export default function ManageUsers() {
                             className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-none"
                           >
                             <Building2 className="h-3 w-3 mr-1" />
-                            {user["Firm Name"] || "N/A"}
+                            {(() => {
+                              const parsed = parseFirms(user["Firm Name"]);
+                              if (parsed.length === 0) return "N/A";
+                              if (parsed.includes("all")) return "All Firms";
+                              return parsed.join(", ");
+                            })()}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -512,9 +726,9 @@ export default function ManageUsers() {
 
       {/* Add/Edit User Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden sm:rounded-2xl border-none shadow-2xl">
-          <form onSubmit={handleSubmit}>
-            <DialogHeader className="bg-slate-50 p-6 border-b border-gray-100">
+        <DialogContent className="sm:max-w-3xl w-full p-0 overflow-hidden rounded-xl sm:rounded-2xl border-none shadow-2xl max-h-[90vh] flex flex-col">
+          <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+            <DialogHeader className="bg-slate-50 p-6 border-b border-gray-100 shrink-0">
               <DialogTitle className="text-xl font-bold flex items-center gap-2">
                 {editingUser ? (
                   <Edit2 className="h-5 w-5 text-[#7da23a]" />
@@ -528,8 +742,8 @@ export default function ManageUsers() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-white overflow-hidden">
-              <div className="space-y-4">
+            <div className="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-6 bg-white overflow-y-auto flex-1 min-h-0">
+              <div className="space-y-4 md:col-span-2">
                 <div className="space-y-2">
                   <Label
                     htmlFor="username"
@@ -588,37 +802,57 @@ export default function ManageUsers() {
                   </Label>
                   
                   <div className="border border-gray-100 rounded-xl p-3 bg-slate-50/30 space-y-2">
-                    <div className="flex items-center space-x-3 p-2 bg-blue-50 rounded-lg border border-blue-100 group cursor-pointer">
-                      <Checkbox
-                        id="firm-all"
-                        checked={formData.firmName.includes("all")}
-                        onCheckedChange={() => handleToggleFirm("all")}
-                        className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                      />
-                      <Label htmlFor="firm-all" className="text-sm font-bold text-blue-900 cursor-pointer flex items-center flex-1">
-                        <Building2 className="h-3 w-3 mr-1.5" /> All Firms Access
-                      </Label>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      {FIRMS.filter(f => f !== "all").map((firm) => (
-                        <div key={firm} className="flex items-center space-x-2 p-1.5 hover:bg-white rounded-md transition-colors border border-transparent hover:border-gray-50 group">
+                    {!(formData.isViewOnly || formData.permissions.includes("admin")) ? (
+                      <div className="p-2 text-xs text-slate-500 bg-slate-100/50 rounded-lg border border-dashed border-slate-200">
+                        <p className="font-semibold text-slate-600">Dynamic Firm Assignment</p>
+                        <p className="mt-1 text-[11px]">Firms are automatically derived from the page permissions grid below:</p>
+                        <div className="flex gap-1.5 mt-2 flex-wrap">
+                          {formData.firmName.length > 0 ? (
+                            formData.firmName.map(f => (
+                              <Badge key={f} variant="secondary" className="bg-[#7da23a]/10 text-[#7da23a] border-none text-[10px]">
+                                {f}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-[10px] italic text-slate-400">No firms assigned yet (select in grid below)</span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center space-x-3 p-2 bg-blue-50 rounded-lg border border-blue-100 group cursor-pointer">
                           <Checkbox
-                            id={`firm-${firm}`}
-                            checked={formData.firmName.includes(firm) || formData.firmName.includes("all")}
-                            onCheckedChange={() => handleToggleFirm(firm)}
-                            disabled={formData.firmName.includes("all")}
-                            className="data-[state=checked]:bg-[#7da23a] data-[state=checked]:border-[#7da23a]"
+                            id="firm-all"
+                            checked={formData.firmName.includes("all")}
+                            onCheckedChange={() => handleToggleFirm("all")}
+                            className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                           />
-                          <Label
-                            htmlFor={`firm-${firm}`}
-                            className={`text-xs cursor-pointer flex-1 ${formData.firmName.includes("all") ? "text-gray-400" : "text-gray-700"}`}
-                          >
-                            {firm}
+                          <Label htmlFor="firm-all" className="text-sm font-bold text-blue-900 cursor-pointer flex items-center flex-1">
+                            <Building2 className="h-3 w-3 mr-1.5" /> All Firms Access
                           </Label>
                         </div>
-                      ))}
-                    </div>
+
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          {FIRMS.filter(f => f !== "all").map((firm) => (
+                            <div key={firm} className="flex items-center space-x-2 p-1.5 hover:bg-white rounded-md transition-colors border border-transparent hover:border-gray-50 group">
+                              <Checkbox
+                                id={`firm-${firm}`}
+                                checked={formData.firmName.includes(firm) || formData.firmName.includes("all")}
+                                onCheckedChange={() => handleToggleFirm(firm)}
+                                disabled={formData.firmName.includes("all")}
+                                className="data-[state=checked]:bg-[#7da23a] data-[state=checked]:border-[#7da23a]"
+                              />
+                              <Label
+                                htmlFor={`firm-${firm}`}
+                                className={`text-xs cursor-pointer flex-1 ${formData.firmName.includes("all") ? "text-gray-400" : "text-gray-700"}`}
+                              >
+                                {firm}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -638,7 +872,7 @@ export default function ManageUsers() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 md:col-span-3">
                 <Label className="text-sm font-semibold text-gray-700 flex items-center justify-between">
                   Module Permissions
                   <Badge
@@ -691,42 +925,89 @@ export default function ManageUsers() {
                     </div>
                   </div>
 
-                  <ScrollArea className="h-[280px] pr-4 mt-2">
-                    <div className="space-y-2">
-                      {ALL_PAGES.map((page) => (
-                        <div
-                          key={page}
-                          className="flex items-center space-x-3 p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-100 group"
-                        >
-                          <Checkbox
-                            id={`perm-${page}`}
-                            checked={
-                              formData.permissions.includes(page) ||
-                              formData.permissions.includes("admin")
-                            }
-                            onCheckedChange={() => handleTogglePermission(page)}
-                            disabled={formData.permissions.includes("admin") || formData.isViewOnly}
-                            className="data-[state=checked]:bg-[#7da23a] data-[state=checked]:border-[#7da23a]"
-                          />
-                          <Label
-                            htmlFor={`perm-${page}`}
-                            className={`text-sm cursor-pointer flex-1 transition-colors ${
-                              formData.permissions.includes("admin") || formData.isViewOnly
-                                ? "text-gray-400"
-                                : "text-gray-700 group-hover:text-gray-900"
-                            }`}
-                          >
-                            {page}
-                          </Label>
-                        </div>
-                      ))}
+                  {!(formData.isViewOnly || formData.permissions.includes("admin")) && (
+                    <div className="mb-2">
+                      <Input
+                        placeholder="Search pages..."
+                        value={pageSearch}
+                        onChange={(e) => setPageSearch(e.target.value)}
+                        className="h-8 text-xs bg-white"
+                      />
                     </div>
-                  </ScrollArea>
+                  )}
+
+                  <div className="h-[280px] overflow-y-auto overflow-x-auto border border-gray-100 rounded-lg bg-white relative custom-scrollbar">
+                    {formData.isViewOnly || formData.permissions.includes("admin") ? (
+                      <div className="p-4 text-center text-xs text-gray-500 italic">
+                        {formData.isViewOnly ? "View Only mode enables access to all pages." : "Full Admin mode enables access to all pages."}
+                      </div>
+                    ) : (
+                      <table className="w-full text-xs border-separate border-spacing-0 relative" style={{ minWidth: "440px" }}>
+                        <thead>
+                          <tr>
+                            <th className="font-bold text-gray-700 bg-slate-50 py-2.5 px-3 text-left align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[32%]">
+                              Page Name
+                            </th>
+                            {["Pmmpl", "Purab", "Rkl"].map((firm) => (
+                              <th key={firm} className="text-center font-bold text-gray-700 bg-slate-50 py-2.5 px-2 align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[16%]">
+                                <div className="flex flex-col items-center gap-1">
+                                  <span>{firm}</span>
+                                  <Checkbox
+                                    checked={isFirmCheckedForAllPages(firm)}
+                                    onCheckedChange={(checked) => handleToggleColumnFirm(firm, !!checked)}
+                                    className="h-3 w-3 data-[state=checked]:bg-[#7da23a] data-[state=checked]:border-[#7da23a]"
+                                  />
+                                </div>
+                              </th>
+                            ))}
+                            <th className="text-center font-bold text-gray-700 bg-slate-50 py-2.5 px-2 align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[20%]">
+                              Row Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ALL_PAGES.filter(p => p.toLowerCase().includes(pageSearch.toLowerCase())).map((page) => {
+                            const isAllRowChecked = isPageCheckedForAllFirms(page);
+                            const currentFirms = formData.pageFirms?.[page] || [];
+                            return (
+                              <tr key={page} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="font-medium text-gray-700 py-2 px-3 align-middle border-b border-gray-100">{page}</td>
+                                {["Pmmpl", "Purab", "Rkl"].map((firm) => (
+                                  <td key={firm} className="text-center py-2 px-2 align-middle border-b border-gray-100">
+                                    <div className="flex justify-center">
+                                      <Checkbox
+                                        checked={currentFirms.includes(firm)}
+                                        onCheckedChange={() => handleTogglePageFirm(page, firm)}
+                                        className="h-4 w-4 data-[state=checked]:bg-[#7da23a] data-[state=checked]:border-[#7da23a]"
+                                      />
+                                    </div>
+                                  </td>
+                                ))}
+                                <td className="text-center py-2 px-2 align-middle border-b border-gray-100">
+                                  <div className="flex justify-center">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleToggleRowAll(page, !isAllRowChecked)}
+                                      className="h-6 px-2 text-[10px] border-[#7da23a]/20 text-[#7da23a] hover:bg-[#7da23a] hover:text-white"
+                                    >
+                                      {isAllRowChecked ? "Clear" : "All"}
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <DialogFooter className="bg-slate-50 p-6 border-t border-gray-100 flex items-center justify-between">
+            <DialogFooter className="bg-slate-50 p-4 sm:p-6 border-t border-gray-100 flex flex-row items-center justify-between gap-4 shrink-0">
               <Button
                 type="button"
                 variant="ghost"

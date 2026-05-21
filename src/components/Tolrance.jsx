@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect, useCallback, useContext } from "react"
 import { Scale, Loader2, AlertTriangle, FileText, Search, Filter } from "lucide-react"
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { AuthContext } from "../context/AuthContext"
+import { canViewFirm } from "../utils/firmFilter"
 
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
 const TL_SHEET_NAME = "TL"
@@ -94,11 +95,9 @@ export default function TolerancePage() {
 
   // Filter data based on search term and column filter
   const filteredData = toleranceData.filter((record) => {
-    // Stage 1: Filter by user's firmName if not "all"
-    if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-      const userFirmNameLower = String(user.firmName).toLowerCase();
-      const recordFirmName = String(record["Firm Name"] || "").toLowerCase().trim();
-      if (recordFirmName !== userFirmNameLower) return false;
+    // Stage 1: Filter by user's firmName using canViewFirm helper
+    if (!canViewFirm(user?.firmName, record["Firm Name"] || record.firmName)) {
+      return false;
     }
 
     if (!searchTerm && filterColumn === "all") return true
@@ -129,8 +128,10 @@ export default function TolerancePage() {
           </CardTitle>
           <CardDescription className="text-gray-500 text-sm">
             Material tolerance specifications and parameters.
-            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">• User: {user.firmName}</span>
+            {user?.firmName && (
+              <span className="ml-2 text-[#7da23a] font-medium">
+                • User: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+              </span>
             )}
           </CardDescription>
         </CardHeader>

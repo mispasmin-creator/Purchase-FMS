@@ -27,6 +27,7 @@ import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
 import { Input } from "@/components/ui/input";
 import { supabase } from "../supabase";
+import { canViewFirm } from "../utils/firmFilter";
 
 
 // Helper Functions
@@ -256,12 +257,9 @@ export default function TallyEntry() {
         rawMaterialName: Array.from(row.allMaterials).filter(m => m !== "").join(", ")
       })).filter((row) => row.indentId);
 
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        parsedData = parsedData.filter(
-          (item) => (item.firmName || "").toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      parsedData = parsedData.filter(
+        (item) => canViewFirm(user?.firmName, item.firmName)
+      );
       setSheetData(parsedData);
     } catch (err) {
       const errorMessage = `Failed to load data. ${err.message}`;
@@ -545,8 +543,10 @@ export default function TallyEntry() {
               <p className="font-semibold">{type === "approve" ? "No Pending Entries" : "No Completed Entries"}</p>
               <p className="text-sm text-muted-foreground mt-1">
                 {type === "approve" ? "All eligible entries have been processed." : "Completed entries will appear here."}
-                {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-                  <span className="block mt-1">(Filtered by firm: {user.firmName})</span>
+                {user?.firmName && (
+                  <span className="block mt-1">
+                    (Filtered by firm: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName})
+                  </span>
                 )}
               </p>
             </div>
@@ -613,8 +613,10 @@ export default function TallyEntry() {
           </CardTitle>
           <CardDescription className="text-gray-500 mt-1 text-sm">
             Mark purchase orders as entered in the Tally accounting system.
-            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
+            {user?.firmName && (
+              <span className="ml-2 text-[#7da23a] font-medium">
+                • Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+              </span>
             )}
           </CardDescription>
         </CardHeader>

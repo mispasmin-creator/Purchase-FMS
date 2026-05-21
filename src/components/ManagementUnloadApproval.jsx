@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, History, Info, Loader2, Search } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
+import { canViewFirm } from "../utils/firmFilter";
 import { supabase } from "../supabase";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -106,10 +107,7 @@ export default function ManagementUnloadApproval() {
         unloadApprovalBy: String(row["Unload Approval By"] || "").trim(),
       }));
 
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const firm = String(user.firmName).toLowerCase();
-        rows = rows.filter((row) => row.firmName.toLowerCase() === firm);
-      }
+      rows = rows.filter((row) => canViewFirm(user?.firmName, row.firmName));
 
       rows = rows.filter(
         (row) =>
