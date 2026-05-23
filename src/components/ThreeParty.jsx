@@ -292,6 +292,7 @@ export default function ThreeParty() {
             quantity: row["Approved Qty"] || row["Quantity"] || 0,
             uom: row["UOM"] || "MT",
             actual6: row["Actual6"] || "",
+            threePartyStatus: row["ThreePartyStatus"] || (row["Approved Vendor Name"] === "Rejected" ? "Rejected" : "Approved"),
             vendor: [
               row["Approved Vendor Name"] || "",
               row["Approved Rate"]?.toString() || "0",
@@ -504,6 +505,7 @@ export default function ThreeParty() {
 
       const updates = {
         Actual6: now,
+        ThreePartyStatus: "Approved",
         "Vendor Name 1": v1.name,
         "Select Rate Type 1": v1.rateType,
         "Rate 1": v1.rate,
@@ -608,6 +610,37 @@ export default function ThreeParty() {
     } catch (error) {
       console.error("Error updating vendors:", error);
       toast.error("Failed to update vendors");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function onRejectIndent(indent, e) {
+    if (e) e.stopPropagation();
+    
+    const confirmReject = window.confirm(`Are you sure you want to reject indent ${indent.indentId}?`);
+    if (!confirmReject) return;
+
+    setIsSubmitting(true);
+    try {
+      const now = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from("INDENT-PO")
+        .update({
+          Actual6: now,
+          ThreePartyStatus: "Rejected",
+          "Approved Vendor Name": "Rejected",
+          "Have To Make PO": "No",
+        })
+        .eq("id", indent.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(`Rejected indent ${indent.indentId}`);
+      setTimeout(() => setRefreshData((prev) => !prev), 1000);
+    } catch (error) {
+      console.error("Error rejecting indent:", error);
+      toast.error("Failed to reject indent");
     } finally {
       setIsSubmitting(false);
     }
@@ -813,23 +846,31 @@ export default function ThreeParty() {
                           }}
                         >
                           <td className="px-4 py-3">
-                            <Button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedIndent(indent);
-                                setSelectedHistory(null);
-                                setOpenDialog(true);
-                                setVendorForms(
-                                  indent.vendors.map(normalizeVendorForm),
-                                );
-                                setVendorSearchTerms(["", "", ""]);
-                                setVendorPopoverOpen([false, false, false]);
-                                setSelectedVendorIndex(0);
-                              }}
-                              className="h-8 px-3 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white shadow-none"
-                            >
-                              Approve
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedIndent(indent);
+                                  setSelectedHistory(null);
+                                  setOpenDialog(true);
+                                  setVendorForms(
+                                    indent.vendors.map(normalizeVendorForm),
+                                  );
+                                  setVendorSearchTerms(["", "", ""]);
+                                  setVendorPopoverOpen([false, false, false]);
+                                  setSelectedVendorIndex(0);
+                                }}
+                                className="h-8 px-3 text-xs bg-[#7da23a] hover:bg-[#6b8e2f] text-white shadow-none"
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                onClick={(e) => onRejectIndent(indent, e)}
+                                className="h-8 px-3 text-xs bg-red-600 hover:bg-red-700 text-white shadow-none"
+                              >
+                                Reject
+                              </Button>
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="text-sm font-medium text-gray-800">
@@ -948,10 +989,7 @@ export default function ThreeParty() {
                           Quantity
                         </th>
                         <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
-                          Approved Vendor
-                        </th>
-                        <th className="px-4 py-3 text-xs font-bold text-gray-600 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">
-                          Rate
+                          Status
                         </th>
                       </tr>
                     </thead>
@@ -1003,12 +1041,15 @@ export default function ThreeParty() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <Badge className="text-green-700 bg-green-100 border-0">
-                              {indent.vendor[0]}
+                            <Badge
+                              className={
+                                indent.threePartyStatus === "Approved"
+                                  ? "text-green-700 bg-green-100 border-0"
+                                  : "text-red-700 bg-red-100 border-0"
+                              }
+                            >
+                              {indent.threePartyStatus}
                             </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-sm font-medium">
-                            ₹{indent.vendor[1]}
                           </td>
                         </tr>
                       ))}
