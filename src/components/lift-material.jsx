@@ -125,7 +125,7 @@ const PO_COLUMNS_META = [
     alwaysVisible: true,
   },
   {
-    header: "Indent Number",
+    header: "RI Number",
     dataKey: "indentNo",
     toggleable: true,
   },
@@ -168,7 +168,7 @@ const PO_COLUMNS_META = [
 const LIFTS_COLUMNS_META = [
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
   { header: "Lifted On", dataKey: "createdAt", toggleable: true },
-  { header: "Indent Number", dataKey: "indentNo", toggleable: true },
+  { header: "PO NUMBER", dataKey: "indentNo", toggleable: true },
   { header: "RI Number", dataKey: "riNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },

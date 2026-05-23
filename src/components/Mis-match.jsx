@@ -61,12 +61,14 @@ import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
 import SuperAdminEditModal from "./SuperAdminEditModal";
+import { Input } from "@/components/ui/input";
 
 const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
   { header: "Stage", dataKey: "stage", toggleable: true, alwaysVisible: true },
   { header: "Detected Issues", dataKey: "mismatchTypes", toggleable: true, alwaysVisible: true },
   { header: "Lift Number", dataKey: "liftIdDisplay", toggleable: true, alwaysVisible: true },
+  { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
@@ -113,7 +115,7 @@ const HISTORY_COLUMNS_META = [
   { header: "Bill No.", dataKey: "Bill No.", toggleable: true },
   { header: "Bill Qty", dataKey: "Qty", toggleable: true },
   { header: "Area Lifting", dataKey: "Area Lifting", toggleable: true },
-  { header: "Truck No.", dataKey: "Truck No.", toggleable: true },
+  { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   {
     header: "Bill Image",
     dataKey: "Bill Image",
@@ -181,6 +183,8 @@ export default function MismatchAnalysis() {
     materialName: "all",
     firmName: "all",
     orderNumber: "all",
+    fromDate: "",
+    toDate: "",
   });
 
   // Fetch Mismatch data from Supabase
@@ -1068,6 +1072,7 @@ export default function MismatchAnalysis() {
         // Core Identifiers
         liftNo: mismatchItem["Lift Number"],
         indentNo: mismatchItem["Indent Number"],
+        truckNo: lift.truckNo || mismatchItem["Truck No."] || mismatchItem["Truck No"] || "",
 
         // Differences from Mismatch Table (TL vs LIFT-ACCOUNTS)
         rateDifference: mismatchItem["Rate Difference"],
@@ -1172,8 +1177,59 @@ export default function MismatchAnalysis() {
         (item) => item.indentNo === filters.orderNumber,
       );
     }
+    if (filters.fromDate) {
+      filtered = filtered.filter((item) => {
+        if (!item.timestamp) return false;
+        const itemDateStr = item.timestamp.substring(0, 10);
+        return itemDateStr >= filters.fromDate;
+      });
+    }
+    if (filters.toDate) {
+      filtered = filtered.filter((item) => {
+        if (!item.timestamp) return false;
+        const itemDateStr = item.timestamp.substring(0, 10);
+        return itemDateStr <= filters.toDate;
+      });
+    }
     return filtered;
   }, [unifiedMismatchData, filters, submittedRows]);
+
+  const filteredHistoryData = useMemo(() => {
+    let filtered = historyMismatchData;
+    if (filters.vendorName !== "all") {
+      filtered = filtered.filter(
+        (item) => item.vendorName === filters.vendorName,
+      );
+    }
+    if (filters.materialName !== "all") {
+      filtered = filtered.filter(
+        (item) => item.material === filters.materialName || item.rawMaterialName === filters.materialName,
+      );
+    }
+    if (filters.firmName !== "all") {
+      filtered = filtered.filter((item) => item.firmName === filters.firmName);
+    }
+    if (filters.orderNumber !== "all") {
+      filtered = filtered.filter(
+        (item) => item.indentNo === filters.orderNumber,
+      );
+    }
+    if (filters.fromDate) {
+      filtered = filtered.filter((item) => {
+        if (!item.timestamp) return false;
+        const itemDateStr = item.timestamp.substring(0, 10);
+        return itemDateStr >= filters.fromDate;
+      });
+    }
+    if (filters.toDate) {
+      filtered = filtered.filter((item) => {
+        if (!item.timestamp) return false;
+        const itemDateStr = item.timestamp.substring(0, 10);
+        return itemDateStr <= filters.toDate;
+      });
+    }
+    return filtered;
+  }, [historyMismatchData, filters]);
 
   // Filter options
   const uniqueFilterOptions = useMemo(() => {
@@ -1210,6 +1266,8 @@ export default function MismatchAnalysis() {
       materialName: "all",
       firmName: "all",
       orderNumber: "all",
+      fromDate: "",
+      toDate: "",
     });
   };
 
@@ -1693,7 +1751,7 @@ export default function MismatchAnalysis() {
                     Clear All
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   <Select
                     value={filters.vendorName}
                     onValueChange={(value) =>
@@ -1769,6 +1827,34 @@ export default function MismatchAnalysis() {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  <div className="relative">
+                    <Input
+                      type="date"
+                      value={filters.fromDate}
+                      onChange={(e) =>
+                        handleFilterChange("fromDate", e.target.value)
+                      }
+                      className="h-8 bg-white text-xs pl-12"
+                    />
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 uppercase pointer-events-none">
+                      From
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    <Input
+                      type="date"
+                      value={filters.toDate}
+                      onChange={(e) =>
+                        handleFilterChange("toDate", e.target.value)
+                      }
+                      className="h-8 bg-white text-xs pl-8"
+                    />
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500 uppercase pointer-events-none">
+                      To
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1788,7 +1874,7 @@ export default function MismatchAnalysis() {
                   "history",
                   "Resolution History",
                   "View previously resolved mismatches and management actions taken.",
-                  historyMismatchData,
+                  filteredHistoryData,
                   HISTORY_COLUMNS_META,
                   visibleHistoryColumns,
                 )}

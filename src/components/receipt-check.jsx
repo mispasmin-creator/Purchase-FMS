@@ -153,7 +153,7 @@ const PROCESSED_RECEIPTS_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "PO Qty", dataKey: "qty", toggleable: true },
-  { header: "Billing Qty", dataKey: "liftingQty", toggleable: true },
+  { header: "ACTUAL Qty", dataKey: "liftingQty", toggleable: true },
   {
     header: "Bill Copy",
     dataKey: "billCopy",
