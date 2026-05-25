@@ -212,7 +212,9 @@ export default function FullkittingTransportingPage() {
                 const biltyNo = String(mismatch?.["Bilty No."] || row["Bilty No."] || "").trim();
                 
                 // Determine if already kitted
-                const isDone = doneLiftNos.has(liftNum) || (biltyNo && doneLiftNos.has(`bilty:${biltyNo}`));
+                const isDone = doneLiftNos.has(liftNum) || 
+                               (biltyNo && doneLiftNos.has(`bilty:${biltyNo}`)) ||
+                               (mismatch?.Planned2 && mismatch.Planned2 !== "N/A" && mismatch.Planned2 !== "");
 
                 // If already kitted, it MUST show up in the History tab, so bypass blocking filters
                 if (isDone) {
@@ -240,7 +242,9 @@ export default function FullkittingTransportingPage() {
                 const fkData = fullkittingLookup[liftNum] || (biltyNo ? fullkittingLookup[`bilty:${biltyNo}`] : null) || {};
                 const transporterName = fkData["Transporter Name"] || String(mismatch?.["Transporter Name"] || mismatch?.["Transporter"] || row["Transporter Name"] || "").trim();
 
-                const isDone = doneLiftNos.has(liftNum) || (biltyNo && doneLiftNos.has(`bilty:${biltyNo}`));
+                const isDone = doneLiftNos.has(liftNum) || 
+                               (biltyNo && doneLiftNos.has(`bilty:${biltyNo}`)) ||
+                               (mismatch?.Planned2 && mismatch.Planned2 !== "N/A" && mismatch.Planned2 !== "");
 
                 return {
                     id: `kitting-${row.id}`,
