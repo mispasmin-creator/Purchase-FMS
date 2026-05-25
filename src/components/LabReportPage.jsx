@@ -329,9 +329,10 @@ export default function LabReportPage() {
       });
 
       doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
       doc.text("Lab Report", 14, 15);
       doc.setFontSize(8);
-      doc.setTextColor(100);
+      doc.setTextColor(0, 0, 0);
       let filterText = `Firm: ${firmFilter === "all" ? "All" : firmFilter}`;
       if (fromDate || toDate) {
         filterText += ` | Range: ${fromDate || 'Start'} to ${toDate || 'End'}`;
@@ -342,7 +343,7 @@ export default function LabReportPage() {
         head: [headers],
         body: data,
         startY: 25,
-        styles: { fontSize: 7, cellPadding: 1, lineWidth: 0.1, lineColor: [200, 200, 200] },
+        styles: { fontSize: 7, cellPadding: 1, lineWidth: 0.1, lineColor: [200, 200, 200], textColor: [0, 0, 0] },
         headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         didParseCell: (data) => {
@@ -384,7 +385,7 @@ export default function LabReportPage() {
               if (isTested) {
                 data.cell.styles.textColor = [21, 128, 61];
               } else {
-                data.cell.styles.textColor = [107, 114, 128];
+                data.cell.styles.textColor = [0, 0, 0];
               }
             }
           }
