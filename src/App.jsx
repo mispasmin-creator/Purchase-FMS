@@ -36,6 +36,7 @@ import ManageUsers from "./components/ManageUsers";
 import POHistory from "./components/POHistory";
 import LabReportPage from "./components/LabReportPage";
 import IndentTrackingReport from "./components/IndentTrackingReport";
+import TatReportPage from "./components/TatReportPage";
 
 import { useAuth } from "./context/AuthContext";
 import { useNotification } from "./context/NotificationContext"; // Import hook
@@ -312,6 +313,15 @@ function App() {
       stepName: "Lab Testing - Is The Quality Good?",
       showNotification: false,
       component: <LabReportPage />,
+    },
+    {
+      id: "tat-report",
+      label: "TAT & Delay Report",
+      path: "/tat-report",
+      icon: <History size={20} />,
+      stepName: "Dashboard",
+      showNotification: false,
+      component: <TatReportPage />,
     },
     {
       id: "bilty",
