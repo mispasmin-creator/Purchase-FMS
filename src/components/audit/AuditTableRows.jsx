@@ -115,6 +115,31 @@ export const StandardRow = ({
           {row.remarks || '-'}
         </td>
       )}
+      {visibleColumns.auditRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.auditRemarks}>
+          {row.auditRemarks || '-'}
+        </td>
+      )}
+      {visibleColumns.rectifyRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.rectifyRemarks}>
+          {row.rectifyRemarks || '-'}
+        </td>
+      )}
+      {visibleColumns.reauditRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.reauditRemarks}>
+          {row.reauditRemarks || '-'}
+        </td>
+      )}
+      {visibleColumns.tallyRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.tallyRemarks}>
+          {row.tallyRemarks || '-'}
+        </td>
+      )}
+      {visibleColumns.billRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.billRemarks}>
+          {row.billRemarks || '-'}
+        </td>
+      )}
       {visibleColumns.qty && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.qty || '-'}</td>}
       {visibleColumns.areaLifting && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{row.areaLifting || '-'}</td>}
       {visibleColumns.truckNo && <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-gray-700">{row.truckNo || '-'}</td>}
@@ -218,6 +243,21 @@ export const ParentRow = ({
 
   const remarksList = [...new Set(group.items.map(i => i.remarks).filter(Boolean))];
   const displayRemarks = remarksList.length === 1 ? remarksList[0] : (remarksList.length > 1 ? 'Multiple' : '-');
+
+  const auditRemarksList = [...new Set(group.items.map(i => i.auditRemarks).filter(Boolean))];
+  const displayAuditRemarks = auditRemarksList.length === 1 ? auditRemarksList[0] : (auditRemarksList.length > 1 ? 'Multiple' : '-');
+
+  const rectifyRemarksList = [...new Set(group.items.map(i => i.rectifyRemarks).filter(Boolean))];
+  const displayRectifyRemarks = rectifyRemarksList.length === 1 ? rectifyRemarksList[0] : (rectifyRemarksList.length > 1 ? 'Multiple' : '-');
+
+  const reauditRemarksList = [...new Set(group.items.map(i => i.reauditRemarks).filter(Boolean))];
+  const displayReauditRemarks = reauditRemarksList.length === 1 ? reauditRemarksList[0] : (reauditRemarksList.length > 1 ? 'Multiple' : '-');
+
+  const tallyRemarksList = [...new Set(group.items.map(i => i.tallyRemarks).filter(Boolean))];
+  const displayTallyRemarks = tallyRemarksList.length === 1 ? tallyRemarksList[0] : (tallyRemarksList.length > 1 ? 'Multiple' : '-');
+
+  const billRemarksList = [...new Set(group.items.map(i => i.billRemarks).filter(Boolean))];
+  const displayBillRemarks = billRemarksList.length === 1 ? billRemarksList[0] : (billRemarksList.length > 1 ? 'Multiple' : '-');
 
   const areas = [...new Set(group.items.map(i => i.areaLifting).filter(Boolean))];
   const displayArea = areas.length === 1 ? areas[0] : (areas.length > 1 ? 'Multiple' : '-');
@@ -358,6 +398,31 @@ export const ParentRow = ({
           {renderCellVal(displayRemarks)}
         </td>
       )}
+      {visibleColumns.auditRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate" title={displayAuditRemarks === 'Multiple' ? 'Multiple remarks' : displayAuditRemarks}>
+          {renderCellVal(displayAuditRemarks)}
+        </td>
+      )}
+      {visibleColumns.rectifyRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate" title={displayRectifyRemarks === 'Multiple' ? 'Multiple remarks' : displayRectifyRemarks}>
+          {renderCellVal(displayRectifyRemarks)}
+        </td>
+      )}
+      {visibleColumns.reauditRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate" title={displayReauditRemarks === 'Multiple' ? 'Multiple remarks' : displayReauditRemarks}>
+          {renderCellVal(displayReauditRemarks)}
+        </td>
+      )}
+      {visibleColumns.tallyRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate" title={displayTallyRemarks === 'Multiple' ? 'Multiple remarks' : displayTallyRemarks}>
+          {renderCellVal(displayTallyRemarks)}
+        </td>
+      )}
+      {visibleColumns.billRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate" title={displayBillRemarks === 'Multiple' ? 'Multiple remarks' : displayBillRemarks}>
+          {renderCellVal(displayBillRemarks)}
+        </td>
+      )}
       {visibleColumns.qty && <td className="px-4 py-3 whitespace-nowrap text-xs text-emerald-900 font-bold">{renderCellVal(sumField(group.items, 'qty'))}</td>}
       {visibleColumns.areaLifting && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{renderCellVal(displayArea)}</td>}
       {visibleColumns.truckNo && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-emerald-800">{group.items.length} Trucks</td>}
@@ -445,6 +510,31 @@ export const SubRow = ({
       {visibleColumns.remarks && (
         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.remarks}>
           {row.remarks || '-'}
+        </td>
+      )}
+      {visibleColumns.auditRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.auditRemarks}>
+          {row.auditRemarks || '-'}
+        </td>
+      )}
+      {visibleColumns.rectifyRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.rectifyRemarks}>
+          {row.rectifyRemarks || '-'}
+        </td>
+      )}
+      {visibleColumns.reauditRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.reauditRemarks}>
+          {row.reauditRemarks || '-'}
+        </td>
+      )}
+      {visibleColumns.tallyRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.tallyRemarks}>
+          {row.tallyRemarks || '-'}
+        </td>
+      )}
+      {visibleColumns.billRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.billRemarks}>
+          {row.billRemarks || '-'}
         </td>
       )}
       {visibleColumns.qty && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{row.qty || '-'}</td>}

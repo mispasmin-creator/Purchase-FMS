@@ -3,6 +3,7 @@ import { X, RefreshCw, Save, CheckCircle, AlertCircle, Image, ExternalLink } fro
 import { getQtyDifference } from './AuditTableRows';
 
 const AuditEntryModal = ({
+  visibleColumns = {},
   editingRow,
   editingGroupItems,
   auditMismatchData,
@@ -128,7 +129,12 @@ const AuditEntryModal = ({
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Debit Amount</th>
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Debit Image</th>
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Total Freight</th>
-                    <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Remarks</th>
+                    {visibleColumns.remarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Remarks</th>}
+                    {visibleColumns.auditRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Audit Remarks</th>}
+                    {visibleColumns.rectifyRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Rectify Remarks</th>}
+                    {visibleColumns.reauditRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Re-Audit Remarks</th>}
+                    {visibleColumns.tallyRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Tally Remarks</th>}
+                    {visibleColumns.billRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Bill Remarks</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -184,7 +190,12 @@ const AuditEntryModal = ({
                         ) : "-"}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap font-bold text-gray-800">{item.totalFreight ? `₹${item.totalFreight}` : '-'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.remarks}>{item.remarks || '-'}</td>
+                      {visibleColumns.remarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.remarks}>{item.remarks || '-'}</td>}
+                      {visibleColumns.auditRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.auditRemarks}>{item.auditRemarks || '-'}</td>}
+                      {visibleColumns.rectifyRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.rectifyRemarks}>{item.rectifyRemarks || '-'}</td>}
+                      {visibleColumns.reauditRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.reauditRemarks}>{item.reauditRemarks || '-'}</td>}
+                      {visibleColumns.tallyRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.tallyRemarks}>{item.tallyRemarks || '-'}</td>}
+                      {visibleColumns.billRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.billRemarks}>{item.billRemarks || '-'}</td>}
                     </tr>
                   ))}
                 </tbody>

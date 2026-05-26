@@ -19,6 +19,7 @@ const COLUMN_GROUPS = [
       { id: "partyName", label: "Party Name" },
       { id: "productName", label: "Product Name" },
       { id: "qty", label: "Qty" },
+      { id: "billingQty", label: "Billing Qty" },
       { id: "truckNo", label: "Truck Number" },
       { id: "poAlumina", label: "PO-Alumina %" },
       { id: "poIron", label: "PO-Iron %" },
@@ -201,6 +202,7 @@ export default function LabReportPage() {
           partyName: String(row["Vendor Name"] || "").trim(),
           productName: String(row["Raw Material Name"] || "").trim(),
           qty: String(row["Qty"] || "").trim(),
+          billingQty: String(row["Truck Qty"] || "").trim(),
           truckNo: String(row["Truck No."] || "").trim(),
           // PO reference values
           poAlumina: g("Alumina %"),
@@ -871,6 +873,7 @@ export default function LabReportPage() {
         { label: "Party Name (Vendor)", dbKey: "Vendor Name", value: row.partyName, type: "text" },
         { label: "Product Name", dbKey: "Raw Material Name", value: row.productName, type: "text" },
         { label: "Qty", dbKey: "Qty", value: row.qty, type: "number" },
+        { label: "Billing Qty (Truck Qty)", dbKey: "Truck Qty", value: row.billingQty ?? row.totalTruckQty, type: "number" },
         { label: "Truck No.", dbKey: "Truck No.", value: row.truckNo, type: "text" },
         { label: "Bill No.", dbKey: "Bill No.", value: row.billNo, type: "text" },
         { label: "Status", dbKey: "Status", value: row.status, type: "text" },
@@ -1172,6 +1175,7 @@ export default function LabReportPage() {
                     {visibleColumns.partyName && <TH>Party Name</TH>}
                     {visibleColumns.productName && <TH>Product Name</TH>}
                     {visibleColumns.qty && <TH>Qty</TH>}
+                    {visibleColumns.billingQty && <TH>Billing Qty</TH>}
                     {visibleColumns.truckNo && <TH>Truck Number</TH>}
                     {visibleColumns.poAlumina && <TH>PO-Alumina %</TH>}
                     {visibleColumns.poIron && <TH>PO-Iron %</TH>}
@@ -1216,6 +1220,7 @@ export default function LabReportPage() {
                         {visibleColumns.partyName && <TD className="max-w-[140px] truncate" title={row.partyName}>{row.partyName || "-"}</TD>}
                         {visibleColumns.productName && <TD className="max-w-[120px] truncate" title={row.productName}>{row.productName || "-"}</TD>}
                         {visibleColumns.qty && <TD className="text-right">{row.qty || "-"}</TD>}
+                        {visibleColumns.billingQty && <TD className="text-right">{row.billingQty || "-"}</TD>}
                         {visibleColumns.truckNo && <TD>{row.truckNo || "-"}</TD>}
                         {visibleColumns.poAlumina && <TD className="text-center font-medium">{row.poAlumina || "-"}</TD>}
                         {visibleColumns.poIron && <TD className="text-center font-medium">{row.poIron || "-"}</TD>}

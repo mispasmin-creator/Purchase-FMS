@@ -72,6 +72,11 @@ const CallTrackerPage = () => {
     totalFreight: true,
     dateOfReceiving: true,
     remarks: true,
+    auditRemarks: false,
+    rectifyRemarks: false,
+    reauditRemarks: false,
+    tallyRemarks: false,
+    billRemarks: false,
     status: false,
     actions: true
   });
@@ -1029,6 +1034,11 @@ const CallTrackerPage = () => {
           differenceQty: getCellValue(row, 17) || '',
           weightSlip: getCellValue(row, 18) || '',
           totalFreight: getCellValue(row, 19) || '',
+          auditRemarks: getCellValue(row, 29) || '',
+          rectifyRemarks: getCellValue(row, 24) || '',
+          tallyRemarks: getCellValue(row, 39) || '',
+          reauditRemarks: getCellValue(row, 44) || '',
+          billRemarks: getCellValue(row, 49) || '',
           rawRow: row
         };
 
@@ -1184,6 +1194,11 @@ const CallTrackerPage = () => {
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status2 || row.Status || '',
         remarks: row.Remarks || row.Remark || '',
+        auditRemarks: row.Remarks2 || '',
+        rectifyRemarks: row.Remarks3 || '',
+        tallyRemarks: row.Remarks4 || '',
+        reauditRemarks: row.Remarks5 || '',
+        billRemarks: row.Remarks6 || '',
         currentStage: 'AUDIT',
         supabaseId: row.id, 
         indentNumber: (() => {
@@ -1230,6 +1245,11 @@ const CallTrackerPage = () => {
         totalFreight: row["Total Freight"] || '',
         status: row["Status"] || '',
         remarks: '',
+        auditRemarks: '',
+        rectifyRemarks: '',
+        tallyRemarks: '',
+        reauditRemarks: '',
+        billRemarks: '',
         currentStage: 'AUDIT',
         isNewFromLift: true, 
         supabaseId: `lift_${row.id || index}`, 
@@ -1312,6 +1332,11 @@ const CallTrackerPage = () => {
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status4 || '',
         remarks: row.Remarks2 || row.Remarks3 || row.Remarks5 || '',
+        auditRemarks: row.Remarks2 || '',
+        rectifyRemarks: row.Remarks3 || '',
+        tallyRemarks: row.Remarks4 || '',
+        reauditRemarks: row.Remarks5 || '',
+        billRemarks: row.Remarks6 || '',
         currentStage: 'TALLY_ENTRY',
         supabaseId: row.id, 
         indentNumber: (() => {
@@ -1397,6 +1422,11 @@ const CallTrackerPage = () => {
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status6 || '',
         remarks: row.Remarks4 || '',
+        auditRemarks: row.Remarks2 || '',
+        rectifyRemarks: row.Remarks3 || '',
+        tallyRemarks: row.Remarks4 || '',
+        reauditRemarks: row.Remarks5 || '',
+        billRemarks: row.Remarks6 || '',
         currentStage: 'BILL_ENTRY',
         supabaseId: row.id, 
         indentNumber: (() => {
@@ -1482,6 +1512,11 @@ const CallTrackerPage = () => {
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status3 || '',
         remarks: row.Remarks2 || '',
+        auditRemarks: row.Remarks2 || '',
+        rectifyRemarks: row.Remarks3 || '',
+        tallyRemarks: row.Remarks4 || '',
+        reauditRemarks: row.Remarks5 || '',
+        billRemarks: row.Remarks6 || '',
         currentStage: 'RECTIFY',
         supabaseId: row.id, 
         indentNumber: (() => {
@@ -1567,6 +1602,11 @@ const CallTrackerPage = () => {
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status5 || '',
         remarks: row.Remarks3 || '',
+        auditRemarks: row.Remarks2 || '',
+        rectifyRemarks: row.Remarks3 || '',
+        tallyRemarks: row.Remarks4 || '',
+        reauditRemarks: row.Remarks5 || '',
+        billRemarks: row.Remarks6 || '',
         currentStage: 'RE_AUDIT',
         supabaseId: row.id, 
         indentNumber: (() => {
@@ -1668,6 +1708,11 @@ const CallTrackerPage = () => {
                    currentStage === 'REAUDIT' ? (row.Remarks3 || '') :
                    currentStage === 'TALLY_ENTRY' ? (row.Remarks5 || row.Remarks3 || row.Remarks2 || '') :
                    currentStage === 'BILL_ENTRY' ? (row.Remarks4 || '') : '',
+          auditRemarks: row.Remarks2 || '',
+          rectifyRemarks: row.Remarks3 || '',
+          tallyRemarks: row.Remarks4 || '',
+          reauditRemarks: row.Remarks5 || '',
+          billRemarks: row.Remarks6 || '',
           currentStage: currentStage,
           indentNumber: (() => {
             const raw = String(row["Indent Number"] || row["Indent No"] || '').trim().toUpperCase();
@@ -1751,6 +1796,11 @@ const CallTrackerPage = () => {
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status6 || '',
         remarks: row.Remarks6 || '',
+        auditRemarks: row.Remarks2 || '',
+        rectifyRemarks: row.Remarks3 || '',
+        tallyRemarks: row.Remarks4 || '',
+        reauditRemarks: row.Remarks5 || '',
+        billRemarks: row.Remarks6 || '',
         currentStage: 'COMPLETED',
         supabaseId: row.id,
         indentNumber: (() => {
@@ -1796,6 +1846,46 @@ const CallTrackerPage = () => {
     fetchAllDataFromSupabase();
     fetchHistoryDataFromSupabase();
   }, [submittedRows, user, liftWeightSlipMap]);
+
+  useEffect(() => {
+    setVisibleColumns(prev => {
+      const updated = {
+        ...prev,
+        remarks: false,
+        auditRemarks: false,
+        rectifyRemarks: false,
+        reauditRemarks: false,
+        tallyRemarks: false,
+        billRemarks: false
+      };
+
+      if (activeTab === 'AUDIT') {
+        updated.remarks = true;
+      } else if (activeTab === 'RECTIFY') {
+        updated.auditRemarks = true;
+      } else if (activeTab === 'REAUDIT') {
+        updated.auditRemarks = true;
+        updated.rectifyRemarks = true;
+      } else if (activeTab === 'TALLY_ENTRY') {
+        updated.auditRemarks = true;
+        updated.rectifyRemarks = true;
+        updated.reauditRemarks = true;
+      } else if (activeTab === 'BILL_ENTRY') {
+        updated.auditRemarks = true;
+        updated.rectifyRemarks = true;
+        updated.reauditRemarks = true;
+        updated.tallyRemarks = true;
+      } else if (activeTab === 'ALL' || activeTab === 'HISTORY') {
+        updated.auditRemarks = true;
+        updated.rectifyRemarks = true;
+        updated.reauditRemarks = true;
+        updated.tallyRemarks = true;
+        updated.billRemarks = true;
+      }
+
+      return updated;
+    });
+  }, [activeTab]);
 
   const toggleColumnVisibility = (columnKey) => {
     setVisibleColumns(prev => ({
@@ -1976,6 +2066,7 @@ const CallTrackerPage = () => {
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-4 sm:p-6 pb-20">
       {/* Entry Modal */}
       <AuditEntryModal
+        visibleColumns={visibleColumns}
         editingRow={editingRow}
         editingGroupItems={editingGroupItems}
         auditMismatchData={auditMismatchData}
@@ -2033,6 +2124,11 @@ const CallTrackerPage = () => {
             { label: "Lifting Qty", dbKey: "Lifting Qty", value: superAdminEditRow.liftingQty, type: "number" },
             { label: "Date Of Receiving", dbKey: "Date Of Receiving", value: superAdminEditRow.dateOfReceiving, type: "date" },
             { label: "Remarks", dbKey: "Remarks", value: superAdminEditRow.remarks, type: "textarea" },
+            { label: "Audit Remarks", dbKey: "Remarks2", value: superAdminEditRow.auditRemarks, type: "textarea" },
+            { label: "Rectify Remarks", dbKey: "Remarks3", value: superAdminEditRow.rectifyRemarks, type: "textarea" },
+            { label: "Tally Remarks", dbKey: "Remarks4", value: superAdminEditRow.tallyRemarks, type: "textarea" },
+            { label: "Re-Audit Remarks", dbKey: "Remarks5", value: superAdminEditRow.reauditRemarks, type: "textarea" },
+            { label: "Bill Remarks", dbKey: "Remarks6", value: superAdminEditRow.billRemarks, type: "textarea" },
           ]}
           onClose={() => setSuperAdminEditRow(null)}
           onSaved={() => { setSuperAdminEditRow(null); fetchData(); }}
@@ -2123,6 +2219,11 @@ const CallTrackerPage = () => {
                               totalFreight: 'Total Freight',
                               status: 'Status',
                               remarks: 'Remarks',
+                              auditRemarks: 'Audit Remarks',
+                              rectifyRemarks: 'Rectify Remarks',
+                              reauditRemarks: 'Re-Audit Remarks',
+                              tallyRemarks: 'Tally Remarks',
+                              billRemarks: 'Bill Remarks',
                               actions: 'Actions'
                             }).map(([key, label]) => (
                               <label key={key} className="flex items-center space-x-2 text-sm py-1 hover:bg-gray-50 px-2 rounded cursor-pointer">
