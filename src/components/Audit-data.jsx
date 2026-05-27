@@ -4,6 +4,7 @@ import { supabase } from '../supabase';
 import { toast } from 'sonner';
 import { AuthContext } from '../context/AuthContext';
 import SuperAdminEditModal from './SuperAdminEditModal';
+import { canViewFirm } from '../utils/firmFilter';
 
 // Modular Component Imports
 import AuditEntryModal from './audit/AuditEntryModal';
@@ -416,6 +417,11 @@ const CallTrackerPage = () => {
   const getReAuditNextStagePayload = (actualDateTime) => ({
     Planned4: actualDateTime
   });
+
+  const filterRowsByUserFirm = (rows) => {
+    if (!user?.firmName) return rows;
+    return rows.filter((entry) => canViewFirm(user.firmName, entry.firmName));
+  };
 
   const isAuditNotDone = (row) => String(row.Status2 || '').trim().toLowerCase() === 'not done';
   const isAuditDone = (row) => String(row.Status2 || '').trim().toLowerCase() === 'done';
@@ -1340,13 +1346,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalAuditData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalAuditData = finalAuditData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalAuditData = filterRowsByUserFirm(filteredData);
       setAuditMismatchData(finalAuditData);
 
     } catch (err) {
@@ -1433,13 +1433,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalTallyData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalTallyData = finalTallyData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalTallyData = filterRowsByUserFirm(filteredData);
       setTallyEntryMismatchData(finalTallyData);
 
     } catch (err) {
@@ -1527,13 +1521,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalBillData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalBillData = finalBillData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalBillData = filterRowsByUserFirm(filteredData);
       setBillEntryMismatchData(finalBillData);
 
     } catch (err) {
@@ -1622,13 +1610,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalRectifyData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalRectifyData = finalRectifyData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalRectifyData = filterRowsByUserFirm(filteredData);
       setRectifyMismatchData(finalRectifyData);
 
     } catch (err) {
@@ -1716,13 +1698,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalReAuditData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalReAuditData = finalReAuditData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalReAuditData = filterRowsByUserFirm(filteredData);
       setReAuditMismatchData(finalReAuditData);
 
     } catch (err) {
@@ -1826,12 +1802,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        filteredData = filteredData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      filteredData = filterRowsByUserFirm(filteredData);
       setAllMismatchData(filteredData);
 
     } catch (err) {
@@ -1907,13 +1878,7 @@ const CallTrackerPage = () => {
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || ''
       }));
 
-      let finalData = formattedData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalData = finalData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalData = filterRowsByUserFirm(formattedData);
       setHistoryData(finalData);
     } catch (err) {
       console.error('Error fetching history data from Supabase:', err);
