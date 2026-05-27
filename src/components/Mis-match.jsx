@@ -75,7 +75,6 @@ const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Product", dataKey: "material", toggleable: true },
   { header: "Difference Summary", dataKey: "diffSummary", toggleable: true },
   // Core fields for visibility
-  { header: "PO Rate", dataKey: "poRate", toggleable: true },
   { header: "Bill Rate", dataKey: "materialRate", toggleable: true },
   { header: "Bill Qty", dataKey: "billQuantity", toggleable: true },
   { header: "Receive Qty", dataKey: "actualQuantity", toggleable: true },
@@ -88,57 +87,57 @@ const UNIFIED_MISMATCH_COLUMNS_META = [
 const HISTORY_COLUMNS_META = [
   {
     header: "Date",
-    dataKey: "Timestamp",
+    dataKey: "timestamp",
     toggleable: true,
     alwaysVisible: true,
   },
   {
     header: "Lift ID",
-    dataKey: "Lift ID",
+    dataKey: "liftIdDisplay",
     toggleable: true,
     alwaysVisible: true,
   },
   {
-    header: "Indent Number",
-    dataKey: "Indent Number",
+    header: "PO Number",
+    dataKey: "indentNo",
     toggleable: true,
     alwaysVisible: true,
   },
-  { header: "Firm Name", dataKey: "Firm Name", toggleable: true },
-  { header: "Party Name", dataKey: "Party Name", toggleable: true },
-  { header: "Product Name", dataKey: "Product Name", toggleable: true },
-  { header: "Transporter", dataKey: "Transporter Name", toggleable: true },
-  { header: "Status", dataKey: "Status", toggleable: true },
-  { header: "Remarks", dataKey: "Remarks", toggleable: true },
-  { header: "Lift Number", dataKey: "Lift Number", toggleable: true },
-  { header: "Type", dataKey: "Type", toggleable: true },
-  { header: "Bill No.", dataKey: "Bill No.", toggleable: true },
-  { header: "Bill Qty", dataKey: "Qty", toggleable: true },
-  { header: "Area Lifting", dataKey: "Area Lifting", toggleable: true },
+  { header: "Firm Name", dataKey: "firmName", toggleable: true },
+  { header: "Party Name", dataKey: "vendorName", toggleable: true },
+  { header: "Product Name", dataKey: "material", toggleable: true },
+  { header: "Transporter", dataKey: "transporterName", toggleable: true },
+  { header: "Status", dataKey: "status", toggleable: true },
+  { header: "Remarks", dataKey: "remarks", toggleable: true },
+  { header: "Lift Number", dataKey: "liftNo", toggleable: true },
+  { header: "Type", dataKey: "liftType", toggleable: true },
+  { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Bill Qty", dataKey: "billQuantity", toggleable: true },
+  { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   {
     header: "Bill Image",
-    dataKey: "Bill Image",
+    dataKey: "billImageUrl",
     toggleable: true,
     isLink: true,
     linkText: "View",
   },
-  { header: "Bilty No.", dataKey: "Bilty No.", toggleable: true },
-  { header: "Type Of Rate", dataKey: "Type Of Rate", toggleable: true },
-  { header: "Bill Rate", dataKey: "Rate", toggleable: true },
-  { header: "Receive Qty", dataKey: "Actual Quantity", toggleable: true },
+  { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
+  { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
+  { header: "Bill Rate", dataKey: "materialRate", toggleable: true },
+  { header: "Receive Qty", dataKey: "actualQuantity", toggleable: true },
   {
     header: "Bilty Image",
-    dataKey: "Bilty Image",
+    dataKey: "biltyImageUrl",
     toggleable: true,
     isLink: true,
     linkText: "View",
   },
-  { header: "Qty Diff Status", dataKey: "Qty Diff Status", toggleable: true },
-  { header: "Diff Qty", dataKey: "Diff Qty", toggleable: true },
+  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
+  { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
   {
     header: "Weight Slip",
-    dataKey: "Weight Slip",
+    dataKey: "weightSlipImageUrl",
     toggleable: true,
     isLink: true,
     linkText: "View",
@@ -849,6 +848,7 @@ export default function MismatchAnalysis() {
           firmName: String(row["Firm Name"] || "").trim(),
           vendorName: String(row["Vendor name"] || row["Vendor"] || "").trim(),
           rawMaterialName: String(row["Material"] || "").trim(),
+          materialName: String(row["Material"] || "").trim(),
           poQuantity: String(row["Quantity"] || "").trim(),
           poRate: String(row["Rate"] || "").trim(),
           pendingQty: String(row["Pending PO Qty"] || "").trim(),
@@ -967,6 +967,14 @@ export default function MismatchAnalysis() {
   // Calculate mismatch data (Hybrid: Differences from DB, Details from Source Tables)
   const getHybridRow = useCallback(
     (mismatchItem) => {
+      const normalizeLookupKey = (value) =>
+        String(value || "")
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, "");
+      const numericLookupKey = (value) =>
+        String(value || "").match(/\d+/g)?.join("") || "";
+
       const liftId = String(mismatchItem["Lift Number"] || mismatchItem["Lift ID"] || "").trim();
       const indentId = String(mismatchItem["Indent Number"] || mismatchItem["Indent Id."] || "").trim();
 
@@ -976,11 +984,39 @@ export default function MismatchAnalysis() {
             String(l.liftNo || "").trim() === liftId
         ) || {};
 
+      const poLookupValues = [
+        indentId,
+        mismatchItem["PO Number"],
+        mismatchItem["po_number"],
+        mismatchItem["Indent No"],
+        mismatchItem["Indent No."],
+        lift.indentNo,
+      ].filter(Boolean);
+      const poLookupKeys = poLookupValues.map(normalizeLookupKey).filter(Boolean);
+      const poNumericKeys = poLookupValues.map(numericLookupKey).filter(Boolean);
+      const mismatchMaterial = String(
+        mismatchItem["Product Name"] || lift.rawMaterialName || lift.material || "",
+      ).trim().toLowerCase();
+
+      const poCandidates = purchaseOrdersData.filter((p) => {
+        const candidateKeys = [
+          p.indentNo,
+          p.indentId,
+          p.poNumber,
+        ].map(normalizeLookupKey).filter(Boolean);
+        const candidateNumericKeys = [
+          p.indentNo,
+          p.indentId,
+          p.poNumber,
+        ].map(numericLookupKey).filter(Boolean);
+        return candidateKeys.some((key) => poLookupKeys.includes(key)) ||
+          candidateNumericKeys.some((key) => poNumericKeys.includes(key));
+      });
+
       const po =
-        purchaseOrdersData.find(
-          (p) =>
-            String(p.indentNo || "").trim() === indentId
-        ) || {};
+        poCandidates.find((p) =>
+          String(p.rawMaterialName || p.materialName || "").trim().toLowerCase() === mismatchMaterial
+        ) || poCandidates[0] || {};
 
       // Match TL row by Product Name (from Mismatch table) or Raw Material Name (from LIFT-ACCOUNTS)
       const productNameForTL = String(
@@ -1071,7 +1107,7 @@ export default function MismatchAnalysis() {
         liftIdDisplay: mismatchItem["Lift ID"],
         // Core Identifiers
         liftNo: mismatchItem["Lift Number"],
-        indentNo: mismatchItem["Indent Number"],
+        indentNo: po.poNumber || po.indentNo || po.indentId || mismatchItem["Indent Number"] || lift.indentNo || "",
         truckNo: lift.truckNo || mismatchItem["Truck No."] || mismatchItem["Truck No"] || "",
 
         // Differences from Mismatch Table (TL vs LIFT-ACCOUNTS)
@@ -1096,12 +1132,15 @@ export default function MismatchAnalysis() {
         rawMaterialName:
           mismatchItem["Product Name"] || lift.rawMaterialName || lift.material,
         material:
-          mismatchItem["Product Name"] || lift.material || po.materialName,
+          mismatchItem["Product Name"] || lift.material || po.materialName || po.rawMaterialName,
         firmName: mismatchItem["Firm Name"] || lift.firmName || po.firmName,
         timestamp: String(mismatchItem["Timestamp"] || "").replace("T", " "),
 
         // Live stage derived from LIFT-ACCOUNTS actual timestamps
         stage: liveStage,
+        status: mismatchItem["Status"] || mismatchItem.Status || "",
+        Status: mismatchItem["Status"] || mismatchItem.Status || "",
+        remarks: mismatchItem["Remarks"] || mismatchItem.Remarks || "",
         mismatchTypes,
         diffSummary,
 
@@ -1112,14 +1151,21 @@ export default function MismatchAnalysis() {
         poQuantity: po.poQuantity || po.quantity || mismatchItem["Quantity (PO)"],
         billQuantity: lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Qty"] || "N/A",
         actualQuantity: lift.actualQuantity || mismatchItem["Actual Quantity"] || "N/A",
+        billNo: lift.billNo || mismatchItem["Bill No."] || mismatchItem["Bill No"] || "",
+        areaLifting: lift.areaLifting || mismatchItem["Area Lifting"] || mismatchItem["Area lifting"] || "",
+        billImageUrl: lift.billImageUrl || mismatchItem["Bill Image"] || "",
+        biltyNo: lift.biltyNo || mismatchItem["Bilty No."] || mismatchItem["Bilty No"] || "",
+        biltyImageUrl: lift.biltyImageUrl || mismatchItem["Bilty Image"] || "",
+        weightSlipImageUrl: lift.weightSlipImageUrl || mismatchItem["Weight Slip"] || "",
+        typeOfTransportingRate: lift.typeOfTransportingRate || mismatchItem["Type Of Rate"] || mismatchItem["Type Of Transporting Rate"] || "",
         
         // Lab Data Explicit Mapping
         aluminaPercent: lift.aluminaPercent || "",
         ironPercent: lift.ironPercent || "",
         apPercent: lift.apPercent || "",
         bdPercent: lift.bdPercent || "",
-        poAlumina: po.poAlumina || "",
-        poIron: po.poIron || ""
+        poAlumina: po.poAlumina || mismatchItem["PO Al2O3%"] || mismatchItem["PO Alumina"] || mismatchItem["Alumina %"] || "",
+        poIron: po.poIron || mismatchItem["PO Fe%"] || mismatchItem["PO Iron"] || mismatchItem["Iron %"] || ""
       };
     },
     [liftAccountsData, purchaseOrdersData, tlData],

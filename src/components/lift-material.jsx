@@ -184,6 +184,14 @@ const LIFTS_COLUMNS_META = [
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+  { header: "Bilty Number", dataKey: "biltyNo", toggleable: true },
+  {
+    header: "Bilty Image",
+    dataKey: "biltyImageUrl",
+    toggleable: true,
+    isLink: true,
+    linkText: "View Bilty",
+  },
   {
     header: "Bill Image",
     dataKey: "billImageUrl",
@@ -768,6 +776,7 @@ export default function LiftMaterial() {
           truckNo: String(row["Truck No."] || "").trim(),
           driverNo: String(row["Driver No."] || "").trim(),
           biltyNo: String(row["Bilty No."] || "").trim(),
+          biltyImageUrl: String(row["Bilty Image"] || "").trim(),
           rateType: String(row["Type Of Transporting Rate"] || "").trim(),
           rate: String(row["Rate"] || "").trim(),
           billImageUrl: String(row["Bill Image"] || "").trim(),

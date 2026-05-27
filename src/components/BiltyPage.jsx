@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, useContext, useRef } from "react";
 import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter, ShieldCheck, Edit2 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 
@@ -73,6 +73,8 @@ const BILTY_HISTORY_COLUMNS_META = [
 
 export default function BiltyPage() {
   const { user, isSuperAdmin } = useContext(AuthContext);
+  const fetchInFlightRef = useRef(false);
+  const lastFetchAtRef = useRef(0);
   const [superAdminEditLift, setSuperAdminEditLift] = useState(null);
   const [liftData, setLiftData] = useState([]);
   const [selectedLift, setSelectedLift] = useState(null);
@@ -90,6 +92,14 @@ export default function BiltyPage() {
   const [activeTab, setActiveTab] = useState("pendingBilty");
   const [visiblePendingColumns, setVisiblePendingColumns] = useState({});
   const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({});
+  const firmNameFilterKey = useMemo(() => JSON.stringify(user?.firmName ?? null), [user?.firmName]);
+  const firmNameFilter = useMemo(() => {
+    try {
+      return JSON.parse(firmNameFilterKey);
+    } catch {
+      return null;
+    }
+  }, [firmNameFilterKey]);
 
   // Filter State
   const [filters, setFilters] = useState({
@@ -126,8 +136,14 @@ export default function BiltyPage() {
     setVisibleHistoryColumns(initializeVisibility(BILTY_HISTORY_COLUMNS_META));
   }, []);
 
-  const fetchLiftData = useCallback(async () => {
-    setLoading(true);
+  const fetchLiftData = useCallback(async ({ force = false, showLoader = true } = {}) => {
+    const now = Date.now();
+    if (fetchInFlightRef.current) return;
+    if (!force && now - lastFetchAtRef.current < 5000) return;
+
+    fetchInFlightRef.current = true;
+    lastFetchAtRef.current = now;
+    if (showLoader) setLoading(true);
     setError(null);
     try {
       const [
@@ -232,8 +248,8 @@ export default function BiltyPage() {
         };
       }).filter(row => row && row.id);
 
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
+      if (firmNameFilter && String(firmNameFilter).toLowerCase() !== "all") {
+        const userFirmNameLower = String(firmNameFilter).toLowerCase();
         processedRawRows = processedRawRows.filter(
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
         );
@@ -244,17 +260,18 @@ export default function BiltyPage() {
       console.error("Error fetching lift data:", err);
       setError(`Failed to load lifts data: ${err.message}`);
     } finally {
+      fetchInFlightRef.current = false;
       setLoading(false);
     }
-  }, [user]);
+  }, [firmNameFilter]);
 
   useEffect(() => {
-    fetchLiftData();
+    fetchLiftData({ force: true });
   }, [fetchLiftData]);
 
   useRealtime(["LIFT-ACCOUNTS"], () => {
     console.log("[Realtime] Bilty Page refreshing due to LIFT-ACCOUNTS table change");
-    fetchLiftData();
+    fetchLiftData({ showLoader: false });
   });
 
   const pendingBilty = useMemo(() => {
@@ -373,7 +390,7 @@ export default function BiltyPage() {
       if (updateError) throw updateError;
 
       toast.success("Bilty submitted successfully!", { id: toastId });
-      fetchLiftData();
+      fetchLiftData({ force: true, showLoader: false });
       handleClosePopup();
     } catch (error) {
       console.error("Error submitting bilty:", error);
@@ -567,7 +584,7 @@ export default function BiltyPage() {
             { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditLift.billImage, type: "text" },
           ]}
           onClose={() => setSuperAdminEditLift(null)}
-          onSaved={() => { setSuperAdminEditLift(null); fetchLiftData(); }}
+          onSaved={() => { setSuperAdminEditLift(null); fetchLiftData({ force: true, showLoader: false }); }}
         />
       )}
       <Card className="shadow-md border-none">
