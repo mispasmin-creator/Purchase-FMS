@@ -459,6 +459,7 @@ export default function ReceiptCheck() {
             indentNo:
               indentToPoMap[String(row["Indent no."] || "").trim()] ||
               String(row["Indent no."] || "").trim(),
+            originalIndentNo: String(row["Indent no."] || "").trim(),
             vendorName: String(row["Vendor Name"] || "").trim(),
             rawMaterialName: String(row["Raw Material Name"] || "").trim(),
             billNo: String(row["Bill No."] || "").trim(),
@@ -895,7 +896,7 @@ export default function ReceiptCheck() {
             Timestamp: timestamp,
             "Lift Number": selectedLift.liftNo,
             "Lift ID": selectedLift.id,
-            "Indent Number": selectedLift.indentNo,
+            "Indent Number": selectedLift.originalIndentNo || selectedLift.indentNo,
             "Firm Name": selectedLift.firmName,
             "Party Name": selectedLift.vendorName,
             "Product Name": selectedLift.rawMaterialName,
