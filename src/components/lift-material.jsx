@@ -200,7 +200,7 @@ const LIFTS_COLUMNS_META = [
     linkText: "View Bill",
   },
   {
-    header: "Total Truck Billing Quantity",
+    header: "Material Billing Quantity",
     dataKey: "additionalTruckQty",
     toggleable: true,
   },
@@ -2594,7 +2594,7 @@ export default function LiftMaterial() {
                       readOnly: false,
                     },
                     {
-                      label: "Total Truck Billing Quantity",
+                      label: "Material Billing Quantity",
                       name: "additionalTruckQty",
                       type: "text",
                       step: "any",

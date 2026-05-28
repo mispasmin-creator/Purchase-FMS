@@ -1485,7 +1485,7 @@ export default function ReceiptCheck() {
                 htmlFor="actualQuantity"
                 className="block text-sm font-medium text-gray-700"
               >
-                Actual Quantity <span className="text-red-500">*</span>
+                Truck Quantity (WeightSlip) <span className="text-red-500">*</span>
               </Label>
               <Input
                 type="number"
