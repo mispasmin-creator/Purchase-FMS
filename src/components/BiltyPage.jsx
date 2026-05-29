@@ -219,7 +219,7 @@ export default function BiltyPage() {
           driverNo: String(row["Driver No."] || "").trim(),
           transporterName: String(row["Transporter Name"] || "").trim(),
           rateType: String(row["Type Of Transporting Rate"] || "").trim(),
-          transportingRate: String(row["Transporting Per MT Rate"] || row["Transporter Rate"] || row["transportingRate"] || "").trim(),
+          transportingRate: String(row["Transporting Per MT Rate"] || row["Transporting Rate"] || row["transportingRate"] || "").trim(),
           originalQty: String(row["Qty"] || "").trim(),
           totalBillQuantity: String(row["Total Bill Quantity"] || "").trim(),
           actualQty: String(row["Actual Quantity"] || "").trim(),

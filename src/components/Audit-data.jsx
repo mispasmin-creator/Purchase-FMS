@@ -432,6 +432,9 @@ const CallTrackerPage = () => {
     const biltyImage = String(row["Bilty Image"] || liftBiltyImageMap[normalizedLiftNo] || "").trim();
     return Boolean(biltyNo && biltyImage);
   };
+  const getLiftKey = (row) => String(row["Lift ID"] || row["Lift Number"] || row["Lift No"] || "").trim();
+  const getLiftTransporterRate = (row) => liftTransporterRateMap[getLiftKey(row)] || "";
+  const getTotalFreightValue = (row) => row["Total Freight"] || getLiftTransporterRate(row) || "";
   const shouldShowInTallyEntry = (row) => (
     hasBiltyDetails(row) && !row.Actual4 && (row.Planned4 || (row.Actual2 && isAuditDone(row)) || (row.Actual5 && isReAuditDone(row)))
   );
@@ -478,7 +481,7 @@ const CallTrackerPage = () => {
                 "Truck Qty": parseNumeric(item.truckQty || rawLift["Truck Qty"]),
                 "Bilty Image": item.biltyImage || rawLift["Bilty Image"] || "",
                 "Weight Slip": item.weightSlip || rawLift["Image Of Weight Slip"] || "",
-                "Total Freight": parseNumeric(item.totalFreight || rawLift["Total Freight"]),
+                "Total Freight": parseNumeric(item.totalFreight || rawLift["Total Freight"] || rawLift["Transporter Rate"]),
                 "Firm Name": item.firmName || rawLift["Firm Name"] || "",
                 "Actual2": actualDateTime,
                 "Planned2": rawLift["Timestamp"] || actualDateTime,
@@ -647,7 +650,7 @@ const CallTrackerPage = () => {
             "Truck Qty": parseNumeric(newLiftRow.truckQty || rawLift["Truck Qty"]),
             "Bilty Image": newLiftRow.biltyImage || rawLift["Bilty Image"] || "",
             "Weight Slip": newLiftRow.weightSlip || rawLift["Image Of Weight Slip"] || "",
-            "Total Freight": parseNumeric(newLiftRow.totalFreight || rawLift["Total Freight"]),
+            "Total Freight": parseNumeric(newLiftRow.totalFreight || rawLift["Total Freight"] || rawLift["Transporter Rate"]),
             "Firm Name": newLiftRow.firmName || rawLift["Firm Name"] || "",
             "Actual2": actualDateTime,
             "Planned2": rawLift["Timestamp"] || actualDateTime,
@@ -1068,10 +1071,12 @@ const CallTrackerPage = () => {
           return null;
         }
 
+        const liftNumber = getCellValue(row, 1) || '';
+
         const rowData = {
           id: index,
           timestamp: formatDate(getCellValue(row, 0)) || '',
-          liftNumber: getCellValue(row, 1) || '',
+          liftNumber,
           type: getCellValue(row, 2) || '',
           billNo: getCellValue(row, 3) || '',
           partyName: getCellValue(row, 4) || '',
@@ -1089,7 +1094,7 @@ const CallTrackerPage = () => {
           qtyDifferenceStatus: getCellValue(row, 16) || '',
           differenceQty: getCellValue(row, 17) || '',
           weightSlip: getCellValue(row, 18) || '',
-          totalFreight: getCellValue(row, 19) || '',
+          totalFreight: getCellValue(row, 19) || liftTransporterRateMap[liftNumber] || '',
           auditRemarks: getCellValue(row, 29) || '',
           rectifyRemarks: getCellValue(row, 24) || '',
           tallyRemarks: getCellValue(row, 39) || '',
@@ -1172,6 +1177,7 @@ const CallTrackerPage = () => {
         const biltyImageMap = {};
         const actualQtyMap = {};
         const dateOfReceivingMap = {};
+        const transporterRateMap = {};
         (data || []).forEach(l => {
           const key = String(l["Lift No"] || "").trim();
           if (key) {
@@ -1181,7 +1187,7 @@ const CallTrackerPage = () => {
             biltyImageMap[key] = String(l["Bilty Image"] || "").trim();
             actualQtyMap[key] = String(l["Actual Quantity"] || "").trim();
             dateOfReceivingMap[key] = String(l["Date Of Receiving"] || "").trim();
-            liftTransporterRateMap[key] = String(l["Transporter Rate"] || "").trim();
+            transporterRateMap[key] = String(l["Transporter Rate"] || "").trim();
           }
         });
         setLiftWeightSlipMap(weightSlipMap);
@@ -1190,7 +1196,7 @@ const CallTrackerPage = () => {
         setLiftBiltyImageMap(biltyImageMap);
         setLiftActualQtyMap(actualQtyMap);
         setLiftDateOfReceivingMap(dateOfReceivingMap);
-        setLiftTransporterRateMap(liftTransporterRateMap);
+        setLiftTransporterRateMap(transporterRateMap);
       } catch (e) {
         console.error('Failed to fetch LIFT-ACCOUNTS meta:', e);
       }
@@ -1249,7 +1255,7 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status2 || row.Status || '',
@@ -1306,7 +1312,7 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: '0.000',
         differenceQty: '0.000',
         weightSlip: row["Image Of Weight Slip"] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: row["Total Freight"] || row["Transporter Rate"] || '',
         status: row["Status"] || '',
         auditStatus: '',
         rectifyStatus: '',
@@ -1388,7 +1394,7 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status4 || '',
@@ -1476,7 +1482,7 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status6 || '',
@@ -1565,7 +1571,7 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status3 || '',
@@ -1653,7 +1659,7 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status5 || '',
@@ -1755,7 +1761,7 @@ const CallTrackerPage = () => {
           qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
           differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
           weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-          totalFreight: row["Total Freight"] || '',
+          totalFreight: getTotalFreightValue(row),
           status: row[`Status${currentStage === 'AUDIT' ? '2' : currentStage === 'RECTIFY' ? '3' : currentStage === 'TALLY_ENTRY' ? '4' : currentStage === 'REAUDIT' ? '5' : '6'}`] || '',
           auditStatus: row.Status2 || '',
           rectifyStatus: row.Status3 || '',
@@ -1844,7 +1850,7 @@ const CallTrackerPage = () => {
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status6 || '',
@@ -1896,7 +1902,7 @@ const CallTrackerPage = () => {
     fetchReAuditDataFromSupabase();
     fetchAllDataFromSupabase();
     fetchHistoryDataFromSupabase();
-  }, [submittedRows, user, liftWeightSlipMap]);
+  }, [submittedRows, user, liftWeightSlipMap, liftTransporterRateMap]);
 
   useEffect(() => {
     setVisibleColumns(prev => {
