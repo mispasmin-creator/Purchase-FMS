@@ -25,6 +25,11 @@ import {
   ArrowDownRight,
   Minus,
   Search,
+  Users,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  ArrowLeft,
 } from "lucide-react";
 import {
   Card,
@@ -266,6 +271,12 @@ export default function Dashboard() {
     rlNo: "",
     firmName: "all",
   });
+
+  // Party Report States
+  const [selectedParty, setSelectedParty] = useState("all");
+  const [partySearch, setPartySearch] = useState("");
+  const [partyFirmFilter, setPartyFirmFilter] = useState("all");
+  const [expandedIndent, setExpandedIndent] = useState(null);
 
   // Fetch Data
   const isFetchingRef = useRef(false);
@@ -716,6 +727,125 @@ export default function Dashboard() {
     return { pendingLift, inTransit, received };
   }, [filteredIndentPoData, filteredLiftAccountData]);
 
+  // Party Report Data
+  const partyReportData = useMemo(() => {
+    const vendorMap = {};
+    const today = new Date();
+
+    allPurchaseData.forEach((indent) => {
+      const vendor = indent.vendorName || "Unknown";
+      if (!vendorMap[vendor]) {
+        vendorMap[vendor] = { vendorName: vendor, firmName: indent.firmName || "", indents: [] };
+      }
+
+      const lifts = allLiftAccountData.filter((l) => l.rlNo === indent.rlNo);
+      const liftNos = lifts.map((l) => String(l.id || "")).filter(Boolean);
+      const accounts = allAccountsData.filter(
+        (a) => a.rlNo && liftNos.includes(String(a.rlNo))
+      );
+
+      // Quantities
+      const indentQty = indent.poQty || 0;
+      const liftedQty = lifts.reduce((s, l) => s + (l.liftedQty || 0), 0);
+      const receivedQty = lifts.reduce((s, l) => s + (l.receivedQty || 0), 0);
+      const pendingQty = Math.max(0, indentQty - liftedQty);
+
+      // Aging
+      const createdDate = indent.date;
+      const daysOld = createdDate && !isNaN(createdDate)
+        ? Math.floor((today - createdDate) / (1000 * 60 * 60 * 24))
+        : null;
+
+      const steps = [
+        { label: "HOD Approved", done: !!indent.actualM, category: "indent" },
+        { label: "Factory Approved", done: !!indent.actual7, category: "indent" },
+        { label: "Mgmt Approved", done: !!indent.actual8, category: "indent" },
+        { label: "PO Generated", done: !!indent.actualS, category: "indent" },
+        { label: "PO Entry (Tally)", done: !!indent.actualAL, category: "indent" },
+        { label: "Material Lifted", done: lifts.length > 0, category: "lift" },
+        { label: "Material Received", done: lifts.some((l) => l.actualU), category: "lift" },
+        { label: "Bilty Entry", done: lifts.some((l) => l.actualAE), category: "lift" },
+        { label: "Lab Testing", done: lifts.some((l) => l.actualAJ), category: "lift" },
+        { label: "Final Tally", done: lifts.some((l) => l.actualBB), category: "lift" },
+        { label: "Accounts Audit", done: accounts.some((a) => a.actualAA), category: "accounts" },
+        { label: "Bill Received", done: accounts.some((a) => a.actualAU), category: "accounts" },
+      ];
+
+      const pendingStep = steps.find((s) => !s.done);
+      const completedCount = steps.filter((s) => s.done).length;
+      const progress = Math.round((completedCount / steps.length) * 100);
+
+      const liftStatus =
+        lifts.length === 0 ? "Lift Pending"
+        : lifts.some((l) => !l.actualU) ? "In Transit"
+        : lifts.some((l) => !l.actualAJ) ? "Lab Pending"
+        : lifts.some((l) => !l.actualBB) ? "Tally Pending"
+        : "Lift Done";
+
+      // Urgency based on age + pending
+      const urgency =
+        progress === 100 ? "done"
+        : daysOld === null ? "low"
+        : daysOld > 30 ? "high"
+        : daysOld > 15 ? "medium"
+        : "low";
+
+      vendorMap[vendor].indents.push({
+        ...indent,
+        lifts, accounts, steps, pendingStep,
+        completedSteps: completedCount, progress,
+        liftStatus, isComplete: progress === 100,
+        indentQty, liftedQty, receivedQty, pendingQty,
+        daysOld, urgency,
+      });
+    });
+
+    Object.values(vendorMap).forEach((v) => {
+      v.indents.sort((a, b) => {
+        // Sort: high urgency first, then by progress ascending
+        const uOrder = { high: 0, medium: 1, low: 2, done: 3 };
+        if (uOrder[a.urgency] !== uOrder[b.urgency]) return uOrder[a.urgency] - uOrder[b.urgency];
+        return a.progress - b.progress;
+      });
+      v.totalIndents = v.indents.length;
+      v.pendingCount = v.indents.filter((i) => !i.isComplete).length;
+      v.doneCount = v.indents.filter((i) => i.isComplete).length;
+      v.liftsNotDone = v.indents.filter((i) => i.liftStatus === "Lift Pending").length;
+      v.inTransit = v.indents.filter((i) => i.liftStatus === "In Transit").length;
+      v.labPending = v.indents.filter((i) => i.liftStatus === "Lab Pending").length;
+      v.tallyPending = v.indents.filter((i) => i.liftStatus === "Tally Pending").length;
+      v.accountsPending = v.indents.filter((i) => i.pendingStep?.category === "accounts").length;
+      v.criticalCount = v.indents.filter((i) => i.urgency === "high").length;
+      // Qty totals
+      v.totalIndentQty = v.indents.reduce((s, i) => s + i.indentQty, 0);
+      v.totalLiftedQty = v.indents.reduce((s, i) => s + i.liftedQty, 0);
+      v.totalReceivedQty = v.indents.reduce((s, i) => s + i.receivedQty, 0);
+      v.totalPendingQty = v.indents.reduce((s, i) => s + i.pendingQty, 0);
+    });
+
+    return Object.values(vendorMap).sort((a, b) => {
+      if (b.criticalCount !== a.criticalCount) return b.criticalCount - a.criticalCount;
+      return b.pendingCount - a.pendingCount;
+    });
+  }, [allPurchaseData, allLiftAccountData, allAccountsData]);
+
+  const selectedPartyData = useMemo(() => {
+    if (selectedParty === "all") return null;
+    return partyReportData.find((p) => p.vendorName === selectedParty) || null;
+  }, [partyReportData, selectedParty]);
+
+  const filteredParties = useMemo(() => {
+    let result = partyReportData;
+    if (partyFirmFilter !== "all") {
+      result = result.filter((p) => p.firmName === partyFirmFilter);
+    }
+    if (partySearch.trim()) {
+      const q = partySearch.toLowerCase();
+      result = result.filter((p) => p.vendorName.toLowerCase().includes(q));
+    }
+    return result;
+  }, [partyReportData, partySearch, partyFirmFilter]);
+
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
@@ -954,29 +1084,24 @@ export default function Dashboard() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex justify-center mb-6 sm:mb-8">
-            <TabsList className="flex w-full sm:w-auto overflow-x-auto no-scrollbar bg-white border-0 shadow-lg rounded-xl sm:rounded-2xl p-1 sm:p-2 h-auto gap-1">
-              <TabsTrigger
-                value="overview"
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-4 px-3 sm:px-6 text-xs sm:text-base font-semibold rounded-lg sm:rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300 whitespace-nowrap"
-              >
-                <TrendingUp className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger
-                value="purchase"
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-4 px-3 sm:px-6 text-xs sm:text-base font-semibold rounded-lg sm:rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300 whitespace-nowrap"
-              >
-                <List className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                Data
-              </TabsTrigger>
-              <TabsTrigger
-                value="pending"
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-4 px-3 sm:px-6 text-xs sm:text-base font-semibold rounded-lg sm:rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300 whitespace-nowrap"
-              >
-                <AlertTriangle className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                Workflow
-              </TabsTrigger>
+          <div className="flex justify-center mb-6 sm:mb-8 overflow-x-auto no-scrollbar">
+            <TabsList className="flex shrink-0 w-full sm:w-auto bg-white border-0 shadow-lg rounded-xl sm:rounded-2xl p-1 sm:p-2 h-auto gap-0.5 sm:gap-1">
+              {[
+                { value: "overview", icon: <TrendingUp className="h-3.5 w-3.5 sm:h-5 sm:w-5 shrink-0" />, label: "Overview" },
+                { value: "purchase", icon: <List className="h-3.5 w-3.5 sm:h-5 sm:w-5 shrink-0" />, label: "Data" },
+                { value: "pending", icon: <AlertTriangle className="h-3.5 w-3.5 sm:h-5 sm:w-5 shrink-0" />, label: "Workflow" },
+                { value: "party", icon: <Users className="h-3.5 w-3.5 sm:h-5 sm:w-5 shrink-0" />, label: "Party Report" },
+              ].map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="flex-1 sm:flex-none shrink-0 flex items-center justify-center gap-1 sm:gap-2 py-2 sm:py-4 px-2 sm:px-6 text-[11px] sm:text-base font-semibold rounded-lg sm:rounded-xl data-[state=active]:bg-linear-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl transition-all duration-300 whitespace-nowrap"
+                >
+                  {tab.icon}
+                  <span className="hidden xs:inline sm:inline">{tab.label}</span>
+                  <span className="xs:hidden sm:hidden">{tab.label.split(" ")[0]}</span>
+                </TabsTrigger>
+              ))}
             </TabsList>
           </div>
 
@@ -1837,6 +1962,577 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* ===== PARTY REPORT TAB ===== */}
+          <TabsContent value="party" className="space-y-5">
+
+            {/* ---- Filters Row ---- */}
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Party / Vendor naam search karein..."
+                      value={partySearch}
+                      onChange={(e) => setPartySearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7da23a]/40 bg-white"
+                    />
+                  </div>
+                  <Select value={partyFirmFilter} onValueChange={setPartyFirmFilter}>
+                    <SelectTrigger className="w-full sm:w-44 h-9 text-sm shrink-0">
+                      <SelectValue placeholder="Firm Filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Sab Firms</SelectItem>
+                      {firmOptions.map((f) => (
+                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedParty !== "all" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setSelectedParty("all"); setExpandedIndent(null); }}
+                      className="shrink-0 border-[#7da23a] text-[#7da23a] hover:bg-green-50"
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-1" />
+                      Sab Parties
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {selectedParty === "all" ? (
+              /* ========== ALL PARTIES VIEW ========== */
+              <>
+                {/* Grand summary cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {[
+                    { label: "Total Parties", value: filteredParties.length, icon: <Users className="h-5 w-5 text-white" />, gradient: "from-green-500 to-green-600" },
+                    { label: "Critical (>30d)", value: filteredParties.reduce((s, p) => s + p.criticalCount, 0), icon: <AlertTriangle className="h-5 w-5 text-white" />, gradient: "from-red-500 to-red-600" },
+                    { label: "Lift Pending", value: filteredParties.reduce((s, p) => s + p.liftsNotDone, 0), icon: <Hourglass className="h-5 w-5 text-white" />, gradient: "from-orange-500 to-orange-600" },
+                    { label: "In Transit", value: filteredParties.reduce((s, p) => s + p.inTransit, 0), icon: <Truck className="h-5 w-5 text-white" />, gradient: "from-blue-500 to-blue-600" },
+                    { label: "Accounts Pending", value: filteredParties.reduce((s, p) => s + p.accountsPending, 0), icon: <Archive className="h-5 w-5 text-white" />, gradient: "from-amber-500 to-amber-600" },
+                    { label: "Completed", value: filteredParties.reduce((s, p) => s + p.doneCount, 0), icon: <CheckCircle className="h-5 w-5 text-white" />, gradient: "from-emerald-500 to-emerald-600" },
+                  ].map((c) => (
+                    <Card key={c.label} className="border-0 shadow-md bg-white">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className={`p-2.5 rounded-xl bg-gradient-to-br ${c.gradient} shadow shrink-0`}>{c.icon}</div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-gray-500 font-medium truncate">{c.label}</p>
+                          <p className="text-2xl font-bold text-gray-900">{c.value}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Qty Summary Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: "Total PO Qty", value: filteredParties.reduce((s, p) => s + p.totalIndentQty, 0), color: "text-gray-800", bg: "bg-white" },
+                    { label: "Total Lifted Qty", value: filteredParties.reduce((s, p) => s + p.totalLiftedQty, 0), color: "text-blue-700", bg: "bg-blue-50" },
+                    { label: "Total Received Qty", value: filteredParties.reduce((s, p) => s + p.totalReceivedQty, 0), color: "text-green-700", bg: "bg-green-50" },
+                    { label: "Total Pending Qty", value: filteredParties.reduce((s, p) => s + p.totalPendingQty, 0), color: "text-red-700", bg: "bg-red-50" },
+                  ].map((q) => (
+                    <Card key={q.label} className={`border-0 shadow-sm ${q.bg}`}>
+                      <CardContent className="p-3 text-center">
+                        <p className="text-xs text-gray-500 font-medium">{q.label}</p>
+                        <p className={`text-xl font-bold mt-0.5 ${q.color}`}>{q.value.toLocaleString()}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* All Parties Table */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="p-5 border-b border-gray-100">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Users className="h-5 w-5 text-[#7da23a]" />
+                      Party-wise Complete Report
+                      <Badge className="ml-2 bg-green-100 text-[#6b8e2f]">{filteredParties.length} parties</Badge>
+                    </CardTitle>
+                    <CardDescription>Kisi bhi party ki row pe click karein — complete indent report dekhein</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50 hover:bg-gray-50 border-b-2 border-gray-200">
+                            <TableHead className="font-bold text-gray-700 min-w-[180px]">Party / Vendor</TableHead>
+                            <TableHead className="font-bold text-gray-700">Firm</TableHead>
+                            <TableHead className="text-center font-bold text-gray-700">Total</TableHead>
+                            <TableHead className="text-center font-bold text-gray-700 text-red-600">Critical</TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">PO Qty</TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">Lifted Qty</TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">Received Qty</TableHead>
+                            <TableHead className="text-right font-bold text-red-600">Pending Qty</TableHead>
+                            <TableHead className="text-center font-bold text-orange-600">Lift⬇</TableHead>
+                            <TableHead className="text-center font-bold text-blue-600">Transit</TableHead>
+                            <TableHead className="text-center font-bold text-purple-600">Lab</TableHead>
+                            <TableHead className="text-center font-bold text-amber-600">Accounts</TableHead>
+                            <TableHead className="text-center font-bold text-green-600">Done</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredParties.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={14} className="text-center h-32 text-gray-500">
+                                <Users className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                                <p>Koi party nahi mili</p>
+                              </TableCell>
+                            </TableRow>
+                          ) : filteredParties.map((party) => (
+                            <TableRow
+                              key={party.vendorName}
+                              className={`cursor-pointer border-b border-gray-100 transition-colors hover:bg-green-50/50 ${party.criticalCount > 0 ? "border-l-4 border-l-red-400" : ""}`}
+                              onClick={() => { setSelectedParty(party.vendorName); setExpandedIndent(null); }}
+                            >
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {party.criticalCount > 0 && (
+                                    <span className="text-red-500 text-xs font-bold shrink-0" title="Critical - 30+ din se pending">🔥</span>
+                                  )}
+                                  <span className="font-semibold text-[#7da23a]">{party.vendorName}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-gray-500 text-sm">{party.firmName || "—"}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline" className="font-bold">{party.totalIndents}</Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {party.criticalCount > 0
+                                  ? <Badge className="bg-red-100 text-red-700 font-bold">{party.criticalCount}</Badge>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold text-gray-800">
+                                {party.totalIndentQty > 0 ? party.totalIndentQty.toLocaleString() : "—"}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold text-blue-700">
+                                {party.totalLiftedQty > 0 ? party.totalLiftedQty.toLocaleString() : "—"}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold text-green-700">
+                                {party.totalReceivedQty > 0 ? party.totalReceivedQty.toLocaleString() : "—"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {party.totalPendingQty > 0
+                                  ? <span className="font-bold text-red-600">{party.totalPendingQty.toLocaleString()}</span>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {party.liftsNotDone > 0
+                                  ? <Badge className="bg-orange-100 text-orange-700 font-semibold">{party.liftsNotDone}</Badge>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {party.inTransit > 0
+                                  ? <Badge className="bg-blue-100 text-blue-700 font-semibold">{party.inTransit}</Badge>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {party.labPending > 0
+                                  ? <Badge className="bg-purple-100 text-purple-700 font-semibold">{party.labPending}</Badge>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {party.accountsPending > 0
+                                  ? <Badge className="bg-amber-100 text-amber-700 font-semibold">{party.accountsPending}</Badge>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {party.doneCount > 0
+                                  ? <Badge className="bg-green-100 text-green-700 font-semibold">{party.doneCount}</Badge>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-[#7da23a] border-[#7da23a] hover:bg-green-50 h-7 px-2 text-xs whitespace-nowrap"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedParty(party.vendorName); setExpandedIndent(null); }}
+                                >
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  Details
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : selectedPartyData ? (
+              /* ========== PARTY DETAIL VIEW ========== */
+              <>
+                {/* Party Header */}
+                <Card className="border-0 shadow-xl bg-gradient-to-r from-[#7da23a] to-[#5a7a28] text-white">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div>
+                        <p className="text-green-100 text-xs font-semibold uppercase tracking-wider mb-1">Party Report</p>
+                        <h2 className="text-xl sm:text-2xl font-bold">{selectedPartyData.vendorName}</h2>
+                        <p className="text-green-200 text-sm mt-0.5">{selectedPartyData.firmName}</p>
+                      </div>
+                      <div className="flex items-start gap-4">
+                        {/* Qty summary in header */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                          {[
+                            { label: "PO Qty", value: selectedPartyData.totalIndentQty },
+                            { label: "Lifted", value: selectedPartyData.totalLiftedQty },
+                            { label: "Received", value: selectedPartyData.totalReceivedQty },
+                            { label: "Pending", value: selectedPartyData.totalPendingQty },
+                          ].map((q) => (
+                            <div key={q.label} className="bg-white/10 rounded-lg px-3 py-2">
+                              <p className="text-green-100 text-[10px] font-medium">{q.label}</p>
+                              <p className="text-white font-bold text-base">{q.value.toLocaleString()}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setSelectedParty("all"); setExpandedIndent(null); }}
+                          className="bg-white/10 text-white border-white/30 hover:bg-white/20 shrink-0 mt-1"
+                        >
+                          <ArrowLeft className="h-4 w-4 mr-1" />
+                          Back
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Status Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3">
+                  {[
+                    { label: "Total", value: selectedPartyData.totalIndents, bg: "bg-gray-50 border-gray-200 text-gray-700", emoji: "📋" },
+                    { label: "Critical", value: selectedPartyData.criticalCount, bg: "bg-red-50 border-red-200 text-red-700", emoji: "🔥" },
+                    { label: "Lift Pending", value: selectedPartyData.liftsNotDone, bg: "bg-orange-50 border-orange-200 text-orange-700", emoji: "⏳" },
+                    { label: "In Transit", value: selectedPartyData.inTransit, bg: "bg-blue-50 border-blue-200 text-blue-700", emoji: "🚛" },
+                    { label: "Lab Pending", value: selectedPartyData.labPending, bg: "bg-purple-50 border-purple-200 text-purple-700", emoji: "🧪" },
+                    { label: "Accounts", value: selectedPartyData.accountsPending, bg: "bg-amber-50 border-amber-200 text-amber-700", emoji: "📑" },
+                    { label: "Done", value: selectedPartyData.doneCount, bg: "bg-green-50 border-green-200 text-green-700", emoji: "✅" },
+                  ].map((c) => (
+                    <Card key={c.label} className={`border shadow-sm ${c.bg}`}>
+                      <CardContent className="p-3 text-center">
+                        <p className="text-sm">{c.emoji}</p>
+                        <p className="text-xl font-bold">{c.value}</p>
+                        <p className="text-xs font-medium mt-0.5 truncate">{c.label}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Qty Flow Visual Bar */}
+                {selectedPartyData.totalIndentQty > 0 && (
+                  <Card className="border-0 shadow-md">
+                    <CardContent className="p-4">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Quantity Flow</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {[
+                          { label: "PO Qty", value: selectedPartyData.totalIndentQty, color: "bg-gray-200 text-gray-700" },
+                          { label: "→ Lifted", value: selectedPartyData.totalLiftedQty, color: "bg-blue-100 text-blue-700" },
+                          { label: "→ Received", value: selectedPartyData.totalReceivedQty, color: "bg-green-100 text-green-700" },
+                          { label: "= Pending", value: selectedPartyData.totalPendingQty, color: "bg-red-100 text-red-700" },
+                        ].map((q) => (
+                          <div key={q.label} className={`px-4 py-2 rounded-lg ${q.color} flex items-center gap-2`}>
+                            <span className="text-xs font-medium">{q.label}</span>
+                            <span className="text-base font-bold">{q.value.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Lifted progress bar */}
+                      <div className="mt-3">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          <span>Lift Progress</span>
+                          <span>
+                            {selectedPartyData.totalIndentQty > 0
+                              ? Math.round((selectedPartyData.totalLiftedQty / selectedPartyData.totalIndentQty) * 100)
+                              : 0}% lifted
+                          </span>
+                        </div>
+                        <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-400 to-green-500 rounded-full"
+                            style={{
+                              width: `${selectedPartyData.totalIndentQty > 0
+                                ? Math.min(100, Math.round((selectedPartyData.totalLiftedQty / selectedPartyData.totalIndentQty) * 100))
+                                : 0}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Indent-wise Detailed Table */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="p-5 border-b border-gray-100">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-[#7da23a]" />
+                      Indent-wise Complete Report
+                      <Badge className="ml-2 bg-green-100 text-[#6b8e2f]">{selectedPartyData.indents.length} indents</Badge>
+                    </CardTitle>
+                    <CardDescription>Row pe click karein → step-by-step detail aur lift status dekhein</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50 hover:bg-gray-50 border-b-2 border-gray-200">
+                            <TableHead className="w-7 font-bold text-gray-700"></TableHead>
+                            <TableHead className="font-bold text-gray-700 min-w-[120px]">Indent No.</TableHead>
+                            <TableHead className="font-bold text-gray-700">Date</TableHead>
+                            <TableHead className="font-bold text-gray-700 text-center">Age</TableHead>
+                            <TableHead className="font-bold text-gray-700 min-w-[140px]">Material</TableHead>
+                            <TableHead className="text-right font-bold text-gray-700">PO Qty</TableHead>
+                            <TableHead className="text-right font-bold text-blue-600">Lifted Qty</TableHead>
+                            <TableHead className="text-right font-bold text-green-600">Received Qty</TableHead>
+                            <TableHead className="text-right font-bold text-red-500">Pending Qty</TableHead>
+                            <TableHead className="font-bold text-gray-700 min-w-[120px]">Lift Status</TableHead>
+                            <TableHead className="font-bold text-gray-700 min-w-[150px]">Kahan Ruka Hai</TableHead>
+                            <TableHead className="font-bold text-gray-700 min-w-[110px]">Progress</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedPartyData.indents.map((indent) => {
+                            const pendingIdx = indent.steps.findIndex((s) => !s.done);
+                            return (
+                              <>
+                                <TableRow
+                                  key={indent.rlNo}
+                                  className={`cursor-pointer border-b border-gray-100 transition-colors ${
+                                    indent.urgency === "high"
+                                      ? "border-l-4 border-l-red-400 hover:bg-red-50/30"
+                                      : indent.urgency === "medium"
+                                        ? "border-l-4 border-l-amber-400 hover:bg-amber-50/30"
+                                        : "hover:bg-gray-50"
+                                  } ${expandedIndent === indent.rlNo ? "bg-green-50" : ""}`}
+                                  onClick={() =>
+                                    setExpandedIndent(expandedIndent === indent.rlNo ? null : indent.rlNo)
+                                  }
+                                >
+                                  <TableCell className="text-center">
+                                    {expandedIndent === indent.rlNo
+                                      ? <ChevronUp className="h-4 w-4 text-gray-500 mx-auto" />
+                                      : <ChevronDown className="h-4 w-4 text-gray-400 mx-auto" />}
+                                  </TableCell>
+                                  <TableCell className="font-bold text-[#7da23a]">{indent.rlNo}</TableCell>
+                                  <TableCell className="text-gray-600 text-sm whitespace-nowrap">
+                                    {indent.date ? format(indent.date, "dd-MMM-yy") : "—"}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {indent.daysOld !== null ? (
+                                      <Badge
+                                        className={
+                                          indent.urgency === "high"
+                                            ? "bg-red-100 text-red-700 font-bold text-xs"
+                                            : indent.urgency === "medium"
+                                              ? "bg-amber-100 text-amber-700 font-semibold text-xs"
+                                              : indent.isComplete
+                                                ? "bg-gray-100 text-gray-500 text-xs"
+                                                : "bg-green-100 text-green-700 text-xs"
+                                        }
+                                      >
+                                        {indent.daysOld}d
+                                      </Badge>
+                                    ) : "—"}
+                                  </TableCell>
+                                  <TableCell className="text-gray-800 text-sm max-w-[160px] truncate" title={indent.material || ""}>
+                                    {indent.material || "—"}
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold text-gray-900">
+                                    {indent.indentQty > 0 ? indent.indentQty.toLocaleString() : "—"}
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold text-blue-700">
+                                    {indent.liftedQty > 0 ? indent.liftedQty.toLocaleString() : <span className="text-gray-300">—</span>}
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold text-green-700">
+                                    {indent.receivedQty > 0 ? indent.receivedQty.toLocaleString() : <span className="text-gray-300">—</span>}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {indent.pendingQty > 0
+                                      ? <span className="font-bold text-red-600">{indent.pendingQty.toLocaleString()}</span>
+                                      : <span className="text-green-600 font-medium text-xs">✓ 0</span>}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      className={
+                                        indent.liftStatus === "Lift Pending" ? "bg-orange-100 text-orange-700 text-xs"
+                                        : indent.liftStatus === "In Transit" ? "bg-blue-100 text-blue-700 text-xs"
+                                        : indent.liftStatus === "Lab Pending" ? "bg-purple-100 text-purple-700 text-xs"
+                                        : indent.liftStatus === "Tally Pending" ? "bg-amber-100 text-amber-700 text-xs"
+                                        : "bg-green-100 text-green-700 text-xs"
+                                      }
+                                    >
+                                      {indent.liftStatus}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    {indent.pendingStep ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-xs">⏳</span>
+                                        <span className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                          {indent.pendingStep.label}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs font-semibold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                                        ✓ Mukammal
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1.5 min-w-[100px]">
+                                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full ${
+                                            indent.progress === 100 ? "bg-green-500"
+                                            : indent.urgency === "high" ? "bg-red-400"
+                                            : indent.progress >= 50 ? "bg-[#7da23a]"
+                                            : "bg-amber-500"
+                                          }`}
+                                          style={{ width: `${indent.progress}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs font-bold text-gray-600 shrink-0 w-8 text-right">
+                                        {indent.progress}%
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+
+                                {/* ---- Expanded Detail Row ---- */}
+                                {expandedIndent === indent.rlNo && (
+                                  <TableRow key={`${indent.rlNo}-exp`}>
+                                    <TableCell colSpan={12} className="p-0 bg-slate-50">
+                                      <div className="p-4 border-l-4 border-[#7da23a] space-y-4">
+
+                                        {/* Step checklist */}
+                                        <div>
+                                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                                            Step Progress — {indent.completedSteps}/{indent.steps.length} complete
+                                          </p>
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {indent.steps.map((step, idx) => (
+                                              <span
+                                                key={idx}
+                                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+                                                  step.done
+                                                    ? "bg-green-50 text-green-700 border-green-200"
+                                                    : idx === pendingIdx
+                                                      ? "bg-amber-50 text-amber-800 border-amber-400 ring-2 ring-amber-300 font-bold shadow-sm"
+                                                      : "bg-white text-gray-400 border-gray-200"
+                                                }`}
+                                              >
+                                                <span>{step.done ? "✓" : idx === pendingIdx ? "⏳" : "○"}</span>
+                                                <span>{step.label}</span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Lift details table */}
+                                        {indent.lifts.length > 0 && (
+                                          <div>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                                              Lift Details — {indent.lifts.length} lift(s)
+                                            </p>
+                                            <div className="rounded-lg border border-gray-200 overflow-hidden">
+                                              <table className="w-full text-xs">
+                                                <thead>
+                                                  <tr className="bg-gray-100 text-gray-600 font-semibold">
+                                                    <th className="px-3 py-2 text-left">Lift No.</th>
+                                                    <th className="px-3 py-2 text-left">Date</th>
+                                                    <th className="px-3 py-2 text-right">Lifted Qty</th>
+                                                    <th className="px-3 py-2 text-right">Received Qty</th>
+                                                    <th className="px-3 py-2 text-center">Receipt</th>
+                                                    <th className="px-3 py-2 text-center">Bilty</th>
+                                                    <th className="px-3 py-2 text-center">Lab</th>
+                                                    <th className="px-3 py-2 text-center">Tally</th>
+                                                    <th className="px-3 py-2 text-left">Kahan Ruki Hai</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  {indent.lifts.map((lift) => {
+                                                    const liftPendingAt =
+                                                      !lift.actualU ? "Receipt Pending"
+                                                      : !lift.actualAE ? "Bilty Pending"
+                                                      : !lift.actualAJ ? "Lab Pending"
+                                                      : !lift.actualBB ? "Final Tally Pending"
+                                                      : "Done";
+                                                    return (
+                                                      <tr key={lift.id} className="bg-white border-t border-gray-100 hover:bg-blue-50/30">
+                                                        <td className="px-3 py-2 font-bold text-[#7da23a]">#{lift.id}</td>
+                                                        <td className="px-3 py-2 text-gray-500">
+                                                          {lift.date ? format(lift.date, "dd-MMM-yy") : "—"}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right font-semibold text-blue-700">
+                                                          {lift.liftedQty > 0 ? lift.liftedQty.toLocaleString() : "—"}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right font-semibold text-green-700">
+                                                          {lift.receivedQty > 0 ? lift.receivedQty.toLocaleString() : "—"}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center">
+                                                          <span className={lift.actualU ? "text-green-600 font-bold" : "text-red-400"}>
+                                                            {lift.actualU ? "✓" : "✗"}
+                                                          </span>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center">
+                                                          <span className={lift.actualAE ? "text-green-600 font-bold" : "text-red-400"}>
+                                                            {lift.actualAE ? "✓" : "✗"}
+                                                          </span>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center">
+                                                          <span className={lift.actualAJ ? "text-green-600 font-bold" : "text-red-400"}>
+                                                            {lift.actualAJ ? "✓" : "✗"}
+                                                          </span>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center">
+                                                          <span className={lift.actualBB ? "text-green-600 font-bold" : "text-red-400"}>
+                                                            {lift.actualBB ? "✓" : "✗"}
+                                                          </span>
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                          <Badge
+                                                            className={liftPendingAt === "Done"
+                                                              ? "bg-green-100 text-green-700 text-[10px]"
+                                                              : "bg-amber-100 text-amber-800 text-[10px] font-semibold"}
+                                                          >
+                                                            {liftPendingAt}
+                                                          </Badge>
+                                                        </td>
+                                                      </tr>
+                                                    );
+                                                  })}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : null}
           </TabsContent>
         </Tabs>
       </div>

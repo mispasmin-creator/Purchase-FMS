@@ -26,6 +26,7 @@ const COLUMN_DEFINITIONS = [
   { key: "planned2", label: "Planned Date" },
   { key: "liftId", label: "Lift ID" },
   { key: "indentNumber", label: "Indent Number" },
+  { key: "poCopy", label: "PO Copy" },
   { key: "firmName", label: "Firm Name" },
   { key: "partyName", label: "Party Name" },
   { key: "productName", label: "Product Name" },
@@ -208,7 +209,37 @@ const AccountsAudit = () => {
         }
       }
 
-      // 3. Merge Data and Filter
+      // 3. Fetch INDENT-PO Data for PO Copy
+      const indentNumbers = [
+        ...new Set(
+          mismatchData
+            .map((item) => {
+              const val = item["Indent Number"];
+              return val ? String(val).trim() : null;
+            })
+            .filter(Boolean),
+        ),
+      ];
+
+      let indentPoMap = {};
+
+      if (indentNumbers.length > 0) {
+        const { data: indentData, error: indentError } = await supabase
+          .from("INDENT-PO")
+          .select("\"Indent Id.\", \"PO Copy\"")
+          .in("Indent Id.", indentNumbers);
+
+        if (!indentError && indentData) {
+          indentData.forEach((record) => {
+            const key = record["Indent Id."]
+              ? String(record["Indent Id."]).trim()
+              : null;
+            if (key) indentPoMap[key] = record;
+          });
+        }
+      }
+
+      // 4. Merge Data and Filter
       const formattedData = mismatchData
         .map((row, index) => {
           // Find match using normalized key
@@ -216,13 +247,17 @@ const AccountsAudit = () => {
           const liftId = rawLiftId ? String(rawLiftId).trim() : "";
           const liftRecord = liftAccountsMap[liftId] || {}; // Linked record or empty
 
+          const indentNum = row["Indent Number"] ? String(row["Indent Number"]).trim() : "";
+          const indentPoRecord = indentPoMap[indentNum] || {};
+
           return {
             id: row.id || index,
 
             // --- Mismatch Table Columns ---
             timestamp: row.Timestamp || "",
             liftId: liftId || "",
-            indentNumber: row["Indent Number"] || "",
+            indentNumber: indentNum,
+            poCopy: String(indentPoRecord["PO Copy"] || "").trim(),
             firmName: row["Firm Name"] || liftRecord["Firm Name"] || "",
             partyName: row["Party Name"] || "",
             productName: row["Product Name"] || "",
@@ -794,7 +829,22 @@ const AccountsAudit = () => {
                             key={`${row.id}-${col.key}`}
                             className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
                           >
-                            {col.key === "actions" ? (
+                            {col.key === "poCopy" ? (
+                              row.poCopy ? (
+                                <a
+                                  href={row.poCopy}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#7da23a] hover:bg-[#6b8e2f] rounded-lg transition-colors duration-200 shadow-sm"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                  View PO
+                                </a>
+                              ) : (
+                                <span className="text-xs text-gray-400 italic">Not available</span>
+                              )
+                            ) : col.key === "actions" ? (
                               <button
                                 onClick={() => {
                                   setEditingRow(row.id);
