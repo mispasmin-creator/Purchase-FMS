@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import {
   Users,
   UserPlus,
+  User,
   Edit2,
   Trash2,
   Shield,
@@ -24,6 +25,12 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
 import {
   Table,
   TableHeader,
@@ -95,6 +102,81 @@ const ALL_PAGES = [
   "KYC",
   "Vendor Payment",
 ];
+
+const SIDEBAR_PAGES = [
+  { id: "dashboard", label: "Dashboard", stepName: "Dashboard" },
+  { id: "indent", label: "Indent", stepName: "Generate Indent" },
+  { id: "stock", label: "HOD Approval", stepName: "Recheck the Stock And Approve Quantity" },
+  { id: "three-party", label: "Three Party", stepName: "vendor" },
+  { id: "factory-approval", label: "Factory App.", stepName: "management" },
+  { id: "management-approval", label: "Mgmt App.", stepName: "management" },
+  { id: "generate-po", label: " Make PO", stepName: "Generate Purchase Order" },
+  { id: "po-history", label: "PO History", stepName: "Generate Purchase Order" },
+  { id: "arrange-logistics", label: "Arrange Logistics", stepName: "Arrange Logistics" },
+  { id: "logistics-approval", label: "Logistics App.", stepName: "Logistics Approval" },
+  { id: "tally-entry", label: "PO Entry", stepName: "Purchase Order Entry In Tally" },
+  { id: "original-bills", label: "Advance Payement", stepName: "accounts" },
+  { id: "lift-material", label: "Lift", stepName: "Lift The Material" },
+  { id: "receipt-check", label: "Receipt", stepName: "Receipt Of Material / Physical Quality Check" },
+  { id: "unload-management", label: "Unload App.", stepName: "management" },
+  { id: "lab-testing", label: "Lab", stepName: "Lab Testing - Is The Quality Good?" },
+  { id: "lab-report", label: "Lab Report", stepName: "Lab Testing - Is The Quality Good?" },
+  { id: "tat-report", label: "TAT & Delay Report", stepName: "Dashboard" },
+  { id: "bilty", label: "Bilty", stepName: "Bilty" },
+  { id: "mismatch", label: "Mismatch", stepName: "mismatch" },
+  { id: "purchaser-coordinate", label: "Purchaser Coord.", stepName: "mismatch" },
+  { id: "debit-note", label: "Debit Note", stepName: "Debit Note" },
+  { id: "audit-data", label: "Accounts Audit", stepName: "accounts" },
+  { id: "fullkitting", label: "Fullkitting", stepName: "Fullkitting" },
+  { id: "sale-of-raw-material", label: "Sale Of Raw Material", stepName: "Sale Of Raw Material" },
+  { id: "purchase-return", label: "Purchase Return", stepName: "mismatch" },
+  { id: "manage-users", label: "Manage Users", stepName: "admin" }
+];
+
+const getAccessibleSidebarPages = (userRecord) => {
+  const rawPages = userRecord["Pages"];
+  const isViewOnly = rawPages === "viewonly" || (typeof rawPages === "string" && rawPages.trim().toLowerCase() === "viewonly");
+  
+  let allowedSteps = [];
+  if (isViewOnly) {
+    allowedSteps = ["admin"];
+  } else if (typeof rawPages === "string" && (rawPages.trim().toLowerCase() === "all" || rawPages.trim().toLowerCase() === "super admin" || rawPages.trim().toLowerCase() === "admin")) {
+    allowedSteps = ["admin"];
+  } else if (Array.isArray(rawPages)) {
+    allowedSteps = rawPages.map(p => typeof p === "string" ? p.trim().toLowerCase() : String(p || "").trim().toLowerCase()).filter(Boolean);
+  } else if (typeof rawPages === "string" && rawPages.trim() !== "") {
+    try {
+      const parsed = JSON.parse(rawPages.trim());
+      if (Array.isArray(parsed)) {
+        allowedSteps = parsed.map(p => typeof p === "string" ? p.trim().toLowerCase() : String(p || "").trim().toLowerCase()).filter(Boolean);
+      } else if (parsed && typeof parsed === "object") {
+        allowedSteps = Object.keys(parsed).map(p => p.trim().toLowerCase()).filter(Boolean);
+      }
+    } catch (e) {
+      allowedSteps = rawPages.trim().split(",").map(p => p.trim().toLowerCase()).filter(Boolean);
+    }
+  }
+
+  return SIDEBAR_PAGES.filter((tab) => {
+    // Always show dashboard
+    if (tab.id === "dashboard") return true;
+
+    // View-only users cannot see Manage Users page
+    if (isViewOnly && tab.id === "manage-users") return false;
+
+    // If admin, show all
+    if (allowedSteps.includes("admin")) return true;
+
+    // Check if tab label or stepName matches any allowedSteps (case-insensitive)
+    const tabLabel = tab.label?.toLowerCase().trim();
+    const tabStepName = tab.stepName?.toLowerCase().trim();
+
+    return allowedSteps.some((step) => {
+      const stepLower = step.toLowerCase().trim();
+      return stepLower === tabLabel || stepLower === tabStepName;
+    });
+  });
+};
 
 const FIRMS = ["Pmmpl", "Purab", "Rkl", "all"];
 
@@ -186,7 +268,8 @@ const getPagePermissionsWithFirms = (rawPages) => {
 
 
 export default function ManageUsers() {
-  const { user: currentUser, isReadOnly } = useAuth();
+  const { user: currentUser, allowedSteps, isReadOnly } = useAuth();
+  const isAdmin = allowedSteps?.includes("admin") && !isReadOnly;
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -194,11 +277,14 @@ export default function ManageUsers() {
   const [editingUser, setEditingUser] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pageSearch, setPageSearch] = useState("");
+  const [sidebarSearch, setSidebarSearch] = useState("");
+  const [sidebarPageFilter, setSidebarPageFilter] = useState("all");
 
   // Form State
   const [formData, setFormData] = useState({
     username: "",
     password: "",
+    name: "",
     firmName: [],
     permissions: [],
     pageFirms: {},
@@ -233,6 +319,7 @@ export default function ManageUsers() {
     setFormData({
       username: "",
       password: "",
+      name: "",
       firmName: [],
       permissions: [],
       pageFirms: {},
@@ -295,6 +382,7 @@ export default function ManageUsers() {
     setFormData({
       username: user["User Name"] || "",
       password: user["Password"] || "",
+      name: user["Name"] || "",
       firmName: parseFirms(user["Firm Name"]),
       permissions: userPermissions,
       pageFirms,
@@ -486,6 +574,7 @@ export default function ManageUsers() {
         Password: formData.password,
         "Firm Name": firmsValue,
         Pages: pagesValue,
+        Name: formData.name || null,
       };
 
 
@@ -532,10 +621,26 @@ export default function ManageUsers() {
 
   const filteredUsers = users.filter((u) => {
     const userName = (u["User Name"] || "").toLowerCase();
+    const name = (u["Name"] || "").toLowerCase();
     const query = searchQuery.toLowerCase();
     const parsedFirms = parseFirms(u["Firm Name"]);
     const firmsText = (parsedFirms.includes("all") ? "all firms" : parsedFirms.join(", ")).toLowerCase();
-    return userName.includes(query) || firmsText.includes(query);
+    return userName.includes(query) || name.includes(query) || firmsText.includes(query);
+  });
+
+
+  const filteredSidebarUsers = users.filter((u) => {
+    // 1. Name or Username filter
+    const userName = (u["User Name"] || "").toLowerCase();
+    const name = (u["Name"] || "").toLowerCase();
+    const query = sidebarSearch.toLowerCase();
+    if (!userName.includes(query) && !name.includes(query)) return false;
+
+    // 2. Sidebar Page filter
+    if (sidebarPageFilter === "all") return true;
+
+    const accessible = getAccessibleSidebarPages(u);
+    return accessible.some(page => page.id === sidebarPageFilter || page.label.toLowerCase() === sidebarPageFilter.toLowerCase());
   });
 
   return (
@@ -561,168 +666,326 @@ export default function ManageUsers() {
         </Button>
       </div>
 
-      <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
-        <CardHeader className="border-b border-gray-100 bg-slate-50/50">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search by name or firm..."
-                className="pl-10 bg-white border-gray-200 focus:ring-[#7da23a] focus:border-[#7da23a]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className="bg-white px-3 py-1 border-gray-200"
-              >
-                Total: {users.length} Users
-              </Badge>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="w-[200px] font-bold">
-                    User Name
-                  </TableHead>
-                  <TableHead className="w-[180px] font-bold">
-                    Firm Name
-                  </TableHead>
-                  <TableHead className="font-bold">
-                    Access Permissions
-                  </TableHead>
-                  <TableHead className="w-[150px] text-right font-bold">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array(5)
-                    .fill(0)
-                    .map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <div className="h-4 bg-gray-100 rounded w-24 animate-pulse"></div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="h-4 bg-gray-100 rounded w-32 animate-pulse"></div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="h-4 bg-gray-100 rounded w-full animate-pulse"></div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="h-8 bg-gray-100 rounded w-20 ml-auto animate-pulse"></div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                ) : filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => {
-                    const rawPages = user["Pages"];
-                    const isViewOnly = rawPages === "viewonly" ||
-                      (typeof rawPages === "string" && rawPages.trim().toLowerCase() === "viewonly");
-                    const userPermsArray = isViewOnly ? [] : parsePermissions(rawPages);
-                    const isAdmin = !isViewOnly && userPermsArray.includes("admin");
-                    const perms = isAdmin ? [] : getPagePermissionsWithFirms(rawPages);
+      <Tabs defaultValue="users" className="w-full space-y-6">
+        <TabsList className={`grid w-full sm:w-[400px] ${isAdmin ? "grid-cols-2" : "grid-cols-1"} bg-slate-100 p-1 rounded-lg`}>
+          <TabsTrigger value="users">Users List</TabsTrigger>
+          {isAdmin && <TabsTrigger value="sidebar-access">Sidebar Page Access</TabsTrigger>}
+        </TabsList>
 
-                    return (
-                      <TableRow
-                        key={user["User Name"]}
-                        className="group hover:bg-[#7da23a]/5 transition-colors"
-                      >
-                        <TableCell className="font-medium text-gray-900">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[#7da23a] font-bold">
-                              {user["User Name"]?.charAt(0).toUpperCase()}
-                            </div>
-                            {user["User Name"]}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-none"
+        <TabsContent value="users">
+          <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="border-b border-gray-100 bg-slate-50/50">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by name or firm..."
+                    className="pl-10 bg-white border-gray-200 focus:ring-[#7da23a] focus:border-[#7da23a]"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className="bg-white px-3 py-1 border-gray-200"
+                  >
+                    Total: {users.length} Users
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="w-[200px] font-bold">
+                        User Name
+                      </TableHead>
+                      <TableHead className="w-[180px] font-bold">
+                        Firm Name
+                      </TableHead>
+                      <TableHead className="font-bold">
+                        Access Permissions
+                      </TableHead>
+                      <TableHead className="w-[150px] text-right font-bold">
+                        Actions
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      Array(5)
+                        .fill(0)
+                        .map((_, i) => (
+                          <TableRow key={i}>
+                            <TableCell>
+                              <div className="h-4 bg-gray-100 rounded w-24 animate-pulse"></div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="h-4 bg-gray-100 rounded w-32 animate-pulse"></div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="h-4 bg-gray-100 rounded w-full animate-pulse"></div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="h-8 bg-gray-100 rounded w-20 ml-auto animate-pulse"></div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                    ) : filteredUsers.length > 0 ? (
+                      filteredUsers.map((user) => {
+                        const rawPages = user["Pages"];
+                        const isViewOnly = rawPages === "viewonly" ||
+                          (typeof rawPages === "string" && rawPages.trim().toLowerCase() === "viewonly");
+                        const userPermsArray = isViewOnly ? [] : parsePermissions(rawPages);
+                        const isAdmin = !isViewOnly && userPermsArray.includes("admin");
+                        const perms = isAdmin ? [] : getPagePermissionsWithFirms(rawPages);
+
+                        return (
+                          <TableRow
+                            key={user["User Name"]}
+                            className="group hover:bg-[#7da23a]/5 transition-colors"
                           >
-                            <Building2 className="h-3 w-3 mr-1" />
-                            {(() => {
-                              const parsed = parseFirms(user["Firm Name"]);
-                              if (parsed.length === 0) return "N/A";
-                              if (parsed.includes("all")) return "All Firms";
-                              return parsed.join(", ");
-                            })()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1.5">
-                            {isViewOnly ? (
-                              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none font-bold">
-                                <Eye className="h-3 w-3 mr-1" />
-                                View Only (All Pages, No Edits)
+                            <TableCell className="font-medium text-gray-900">
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[#7da23a] font-bold">
+                                  {user["Name"]?.charAt(0).toUpperCase() || user["User Name"]?.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-gray-900">{user["Name"] || "—"}</div>
+                                  <div className="text-xs text-gray-500 font-normal">@{user["User Name"]}</div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="secondary"
+                                className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-none"
+                              >
+                                <Building2 className="h-3 w-3 mr-1" />
+                                {(() => {
+                                  const parsed = parseFirms(user["Firm Name"]);
+                                  if (parsed.length === 0) return "N/A";
+                                  if (parsed.includes("all")) return "All Firms";
+                                  return parsed.join(", ");
+                                })()}
                               </Badge>
-                            ) : isAdmin ? (
-                              <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200 border-none font-bold">
-                                <ShieldCheck className="h-3 w-3 mr-1" />
-                                Administrator (All Access)
-                              </Badge>
-                            ) : perms.length > 0 ? (
-                              perms.map((p, idx) => (
-                                <Badge
-                                  key={idx}
-                                  variant="outline"
-                                  className="text-[11px] font-medium border-[#7da23a]/20 bg-[#7da23a]/5 hover:bg-[#7da23a]/10 text-[#7da23a]"
-                                >
-                                  {p}
-                                </Badge>
-                              ))
-                            ) : (
-                              <span className="text-xs text-gray-400 italic">
-                                No specialized access
-                              </span>
-                            )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1.5">
+                                {isViewOnly ? (
+                                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none font-bold">
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    View Only (All Pages, No Edits)
+                                  </Badge>
+                                ) : isAdmin ? (
+                                  <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200 border-none font-bold">
+                                    <ShieldCheck className="h-3 w-3 mr-1" />
+                                    Administrator (All Access)
+                                  </Badge>
+                                ) : perms.length > 0 ? (
+                                  perms.map((p, idx) => (
+                                    <Badge
+                                      key={idx}
+                                      variant="outline"
+                                      className="text-[11px] font-medium border-[#7da23a]/20 bg-[#7da23a]/5 hover:bg-[#7da23a]/10 text-[#7da23a]"
+                                    >
+                                      {p}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-gray-400 italic">
+                                    No specialized access
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-500 hover:text-[#7da23a] hover:bg-[#7da23a]/10"
+                                onClick={() => handleOpenEditDialog(user)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-500 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => handleDeleteUser(user["User Name"])}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-64 text-center">
+                          <div className="flex flex-col items-center justify-center text-gray-500">
+                            <Users className="h-12 w-12 text-gray-200 mb-2" />
+                            <p>No users found matching your search</p>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-500 hover:text-[#7da23a] hover:bg-[#7da23a]/10"
-                            onClick={() => handleOpenEditDialog(user)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-500 hover:text-red-600 hover:bg-red-50"
-                            onClick={() => handleDeleteUser(user["User Name"])}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </TableCell>
                       </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-64 text-center">
-                      <div className="flex flex-col items-center justify-center text-gray-500">
-                        <Users className="h-12 w-12 text-gray-200 mb-2" />
-                        <p>No users found matching your search</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="sidebar-access">
+            <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="border-b border-gray-100 bg-slate-50/50 p-6">
+                <CardTitle className="text-xl font-bold flex items-center gap-2 text-gray-800">
+                  <Shield className="h-5 w-5 text-[#7da23a]" />
+                  Sidebar Page Access
+                </CardTitle>
+                <CardDescription>
+                  Compare user permissions against the frontend sidebar stages to see which pages they can access.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="flex flex-col sm:flex-row items-center gap-4 mb-6 bg-slate-50 p-4 rounded-lg">
+                  <div className="relative flex-1 max-w-md w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by name or username..."
+                      className="pl-10 bg-white border-gray-200 focus:ring-[#7da23a] focus:border-[#7da23a]"
+                      value={sidebarSearch}
+                      onChange={(e) => setSidebarSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="w-full sm:w-64">
+                    <Select value={sidebarPageFilter} onValueChange={setSidebarPageFilter}>
+                      <SelectTrigger className="bg-white border-gray-200">
+                        <SelectValue placeholder="Filter by Sidebar Page" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Sidebar Pages (No Filter)</SelectItem>
+                        {SIDEBAR_PAGES.map((page) => (
+                          <SelectItem key={page.id} value={page.id}>{page.label.trim()}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-gray-100 rounded-lg">
+                  <Table>
+                    <TableHeader className="bg-slate-50">
+                      <TableRow>
+                        <TableHead className="w-[250px] font-bold">User Details</TableHead>
+                        <TableHead className="w-[180px] font-bold">Access Level</TableHead>
+                        <TableHead className="font-bold">Allowed Sidebar Pages</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSidebarUsers.length > 0 ? (
+                        filteredSidebarUsers.map((user) => {
+                          const rawPages = user["Pages"];
+                          const isViewOnly = rawPages === "viewonly" || (typeof rawPages === "string" && rawPages.trim().toLowerCase() === "viewonly");
+                          const userPermsArray = isViewOnly ? [] : parsePermissions(rawPages);
+                          const isSuperAdmin = typeof rawPages === "string" && rawPages.trim().toLowerCase() === "super admin";
+                          const isNormalAdmin = !isViewOnly && !isSuperAdmin && userPermsArray.includes("admin");
+                          
+                          let accessLevelBadge = null;
+                          if (isSuperAdmin) {
+                            accessLevelBadge = (
+                              <Badge className="bg-red-100 text-red-700 border-none font-bold">
+                                Super Admin
+                              </Badge>
+                            );
+                          } else if (isNormalAdmin) {
+                            accessLevelBadge = (
+                              <Badge className="bg-purple-100 text-purple-700 border-none font-bold">
+                                Administrator
+                              </Badge>
+                            );
+                          } else if (isViewOnly) {
+                            accessLevelBadge = (
+                              <Badge className="bg-blue-100 text-blue-700 border-none font-bold">
+                                View Only
+                              </Badge>
+                            );
+                          } else {
+                            accessLevelBadge = (
+                              <Badge variant="outline" className="text-gray-600 bg-gray-50 border-gray-200">
+                                Custom Access
+                              </Badge>
+                            );
+                          }
+
+                          const accessiblePages = getAccessibleSidebarPages(user);
+
+                          return (
+                            <TableRow key={user["User Name"]} className="hover:bg-slate-50/50">
+                              <TableCell className="font-medium align-top py-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[#7da23a] font-bold">
+                                    {user["Name"]?.charAt(0).toUpperCase() || user["User Name"]?.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-gray-900">{user["Name"] || "—"}</div>
+                                    <div className="text-xs text-gray-500 font-normal">@{user["User Name"]}</div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="align-top py-4">
+                                {accessLevelBadge}
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <div className="flex flex-wrap gap-2">
+                                  {accessiblePages.length > 0 ? (
+                                    accessiblePages.map((page) => {
+                                      const isHighlighted = sidebarPageFilter !== "all" && page.id === sidebarPageFilter;
+                                      return (
+                                        <Badge
+                                          key={page.id}
+                                          variant="outline"
+                                          className={`text-[11px] px-2.5 py-1 font-medium ${
+                                            isHighlighted 
+                                              ? "bg-[#7da23a] text-white border-[#7da23a] font-semibold shadow-sm" 
+                                              : "bg-white text-gray-700 border-gray-200"
+                                          }`}
+                                        >
+                                          {page.label.trim()}
+                                        </Badge>
+                                      );
+                                    })
+                                  ) : (
+                                    <span className="text-xs text-gray-400 italic">No access to any sidebar pages</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="h-48 text-center text-gray-500">
+                            <div className="flex flex-col items-center justify-center">
+                              <AlertTriangle className="h-8 w-8 text-gray-400 mb-2" />
+                              <p className="font-medium text-gray-700">No matching users</p>
+                              <p className="text-xs text-gray-400">Try adjusting your search query or filters.</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
 
       {/* Add/Edit User Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -744,6 +1007,27 @@ export default function ManageUsers() {
 
             <div className="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-6 bg-white overflow-y-auto flex-1 min-h-0">
               <div className="space-y-4 md:col-span-2">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="fullName"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    Full Name
+                  </Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="fullName"
+                      placeholder="e.g. John Doe"
+                      className="pl-10"
+                      value={formData.name || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label
                     htmlFor="username"

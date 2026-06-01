@@ -41,34 +41,80 @@ export default function SuperAdminEditModal({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = {};
+      // Group payload by table
+      const updates = {
+        [tableName]: {
+          payload: {},
+          pkField: pkField,
+          pkValue: pkValue
+        }
+      };
+
+      const getOrCreateUpdate = (tName, fieldPkCol, fieldPkVal) => {
+        if (!updates[tName]) {
+          updates[tName] = {
+            payload: {},
+            pkField: fieldPkCol,
+            pkValue: fieldPkVal
+          };
+        }
+        return updates[tName];
+      };
+
       fields.forEach((f) => {
+        if (f.readOnly || f.skipSave) return;
+
         if (f.type !== "file") {
-          payload[f.dbKey] = form[f.dbKey];
+          const targetTable = f.customTable || tableName;
+          const targetPkField = f.customPkField || pkField;
+          const targetPkValue = f.customPkValue || pkValue;
+          const dbKeyToUse = f.saveDbKey || f.dbKey;
+
+          const u = getOrCreateUpdate(targetTable, targetPkField, targetPkValue);
+          u.payload[dbKeyToUse] = form[f.dbKey] === "" ? null : form[f.dbKey];
         }
       });
 
       // Upload any pending files and add their URLs to payload
       for (const f of fields) {
-        if (f.type === "file" && pendingFiles[f.dbKey]) {
-          const { url } = await uploadFileToStorage(
-            pendingFiles[f.dbKey],
-            "image",
-            f.folder || "sa-uploads",
-          );
-          payload[f.dbKey] = url;
-        } else if (f.type === "file") {
-          // Keep existing URL unchanged
-          payload[f.dbKey] = form[f.dbKey];
+        if (f.readOnly || f.skipSave) continue;
+
+        if (f.type === "file") {
+          const targetTable = f.customTable || tableName;
+          const targetPkField = f.customPkField || pkField;
+          const targetPkValue = f.customPkValue || pkValue;
+          const dbKeyToUse = f.saveDbKey || f.dbKey;
+
+          const u = getOrCreateUpdate(targetTable, targetPkField, targetPkValue);
+
+          if (pendingFiles[f.dbKey]) {
+            const { url } = await uploadFileToStorage(
+              pendingFiles[f.dbKey],
+              "image",
+              f.folder || "sa-uploads",
+            );
+            u.payload[dbKeyToUse] = url;
+          } else {
+            // Keep existing URL unchanged
+            u.payload[dbKeyToUse] = form[f.dbKey];
+          }
         }
       }
 
-      const { error } = await supabase
-        .from(tableName)
-        .update(payload)
-        .eq(pkField, pkValue);
+      // Execute updates for all targeted tables
+      for (const tName of Object.keys(updates)) {
+        const u = updates[tName];
+        if (Object.keys(u.payload).length === 0) continue;
 
-      if (error) throw error;
+        console.log(`[SuperAdmin] Updating table ${tName} where ${u.pkField} = ${u.pkValue}:`, u.payload);
+
+        const { error } = await supabase
+          .from(tName)
+          .update(u.payload)
+          .eq(u.pkField, u.pkValue);
+
+        if (error) throw error;
+      }
 
       toast.success(`Record updated successfully`);
       onSaved();
@@ -108,13 +154,15 @@ export default function SuperAdminEditModal({
                     rows={3}
                     value={form[f.dbKey] ?? ""}
                     onChange={(e) => setForm((p) => ({ ...p, [f.dbKey]: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 text-sm border border-purple-200 rounded-md focus:ring-1 focus:ring-purple-400 focus:border-purple-400 resize-none"
+                    disabled={f.readOnly}
+                    className={`w-full px-2.5 py-1.5 text-sm border border-purple-200 rounded-md focus:ring-1 focus:ring-purple-400 focus:border-purple-400 resize-none ${f.readOnly ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
                   />
                 ) : f.type === "select" ? (
                   <select
                     value={form[f.dbKey] ?? ""}
                     onChange={(e) => setForm((p) => ({ ...p, [f.dbKey]: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 text-sm border border-purple-200 rounded-md focus:ring-1 focus:ring-purple-400 focus:border-purple-400 bg-white"
+                    disabled={f.readOnly}
+                    className={`w-full px-2.5 py-1.5 text-sm border border-purple-200 rounded-md focus:ring-1 focus:ring-purple-400 focus:border-purple-400 bg-white ${f.readOnly ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
                   >
                     {(f.options || []).map((opt) => (
                       <option key={opt} value={opt}>{opt}</option>
@@ -140,6 +188,7 @@ export default function SuperAdminEditModal({
                     <input
                       type="file"
                       accept="image/*,.pdf"
+                      disabled={f.readOnly}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) setPendingFiles((p) => ({ ...p, [f.dbKey]: file }));
@@ -152,7 +201,8 @@ export default function SuperAdminEditModal({
                     type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
                     value={form[f.dbKey] ?? ""}
                     onChange={(e) => setForm((p) => ({ ...p, [f.dbKey]: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 text-sm border border-purple-200 rounded-md focus:ring-1 focus:ring-purple-400 focus:border-purple-400"
+                    disabled={f.readOnly}
+                    className={`w-full px-2.5 py-1.5 text-sm border border-purple-200 rounded-md focus:ring-1 focus:ring-purple-400 focus:border-purple-400 ${f.readOnly ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
                   />
                 )}
               </div>

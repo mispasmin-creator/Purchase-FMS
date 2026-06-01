@@ -88,57 +88,57 @@ const UNIFIED_MISMATCH_COLUMNS_META = [
 const HISTORY_COLUMNS_META = [
   {
     header: "Date",
-    dataKey: "Timestamp",
+    dataKey: "timestamp",
     toggleable: true,
     alwaysVisible: true,
   },
   {
     header: "Lift ID",
-    dataKey: "Lift ID",
+    dataKey: "liftIdDisplay",
     toggleable: true,
     alwaysVisible: true,
   },
   {
-    header: "Indent Number",
-    dataKey: "Indent Number",
+    header: "PO Number",
+    dataKey: "indentNo",
     toggleable: true,
     alwaysVisible: true,
   },
-  { header: "Firm Name", dataKey: "Firm Name", toggleable: true },
-  { header: "Party Name", dataKey: "Party Name", toggleable: true },
-  { header: "Product Name", dataKey: "Product Name", toggleable: true },
-  { header: "Transporter", dataKey: "Transporter Name", toggleable: true },
-  { header: "Status", dataKey: "Status", toggleable: true },
-  { header: "Remarks", dataKey: "Remarks", toggleable: true },
-  { header: "Lift Number", dataKey: "Lift Number", toggleable: true },
-  { header: "Type", dataKey: "Type", toggleable: true },
-  { header: "Bill No.", dataKey: "Bill No.", toggleable: true },
-  { header: "Bill Qty", dataKey: "Qty", toggleable: true },
-  { header: "Area Lifting", dataKey: "Area Lifting", toggleable: true },
+  { header: "Firm Name", dataKey: "firmName", toggleable: true },
+  { header: "Party Name", dataKey: "vendorName", toggleable: true },
+  { header: "Product Name", dataKey: "material", toggleable: true },
+  { header: "Transporter", dataKey: "transporterName", toggleable: true },
+  { header: "Status", dataKey: "status", toggleable: true },
+  { header: "Remarks", dataKey: "remarks", toggleable: true },
+  { header: "Lift Number", dataKey: "liftNo", toggleable: true },
+  { header: "Type", dataKey: "liftType", toggleable: true },
+  { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Bill Qty", dataKey: "billQuantity", toggleable: true },
+  { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   {
     header: "Bill Image",
-    dataKey: "Bill Image",
+    dataKey: "billImageUrl",
     toggleable: true,
     isLink: true,
     linkText: "View",
   },
-  { header: "Bilty No.", dataKey: "Bilty No.", toggleable: true },
-  { header: "Type Of Rate", dataKey: "Type Of Rate", toggleable: true },
-  { header: "Bill Rate", dataKey: "Rate", toggleable: true },
-  { header: "Receive Qty", dataKey: "Actual Quantity", toggleable: true },
+  { header: "Bilty No.", dataKey: "biltyNo", toggleable: true },
+  { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
+  { header: "Bill Rate", dataKey: "materialRate", toggleable: true },
+  { header: "Receive Qty", dataKey: "actualQuantity", toggleable: true },
   {
     header: "Bilty Image",
-    dataKey: "Bilty Image",
+    dataKey: "biltyImageUrl",
     toggleable: true,
     isLink: true,
     linkText: "View",
   },
-  { header: "Qty Diff Status", dataKey: "Qty Diff Status", toggleable: true },
-  { header: "Diff Qty", dataKey: "Diff Qty", toggleable: true },
+  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
+  { header: "Diff Qty", dataKey: "differenceQty", toggleable: true },
   {
     header: "Weight Slip",
-    dataKey: "Weight Slip",
+    dataKey: "weightSlipImageUrl",
     toggleable: true,
     isLink: true,
     linkText: "View",
@@ -1099,6 +1099,8 @@ export default function MismatchAnalysis() {
           mismatchItem["Product Name"] || lift.material || po.materialName,
         firmName: mismatchItem["Firm Name"] || lift.firmName || po.firmName,
         timestamp: String(mismatchItem["Timestamp"] || "").replace("T", " "),
+        status: mismatchItem["Status"] || lift.status || "",
+        remarks: mismatchItem["Remarks"] || "",
 
         // Live stage derived from LIFT-ACCOUNTS actual timestamps
         stage: liveStage,
@@ -1316,9 +1318,9 @@ export default function MismatchAnalysis() {
               className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-200 font-bold"
               onClick={() => handleAcknowledgeMismatch(item)}
               title="Mark as Proper"
-              disabled={item.Status === "Acknowledge"}
+              disabled={item.status === "Acknowledge"}
             >
-              {item.Status === "Acknowledge" ? "Proper" : "OK"}
+              {item.status === "Acknowledge" ? "Proper" : "OK"}
             </Button>
             {isSuperAdmin && (
               <button
@@ -1684,21 +1686,52 @@ export default function MismatchAnalysis() {
           pkField="id"
           pkValue={superAdminEditItem.id}
           fields={[
-            { label: "Lift ID", dbKey: "Lift ID", value: superAdminEditItem.liftIdDisplay || superAdminEditItem.liftNo, type: "text" },
-            { label: "Party Name", dbKey: "Party Name", value: superAdminEditItem.vendorName, type: "text" },
-            { label: "Product Name", dbKey: "Product Name", value: superAdminEditItem.material, type: "text" },
-            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
-            { label: "Indent Number", dbKey: "Indent Number", value: superAdminEditItem.indentNo, type: "text" },
-            { label: "Rate", dbKey: "Rate", value: superAdminEditItem.materialRate, type: "number" },
-            { label: "PO Rate", dbKey: "PO Rate", value: superAdminEditItem.poRate, type: "number" },
-            { label: "Truck Qty", dbKey: "Truck Qty", value: superAdminEditItem.billQuantity, type: "number" },
+            { label: "Stage", dbKey: "stage", value: superAdminEditItem.stage, type: "text", readOnly: true },
+            { label: "Detected Issues", dbKey: "mismatchTypes", value: (superAdminEditItem.mismatchTypes || []).join(", ").toUpperCase(), type: "text", readOnly: true },
+            { label: "Difference Summary", dbKey: "diffSummary", value: superAdminEditItem.diffSummary, type: "text", readOnly: true },
+            
+            { label: "Lift ID (Mismatch)", dbKey: "Lift ID", value: superAdminEditItem.liftIdDisplay || superAdminEditItem.liftNo, type: "text" },
+            { label: "Lift Number (Mismatch)", dbKey: "Lift Number", value: superAdminEditItem.liftNo, type: "text" },
+            { label: "Lift Number (LIFT-ACCOUNTS)", dbKey: "liftNoLift", saveDbKey: "Lift No", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.liftNo, type: "text" },
+            
+            { label: "Truck No. (Mismatch)", dbKey: "Truck No.", value: superAdminEditItem.truckNo, type: "text" },
+            { label: "Truck No. (LIFT-ACCOUNTS)", dbKey: "truckNoLift", saveDbKey: "Truck No.", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.truckNo, type: "text" },
+            
+            { label: "PO Number (Mismatch)", dbKey: "Indent Number", value: superAdminEditItem.indentNo, type: "text" },
+            { label: "PO Number (LIFT-ACCOUNTS)", dbKey: "poNoLift", saveDbKey: "Indent no.", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.indentNo, type: "text" },
+            
+            { label: "Firm Name (Mismatch)", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+            { label: "Firm Name (LIFT-ACCOUNTS)", dbKey: "firmNameLift", saveDbKey: "Firm Name", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.firmName, type: "text" },
+            
+            { label: "Party Name (Mismatch)", dbKey: "Party Name", value: superAdminEditItem.vendorName, type: "text" },
+            { label: "Party Name (LIFT-ACCOUNTS)", dbKey: "partyNameLift", saveDbKey: "Vendor Name", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.vendorName, type: "text" },
+            
+            { label: "Product Name (Mismatch)", dbKey: "Product Name", value: superAdminEditItem.material, type: "text" },
+            { label: "Product Name (LIFT-ACCOUNTS)", dbKey: "productNameLift", saveDbKey: "Raw Material Name", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.material, type: "text" },
+            
+            { label: "PO Rate (INDENT-PO)", dbKey: "poRatePO", saveDbKey: "Rate", customTable: "INDENT-PO", customPkField: "po_number", customPkValue: superAdminEditItem.indentNo, value: superAdminEditItem.poRate, type: "number" },
+            
+            { label: "Bill Rate (Mismatch)", dbKey: "Rate", value: superAdminEditItem.materialRate, type: "number" },
+            { label: "Bill Rate (LIFT-ACCOUNTS)", dbKey: "rateLift", saveDbKey: "Rate", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.materialRate, type: "number" },
+            
+            { label: "Bill Qty (Mismatch)", dbKey: "Truck Qty", value: superAdminEditItem.billQuantity, type: "number" },
+            { label: "Bill Qty (LIFT-ACCOUNTS)", dbKey: "truckQtyLift", saveDbKey: "Truck Qty", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.billQuantity, type: "number" },
+            
+            { label: "Receive Qty (LIFT-ACCOUNTS)", dbKey: "actualQtyLift", saveDbKey: "Actual Quantity", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.actualQuantity, type: "number" },
+            
+            { label: "PO Al2O3% (INDENT-PO)", dbKey: "poAluminaPO", saveDbKey: "Alumina %", customTable: "INDENT-PO", customPkField: "po_number", customPkValue: superAdminEditItem.indentNo, value: superAdminEditItem.poAlumina, type: "number" },
+            { label: "PO Fe% (INDENT-PO)", dbKey: "poIronPO", saveDbKey: "Iron %", customTable: "INDENT-PO", customPkField: "po_number", customPkValue: superAdminEditItem.indentNo, value: superAdminEditItem.poIron, type: "number" },
+            
+            { label: "Lab Al2O3% (LIFT-ACCOUNTS)", dbKey: "aluminaPercentLift", saveDbKey: "Alumina Percent Age %", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.aluminaPercent, type: "number" },
+            { label: "Lab Fe% (LIFT-ACCOUNTS)", dbKey: "ironPercentLift", saveDbKey: "Iron Percent Age %", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.ironPercent, type: "number" },
+            
             { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditItem.debitAmount, type: "number" },
             { label: "Debit Note URL", dbKey: "Debit Note URL", value: superAdminEditItem.debitNoteUrl, type: "text" },
             { label: "Total Freight", dbKey: "Total Freight", value: superAdminEditItem.totalFreight, type: "number" },
             { label: "Remarks", dbKey: "Remarks", value: superAdminEditItem.remarks, type: "textarea" },
           ]}
           onClose={() => setSuperAdminEditItem(null)}
-          onSaved={() => { setSuperAdminEditItem(null); }}
+          onSaved={() => { setSuperAdminEditItem(null); fetchMismatchSheetData(); fetchLiftAccountsData(); }}
         />
       )}
 
