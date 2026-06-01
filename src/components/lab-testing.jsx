@@ -62,6 +62,7 @@ import {
   Filter,
   ChevronsUpDown,
   ShieldCheck,
+  Download,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
@@ -238,7 +239,9 @@ const ELIGIBLE_TESTS_COLUMNS_META = [
     dataKey: "aiCondition_val_formatted",
     toggleable: true,
   },
-  { header: "PO Number", dataKey: "indentNo", toggleable: true },
+  { header: "PO Number", dataKey: "poNumber", toggleable: true },
+  { header: "Firm Name", dataKey: "firmName", toggleable: true },
+  { header: "Bill No.", dataKey: "billNo", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Truck Number", dataKey: "truckNo", toggleable: true },
@@ -517,7 +520,7 @@ export default function LabTesting() {
         const { data, error } = await supabase
           .from("INDENT-PO")
           .select(
-            '"Indent Id.", "Total Quantity", Quantity, "Alumina %", "Iron %", "AP Percent Age %", "BD Percent Age %"',
+            '"Indent Id.", "Total Quantity", Quantity, "Alumina %", "Iron %", "AP Percent Age %", "BD Percent Age %", po_number',
           );
 
         if (error) throw error;
@@ -525,6 +528,7 @@ export default function LabTesting() {
         const processedData = data
           .map((row) => ({
             indentNo: row["Indent Id."] ? String(row["Indent Id."]) : "",
+            poNumber: row["po_number"] ? String(row["po_number"]) : "",
             poQuantity: row["Total Quantity"]
               ? String(row["Total Quantity"])
               : String(row["Quantity"] || ""),
@@ -625,6 +629,7 @@ export default function LabTesting() {
             expectedAlumina: "",
             expectedIron: "",
           };
+          let matchedPoNumber = "";
 
           if (indentNo && indentData.length > 0) {
             // Find matching indent in INDENT-PO data
@@ -652,6 +657,7 @@ export default function LabTesting() {
                 expectedAlumina: matchingIndent.expectedAlumina || "",
                 expectedIron: matchingIndent.expectedIron || "",
               };
+              matchedPoNumber = matchingIndent.poNumber || "";
             }
           }
 
@@ -660,6 +666,7 @@ export default function LabTesting() {
             _dbId: row.id, // Store the Supabase row ID for updates
             liftNo: liftNo,
             indentNo: indentNo,
+            poNumber: matchedPoNumber,
             vendorName: String(row["Vendor Name"] || "").trim(),
             rawMaterialName: String(row["Raw Material Name"] || "").trim(),
             type: String(row["Type"] || "").trim(),
@@ -1414,6 +1421,26 @@ export default function LabTesting() {
     );
   };
 
+  const exportTableToCSV = (filename, columnsMeta, data, visibilityState) => {
+    const exportCols = columnsMeta.filter(
+      (col) => col.dataKey !== "actionColumn" && visibilityState[col.dataKey],
+    );
+    const headers = exportCols.map((col) => `"${col.header}"`).join(",");
+    const rows = data.map((row) =>
+      exportCols
+        .map((col) => `"${String(row[col.dataKey] ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Reusable Table Rendering Function
   const renderTableSection = (
     tabKey,
@@ -1446,7 +1473,23 @@ export default function LabTesting() {
                 {description}
               </CardDescription>
             </div>
-            <Popover>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() =>
+                  exportTableToCSV(
+                    `lab-${tabKey}.csv`,
+                    columnsMeta,
+                    data,
+                    visibilityState,
+                  )
+                }
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
+              </Button>
+              <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 text-xs">
                   <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View
@@ -1530,6 +1573,7 @@ export default function LabTesting() {
                 </div>
               </PopoverContent>
             </Popover>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="flex flex-col flex-1 p-0">

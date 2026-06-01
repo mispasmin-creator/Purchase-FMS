@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useContext, useRef } from "react";
-import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter, ShieldCheck, Edit2 } from "lucide-react";
+import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter, ShieldCheck, Edit2, Download } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 
 // Shadcn UI components
@@ -432,6 +432,26 @@ export default function BiltyPage() {
     }
   };
 
+  const exportTableToCSV = (filename, columnsMeta, data, visibilityState) => {
+    const exportCols = columnsMeta.filter(
+      (col) => col.dataKey !== "actionColumn" && visibilityState[col.dataKey],
+    );
+    const headers = exportCols.map((col) => `"${col.header}"`).join(",");
+    const rows = data.map((row) =>
+      exportCols
+        .map((col) => `"${String(row[col.dataKey] ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
     return (
       <Card className="shadow-sm border border-border flex-1 flex flex-col">
@@ -444,7 +464,16 @@ export default function BiltyPage() {
               </CardTitle>
               <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
             </div>
-            <Popover>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => exportTableToCSV(`bilty-${tabKey}.csv`, columnsMeta, data, visibilityState)}
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
+              </Button>
+              <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 text-xs">
                   <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
@@ -476,6 +505,7 @@ export default function BiltyPage() {
                 </div>
               </PopoverContent>
             </Popover>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0 flex-1 flex flex-col">

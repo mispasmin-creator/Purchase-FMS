@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink, Search, ShieldCheck } from 'lucide-react';
+import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink, Search, ShieldCheck, Download } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
 import { AuthContext } from '../context/AuthContext';
@@ -2070,6 +2070,37 @@ const CallTrackerPage = () => {
     return data.filter(item => firmFilter === 'all' || (item.firmName && item.firmName === firmFilter)).length;
   };
 
+  const COLUMN_LABELS = {
+    stage: 'Stage', timestamp: 'Date', indentNumber: 'Indent No.', firmName: 'Firm Name',
+    poRate: 'PO Rate', vendorName: 'Vendor Name', liftNumber: 'Lift Number', billNo: 'Bill No.',
+    dateOfReceiving: 'Bill Receiving Date', partyName: 'Party Name', productName: 'Product Name',
+    qty: 'PO Qty', areaLifting: 'Area Lifting', truckNo: 'Truck No.', transporterName: 'Transporter',
+    transporterRate: 'Transporter Rate', billImage: 'Bill Image', biltyNo: 'Bilty No.',
+    typeOfRate: 'Type Of Rate', rate: 'Material Rate', truckQty: 'Material Qty',
+    liftingQty: 'Truck Qty', biltyImage: 'Bilty Image', qtyDifferenceStatus: 'Qty Diff Status',
+    weightSlip: 'Weight Slip', debitAmount: 'Debit Amount', debitNoteUrl: 'Debit Image',
+    totalFreight: 'Total Freight', auditStatus: 'Audit Status', rectifyStatus: 'Rectify Status',
+    reAuditStatus: 'Re-Audit Status', tallyStatus: 'Tally Status', status: 'Status',
+    remarks: 'Remarks', auditRemarks: 'Audit Remarks', rectifyRemarks: 'Rectify Remarks',
+    reauditRemarks: 'Re-Audit Remarks', tallyRemarks: 'Tally Remarks', billRemarks: 'Bill Remarks',
+  };
+
+  const exportCSV = () => {
+    const exportCols = Object.entries(COLUMN_LABELS).filter(([key]) => visibleColumns[key]);
+    const headers = exportCols.map(([, label]) => `"${label}"`).join(',');
+    const rows = filteredData.map((row) =>
+      exportCols.map(([key]) => `"${String(row[key] ?? '').replace(/"/g, '""')}"`).join(','),
+    );
+    const csv = [headers, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-${activeTab.toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const renderActiveTab = () => {
     const tabProps = {
       filteredData,
@@ -2322,6 +2353,13 @@ const CallTrackerPage = () => {
                   )}
                 </div>
 
+                <button
+                  onClick={exportCSV}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </button>
                 <button
                   onClick={fetchData}
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"

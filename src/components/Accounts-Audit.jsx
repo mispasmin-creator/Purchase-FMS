@@ -14,6 +14,7 @@ import {
   CheckCircle,
   AlertCircle,
   ShieldCheck,
+  Download,
 } from "lucide-react";
 import { supabase } from "../supabase";
 import { AuthContext } from "../context/AuthContext";
@@ -681,6 +682,24 @@ const AccountsAudit = () => {
     return data;
   }, [auditData, firmFilter, user]);
 
+  const exportAuditCSV = () => {
+    const exportCols = columns.filter((col) => visibleColumns[col.key]);
+    const headers = exportCols.map((col) => `"${col.label}"`).join(",");
+    const rows = filteredAuditData.map((row) =>
+      exportCols
+        .map((col) => `"${String(row[col.key] ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "accounts-audit.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Main render
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
@@ -769,6 +788,13 @@ const AccountsAudit = () => {
                   )}
                 </div>
 
+                <button
+                  onClick={exportAuditCSV}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </button>
                 <button
                   onClick={fetchData}
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
