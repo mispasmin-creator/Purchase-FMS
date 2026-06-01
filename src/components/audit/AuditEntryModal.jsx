@@ -67,6 +67,10 @@ const AuditEntryModal = ({
   const itemStage = isGroupEdit
     ? (activeTab === 'ALL' ? (row.currentStage || 'AUDIT') : activeTab)
     : row.currentStage;
+  const normalizedStage = itemStage === 'RE_AUDIT' ? 'REAUDIT' : itemStage;
+  const statusOptions = ['RECTIFY', 'REAUDIT'].includes(normalizedStage)
+    ? ['Done']
+    : ['Done', 'Not Done'];
 
   // Unify display items list: single item row becomes an array of one item
   const displayItems = isGroupEdit ? editingGroupItems : [row];
@@ -207,12 +211,13 @@ const AuditEntryModal = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
               <select
-                value={formData.status || 'Not Done'}
+                value={statusOptions.includes(formData.status) ? formData.status : statusOptions[0]}
                 onChange={(e) => handleFormChange('status', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
               >
-                <option value="Done">Done</option>
-                <option value="Not Done">Not Done</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
               </select>
             </div>
 

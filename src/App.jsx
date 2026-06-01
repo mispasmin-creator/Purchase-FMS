@@ -315,15 +315,6 @@ function App() {
       component: <LabReportPage />,
     },
     {
-      id: "tat-report",
-      label: "TAT & Delay Report",
-      path: "/tat-report",
-      icon: <History size={20} />,
-      stepName: "Dashboard",
-      showNotification: false,
-      component: <TatReportPage />,
-    },
-    {
       id: "bilty",
       label: "Bilty",
       path: "/bilty",
@@ -488,6 +479,15 @@ function App() {
       showNotification: false,
       component: <PurchaseReturnPage />,
       hidden: false,
+    },
+    {
+      id: "tat-report",
+      label: "TAT & Delay Report",
+      path: "/tat-report",
+      icon: <History size={20} />,
+      stepName: "Dashboard",
+      showNotification: false,
+      component: <TatReportPage />,
     },
     {
       id: "manage-users",

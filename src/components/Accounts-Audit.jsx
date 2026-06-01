@@ -1,54 +1,72 @@
-import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { RefreshCw, Save, X, Edit2, Filter, CheckCircle, AlertCircle, ShieldCheck } from 'lucide-react';
-import { supabase } from '../supabase';
-import { AuthContext } from '../context/AuthContext';
-import { toast } from 'sonner';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useContext,
+} from "react";
+import {
+  RefreshCw,
+  Save,
+  X,
+  Edit2,
+  Filter,
+  CheckCircle,
+  AlertCircle,
+  ShieldCheck,
+  Download,
+} from "lucide-react";
+import { supabase } from "../supabase";
+import { AuthContext } from "../context/AuthContext";
+import { toast } from "sonner";
+import { canViewFirm } from "../utils/firmFilter";
 
 // Define all columns based on schemas provided
 const COLUMN_DEFINITIONS = [
-  { key: 'timestamp', label: 'Timestamp' },
-  { key: 'planned2', label: 'Planned Date' },
-  { key: 'liftId', label: 'Lift ID' },
-  { key: 'indentNumber', label: 'Indent Number' },
-  { key: 'firmName', label: 'Firm Name' },
-  { key: 'partyName', label: 'Party Name' },
-  { key: 'productName', label: 'Product Name' },
-  { key: 'transporterName', label: 'Transporter Name' },
-  { key: 'status', label: 'Status' },
-  { key: 'remarks', label: 'Remarks' },
+  { key: "timestamp", label: "Timestamp" },
+  { key: "planned2", label: "Planned Date" },
+  { key: "liftId", label: "Lift ID" },
+  { key: "indentNumber", label: "Indent Number" },
+  { key: "poCopy", label: "PO Copy" },
+  { key: "firmName", label: "Firm Name" },
+  { key: "partyName", label: "Party Name" },
+  { key: "productName", label: "Product Name" },
+  { key: "transporterName", label: "Transporter Name" },
+  { key: "status", label: "Status" },
+  { key: "remarks", label: "Remarks" },
 
   // Extended Columns from Mismatch Schema
-  { key: 'liftNumber', label: 'Lift Number' },
-  { key: 'type', label: 'Type' },
-  { key: 'billNo', label: 'Bill No.' },
-  { key: 'qty', label: 'Qty' },
-  { key: 'areaLifting', label: 'Area Lifting' },
-  { key: 'truckNo', label: 'Truck No.' },
-  { key: 'rateType', label: 'Rate Type' },
-  { key: 'rate', label: 'Rate' },
-  { key: 'truckQty', label: 'Truck Qty' },
-  { key: 'biltyNo', label: 'Bilty No.' },
-  { key: 'qtyDiffStatus', label: 'Qty Diff Status' },
-  { key: 'diffQty', label: 'Diff Qty' },
-  { key: 'totalFreight', label: 'Total Freight' },
-  { key: 'rateDifference', label: 'Rate Diff' },
-  { key: 'aluminaDifference', label: 'Alumina Diff' },
-  { key: 'ironDifference', label: 'Iron Diff' },
-  { key: 'quantityDifference', label: 'Qty Diff' },
+  { key: "liftNumber", label: "Lift Number" },
+  { key: "type", label: "Type" },
+  { key: "billNo", label: "Bill No." },
+  { key: "qty", label: "Qty" },
+  { key: "areaLifting", label: "Area Lifting" },
+  { key: "truckNo", label: "Truck No." },
+  { key: "rateType", label: "Rate Type" },
+  { key: "rate", label: "Rate" },
+  { key: "truckQty", label: "Truck Qty" },
+  { key: "biltyNo", label: "Bilty No." },
+  { key: "qtyDiffStatus", label: "Qty Diff Status" },
+  { key: "diffQty", label: "Diff Qty" },
+  { key: "totalFreight", label: "Total Freight" },
+  { key: "rateDifference", label: "Rate Diff" },
+  { key: "aluminaDifference", label: "Alumina Diff" },
+  { key: "ironDifference", label: "Iron Diff" },
+  { key: "quantityDifference", label: "Qty Diff" },
 
   // Columns from LIFT-ACCOUNTS (that might be in Mismatch or relevant)
-  { key: 'vendorName', label: 'Vendor Name' },
-  { key: 'rawMaterialName', label: 'Raw Material Name' },
-  { key: 'physicalCondition', label: 'Physical Condition' },
-  { key: 'moisture', label: 'Moisture' },
-  { key: 'dateOfReceiving', label: 'Date Of Receiving' },
+  { key: "vendorName", label: "Vendor Name" },
+  { key: "rawMaterialName", label: "Raw Material Name" },
+  { key: "physicalCondition", label: "Physical Condition" },
+  { key: "moisture", label: "Moisture" },
+  { key: "dateOfReceiving", label: "Date Of Receiving" },
 
   // Image Links (display as text/link)
-  { key: 'billImage', label: 'Bill Image' },
-  { key: 'biltyImage', label: 'Bilty Image' },
-  { key: 'weightSlip', label: 'Weight Slip' },
+  { key: "billImage", label: "Bill Image" },
+  { key: "biltyImage", label: "Bilty Image" },
+  { key: "weightSlip", label: "Weight Slip" },
 
-  { key: 'actions', label: 'Actions' }
+  { key: "actions", label: "Actions" },
 ];
 
 const AccountsAudit = () => {
@@ -65,7 +83,7 @@ const AccountsAudit = () => {
 
   // Initialize with all columns visible by default
   const [visibleColumns, setVisibleColumns] = useState(() =>
-    COLUMN_DEFINITIONS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {})
+    COLUMN_DEFINITIONS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {}),
   );
 
   const [showColumnFilter, setShowColumnFilter] = useState(false);
@@ -74,7 +92,7 @@ const AccountsAudit = () => {
 
   // Format date for display
   const formatDate = (dateString) => {
-    if (!dateString || dateString === '') return '-';
+    if (!dateString || dateString === "") return "-";
 
     try {
       const date = new Date(dateString);
@@ -82,16 +100,16 @@ const AccountsAudit = () => {
         return dateString;
       }
 
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, "0");
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
       const year = date.getFullYear();
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      const seconds = date.getSeconds().toString().padStart(2, '0');
+      const hours = date.getHours().toString().padStart(2, "0");
+      const minutes = date.getMinutes().toString().padStart(2, "0");
+      const seconds = date.getSeconds().toString().padStart(2, "0");
 
       return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
     } catch (error) {
-      console.error('Date formatting error:', error);
+      console.error("Date formatting error:", error);
       return dateString;
     }
   };
@@ -100,36 +118,36 @@ const AccountsAudit = () => {
   const initializeFormData = (row = null) => {
     if (isSuperAdmin && row) {
       setFormData({
-        partyName: row.partyName || '',
-        productName: row.productName || '',
-        firmName: row.firmName || '',
-        transporterName: row.transporterName || '',
-        billNo: row.billNo || '',
-        qty: row.qty || '',
-        areaLifting: row.areaLifting || '',
-        truckNo: row.truckNo || '',
-        rate: row.rate || '',
-        truckQty: row.truckQty || '',
-        biltyNo: row.biltyNo || '',
-        diffQty: row.diffQty || '',
-        totalFreight: row.totalFreight || '',
-        rateDifference: row.rateDifference || '',
-        aluminaDifference: row.aluminaDifference || '',
-        ironDifference: row.ironDifference || '',
-        quantityDifference: row.quantityDifference || '',
-        status: row.status || 'Done',
-        remarks: row.remarks || '',
+        partyName: row.partyName || "",
+        productName: row.productName || "",
+        firmName: row.firmName || "",
+        transporterName: row.transporterName || "",
+        billNo: row.billNo || "",
+        qty: row.qty || "",
+        areaLifting: row.areaLifting || "",
+        truckNo: row.truckNo || "",
+        rate: row.rate || "",
+        truckQty: row.truckQty || "",
+        biltyNo: row.biltyNo || "",
+        diffQty: row.diffQty || "",
+        totalFreight: row.totalFreight || "",
+        rateDifference: row.rateDifference || "",
+        aluminaDifference: row.aluminaDifference || "",
+        ironDifference: row.ironDifference || "",
+        quantityDifference: row.quantityDifference || "",
+        status: row.status || "Done",
+        remarks: row.remarks || "",
       });
     } else {
-      setFormData({ status: 'Done', remarks: '' });
+      setFormData({ status: "Done", remarks: "" });
     }
   };
 
   // Handle form changes
   const handleFormChange = (field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -156,12 +174,16 @@ const AccountsAudit = () => {
 
       // 2. Fetch LIFT-ACCOUNTS Data (Manual Join)
       // Extract Lift IDs to query LIFT-ACCOUNTS (Robust extraction)
-      const liftIds = [...new Set(mismatchData
-        .map(item => {
-          const val = item["Lift ID"] || item["Lift Number"];
-          return val ? String(val).trim() : null;
-        })
-        .filter(id => id))]; // Remove null/empty
+      const liftIds = [
+        ...new Set(
+          mismatchData
+            .map((item) => {
+              const val = item["Lift ID"] || item["Lift Number"];
+              return val ? String(val).trim() : null;
+            })
+            .filter((id) => id),
+        ),
+      ]; // Remove null/empty
 
       let liftAccountsMap = {};
 
@@ -177,8 +199,10 @@ const AccountsAudit = () => {
           // We continue, just without extra data
         } else {
           // Create lookup map: Lift No -> Record (normalized key)
-          (liftData || []).forEach(record => {
-            const key = record["Lift No"] ? String(record["Lift No"]).trim() : null;
+          (liftData || []).forEach((record) => {
+            const key = record["Lift No"]
+              ? String(record["Lift No"]).trim()
+              : null;
             if (key) {
               liftAccountsMap[key] = record;
             }
@@ -186,98 +210,145 @@ const AccountsAudit = () => {
         }
       }
 
-      // 3. Merge Data and Filter
-      const formattedData = mismatchData.map((row, index) => {
-        // Find match using normalized key
-        const rawLiftId = row["Lift ID"] || row["Lift Number"];
-        const liftId = rawLiftId ? String(rawLiftId).trim() : '';
-        const liftRecord = liftAccountsMap[liftId] || {}; // Linked record or empty
+      // 3. Fetch INDENT-PO Data for PO Copy
+      const indentNumbers = [
+        ...new Set(
+          mismatchData
+            .map((item) => {
+              const val = item["Indent Number"];
+              return val ? String(val).trim() : null;
+            })
+            .filter(Boolean),
+        ),
+      ];
 
-        return {
-          id: row.id || index,
+      let indentPoMap = {};
 
-          // --- Mismatch Table Columns ---
-          timestamp: row.Timestamp || '',
-          liftId: liftId || '',
-          indentNumber: row["Indent Number"] || '',
-          firmName: row["Firm Name"] || liftRecord["Firm Name"] || '',
-          partyName: row["Party Name"] || '',
-          productName: row["Product Name"] || '',
-          transporterName: row["Transporter Name"] || liftRecord["Transporter Name"] || '',
-          status: row.Status || '',
-          remarks: row.Remarks || '',
-          planned2: row.Planned2 || '',
-          remark: row.Remark || '',
+      if (indentNumbers.length > 0) {
+        const { data: indentData, error: indentError } = await supabase
+          .from("INDENT-PO")
+          .select("\"Indent Id.\", \"PO Copy\"")
+          .in("Indent Id.", indentNumbers);
 
-          // Mismatch specific extended
-          liftNumber: row["Lift Number"] || '',
-          type: liftRecord["Type"] || row["Type"] || '',
-          billNo: row["Bill No."] || '',
-          qty: row["Qty"] || '',
-          areaLifting: row["Area Lifting"] || '',
-          truckNo: row["Truck No."] || liftRecord["Truck No."] || '',
-          rateType: row["Type Of Rate"] || '',
-          rate: row["Rate"] || '',
-          truckQty: row["Truck Qty"] || '',
-          biltyNo: row["Bilty No."] || '',
-          qtyDiffStatus: row["Qty Diff Status"] || '',
-          diffQty: row["Diff Qty"] || '',
-          totalFreight: row["Total Freight"] || '',
-          rateDifference: row["Rate Difference"] || '',
-          aluminaDifference: row["Alumina Difference"] || '',
-          ironDifference: row["Iron Difference"] || '',
-          quantityDifference: row["Quantity Difference"] || '',
-
-          // --- LIFT-ACCOUNTS Table Columns (Merged) ---
-          vendorName: liftRecord["Vendor Name"] || '',
-          rawMaterialName: liftRecord["Raw Material Name"] || '',
-          physicalCondition: liftRecord["Physical Condition"] || '',
-          moisture: liftRecord["Moisture"] || '',
-          dateOfReceiving: liftRecord["Date Of Receiving"] || '',
-          driverNo: liftRecord["Driver No."] || '', 
-          leadTime: liftRecord["Lead Time To Reach Factory (days)"] || '',
-
-          // Image Links
-          billImage: row["Bill Image"] || liftRecord["Bill Image"] || '',
-          biltyImage: row["Bilty Image"] || liftRecord["Bilty Image"] || '',
-          weightSlip: row["Weight Slip"] || liftRecord["Image Of Weight Slip"] || '',
-          physicalImage: liftRecord["Physical Image Of Product"] || '',
-        };
-      }).filter(row => {
-        // Condition: Show if Planned2 is set (normal flow)
-        if (row.planned2 && row.planned2 !== '') return true;
-
-        // OR Show if it meets Skip Kitting criteria (bypass flow)
-        const firmName = String(row.firmName).trim().toUpperCase();
-        const transporterName = String(row.transporterName).trim().toUpperCase();
-
-        // Condition 1: RKL or Purab AND Transporter is "For"
-        if ((firmName === "RKL" || firmName === "PURAB") && transporterName === "FOR") {
-          return true;
+        if (!indentError && indentData) {
+          indentData.forEach((record) => {
+            const key = record["Indent Id."]
+              ? String(record["Indent Id."]).trim()
+              : null;
+            if (key) indentPoMap[key] = record;
+          });
         }
-        // Condition 2: PMMPL or PMPL AND Transporter is "Ex Factory Transporter"
-        if ((firmName === "PMMPL" || firmName === "PMPL") && (transporterName === "EX FACTORY TRANSPORTER" || transporterName === "EX FACTORY")) {
-          return true;
-        }
+      }
 
-        return false;
-      });
+      // 4. Merge Data and Filter
+      const formattedData = mismatchData
+        .map((row, index) => {
+          // Find match using normalized key
+          const rawLiftId = row["Lift ID"] || row["Lift Number"];
+          const liftId = rawLiftId ? String(rawLiftId).trim() : "";
+          const liftRecord = liftAccountsMap[liftId] || {}; // Linked record or empty
+
+          const indentNum = row["Indent Number"] ? String(row["Indent Number"]).trim() : "";
+          const indentPoRecord = indentPoMap[indentNum] || {};
+
+          return {
+            id: row.id || index,
+
+            // --- Mismatch Table Columns ---
+            timestamp: row.Timestamp || "",
+            liftId: liftId || "",
+            indentNumber: indentNum,
+            poCopy: String(indentPoRecord["PO Copy"] || "").trim(),
+            firmName: row["Firm Name"] || liftRecord["Firm Name"] || "",
+            partyName: row["Party Name"] || "",
+            productName: row["Product Name"] || "",
+            transporterName:
+              row["Transporter Name"] || liftRecord["Transporter Name"] || "",
+            status: row.Status || "",
+            remarks: row.Remarks || "",
+            planned2: row.Planned2 || "",
+            remark: row.Remark || "",
+
+            // Mismatch specific extended
+            liftNumber: row["Lift Number"] || "",
+            type: liftRecord["Type"] || row["Type"] || "",
+            billNo: row["Bill No."] || "",
+            qty: row["Qty"] || "",
+            areaLifting: row["Area Lifting"] || "",
+            truckNo: row["Truck No."] || liftRecord["Truck No."] || "",
+            rateType: row["Type Of Rate"] || "",
+            rate: row["Rate"] || "",
+            truckQty: row["Truck Qty"] || "",
+            biltyNo: row["Bilty No."] || "",
+            qtyDiffStatus: row["Qty Diff Status"] || "",
+            diffQty: row["Diff Qty"] || "",
+            totalFreight: row["Total Freight"] || "",
+            rateDifference: row["Rate Difference"] || "",
+            aluminaDifference: row["Alumina Difference"] || "",
+            ironDifference: row["Iron Difference"] || "",
+            quantityDifference: row["Quantity Difference"] || "",
+
+            // --- LIFT-ACCOUNTS Table Columns (Merged) ---
+            vendorName: liftRecord["Vendor Name"] || "",
+            rawMaterialName: liftRecord["Raw Material Name"] || "",
+            physicalCondition: liftRecord["Physical Condition"] || "",
+            moisture: liftRecord["Moisture"] || "",
+            dateOfReceiving: liftRecord["Date Of Receiving"] || "",
+            driverNo: liftRecord["Driver No."] || "",
+            leadTime: liftRecord["Lead Time To Reach Factory (days)"] || "",
+
+            // Image Links
+            billImage: row["Bill Image"] || liftRecord["Bill Image"] || "",
+            biltyImage: row["Bilty Image"] || liftRecord["Bilty Image"] || "",
+            weightSlip:
+              row["Weight Slip"] || liftRecord["Image Of Weight Slip"] || "",
+            physicalImage: liftRecord["Physical Image Of Product"] || "",
+          };
+        })
+        .filter((row) => {
+          // Condition: Show if Planned2 is set (normal flow)
+          if (row.planned2 && row.planned2 !== "") return true;
+
+          // OR Show if it meets Skip Kitting criteria (bypass flow)
+          const firmName = String(row.firmName).trim().toUpperCase();
+          const transporterName = String(row.transporterName)
+            .trim()
+            .toUpperCase();
+
+          // Condition 1: RKL or Purab AND Transporter is "For"
+          if (
+            (firmName === "RKL" || firmName === "PURAB") &&
+            transporterName === "FOR"
+          ) {
+            return true;
+          }
+          // Condition 2: PMMPL or PMPL AND Transporter is "Ex Factory Transporter"
+          if (
+            (firmName === "PMMPL" || firmName === "PMPL") &&
+            (transporterName === "EX FACTORY TRANSPORTER" ||
+              transporterName === "EX FACTORY")
+          ) {
+            return true;
+          }
+
+          return false;
+        });
 
       // Filter out submitted rows
-      let filteredData = formattedData.filter(item => {
+      let filteredData = formattedData.filter((item) => {
         const submittedKey = `audit_${item.id}`;
         return !submittedRows.has(submittedKey);
       });
 
-
       // Extract unique firms for the filter dropdown
-      const firms = [...new Set(formattedData.map(item => item.firmName).filter(Boolean))].sort();
+      const firms = [
+        ...new Set(formattedData.map((item) => item.firmName).filter(Boolean)),
+      ].sort();
       setUniqueFirms(firms);
 
       setAuditData(formattedData);
-
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error("Error fetching data:", err);
       setError(err.message);
       toast.error(`Failed to load data: ${err.message}`);
     } finally {
@@ -293,9 +364,9 @@ const AccountsAudit = () => {
   const submitFormData = async () => {
     if (!editingRow) return;
 
-    const row = auditData.find(r => r.id === editingRow);
+    const row = auditData.find((r) => r.id === editingRow);
     if (!row) {
-      toast.error('Error: Could not find record');
+      toast.error("Error: Could not find record");
       return;
     }
 
@@ -303,32 +374,36 @@ const AccountsAudit = () => {
 
     try {
       const currentDate = new Date();
-      const actualDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
+      const actualDateTime = currentDate
+        .toLocaleString("en-GB", { hour12: false })
+        .replace(",", "");
 
       // Update Mismatch record — Super Admin can edit all fields
       const updatePayload = {
         Actual2: actualDateTime,
-        Status: formData.status || 'Done',
-        Remarks: formData.remarks || '',
-        ...(isSuperAdmin ? {
-          'Party Name': formData.partyName,
-          'Product Name': formData.productName,
-          'Firm Name': formData.firmName,
-          'Transporter Name': formData.transporterName,
-          'Bill No.': formData.billNo,
-          'Qty': formData.qty,
-          'Area Lifting': formData.areaLifting,
-          'Truck No.': formData.truckNo,
-          'Rate': formData.rate,
-          'Truck Qty': formData.truckQty,
-          'Bilty No.': formData.biltyNo,
-          'Diff Qty': formData.diffQty,
-          'Total Freight': formData.totalFreight,
-          'Rate Difference': formData.rateDifference,
-          'Alumina Difference': formData.aluminaDifference,
-          'Iron Difference': formData.ironDifference,
-          'Quantity Difference': formData.quantityDifference,
-        } : {}),
+        Status: formData.status || "Done",
+        Remarks: formData.remarks || "",
+        ...(isSuperAdmin
+          ? {
+              "Party Name": formData.partyName,
+              "Product Name": formData.productName,
+              "Firm Name": formData.firmName,
+              "Transporter Name": formData.transporterName,
+              "Bill No.": formData.billNo,
+              Qty: formData.qty,
+              "Area Lifting": formData.areaLifting,
+              "Truck No.": formData.truckNo,
+              Rate: formData.rate,
+              "Truck Qty": formData.truckQty,
+              "Bilty No.": formData.biltyNo,
+              "Diff Qty": formData.diffQty,
+              "Total Freight": formData.totalFreight,
+              "Rate Difference": formData.rateDifference,
+              "Alumina Difference": formData.aluminaDifference,
+              "Iron Difference": formData.ironDifference,
+              "Quantity Difference": formData.quantityDifference,
+            }
+          : {}),
       };
       const { error: updateError } = await supabase
         .from("Mismatch")
@@ -339,19 +414,22 @@ const AccountsAudit = () => {
       if (updateError) throw updateError;
 
       // Mark as submitted
-      setSubmittedRows(prev => new Set([...prev, `audit_${editingRow}`]));
+      setSubmittedRows((prev) => new Set([...prev, `audit_${editingRow}`]));
       setEditingRow(null);
 
-      const formattedDateTime = currentDate.toLocaleString("en-GB", { hour12: false }).replace(",", "");
-      toast.success(`✅ SUCCESS: Audit entry submitted for Lift ID: ${row.liftId}\nActual Date: ${formattedDateTime}`);
+      const formattedDateTime = currentDate
+        .toLocaleString("en-GB", { hour12: false })
+        .replace(",", "");
+      toast.success(
+        `✅ SUCCESS: Audit entry submitted for Lift ID: ${row.liftId}\nActual Date: ${formattedDateTime}`,
+      );
 
       // Refresh data
       setTimeout(() => {
         fetchData();
       }, 1000);
-
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error("Submission error:", error);
       toast.error(`❌ SUBMISSION FAILED: ${error.message}`);
     } finally {
       setSubmitting(false);
@@ -360,9 +438,9 @@ const AccountsAudit = () => {
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnKey) => {
-    setVisibleColumns(prev => ({
+    setVisibleColumns((prev) => ({
       ...prev,
-      [columnKey]: !prev[columnKey]
+      [columnKey]: !prev[columnKey],
     }));
   };
 
@@ -370,7 +448,7 @@ const AccountsAudit = () => {
   const renderModal = () => {
     if (!editingRow) return null;
 
-    const row = auditData.find(r => r.id === editingRow);
+    const row = auditData.find((r) => r.id === editingRow);
     if (!row) return null;
 
     return (
@@ -380,7 +458,7 @@ const AccountsAudit = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <h3 className="text-xl font-semibold text-gray-900">
-                  {isSuperAdmin ? 'Super Admin Edit' : 'Add Audit Entry'}
+                  {isSuperAdmin ? "Super Admin Edit" : "Add Audit Entry"}
                 </h3>
                 {isSuperAdmin ? (
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700">
@@ -405,12 +483,29 @@ const AccountsAudit = () => {
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h4 className="font-medium text-gray-700 mb-2">Record Details</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-gray-600">Lift ID:</span> {row.liftId}</div>
-                <div><span className="text-gray-600">Indent Number:</span> {row.indentNumber}</div>
-                <div><span className="text-gray-600">Party Name:</span> {row.partyName}</div>
-                <div><span className="text-gray-600">Product Name:</span> {row.productName}</div>
-                <div><span className="text-gray-600">Firm Name:</span> {row.firmName}</div>
-                <div><span className="text-gray-600">Planned Date:</span> {formatDate(row.planned2)}</div>
+                <div>
+                  <span className="text-gray-600">Lift ID:</span> {row.liftId}
+                </div>
+                <div>
+                  <span className="text-gray-600">Indent Number:</span>{" "}
+                  {row.indentNumber}
+                </div>
+                <div>
+                  <span className="text-gray-600">Party Name:</span>{" "}
+                  {row.partyName}
+                </div>
+                <div>
+                  <span className="text-gray-600">Product Name:</span>{" "}
+                  {row.productName}
+                </div>
+                <div>
+                  <span className="text-gray-600">Firm Name:</span>{" "}
+                  {row.firmName}
+                </div>
+                <div>
+                  <span className="text-gray-600">Planned Date:</span>{" "}
+                  {formatDate(row.planned2)}
+                </div>
               </div>
             </div>
 
@@ -418,45 +513,58 @@ const AccountsAudit = () => {
               {/* Super Admin — all editable fields */}
               {isSuperAdmin && (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-3">
-                  <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-2">Super Admin — Edit All Fields</p>
+                  <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-2">
+                    Super Admin — Edit All Fields
+                  </p>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { field: 'partyName', label: 'Party Name' },
-                      { field: 'productName', label: 'Product Name' },
-                      { field: 'firmName', label: 'Firm Name' },
-                      { field: 'transporterName', label: 'Transporter Name' },
-                      { field: 'billNo', label: 'Bill No.' },
-                      { field: 'biltyNo', label: 'Bilty No.' },
-                      { field: 'truckNo', label: 'Truck No.' },
-                      { field: 'areaLifting', label: 'Area Lifting' },
+                      { field: "partyName", label: "Party Name" },
+                      { field: "productName", label: "Product Name" },
+                      { field: "firmName", label: "Firm Name" },
+                      { field: "transporterName", label: "Transporter Name" },
+                      { field: "billNo", label: "Bill No." },
+                      { field: "biltyNo", label: "Bilty No." },
+                      { field: "truckNo", label: "Truck No." },
+                      { field: "areaLifting", label: "Area Lifting" },
                     ].map(({ field, label }) => (
                       <div key={field}>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {label}
+                        </label>
                         <input
                           type="text"
-                          value={formData[field] || ''}
-                          onChange={(e) => handleFormChange(field, e.target.value)}
+                          value={formData[field] || ""}
+                          onChange={(e) =>
+                            handleFormChange(field, e.target.value)
+                          }
                           className="w-full px-2 py-1.5 border border-purple-200 rounded-md text-sm focus:ring-1 focus:ring-purple-400 focus:border-purple-400 bg-white"
                         />
                       </div>
                     ))}
                     {[
-                      { field: 'qty', label: 'Qty' },
-                      { field: 'rate', label: 'Rate' },
-                      { field: 'truckQty', label: 'Truck Qty' },
-                      { field: 'diffQty', label: 'Diff Qty' },
-                      { field: 'totalFreight', label: 'Total Freight' },
-                      { field: 'rateDifference', label: 'Rate Difference' },
-                      { field: 'aluminaDifference', label: 'Alumina Difference' },
-                      { field: 'ironDifference', label: 'Iron Difference' },
-                      { field: 'quantityDifference', label: 'Qty Difference' },
+                      { field: "qty", label: "Qty" },
+                      { field: "rate", label: "Rate" },
+                      { field: "truckQty", label: "Truck Qty" },
+                      { field: "diffQty", label: "Diff Qty" },
+                      { field: "totalFreight", label: "Total Freight" },
+                      { field: "rateDifference", label: "Rate Difference" },
+                      {
+                        field: "aluminaDifference",
+                        label: "Alumina Difference",
+                      },
+                      { field: "ironDifference", label: "Iron Difference" },
+                      { field: "quantityDifference", label: "Qty Difference" },
                     ].map(({ field, label }) => (
                       <div key={field}>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {label}
+                        </label>
                         <input
                           type="number"
-                          value={formData[field] || ''}
-                          onChange={(e) => handleFormChange(field, e.target.value)}
+                          value={formData[field] || ""}
+                          onChange={(e) =>
+                            handleFormChange(field, e.target.value)
+                          }
                           className="w-full px-2 py-1.5 border border-purple-200 rounded-md text-sm focus:ring-1 focus:ring-purple-400 focus:border-purple-400 bg-white"
                         />
                       </div>
@@ -466,10 +574,12 @@ const AccountsAudit = () => {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </label>
                 <select
-                  value={formData.status || 'Done'}
-                  onChange={(e) => handleFormChange('status', e.target.value)}
+                  value={formData.status || "Done"}
+                  onChange={(e) => handleFormChange("status", e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
                 >
                   <option value="Done">Done</option>
@@ -479,10 +589,12 @@ const AccountsAudit = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Remarks
+                </label>
                 <textarea
-                  value={formData.remarks || ''}
-                  onChange={(e) => handleFormChange('remarks', e.target.value)}
+                  value={formData.remarks || ""}
+                  onChange={(e) => handleFormChange("remarks", e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm resize-none"
                   placeholder="Enter your remarks..."
                   rows={4}
@@ -508,7 +620,7 @@ const AccountsAudit = () => {
                 ) : (
                   <Save className="w-4 h-4 mr-2" />
                 )}
-                {submitting ? 'Submitting...' : 'Submit Entry'}
+                {submitting ? "Submitting..." : "Submit Entry"}
               </button>
             </div>
           </div>
@@ -536,7 +648,9 @@ const AccountsAudit = () => {
         <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-2xl w-full">
           <div className="flex items-center mb-4">
             <X className="w-8 h-8 text-red-500 mr-3" />
-            <h3 className="text-xl font-semibold text-red-800">Error Loading Data</h3>
+            <h3 className="text-xl font-semibold text-red-800">
+              Error Loading Data
+            </h3>
           </div>
           <p className="text-red-700 mb-4">{error}</p>
           <button
@@ -557,19 +671,34 @@ const AccountsAudit = () => {
 
     // 1. User-level access filter
     if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-      const userFirmNameLower = String(user.firmName).toLowerCase();
-      data = data.filter(
-        (item) => item.firmName && String(item.firmName).toLowerCase().trim() === userFirmNameLower
-      );
+      data = data.filter((item) => canViewFirm(user.firmName, item.firmName));
     }
 
     // 2. Interactive UI filter
     if (firmFilter !== "all") {
-      data = data.filter(item => item.firmName === firmFilter);
+      data = data.filter((item) => item.firmName === firmFilter);
     }
 
     return data;
   }, [auditData, firmFilter, user]);
+
+  const exportAuditCSV = () => {
+    const exportCols = columns.filter((col) => visibleColumns[col.key]);
+    const headers = exportCols.map((col) => `"${col.label}"`).join(",");
+    const rows = filteredAuditData.map((row) =>
+      exportCols
+        .map((col) => `"${String(row[col.key] ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "accounts-audit.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Main render
   return (
@@ -582,7 +711,9 @@ const AccountsAudit = () => {
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-gray-900">Accounts Audit</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Accounts Audit
+                  </h1>
                   {isSuperAdmin && (
                     <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-semibold px-2.5 py-1 rounded-full">
                       <ShieldCheck className="w-3.5 h-3.5" />
@@ -590,7 +721,9 @@ const AccountsAudit = () => {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-600 mt-1">Review and process pending audit items</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Review and process pending audit items
+                </p>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2 mr-4">
@@ -601,8 +734,10 @@ const AccountsAudit = () => {
                     className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-[#6b8e2f] outline-none"
                   >
                     <option value="all">All Firms</option>
-                    {uniqueFirms.map(f => (
-                      <option key={f} value={f}>{f}</option>
+                    {uniqueFirms.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -624,17 +759,26 @@ const AccountsAudit = () => {
 
                       <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-20 max-h-80 overflow-y-auto">
                         <div className="p-4">
-                          <h3 className="text-sm font-medium text-gray-700 mb-3">Show/Hide Columns</h3>
+                          <h3 className="text-sm font-medium text-gray-700 mb-3">
+                            Show/Hide Columns
+                          </h3>
                           <div className="grid grid-cols-1 gap-2">
-                            {columns.map(col => (
-                              <label key={col.key} className="flex items-center space-x-2 text-sm py-1 hover:bg-gray-50 px-2 rounded cursor-pointer">
+                            {columns.map((col) => (
+                              <label
+                                key={col.key}
+                                className="flex items-center space-x-2 text-sm py-1 hover:bg-gray-50 px-2 rounded cursor-pointer"
+                              >
                                 <input
                                   type="checkbox"
                                   checked={visibleColumns[col.key]}
-                                  onChange={() => toggleColumnVisibility(col.key)}
+                                  onChange={() =>
+                                    toggleColumnVisibility(col.key)
+                                  }
                                   className="w-4 h-4 text-[#7da23a] bg-gray-100 border-gray-300 rounded focus:ring-[#6b8e2f] focus:ring-2"
                                 />
-                                <span className="text-gray-700">{col.label}</span>
+                                <span className="text-gray-700">
+                                  {col.label}
+                                </span>
                               </label>
                             ))}
                           </div>
@@ -644,6 +788,13 @@ const AccountsAudit = () => {
                   )}
                 </div>
 
+                <button
+                  onClick={exportAuditCSV}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </button>
                 <button
                   onClick={fetchData}
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
@@ -660,51 +811,92 @@ const AccountsAudit = () => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {columns.filter(col => visibleColumns[col.key]).map(column => (
-                    <th key={column.key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {column.label}
-                    </th>
-                  ))}
+                  {columns
+                    .filter((col) => visibleColumns[col.key])
+                    .map((column) => (
+                      <th
+                        key={column.key}
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        {column.label}
+                      </th>
+                    ))}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAuditData.length === 0 ? (
                   <tr>
-                    <td colSpan={columns.filter(col => visibleColumns[col.key]).length} className="px-6 py-8 text-center text-gray-500">
+                    <td
+                      colSpan={
+                        columns.filter((col) => visibleColumns[col.key]).length
+                      }
+                      className="px-6 py-8 text-center text-gray-500"
+                    >
                       <div className="flex flex-col items-center">
                         <AlertCircle className="w-12 h-12 text-gray-400 mb-2" />
                         <p className="text-lg">No pending audit items</p>
-                        <p className="text-sm text-gray-400 mt-1">No items match the selected filters or all items processed.</p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          No items match the selected filters or all items
+                          processed.
+                        </p>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   filteredAuditData.map((row, index) => (
-                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      {columns.filter(col => visibleColumns[col.key]).map(col => (
-                        <td key={`${row.id}-${col.key}`} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {col.key === 'actions' ? (
-                            <button
-                              onClick={() => {
-                                setEditingRow(row.id);
-                                initializeFormData(row);
-                              }}
-                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-[#7da23a] hover:bg-[#6b8e2f] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] transition-colors duration-200"
-                            >
-                              <Edit2 className="w-4 h-4 mr-1" />
-                              Add Entry
-                            </button>
-                          ) : col.key.toLowerCase().includes('date') || col.key.toLowerCase().includes('timestamp') || col.key.toLowerCase().includes('planned') ? (
-                            formatDate(row[col.key])
-                          ) : col.key === 'remarks' ? (
-                            <div className="max-w-xs truncate" title={row.remarks}>
-                              {row.remarks || '-'}
-                            </div>
-                          ) : (
-                            row[col.key] || '-'
-                          )}
-                        </td>
-                      ))}
+                    <tr
+                      key={row.id}
+                      className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                    >
+                      {columns
+                        .filter((col) => visibleColumns[col.key])
+                        .map((col) => (
+                          <td
+                            key={`${row.id}-${col.key}`}
+                            className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                          >
+                            {col.key === "poCopy" ? (
+                              row.poCopy ? (
+                                <a
+                                  href={row.poCopy}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#7da23a] hover:bg-[#6b8e2f] rounded-lg transition-colors duration-200 shadow-sm"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                  View PO
+                                </a>
+                              ) : (
+                                <span className="text-xs text-gray-400 italic">Not available</span>
+                              )
+                            ) : col.key === "actions" ? (
+                              <button
+                                onClick={() => {
+                                  setEditingRow(row.id);
+                                  initializeFormData(row);
+                                }}
+                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-[#7da23a] hover:bg-[#6b8e2f] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] transition-colors duration-200"
+                              >
+                                <Edit2 className="w-4 h-4 mr-1" />
+                                Add Entry
+                              </button>
+                            ) : col.key.toLowerCase().includes("date") ||
+                              col.key.toLowerCase().includes("timestamp") ||
+                              col.key.toLowerCase().includes("planned") ? (
+                              formatDate(row[col.key])
+                            ) : col.key === "remarks" ? (
+                              <div
+                                className="max-w-xs truncate"
+                                title={row.remarks}
+                              >
+                                {row.remarks || "-"}
+                              </div>
+                            ) : (
+                              row[col.key] || "-"
+                            )}
+                          </td>
+                        ))}
                     </tr>
                   ))
                 )}
@@ -716,7 +908,8 @@ const AccountsAudit = () => {
           {filteredAuditData.length > 0 && (
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
               <p className="text-sm text-gray-600">
-                Showing {filteredAuditData.length} pending audit {filteredAuditData.length === 1 ? 'item' : 'items'}
+                Showing {filteredAuditData.length} pending audit{" "}
+                {filteredAuditData.length === 1 ? "item" : "items"}
               </p>
             </div>
           )}

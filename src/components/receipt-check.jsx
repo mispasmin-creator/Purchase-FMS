@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Filter,
   ShieldCheck,
+  Download,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 // Shadcn UI components
@@ -459,6 +460,7 @@ export default function ReceiptCheck() {
             indentNo:
               indentToPoMap[String(row["Indent no."] || "").trim()] ||
               String(row["Indent no."] || "").trim(),
+            originalIndentNo: String(row["Indent no."] || "").trim(),
             vendorName: String(row["Vendor Name"] || "").trim(),
             rawMaterialName: String(row["Raw Material Name"] || "").trim(),
             billNo: String(row["Bill No."] || "").trim(),
@@ -895,7 +897,7 @@ export default function ReceiptCheck() {
             Timestamp: timestamp,
             "Lift Number": selectedLift.liftNo,
             "Lift ID": selectedLift.id,
-            "Indent Number": selectedLift.indentNo,
+            "Indent Number": selectedLift.originalIndentNo || selectedLift.indentNo,
             "Firm Name": selectedLift.firmName,
             "Party Name": selectedLift.vendorName,
             "Product Name": selectedLift.rawMaterialName,
@@ -1006,6 +1008,26 @@ export default function ReceiptCheck() {
     return value || <span className="text-xs text-gray-400">N/A</span>;
   };
 
+  const exportTableToCSV = (filename, columnsMeta, data, visibilityState) => {
+    const exportCols = columnsMeta.filter(
+      (col) => col.dataKey !== "actionColumn" && visibilityState[col.dataKey],
+    );
+    const headers = exportCols.map((col) => `"${col.header}"`).join(",");
+    const rows = data.map((row) =>
+      exportCols
+        .map((col) => `"${String(row[col.dataKey] ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const renderTableSection = (
     tabKey,
     title,
@@ -1036,7 +1058,23 @@ export default function ReceiptCheck() {
                 {description}
               </CardDescription>
             </div>
-            <Popover>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs bg-white"
+                onClick={() =>
+                  exportTableToCSV(
+                    `receipt-${tabKey}.csv`,
+                    columnsMeta,
+                    data,
+                    visibilityState,
+                  )
+                }
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
+              </Button>
+              <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -1107,6 +1145,7 @@ export default function ReceiptCheck() {
                 </div>
               </PopoverContent>
             </Popover>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="flex-col flex-1 p-0">
@@ -1485,7 +1524,7 @@ export default function ReceiptCheck() {
                 htmlFor="actualQuantity"
                 className="block text-sm font-medium text-gray-700"
               >
-                Actual Quantity <span className="text-red-500">*</span>
+                Truck Quantity (WeightSlip) <span className="text-red-500">*</span>
               </Label>
               <Input
                 type="number"

@@ -27,6 +27,12 @@ export const renderCellVal = (val) => {
   return val;
 };
 
+const StatusBadge = ({ value }) => (
+  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${value === 'Done' ? 'bg-green-100 text-green-800' : value === 'Not Done' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+    {value || '-'}
+  </span>
+);
+
 // Helper to compute and format Qty Difference Status dynamically (Truck Qty - Material Qty)
 export const getQtyDifference = (row) => {
   const liftQty = parseFloat(row.liftingQty);
@@ -189,11 +195,13 @@ export const StandardRow = ({
         </td>
       )}
       {visibleColumns.totalFreight && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-800">{row.totalFreight ? `₹${row.totalFreight}` : '-'}</td>}
+      {visibleColumns.auditStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.auditStatus} /></td>}
+      {visibleColumns.rectifyStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.rectifyStatus} /></td>}
+      {visibleColumns.reAuditStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.reAuditStatus} /></td>}
+      {visibleColumns.tallyStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.tallyStatus} /></td>}
       {visibleColumns.status && (
         <td className="px-4 py-3 whitespace-nowrap">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${row.status === 'Done' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-            {row.status || '-'}
-          </span>
+          <StatusBadge value={row.status} />
         </td>
       )}
     </tr>
@@ -318,6 +326,14 @@ export const ParentRow = ({
 
   const statuses = [...new Set(group.items.map(i => i.status).filter(Boolean))];
   const displayStatus = statuses.length === 1 ? statuses[0] : (statuses.length > 1 ? 'Multiple' : '-');
+  const auditStatuses = [...new Set(group.items.map(i => i.auditStatus).filter(Boolean))];
+  const displayAuditStatus = auditStatuses.length === 1 ? auditStatuses[0] : (auditStatuses.length > 1 ? 'Multiple' : '-');
+  const rectifyStatuses = [...new Set(group.items.map(i => i.rectifyStatus).filter(Boolean))];
+  const displayRectifyStatus = rectifyStatuses.length === 1 ? rectifyStatuses[0] : (rectifyStatuses.length > 1 ? 'Multiple' : '-');
+  const reAuditStatuses = [...new Set(group.items.map(i => i.reAuditStatus).filter(Boolean))];
+  const displayReAuditStatus = reAuditStatuses.length === 1 ? reAuditStatuses[0] : (reAuditStatuses.length > 1 ? 'Multiple' : '-');
+  const tallyStatuses = [...new Set(group.items.map(i => i.tallyStatus).filter(Boolean))];
+  const displayTallyStatus = tallyStatuses.length === 1 ? tallyStatuses[0] : (tallyStatuses.length > 1 ? 'Multiple' : '-');
 
   return (
     <tr 
@@ -440,14 +456,16 @@ export const ParentRow = ({
       {visibleColumns.debitAmount && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-red-600">{renderCellVal(sumField(group.items, 'debitAmount') !== '-' ? `₹${sumField(group.items, 'debitAmount')}` : '-')}</td>}
       {visibleColumns.debitNoteUrl && <td className="px-4 py-3 whitespace-nowrap text-xs font-medium">{renderCellVal(displayDebitImage)}</td>}
       {visibleColumns.totalFreight && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-800">{renderCellVal(sumField(group.items, 'totalFreight') !== '-' ? `₹${sumField(group.items, 'totalFreight')}` : '-')}</td>}
+      {visibleColumns.auditStatus && <td className="px-4 py-3 whitespace-nowrap">{displayAuditStatus === 'Multiple' ? renderCellVal(displayAuditStatus) : <StatusBadge value={displayAuditStatus} />}</td>}
+      {visibleColumns.rectifyStatus && <td className="px-4 py-3 whitespace-nowrap">{displayRectifyStatus === 'Multiple' ? renderCellVal(displayRectifyStatus) : <StatusBadge value={displayRectifyStatus} />}</td>}
+      {visibleColumns.reAuditStatus && <td className="px-4 py-3 whitespace-nowrap">{displayReAuditStatus === 'Multiple' ? renderCellVal(displayReAuditStatus) : <StatusBadge value={displayReAuditStatus} />}</td>}
+      {visibleColumns.tallyStatus && <td className="px-4 py-3 whitespace-nowrap">{displayTallyStatus === 'Multiple' ? renderCellVal(displayTallyStatus) : <StatusBadge value={displayTallyStatus} />}</td>}
       {visibleColumns.status && (
         <td className="px-4 py-3 whitespace-nowrap">
           {displayStatus === 'Multiple' ? (
             renderCellVal(displayStatus)
           ) : (
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${displayStatus === 'Done' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-              {displayStatus}
-            </span>
+            <StatusBadge value={displayStatus} />
           )}
         </td>
       )}
@@ -586,11 +604,13 @@ export const SubRow = ({
         </td>
       )}
       {visibleColumns.totalFreight && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-800">{row.totalFreight ? `₹${row.totalFreight}` : '-'}</td>}
+      {visibleColumns.auditStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.auditStatus} /></td>}
+      {visibleColumns.rectifyStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.rectifyStatus} /></td>}
+      {visibleColumns.reAuditStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.reAuditStatus} /></td>}
+      {visibleColumns.tallyStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.tallyStatus} /></td>}
       {visibleColumns.status && (
         <td className="px-4 py-3 whitespace-nowrap">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${row.status === 'Done' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-            {row.status || '-'}
-          </span>
+          <StatusBadge value={row.status} />
         </td>
       )}
     </tr>

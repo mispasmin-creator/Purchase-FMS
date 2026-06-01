@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink, Search, ShieldCheck } from 'lucide-react';
+import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink, Search, ShieldCheck, Download } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
 import { AuthContext } from '../context/AuthContext';
 import SuperAdminEditModal from './SuperAdminEditModal';
+import { canViewFirm } from '../utils/firmFilter';
 
 // Modular Component Imports
 import AuditEntryModal from './audit/AuditEntryModal';
@@ -77,6 +78,10 @@ const CallTrackerPage = () => {
     reauditRemarks: false,
     tallyRemarks: false,
     billRemarks: false,
+    auditStatus: false,
+    rectifyStatus: false,
+    reAuditStatus: false,
+    tallyStatus: false,
     status: false,
     actions: true
   });
@@ -343,7 +348,7 @@ const CallTrackerPage = () => {
         return {
           type: 'rectify',
           includeDelay: true,
-          statusOptions: ['Done', 'Not Done']
+          statusOptions: ['Done']
         };
       case 'RECTIFY_2':
         return {
@@ -367,7 +372,7 @@ const CallTrackerPage = () => {
         return {
           type: 'again-auditing',
           includeDelay: true,
-          statusOptions: ['Done', 'Not Done']
+          statusOptions: ['Done']
         };
       case 'BILL_ENTRY':
         return {
@@ -383,7 +388,7 @@ const CallTrackerPage = () => {
   const initializeFormData = (stage) => {
     setFormData({
       stage: stage,
-      status: 'Not Done',
+      status: getDefaultStatusForStage(stage),
       remarks: ''
     });
   };
@@ -394,6 +399,45 @@ const CallTrackerPage = () => {
       [field]: value
     }));
   };
+
+  const getDefaultStatusForStage = (stage) => (
+    ['RECTIFY', 'REAUDIT', 'RE_AUDIT'].includes(stage) ? 'Done' : 'Not Done'
+  );
+
+  const getAuditNextStagePayload = (actualDateTime) => (
+    formData.status === 'Done'
+      ? { Planned4: actualDateTime }
+      : { Planned3: actualDateTime }
+  );
+
+  const getRectifyNextStagePayload = (actualDateTime) => ({
+    Planned5: actualDateTime
+  });
+
+  const getReAuditNextStagePayload = (actualDateTime) => ({
+    Planned4: actualDateTime
+  });
+
+  const filterRowsByUserFirm = (rows) => {
+    if (!user?.firmName) return rows;
+    return rows.filter((entry) => canViewFirm(user.firmName, entry.firmName));
+  };
+
+  const isAuditNotDone = (row) => String(row.Status2 || '').trim().toLowerCase() === 'not done';
+  const isAuditDone = (row) => String(row.Status2 || '').trim().toLowerCase() === 'done';
+  const isReAuditDone = (row) => String(row.Status5 || '').trim().toLowerCase() === 'done';
+  const hasBiltyDetails = (row, liftNo) => {
+    const normalizedLiftNo = String(liftNo || row["Lift ID"] || row["Lift Number"] || row["Lift No"] || "").trim();
+    const biltyNo = String(row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[normalizedLiftNo] || "").trim();
+    const biltyImage = String(row["Bilty Image"] || liftBiltyImageMap[normalizedLiftNo] || "").trim();
+    return Boolean(biltyNo && biltyImage);
+  };
+  const getLiftKey = (row) => String(row["Lift ID"] || row["Lift Number"] || row["Lift No"] || "").trim();
+  const getLiftTransporterRate = (row) => liftTransporterRateMap[getLiftKey(row)] || "";
+  const getTotalFreightValue = (row) => row["Total Freight"] || getLiftTransporterRate(row) || "";
+  const shouldShowInTallyEntry = (row) => (
+    hasBiltyDetails(row) && !row.Actual4 && (row.Planned4 || (row.Actual2 && isAuditDone(row)) || (row.Actual5 && isReAuditDone(row)))
+  );
 
   const submitFormData = async () => {
     if (editingGroupItems && editingGroupItems.length > 0) {
@@ -437,13 +481,13 @@ const CallTrackerPage = () => {
                 "Truck Qty": parseNumeric(item.truckQty || rawLift["Truck Qty"]),
                 "Bilty Image": item.biltyImage || rawLift["Bilty Image"] || "",
                 "Weight Slip": item.weightSlip || rawLift["Image Of Weight Slip"] || "",
-                "Total Freight": parseNumeric(item.totalFreight || rawLift["Total Freight"]),
+                "Total Freight": parseNumeric(item.totalFreight || rawLift["Total Freight"] || rawLift["Transporter Rate"]),
                 "Firm Name": item.firmName || rawLift["Firm Name"] || "",
                 "Actual2": actualDateTime,
                 "Planned2": rawLift["Timestamp"] || actualDateTime,
                 "Status2": formData.status || 'Done',
                 "Remarks2": formData.remarks || '',
-                "Planned3": actualDateTime
+                ...getAuditNextStagePayload(actualDateTime)
               });
 
             if (insertError) throw insertError;
@@ -453,13 +497,15 @@ const CallTrackerPage = () => {
               updatePayload = {
                 Actual2: actualDateTime,
                 Status2: formData.status || 'Done',
-                Remarks2: formData.remarks || ''
+                Remarks2: formData.remarks || '',
+                ...getAuditNextStagePayload(actualDateTime)
               };
             } else if (itemStage === 'RECTIFY') {
               updatePayload = {
                 Actual3: actualDateTime,
                 Status3: formData.status || 'Done',
-                Remarks3: formData.remarks || ''
+                Remarks3: formData.remarks || '',
+                ...getRectifyNextStagePayload(actualDateTime)
               };
             } else if (itemStage === 'TALLY_ENTRY') {
               updatePayload = {
@@ -471,7 +517,8 @@ const CallTrackerPage = () => {
               updatePayload = {
                 Actual5: actualDateTime,
                 Status5: formData.status || 'Done',
-                Remarks5: formData.remarks || ''
+                Remarks5: formData.remarks || '',
+                ...getReAuditNextStagePayload(actualDateTime)
               };
             } else if (itemStage === 'BILL_ENTRY') {
               updatePayload = {
@@ -537,7 +584,8 @@ const CallTrackerPage = () => {
           .update({
             Actual2: actualDateTime,
             Status2: formData.status || 'Done',
-            Remarks2: formData.remarks || ''
+            Remarks2: formData.remarks || '',
+            ...getAuditNextStagePayload(actualDateTime)
           })
           .eq("id", auditRow.supabaseId);
 
@@ -551,6 +599,8 @@ const CallTrackerPage = () => {
 
         setTimeout(() => {
           fetchAuditDataFromSupabase();
+          fetchRectifyDataFromSupabase();
+          fetchTallyEntryDataFromSupabase();
           fetchAllDataFromSupabase();
         }, 1000);
 
@@ -600,13 +650,13 @@ const CallTrackerPage = () => {
             "Truck Qty": parseNumeric(newLiftRow.truckQty || rawLift["Truck Qty"]),
             "Bilty Image": newLiftRow.biltyImage || rawLift["Bilty Image"] || "",
             "Weight Slip": newLiftRow.weightSlip || rawLift["Image Of Weight Slip"] || "",
-            "Total Freight": parseNumeric(newLiftRow.totalFreight || rawLift["Total Freight"]),
+            "Total Freight": parseNumeric(newLiftRow.totalFreight || rawLift["Total Freight"] || rawLift["Transporter Rate"]),
             "Firm Name": newLiftRow.firmName || rawLift["Firm Name"] || "",
             "Actual2": actualDateTime,
             "Planned2": rawLift["Timestamp"] || actualDateTime,
             "Status2": formData.status || 'Done',
             "Remarks2": formData.remarks || '',
-            "Planned3": actualDateTime 
+            ...getAuditNextStagePayload(actualDateTime)
           });
 
         if (insertError) throw insertError;
@@ -618,6 +668,8 @@ const CallTrackerPage = () => {
 
         setTimeout(() => {
           fetchAuditDataFromSupabase();
+          fetchRectifyDataFromSupabase();
+          fetchTallyEntryDataFromSupabase();
           fetchAllDataFromSupabase();
         }, 1000);
 
@@ -721,7 +773,8 @@ const CallTrackerPage = () => {
           .update({
             Actual3: actualDateTime,
             Status3: formData.status || 'Done',
-            Remarks3: formData.remarks || ''
+            Remarks3: formData.remarks || '',
+            ...getRectifyNextStagePayload(actualDateTime)
           })
           .eq("id", rectifyRow.supabaseId);
 
@@ -735,6 +788,7 @@ const CallTrackerPage = () => {
 
         setTimeout(() => {
           fetchRectifyDataFromSupabase();
+          fetchReAuditDataFromSupabase();
           fetchAllDataFromSupabase(); 
         }, 1000);
 
@@ -760,7 +814,8 @@ const CallTrackerPage = () => {
           .update({
             Actual5: actualDateTime,
             Status5: formData.status || 'Done',
-            Remarks5: formData.remarks || ''
+            Remarks5: formData.remarks || '',
+            ...getReAuditNextStagePayload(actualDateTime)
           })
           .eq("id", reAuditRow.supabaseId);
 
@@ -774,6 +829,7 @@ const CallTrackerPage = () => {
 
         setTimeout(() => {
           fetchReAuditDataFromSupabase();
+          fetchTallyEntryDataFromSupabase();
           fetchAllDataFromSupabase(); 
         }, 1000);
 
@@ -800,14 +856,16 @@ const CallTrackerPage = () => {
             updateColumns = {
               Actual2: actualDateTime,
               Status2: formData.status || 'Done',
-              Remarks2: formData.remarks || ''
+              Remarks2: formData.remarks || '',
+              ...getAuditNextStagePayload(actualDateTime)
             };
             break;
           case 'RECTIFY':
             updateColumns = {
               Actual3: actualDateTime,
               Status3: formData.status || 'Done',
-              Remarks3: formData.remarks || ''
+              Remarks3: formData.remarks || '',
+              ...getRectifyNextStagePayload(actualDateTime)
             };
             break;
           case 'TALLY_ENTRY':
@@ -821,7 +879,8 @@ const CallTrackerPage = () => {
             updateColumns = {
               Actual5: actualDateTime,
               Status5: formData.status || 'Done',
-              Remarks5: formData.remarks || ''
+              Remarks5: formData.remarks || '',
+              ...getReAuditNextStagePayload(actualDateTime)
             };
             break;
           case 'BILL_ENTRY':
@@ -1012,10 +1071,12 @@ const CallTrackerPage = () => {
           return null;
         }
 
+        const liftNumber = getCellValue(row, 1) || '';
+
         const rowData = {
           id: index,
           timestamp: formatDate(getCellValue(row, 0)) || '',
-          liftNumber: getCellValue(row, 1) || '',
+          liftNumber,
           type: getCellValue(row, 2) || '',
           billNo: getCellValue(row, 3) || '',
           partyName: getCellValue(row, 4) || '',
@@ -1033,12 +1094,16 @@ const CallTrackerPage = () => {
           qtyDifferenceStatus: getCellValue(row, 16) || '',
           differenceQty: getCellValue(row, 17) || '',
           weightSlip: getCellValue(row, 18) || '',
-          totalFreight: getCellValue(row, 19) || '',
+          totalFreight: getCellValue(row, 19) || liftTransporterRateMap[liftNumber] || '',
           auditRemarks: getCellValue(row, 29) || '',
           rectifyRemarks: getCellValue(row, 24) || '',
           tallyRemarks: getCellValue(row, 39) || '',
           reauditRemarks: getCellValue(row, 44) || '',
           billRemarks: getCellValue(row, 49) || '',
+          auditStatus: getCellValue(row, 28) || '',
+          rectifyStatus: getCellValue(row, 23) || '',
+          reAuditStatus: getCellValue(row, 43) || '',
+          tallyStatus: getCellValue(row, 38) || '',
           rawRow: row
         };
 
@@ -1112,6 +1177,7 @@ const CallTrackerPage = () => {
         const biltyImageMap = {};
         const actualQtyMap = {};
         const dateOfReceivingMap = {};
+        const transporterRateMap = {};
         (data || []).forEach(l => {
           const key = String(l["Lift No"] || "").trim();
           if (key) {
@@ -1121,7 +1187,7 @@ const CallTrackerPage = () => {
             biltyImageMap[key] = String(l["Bilty Image"] || "").trim();
             actualQtyMap[key] = String(l["Actual Quantity"] || "").trim();
             dateOfReceivingMap[key] = String(l["Date Of Receiving"] || "").trim();
-            liftTransporterRateMap[key] = String(l["Transporter Rate"] || "").trim();
+            transporterRateMap[key] = String(l["Transporter Rate"] || "").trim();
           }
         });
         setLiftWeightSlipMap(weightSlipMap);
@@ -1130,7 +1196,7 @@ const CallTrackerPage = () => {
         setLiftBiltyImageMap(biltyImageMap);
         setLiftActualQtyMap(actualQtyMap);
         setLiftDateOfReceivingMap(dateOfReceivingMap);
-        setLiftTransporterRateMap(liftTransporterRateMap);
+        setLiftTransporterRateMap(transporterRateMap);
       } catch (e) {
         console.error('Failed to fetch LIFT-ACCOUNTS meta:', e);
       }
@@ -1159,13 +1225,13 @@ const CallTrackerPage = () => {
 
       const filteredByActual = (mismatchData || []).filter(row => {
         if (row.Actual2) return false;
-        return true;
+        return hasBiltyDetails(row);
       });
 
       const mismatchLiftIds = new Set((mismatchData || []).map(m => String(m["Lift ID"] || "").trim()).filter(Boolean));
       const newFromLift = (liftAccountsData || []).filter(la => {
         const liftNo = String(la["Lift No"] || "").trim();
-        return liftNo && !mismatchLiftIds.has(liftNo) && la["Actual 1"];
+        return liftNo && !mismatchLiftIds.has(liftNo) && la["Actual 1"] && hasBiltyDetails(la, liftNo);
       });
 
       const formattedData = (filteredByActual || []).map((row, index) => ({
@@ -1189,10 +1255,14 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status2 || row.Status || '',
+        auditStatus: row.Status2 || '',
+        rectifyStatus: row.Status3 || '',
+        reAuditStatus: row.Status5 || '',
+        tallyStatus: row.Status4 || '',
         remarks: row.Remarks || row.Remark || '',
         auditRemarks: row.Remarks2 || '',
         rectifyRemarks: row.Remarks3 || '',
@@ -1242,8 +1312,12 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: '0.000',
         differenceQty: '0.000',
         weightSlip: row["Image Of Weight Slip"] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: row["Total Freight"] || row["Transporter Rate"] || '',
         status: row["Status"] || '',
+        auditStatus: '',
+        rectifyStatus: '',
+        reAuditStatus: '',
+        tallyStatus: '',
         remarks: '',
         auditRemarks: '',
         rectifyRemarks: '',
@@ -1278,13 +1352,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalAuditData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalAuditData = finalAuditData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalAuditData = filterRowsByUserFirm(filteredData);
       setAuditMismatchData(finalAuditData);
 
     } catch (err) {
@@ -1300,15 +1368,14 @@ const CallTrackerPage = () => {
       const { data, error } = await supabase
         .from("Mismatch")
         .select("*")
-        .not("Planned4", "is", null)
         .is("Actual4", null)
         .order("Timestamp", { ascending: false });
 
       if (error) throw error;
 
-      const formattedData = (data || []).map((row, index) => ({
+      const formattedData = (data || []).filter(shouldShowInTallyEntry).map((row, index) => ({
         id: `mismatch_tally_${row.id || index}`,
-        timestamp: formatDate(row.Planned4) || '',
+        timestamp: formatDate(row.Planned4 || row.Actual5 || row.Actual2) || '',
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
@@ -1327,10 +1394,14 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status4 || '',
+        auditStatus: row.Status2 || '',
+        rectifyStatus: row.Status3 || '',
+        reAuditStatus: row.Status5 || '',
+        tallyStatus: row.Status4 || '',
         remarks: row.Remarks2 || row.Remarks3 || row.Remarks5 || '',
         auditRemarks: row.Remarks2 || '',
         rectifyRemarks: row.Remarks3 || '',
@@ -1368,13 +1439,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalTallyData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalTallyData = finalTallyData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalTallyData = filterRowsByUserFirm(filteredData);
       setTallyEntryMismatchData(finalTallyData);
 
     } catch (err) {
@@ -1396,7 +1461,7 @@ const CallTrackerPage = () => {
 
       if (error) throw error;
 
-      const formattedData = (data || []).map((row, index) => ({
+      const formattedData = (data || []).filter(hasBiltyDetails).map((row, index) => ({
         id: `mismatch_bill_${row.id || index}`,
         timestamp: formatDate(row.Planned6) || '',
         liftNumber: row["Lift ID"] || '',
@@ -1417,10 +1482,14 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status6 || '',
+        auditStatus: row.Status2 || '',
+        rectifyStatus: row.Status3 || '',
+        reAuditStatus: row.Status5 || '',
+        tallyStatus: row.Status4 || '',
         remarks: row.Remarks4 || '',
         auditRemarks: row.Remarks2 || '',
         rectifyRemarks: row.Remarks3 || '',
@@ -1458,13 +1527,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalBillData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalBillData = finalBillData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalBillData = filterRowsByUserFirm(filteredData);
       setBillEntryMismatchData(finalBillData);
 
     } catch (err) {
@@ -1482,11 +1545,12 @@ const CallTrackerPage = () => {
         .select("*")
         .not("Planned3", "is", null)
         .is("Actual3", null)
+        .eq("Status2", "Not Done")
         .order("Timestamp", { ascending: false });
 
       if (error) throw error;
 
-      const formattedData = (data || []).map((row, index) => ({
+      const formattedData = (data || []).filter(hasBiltyDetails).map((row, index) => ({
         id: `mismatch_rectify_${row.id || index}`,
         timestamp: formatDate(row.Planned3) || '',
         liftNumber: row["Lift ID"] || '',
@@ -1507,10 +1571,14 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status3 || '',
+        auditStatus: row.Status2 || '',
+        rectifyStatus: row.Status3 || '',
+        reAuditStatus: row.Status5 || '',
+        tallyStatus: row.Status4 || '',
         remarks: row.Remarks2 || '',
         auditRemarks: row.Remarks2 || '',
         rectifyRemarks: row.Remarks3 || '',
@@ -1548,13 +1616,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalRectifyData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalRectifyData = finalRectifyData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalRectifyData = filterRowsByUserFirm(filteredData);
       setRectifyMismatchData(finalRectifyData);
 
     } catch (err) {
@@ -1576,7 +1638,7 @@ const CallTrackerPage = () => {
 
       if (error) throw error;
 
-      const formattedData = (data || []).map((row, index) => ({
+      const formattedData = (data || []).filter(hasBiltyDetails).map((row, index) => ({
         id: `mismatch_reaudit_${row.id || index}`,
         timestamp: formatDate(row.Planned5) || '',
         liftNumber: row["Lift ID"] || '',
@@ -1597,10 +1659,14 @@ const CallTrackerPage = () => {
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status5 || '',
+        auditStatus: row.Status2 || '',
+        rectifyStatus: row.Status3 || '',
+        reAuditStatus: row.Status5 || '',
+        tallyStatus: row.Status4 || '',
         remarks: row.Remarks3 || '',
         auditRemarks: row.Remarks2 || '',
         rectifyRemarks: row.Remarks3 || '',
@@ -1638,13 +1704,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      let finalReAuditData = filteredData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalReAuditData = finalReAuditData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalReAuditData = filterRowsByUserFirm(filteredData);
       setReAuditMismatchData(finalReAuditData);
 
     } catch (err) {
@@ -1670,15 +1730,15 @@ const CallTrackerPage = () => {
       const determineCurrentStage = (row) => {
         const activeStages = [];
         if (!row.Actual2) activeStages.push('AUDIT');
-        if (row.Planned3 && !row.Actual3) activeStages.push('RECTIFY');
-        if (row.Planned4 && !row.Actual4) activeStages.push('TALLY_ENTRY');
+        if (row.Planned3 && !row.Actual3 && isAuditNotDone(row)) activeStages.push('RECTIFY');
+        if (shouldShowInTallyEntry(row)) activeStages.push('TALLY_ENTRY');
         if (row.Planned5 && !row.Actual5) activeStages.push('REAUDIT');
         if (row.Planned6 && !row.Actual6) activeStages.push('BILL_ENTRY');
 
         return activeStages.length > 0 ? activeStages[0] : 'COMPLETED';
       };
 
-      const formattedData = (mismatchData || []).map((row, index) => {
+      const formattedData = (mismatchData || []).filter(hasBiltyDetails).map((row, index) => {
         const currentStage = determineCurrentStage(row);
         return {
           id: `mismatch_all_${row.id || index}`,
@@ -1701,8 +1761,12 @@ const CallTrackerPage = () => {
           qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
           differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
           weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-          totalFreight: row["Total Freight"] || '',
+          totalFreight: getTotalFreightValue(row),
           status: row[`Status${currentStage === 'AUDIT' ? '2' : currentStage === 'RECTIFY' ? '3' : currentStage === 'TALLY_ENTRY' ? '4' : currentStage === 'REAUDIT' ? '5' : '6'}`] || '',
+          auditStatus: row.Status2 || '',
+          rectifyStatus: row.Status3 || '',
+          reAuditStatus: row.Status5 || '',
+          tallyStatus: row.Status4 || '',
           remarks: currentStage === 'AUDIT' ? (row.Remarks || row.Remark || '') : 
                    currentStage === 'RECTIFY' ? (row.Remarks2 || '') :
                    currentStage === 'REAUDIT' ? (row.Remarks3 || '') :
@@ -1744,12 +1808,7 @@ const CallTrackerPage = () => {
         return !submittedRows.has(submittedKey);
       });
 
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        filteredData = filteredData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      filteredData = filterRowsByUserFirm(filteredData);
       setAllMismatchData(filteredData);
 
     } catch (err) {
@@ -1770,7 +1829,7 @@ const CallTrackerPage = () => {
 
       if (error) throw error;
 
-      const formattedData = (data || []).map((row, index) => ({
+      const formattedData = (data || []).filter(hasBiltyDetails).map((row, index) => ({
         id: `mismatch_history_${row.id || index}`,
         timestamp: formatDate(row.Planned6) || '',
         completedAt: formatDate(row.Actual6) || '',
@@ -1791,10 +1850,14 @@ const CallTrackerPage = () => {
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
-        totalFreight: row["Total Freight"] || '',
+        totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
         debitNoteUrl: row["Debit Note URL"] || '',
         status: row.Status6 || '',
+        auditStatus: row.Status2 || '',
+        rectifyStatus: row.Status3 || '',
+        reAuditStatus: row.Status5 || '',
+        tallyStatus: row.Status4 || '',
         remarks: row.Remarks6 || '',
         auditRemarks: row.Remarks2 || '',
         rectifyRemarks: row.Remarks3 || '',
@@ -1821,13 +1884,7 @@ const CallTrackerPage = () => {
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || ''
       }));
 
-      let finalData = formattedData;
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
-        finalData = finalData.filter(
-          (entry) => entry.firmName && String(entry.firmName).toLowerCase().trim() === userFirmNameLower
-        );
-      }
+      let finalData = filterRowsByUserFirm(formattedData);
       setHistoryData(finalData);
     } catch (err) {
       console.error('Error fetching history data from Supabase:', err);
@@ -1845,7 +1902,7 @@ const CallTrackerPage = () => {
     fetchReAuditDataFromSupabase();
     fetchAllDataFromSupabase();
     fetchHistoryDataFromSupabase();
-  }, [submittedRows, user, liftWeightSlipMap]);
+  }, [submittedRows, user, liftWeightSlipMap, liftTransporterRateMap]);
 
   useEffect(() => {
     setVisibleColumns(prev => {
@@ -1856,31 +1913,49 @@ const CallTrackerPage = () => {
         rectifyRemarks: false,
         reauditRemarks: false,
         tallyRemarks: false,
-        billRemarks: false
+        billRemarks: false,
+        auditStatus: false,
+        rectifyStatus: false,
+        reAuditStatus: false,
+        tallyStatus: false
       };
 
       if (activeTab === 'AUDIT') {
         updated.remarks = true;
       } else if (activeTab === 'RECTIFY') {
         updated.auditRemarks = true;
+        updated.auditStatus = true;
       } else if (activeTab === 'REAUDIT') {
         updated.auditRemarks = true;
         updated.rectifyRemarks = true;
+        updated.auditStatus = true;
+        updated.rectifyStatus = true;
       } else if (activeTab === 'TALLY_ENTRY') {
         updated.auditRemarks = true;
         updated.rectifyRemarks = true;
         updated.reauditRemarks = true;
+        updated.auditStatus = true;
+        updated.rectifyStatus = true;
+        updated.reAuditStatus = true;
       } else if (activeTab === 'BILL_ENTRY') {
         updated.auditRemarks = true;
         updated.rectifyRemarks = true;
         updated.reauditRemarks = true;
         updated.tallyRemarks = true;
+        updated.auditStatus = true;
+        updated.rectifyStatus = true;
+        updated.reAuditStatus = true;
+        updated.tallyStatus = true;
       } else if (activeTab === 'ALL' || activeTab === 'HISTORY') {
         updated.auditRemarks = true;
         updated.rectifyRemarks = true;
         updated.reauditRemarks = true;
         updated.tallyRemarks = true;
         updated.billRemarks = true;
+        updated.auditStatus = true;
+        updated.rectifyStatus = true;
+        updated.reAuditStatus = true;
+        updated.tallyStatus = true;
       }
 
       return updated;
@@ -1993,6 +2068,37 @@ const CallTrackerPage = () => {
   const getStageCount = (stage) => {
     const data = getFilteredByTab(stage);
     return data.filter(item => firmFilter === 'all' || (item.firmName && item.firmName === firmFilter)).length;
+  };
+
+  const COLUMN_LABELS = {
+    stage: 'Stage', timestamp: 'Date', indentNumber: 'Indent No.', firmName: 'Firm Name',
+    poRate: 'PO Rate', vendorName: 'Vendor Name', liftNumber: 'Lift Number', billNo: 'Bill No.',
+    dateOfReceiving: 'Bill Receiving Date', partyName: 'Party Name', productName: 'Product Name',
+    qty: 'PO Qty', areaLifting: 'Area Lifting', truckNo: 'Truck No.', transporterName: 'Transporter',
+    transporterRate: 'Transporter Rate', billImage: 'Bill Image', biltyNo: 'Bilty No.',
+    typeOfRate: 'Type Of Rate', rate: 'Material Rate', truckQty: 'Material Qty',
+    liftingQty: 'Truck Qty', biltyImage: 'Bilty Image', qtyDifferenceStatus: 'Qty Diff Status',
+    weightSlip: 'Weight Slip', debitAmount: 'Debit Amount', debitNoteUrl: 'Debit Image',
+    totalFreight: 'Total Freight', auditStatus: 'Audit Status', rectifyStatus: 'Rectify Status',
+    reAuditStatus: 'Re-Audit Status', tallyStatus: 'Tally Status', status: 'Status',
+    remarks: 'Remarks', auditRemarks: 'Audit Remarks', rectifyRemarks: 'Rectify Remarks',
+    reauditRemarks: 'Re-Audit Remarks', tallyRemarks: 'Tally Remarks', billRemarks: 'Bill Remarks',
+  };
+
+  const exportCSV = () => {
+    const exportCols = Object.entries(COLUMN_LABELS).filter(([key]) => visibleColumns[key]);
+    const headers = exportCols.map(([, label]) => `"${label}"`).join(',');
+    const rows = filteredData.map((row) =>
+      exportCols.map(([key]) => `"${String(row[key] ?? '').replace(/"/g, '""')}"`).join(','),
+    );
+    const csv = [headers, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-${activeTab.toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const renderActiveTab = () => {
@@ -2217,6 +2323,10 @@ const CallTrackerPage = () => {
                               debitAmount: 'Debit Amount',
                               debitNoteUrl: 'Debit Image',
                               totalFreight: 'Total Freight',
+                              auditStatus: 'Audit Status',
+                              rectifyStatus: 'Rectify Status',
+                              reAuditStatus: 'Re-Audit Status',
+                              tallyStatus: 'Tally Status',
                               status: 'Status',
                               remarks: 'Remarks',
                               auditRemarks: 'Audit Remarks',
@@ -2243,6 +2353,13 @@ const CallTrackerPage = () => {
                   )}
                 </div>
 
+                <button
+                  onClick={exportCSV}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </button>
                 <button
                   onClick={fetchData}
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"

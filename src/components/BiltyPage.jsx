@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useContext } from "react";
-import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter, ShieldCheck, Edit2 } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, useContext, useRef } from "react";
+import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter, ShieldCheck, Edit2, Download } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 
 // Shadcn UI components
@@ -73,6 +73,8 @@ const BILTY_HISTORY_COLUMNS_META = [
 
 export default function BiltyPage() {
   const { user, isSuperAdmin } = useContext(AuthContext);
+  const fetchInFlightRef = useRef(false);
+  const lastFetchAtRef = useRef(0);
   const [superAdminEditLift, setSuperAdminEditLift] = useState(null);
   const [liftData, setLiftData] = useState([]);
   const [selectedLift, setSelectedLift] = useState(null);
@@ -90,6 +92,14 @@ export default function BiltyPage() {
   const [activeTab, setActiveTab] = useState("pendingBilty");
   const [visiblePendingColumns, setVisiblePendingColumns] = useState({});
   const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({});
+  const firmNameFilterKey = useMemo(() => JSON.stringify(user?.firmName ?? null), [user?.firmName]);
+  const firmNameFilter = useMemo(() => {
+    try {
+      return JSON.parse(firmNameFilterKey);
+    } catch {
+      return null;
+    }
+  }, [firmNameFilterKey]);
 
   // Filter State
   const [filters, setFilters] = useState({
@@ -126,8 +136,14 @@ export default function BiltyPage() {
     setVisibleHistoryColumns(initializeVisibility(BILTY_HISTORY_COLUMNS_META));
   }, []);
 
-  const fetchLiftData = useCallback(async () => {
-    setLoading(true);
+  const fetchLiftData = useCallback(async ({ force = false, showLoader = true } = {}) => {
+    const now = Date.now();
+    if (fetchInFlightRef.current) return;
+    if (!force && now - lastFetchAtRef.current < 5000) return;
+
+    fetchInFlightRef.current = true;
+    lastFetchAtRef.current = now;
+    if (showLoader) setLoading(true);
     setError(null);
     try {
       const [
@@ -203,7 +219,7 @@ export default function BiltyPage() {
           driverNo: String(row["Driver No."] || "").trim(),
           transporterName: String(row["Transporter Name"] || "").trim(),
           rateType: String(row["Type Of Transporting Rate"] || "").trim(),
-          transportingRate: String(row["Transporting Per MT Rate"] || row["Transporter Rate"] || row["transportingRate"] || "").trim(),
+          transportingRate: String(row["Transporting Per MT Rate"] || row["Transporting Rate"] || row["transportingRate"] || "").trim(),
           originalQty: String(row["Qty"] || "").trim(),
           totalBillQuantity: String(row["Total Bill Quantity"] || "").trim(),
           actualQty: String(row["Actual Quantity"] || "").trim(),
@@ -232,8 +248,8 @@ export default function BiltyPage() {
         };
       }).filter(row => row && row.id);
 
-      if (user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-        const userFirmNameLower = String(user.firmName).toLowerCase();
+      if (firmNameFilter && String(firmNameFilter).toLowerCase() !== "all") {
+        const userFirmNameLower = String(firmNameFilter).toLowerCase();
         processedRawRows = processedRawRows.filter(
           (lift) => lift.firmName && String(lift.firmName).toLowerCase() === userFirmNameLower,
         );
@@ -244,17 +260,18 @@ export default function BiltyPage() {
       console.error("Error fetching lift data:", err);
       setError(`Failed to load lifts data: ${err.message}`);
     } finally {
+      fetchInFlightRef.current = false;
       setLoading(false);
     }
-  }, [user]);
+  }, [firmNameFilter]);
 
   useEffect(() => {
-    fetchLiftData();
+    fetchLiftData({ force: true });
   }, [fetchLiftData]);
 
   useRealtime(["LIFT-ACCOUNTS"], () => {
     console.log("[Realtime] Bilty Page refreshing due to LIFT-ACCOUNTS table change");
-    fetchLiftData();
+    fetchLiftData({ showLoader: false });
   });
 
   const pendingBilty = useMemo(() => {
@@ -373,7 +390,7 @@ export default function BiltyPage() {
       if (updateError) throw updateError;
 
       toast.success("Bilty submitted successfully!", { id: toastId });
-      fetchLiftData();
+      fetchLiftData({ force: true, showLoader: false });
       handleClosePopup();
     } catch (error) {
       console.error("Error submitting bilty:", error);
@@ -415,6 +432,26 @@ export default function BiltyPage() {
     }
   };
 
+  const exportTableToCSV = (filename, columnsMeta, data, visibilityState) => {
+    const exportCols = columnsMeta.filter(
+      (col) => col.dataKey !== "actionColumn" && visibilityState[col.dataKey],
+    );
+    const headers = exportCols.map((col) => `"${col.header}"`).join(",");
+    const rows = data.map((row) =>
+      exportCols
+        .map((col) => `"${String(row[col.dataKey] ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
     return (
       <Card className="shadow-sm border border-border flex-1 flex flex-col">
@@ -427,7 +464,16 @@ export default function BiltyPage() {
               </CardTitle>
               <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
             </div>
-            <Popover>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => exportTableToCSV(`bilty-${tabKey}.csv`, columnsMeta, data, visibilityState)}
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
+              </Button>
+              <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 text-xs">
                   <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" /> View Columns
@@ -459,6 +505,7 @@ export default function BiltyPage() {
                 </div>
               </PopoverContent>
             </Popover>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0 flex-1 flex flex-col">
@@ -567,7 +614,7 @@ export default function BiltyPage() {
             { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditLift.billImage, type: "text" },
           ]}
           onClose={() => setSuperAdminEditLift(null)}
-          onSaved={() => { setSuperAdminEditLift(null); fetchLiftData(); }}
+          onSaved={() => { setSuperAdminEditLift(null); fetchLiftData({ force: true, showLoader: false }); }}
         />
       )}
       <Card className="shadow-md border-none">

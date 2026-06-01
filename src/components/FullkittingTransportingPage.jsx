@@ -197,6 +197,14 @@ export default function FullkittingTransportingPage() {
                 if (liftNo) mismatchLookup[liftNo] = m;
             });
 
+            const biltyLiftCounts = {};
+            (liftData || []).forEach(row => {
+                const liftNum = String(row["Lift No"] || "").trim();
+                const mismatch = mismatchLookup[liftNum];
+                const biltyNo = String(mismatch?.["Bilty No."] || row["Bilty No."] || "").trim();
+                if (biltyNo) biltyLiftCounts[biltyNo] = (biltyLiftCounts[biltyNo] || 0) + 1;
+            });
+
             // Build a TL lookup map by product name (lowercase)
             const tlLookup = {};
             (tlData || []).forEach(tl => {
@@ -237,7 +245,8 @@ export default function FullkittingTransportingPage() {
                 const biltyNo = String(mismatch?.["Bilty No."] || row["Bilty No."] || "").trim();
                 const indentNum = String(row["Indent no."] || "").trim();
                 const poInfo = poLookup[indentNum] || {};
-                const fkData = fullkittingLookup[liftNum] || (biltyNo ? fullkittingLookup[`bilty:${biltyNo}`] : null) || {};
+                const isSharedBilty = biltyNo && biltyLiftCounts[biltyNo] > 1;
+                const fkData = fullkittingLookup[liftNum] || (!isSharedBilty && biltyNo ? fullkittingLookup[`bilty:${biltyNo}`] : null) || {};
                 const transporterName = fkData["Transporter Name"] || String(mismatch?.["Transporter Name"] || mismatch?.["Transporter"] || row["Transporter Name"] || "").trim();
 
                 const isDone = doneLiftNos.has(liftNum) || (biltyNo && doneLiftNos.has(`bilty:${biltyNo}`));
@@ -273,7 +282,7 @@ export default function FullkittingTransportingPage() {
                     biltyNo: fkData["Bilty Number"] || biltyNo,
                     biltyImage: fkData["Bilty Image"] || String(row["Bilty Image"] || "").trim(),
                     typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
-                    transportingRate: String(row["Transporting Rate"] || "").trim(),
+                    transportingRate: String(row["Transporting Per MT Rate"] || row["Transporting Rate"] || "").trim(),
                     transportRate: fkData["Amount"] || String(row["Transporter Rate"] || "").trim(),
                     rate: Number(row["Rate"]) || 0,
                     truckNo: fkData["Vehicle Number"] || String(row["Truck No."] || "").trim(),
@@ -439,6 +448,7 @@ export default function FullkittingTransportingPage() {
             const { error: fullkittinError } = await supabase
                 .from("fullkittin")
                 .insert([{
+                    "Lift No": selectedKittingItem?.liftNumber,
                     "Indent No": kittingFormData.indentNo,
                     "Fms Name": kittingFormData.fmsName,
                     "Status": kittingFormData.status,
