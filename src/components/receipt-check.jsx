@@ -397,10 +397,13 @@ export default function ReceiptCheck() {
       setLoadingData(true);
       setErrorData(null);
       try {
-        // Fetch LIFT-ACCOUNTS and INDENT-PO Order Cancel Qty in parallel
+        // Fetch LIFT-ACCOUNTS and downstream proof in parallel.
+        // Some older rows have missing Receipt timestamps but are already completed later.
         const [
           { data, error: fetchError },
           { data: poData, error: poFetchError },
+          { data: mismatchData, error: mismatchFetchError },
+          { data: fullkittinData, error: fullkittinFetchError },
         ] = await Promise.all([
           supabase
             .from("LIFT-ACCOUNTS")
@@ -409,10 +412,18 @@ export default function ReceiptCheck() {
           supabase
             .from("INDENT-PO")
             .select('"Indent Id.", "Order Cancel Qty", po_number'),
+          supabase.from("Mismatch").select('"Lift ID", "Lift Number", Actual6'),
+          supabase.from("fullkittin").select('"Lift No"'),
         ]);
 
         if (fetchError) throw fetchError;
         if (poFetchError) throw poFetchError;
+        if (mismatchFetchError) {
+          console.warn("Failed to load Mismatch downstream receipt proof:", mismatchFetchError);
+        }
+        if (fullkittinFetchError) {
+          console.warn("Failed to load fullkittin downstream receipt proof:", fullkittinFetchError);
+        }
 
         // Build map: poNumber -> Order Cancel Qty
         const cancelQtyMap = {};
@@ -425,6 +436,16 @@ export default function ReceiptCheck() {
             cancelQtyMap[poNumber] = String(
               row["Order Cancel Qty"] || "",
             ).trim();
+        });
+
+        const downstreamCompletedLiftNos = new Set();
+        (mismatchData || []).forEach((row) => {
+          const liftNo = String(row["Lift Number"] || row["Lift ID"] || "").trim();
+          if (liftNo && row.Actual6) downstreamCompletedLiftNos.add(liftNo);
+        });
+        (fullkittinData || []).forEach((row) => {
+          const liftNo = String(row["Lift No"] || "").trim();
+          if (liftNo) downstreamCompletedLiftNos.add(liftNo);
         });
 
         // Helper to format date for display
@@ -475,6 +496,9 @@ export default function ReceiptCheck() {
             // Filter columns - using Planned 1 and Actual 1
             filterColPlanned1: row["Planned 1"],
             filterColActual1: row["Actual 1"],
+            filterColPlanned2: row["Planned 2"],
+            filterColActual2: row["Actual 2"],
+            "Planned 2": row["Planned 2"],
             actual1Timestamp: formatTimestamp(row["Actual 1"]),
             dateOfReceiving_fromSheet: row["Date Of Receiving"] || "",
             dateOfReceiving_formatted: formatTimestamp(
@@ -517,6 +541,9 @@ export default function ReceiptCheck() {
             unloadApprovalTrigger: row["Unload Approval Trigger"] || null,
             unloadApprovalRemarks: row["Unload Approval Remarks"] || null,
             unloadApprovalBy: row["Unload Approval By"] || null,
+            hasDownstreamCompletion: downstreamCompletedLiftNos.has(
+              String(row["Lift No"] || "").trim(),
+            ),
             // Helper property to check if quantities match
             _quantitiesMatch: checkQuantitiesMatch(
               row["Total Bill Quantity"],
@@ -581,9 +608,13 @@ export default function ReceiptCheck() {
       const isApprovedButNotFinalized =
         lift.unloadApprovalStatus === "Approved" &&
         lift.unloadApprovalRequired === "Yes";
+      const hasMovedToLab = Boolean(lift.filterColPlanned2 || lift.filterColActual2);
+      const hasStaleMissingReceipt = !lift.filterColActual1 && lift.hasDownstreamCompletion;
 
       let matches =
         lift.filterColPlanned1 &&
+        !hasMovedToLab &&
+        !hasStaleMissingReceipt &&
         (!lift.filterColActual1 ||
           isPendingApproval ||
           isApprovedButNotFinalized);
@@ -611,7 +642,9 @@ export default function ReceiptCheck() {
       const isApprovedButNotFinalized =
         lift.unloadApprovalStatus === "Approved" &&
         lift.unloadApprovalRequired === "Yes";
-      return isPending || isPendingApproval || isApprovedButNotFinalized;
+      const hasMovedToLab = Boolean(lift.filterColPlanned2 || lift.filterColActual2);
+      const hasStaleMissingReceipt = !lift.filterColActual1 && lift.hasDownstreamCompletion;
+      return !hasMovedToLab && !hasStaleMissingReceipt && (isPending || isPendingApproval || isApprovedButNotFinalized);
     }).length;
     updateCount("receipt-check", totalPending);
   }, [allLiftsData, updateCount]);
@@ -625,10 +658,14 @@ export default function ReceiptCheck() {
         const isApprovedNoRequirement =
           lift.unloadApprovalStatus === "Approved" &&
           lift.unloadApprovalRequired !== "Yes";
+        const isApprovedAndMovedToLab =
+          lift.unloadApprovalStatus === "Approved" &&
+          lift.unloadApprovalRequired === "Yes" &&
+          Boolean(lift.filterColPlanned2 || lift.filterColActual2);
 
         let matches =
           lift.filterColActual1 &&
-          (isRejected || isFinalized || isApprovedNoRequirement);
+          (isRejected || isFinalized || isApprovedNoRequirement || isApprovedAndMovedToLab);
         if (filters.vendorName !== "all")
           matches = matches && lift.vendorName === filters.vendorName;
         if (filters.materialName !== "all")
@@ -1178,7 +1215,7 @@ export default function ReceiptCheck() {
               </p>
             </div>
           ) : (
-            <div className="flex-1 overflow-auto max-h-[calc(100vh-500px)] relative custom-scrollbar rounded-b-lg">
+            <div className="flex-1 overflow-auto min-h-[520px] max-h-[calc(100vh-260px)] relative custom-scrollbar rounded-b-lg">
               <table className="w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-30">
                   <tr className="bg-gray-50 border-b border-gray-200">

@@ -118,15 +118,14 @@ export default function PurchaserCoordinate() {
       let mismatchStatus = "Pending";
       let actionType = null;
       
-      if (selectedCoord.type === 'DEBIT_NOTE_VENDOR') {
+      const coordType = String(selectedCoord.type || "").trim();
+
+      if (coordType === "Make Debit Note") {
         mismatchStatus = "Credit Notes";
-        actionType = "Debit Note for Vendor";
-      } else if (selectedCoord.type === 'DEBIT_NOTE_TRANSPORTER') {
-        mismatchStatus = "Credit Notes - Transporter";
-        actionType = "Debit Note for Transporter";
-      } else if (selectedCoord.type === 'PURCHASE_RETURN') {
+        actionType = "Make Debit Note";
+      } else if (coordType === "Return Material and Make Debit Note") {
         mismatchStatus = "Purchase Return";
-        actionType = "Purchase Return";
+        actionType = "Return Material and Make Debit Note";
       }
 
       const { error: mismatchError } = await supabase
@@ -157,16 +156,15 @@ export default function PurchaserCoordinate() {
   };
 
   const getTypeText = (type) => {
-    switch(type) {
-      case 'DEBIT_NOTE_VENDOR': return 'Debit Note (Vendor)';
-      case 'DEBIT_NOTE_TRANSPORTER': return 'Debit Note (Transporter)';
-      case 'PURCHASE_RETURN': return 'Purchase Return';
+    switch(String(type || "").trim()) {
+      case 'Make Debit Note': return 'Make Debit Note';
+      case 'Return Material and Make Debit Note': return 'Return Material and Make Debit Note';
       default: return type;
     }
   };
 
   const getTypeColor = (type) => {
-    if (type?.startsWith('DEBIT')) return 'bg-red-100 text-red-700 border-red-200';
+    if (String(type || "").trim() === 'Make Debit Note') return 'bg-red-100 text-red-700 border-red-200';
     return 'bg-orange-100 text-orange-700 border-orange-200';
   };
 

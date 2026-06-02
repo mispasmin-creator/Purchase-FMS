@@ -209,16 +209,58 @@ export default function DebitNote() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from("Mismatch")
-        .select("*")
-        .eq("coordination_status", "COORDINATED")
-        .order("Timestamp", { ascending: false });
+      const [
+        { data, error: fetchError },
+        { data: coordinatedDebitData, error: coordinatedDebitError },
+      ] = await Promise.all([
+        supabase
+          .from("Mismatch")
+          .select("*")
+          .eq("coordination_status", "COORDINATED")
+          .order("Timestamp", { ascending: false }),
+        supabase
+          .from("purchaser_coordinates")
+          .select("*")
+          .eq("status", "COORDINATED")
+          .eq("type", "Make Debit Note"),
+      ]);
 
       if (fetchError) throw fetchError;
+      if (coordinatedDebitError) throw coordinatedDebitError;
+
+      let sourceRows = data || [];
+      const existingMismatchIds = new Set(
+        sourceRows.map((row) => String(row.id || "").trim()).filter(Boolean),
+      );
+      const directDebitMismatchIds = new Set(
+        (coordinatedDebitData || [])
+          .map((item) => String(item.mismatch_id || "").trim())
+          .filter(Boolean),
+      );
+      const coordinatedMismatchIds = Array.from(directDebitMismatchIds).filter(
+        (id) => !existingMismatchIds.has(id),
+      );
+
+      if (coordinatedMismatchIds.length > 0) {
+        const { data: fallbackRows, error: fallbackError } = await supabase
+          .from("Mismatch")
+          .select("*")
+          .in("id", coordinatedMismatchIds);
+
+        if (fallbackError) throw fallbackError;
+        sourceRows = [
+          ...sourceRows,
+          ...(fallbackRows || []).map((row) => ({
+            ...row,
+            Status: "Credit Notes",
+            coordination_status: row.coordination_status || "COORDINATED",
+            "Action Type": row["Action Type"] || "Make Debit Note",
+          })),
+        ];
+      }
 
       // Map to our data structure
-      const formattedData = (data || []).map((row, index) => {
+      const formattedData = sourceRows.map((row, index) => {
         const liftId = String(row["Lift ID"] || "").trim();
         return {
           id: `MISMATCH-${index}`,
@@ -230,7 +272,9 @@ export default function DebitNote() {
           partyName: String(row["Party Name"] || "").trim(),
           productName: String(row["Product Name"] || "").trim(),
           transporterName: String(row["Transporter Name"] || "").trim(),
-          status: String(row["Status"] || "").trim(),
+          status: directDebitMismatchIds.has(String(row.id || "").trim())
+            ? "Credit Notes"
+            : String(row["Status"] || "").trim(),
           debitAmount: row["Debit Amount"] !== null ? row["Debit Amount"] : "",
           debitNoteUrl: row["Debit Note URL"] || "",
           remarks: String(row["Remarks"] || "").trim(),

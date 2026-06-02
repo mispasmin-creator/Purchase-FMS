@@ -176,6 +176,7 @@ const LIFTS_COLUMNS_META = [
   { header: "PO Qty", dataKey: "quantity", toggleable: true },
   { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
+  { header: "Rate Type", dataKey: "rateType", toggleable: true },
   {
     header: "Transportation Total Amount",
     dataKey: "transportRate",
@@ -293,8 +294,7 @@ const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
     const liftedQuantity = roundQuantity(
       liftedQtyByItem[key] || liftedQtyByBaseItem[aggregationKey] || 0,
     );
-    const isMatchingMaterial = String(materialName).toLowerCase() === String(row["Material"] || "").trim().toLowerCase();
-    const itemCancelQty = isMatchingMaterial ? toNumber(row["Order Cancel Qty"] || row["orderCancelQty"]) : 0;
+    const itemCancelQty = toNumber(item.orderCancelQty || 0);
     const pendingQuantity = Math.max(
       0,
       roundQuantity(maxQuantity - liftedQuantity - itemCancelQty),
@@ -314,6 +314,7 @@ const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
       poRate: rate, // Store original PO rate for mismatch tracking
       totalAmount: roundQuantity(pendingQuantity * rate),
       indentId: item.indentId || "",
+      rowId: item.rowId,
     };
   });
 };
@@ -357,6 +358,10 @@ export default function LiftMaterial() {
     totalQuantity: "all",
     orderNumber: "all",
     transporterName: "all",
+  });
+  const [exportDateRanges, setExportDateRanges] = useState({
+    pending: { from: "", to: "" },
+    history: { from: "", to: "" },
   });
 
   useEffect(() => {
@@ -533,13 +538,12 @@ export default function LiftMaterial() {
         );
       });
 
-      // Group valid rows into single Indent entries (separating items by Indent even if they share a PO)
+      // Group valid rows into single PO entries so one PO gets one Create Lift action.
       const groupedRows = Object.values(
         validRows.reduce((acc, row) => {
           const indentId = String(row["Indent Id."] || "").trim();
-          const poNumber = String(row.po_number || "").trim();
-          // Use indentId as the primary grouping key. Fallback to poNumber if indentId is missing.
-          const groupKey = indentId || poNumber;
+          const poNumber = String(row.po_number || indentId).trim();
+          const groupKey = poNumber || indentId;
           
           if (!groupKey) return acc;
           if (!acc[groupKey]) {
@@ -548,9 +552,11 @@ export default function LiftMaterial() {
           acc[groupKey].dbRowIds.push(row.id);
           acc[groupKey].allItems.push({
             indentId: indentId,
+            rowId: row.id,
             material: String(row["Material"] || "").trim(),
             quantity: parseFloat(row["Quantity"] || row["Total Quantity"] || 0),
             rate: parseFloat(row["Rate"] || 0),
+            orderCancelQty: parseFloat(row["Order Cancel Qty"] || 0),
           });
           return acc;
         }, {}),
@@ -595,7 +601,7 @@ export default function LiftMaterial() {
             : String(row["Indent Id."] || row.po_number || "").trim();
 
         return {
-          id: `PO-${row.id || Math.random().toString(36).substring(7)}`,
+          id: `PO-${poNumber || row.id || Math.random().toString(36).substring(7)}`,
           indentNo: displayIndentNo,
           poNumber: String(row.po_number || row["Indent Id."] || "").trim(),
           firmName: String(row["Firm Name"] || "").trim(),
@@ -617,6 +623,7 @@ export default function LiftMaterial() {
           ),
           pendingQty: String(pendingQuantity),
           transporterRate: String(row["Transporter Rate"] || "").trim(),
+          plannedRaw: row["Planned4"] || "",
           planned: row["Planned4"]
             ? String(row["Planned4"]).trim().replace("T", " ")
             : "",
@@ -649,11 +656,11 @@ export default function LiftMaterial() {
         );
       }
 
-      // Sort by Indent Number descending
+      // Sort by PO/RI Number descending
       formattedData.sort((a, b) => {
         // Extract the first indent from the potentially comma-separated string
-        const indentA = String(a.indentNo || "").split(',')[0].trim();
-        const indentB = String(b.indentNo || "").split(',')[0].trim();
+        const indentA = String(a.poNumber || a.indentNo || "").split(',')[0].trim();
+        const indentB = String(b.poNumber || b.indentNo || "").split(',')[0].trim();
 
         // Try to sort numerically if they have numbers (e.g., RI-042 -> 42)
         const numA = parseInt(indentA.replace(/\D/g, ""), 10);
@@ -781,6 +788,7 @@ export default function LiftMaterial() {
           rate: String(row["Rate"] || "").trim(),
           billImageUrl: String(row["Bill Image"] || "").trim(),
           additionalTruckQty: String(row["Truck Qty"] || "").trim(),
+          createdAtRaw: row["Timestamp"] || "",
           createdAt: createdAt,
           firmName: String(row["Firm Name"] || "").trim(),
           transportRate: String(row["Transporter Rate"] || "").trim(),
@@ -945,8 +953,12 @@ export default function LiftMaterial() {
     purchaseOrders.forEach((po) => {
       if (po.vendorName) vendors.add(po.vendorName);
       if (po.rawMaterialName) materials.add(po.rawMaterialName);
+      (po.items || []).forEach((item) => {
+        if (item.material) materials.add(item.material);
+      });
       if (po.quantity) quantities.add(po.quantity);
       if (po.indentNo) orders.add(po.indentNo);
+      if (po.poNumber) orders.add(po.poNumber);
       if (po.transporterName) transporters.add(po.transporterName);
     });
 
@@ -973,6 +985,50 @@ export default function LiftMaterial() {
     };
   }, [purchaseOrders, materialLifts]);
 
+  const parseExportDate = (value) => {
+    if (!value) return null;
+    if (value instanceof Date && !isNaN(value.getTime())) return value;
+
+    const raw = String(value).trim();
+    if (!raw || raw === "N/A") return null;
+
+    const match = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (match) {
+      const day = Number(match[1]);
+      const month = Number(match[2]) - 1;
+      const year = Number(match[3].length === 2 ? `20${match[3]}` : match[3]);
+      const hour = Number(match[4] || 0);
+      const minute = Number(match[5] || 0);
+      const second = Number(match[6] || 0);
+      const parsedDate = new Date(year, month, day, hour, minute, second);
+      return isNaN(parsedDate.getTime()) ? null : parsedDate;
+    }
+
+    const isoDate = new Date(raw);
+    return isNaN(isoDate.getTime()) ? null : isoDate;
+  };
+
+  const isWithinExportDateRange = (value, range) => {
+    if (!range?.from && !range?.to) return true;
+
+    const date = parseExportDate(value);
+    if (!date) return false;
+
+    if (range.from) {
+      const fromDate = new Date(range.from);
+      fromDate.setHours(0, 0, 0, 0);
+      if (date < fromDate) return false;
+    }
+
+    if (range.to) {
+      const toDate = new Date(range.to);
+      toDate.setHours(23, 59, 59, 999);
+      if (date > toDate) return false;
+    }
+
+    return true;
+  };
+
   const filteredPurchaseOrders = useMemo(() => {
     let filtered = purchaseOrders;
     if (filters.vendorName !== "all") {
@@ -980,22 +1036,35 @@ export default function LiftMaterial() {
     }
     if (filters.materialName !== "all") {
       filtered = filtered.filter(
-        (po) => po.rawMaterialName === filters.materialName,
+        (po) =>
+          po.rawMaterialName === filters.materialName ||
+          (po.items || []).some((item) => item.material === filters.materialName),
       );
     }
     if (filters.totalQuantity !== "all") {
       filtered = filtered.filter((po) => po.quantity === filters.totalQuantity);
     }
     if (filters.orderNumber !== "all") {
-      filtered = filtered.filter((po) => po.indentNo === filters.orderNumber);
+      filtered = filtered.filter(
+        (po) =>
+          po.poNumber === filters.orderNumber ||
+          po.indentNo === filters.orderNumber ||
+          String(po.indentNo || "")
+            .split(",")
+            .map((part) => part.trim())
+            .includes(filters.orderNumber),
+      );
     }
     if (filters.transporterName !== "all") {
       filtered = filtered.filter(
         (po) => po.transporterName === filters.transporterName,
       );
     }
+    filtered = filtered.filter((po) =>
+      isWithinExportDateRange(po.plannedRaw || po.planned, exportDateRanges.pending),
+    );
     return filtered;
-  }, [purchaseOrders, filters]);
+  }, [purchaseOrders, filters, exportDateRanges.pending]);
 
   const filteredMaterialLifts = useMemo(() => {
     let filtered = materialLifts;
@@ -1031,8 +1100,11 @@ export default function LiftMaterial() {
         (lift) => lift.transporterName === filters.transporterName,
       );
     }
+    filtered = filtered.filter((lift) =>
+      isWithinExportDateRange(lift.createdAtRaw || lift.createdAt, exportDateRanges.history),
+    );
     return filtered;
-  }, [materialLifts, filters]);
+  }, [materialLifts, filters, exportDateRanges.history]);
 
   const selectedLiftSummary = useMemo(() => {
     const activeItems = selectedLiftItems.filter(
@@ -1247,12 +1319,15 @@ export default function LiftMaterial() {
       "additionalTruckQty",
     ];
 
-    if (formData.rateType === "Per MT" && !isCommon) {
+    if (formData.rateType === "Per MT") {
       requiredFields.push("transportingRate");
     }
 
     if (isCommon) {
-      requiredFields = ["billNo", "Arealifting", "Type", "liftingLeadTime"];
+      requiredFields = ["billNo", "Arealifting", "Type", "liftingLeadTime", "rateType", "transportRate"];
+      if (formData.rateType === "Per MT") {
+        requiredFields.push("transportingRate");
+      }
     }
 
     requiredFields.forEach((field) => {
@@ -1502,8 +1577,12 @@ export default function LiftMaterial() {
           "Bilty Image": biltyImageUrl || null,
           "Testing Certificate": testingCertificateUrl || null,
           "Firm Name": selectedPO?.firmName || null,
-          "Transporter Rate": allocatedTransportRate || null,
-          "Transporting Rate": transportingRate || null,
+          "Transporter Rate":
+            allocatedTransportRate || allocatedTransportRate === 0
+              ? allocatedTransportRate
+              : null,
+          "Transporting Rate":
+            transportingRate || transportingRate === 0 ? transportingRate : null,
         };
       });
 
@@ -1567,31 +1646,27 @@ export default function LiftMaterial() {
         console.error("Mismatch insertion failed:", mismatchError);
       }
 
-      const dbPendingPOQty = parseFloat(selectedPO.pendingPOQty_DB);
-      const calculatedPending = parseFloat(selectedPO.pendingPOQty) || 0;
-      const startingPending = !isNaN(dbPendingPOQty)
-        ? dbPendingPOQty
-        : calculatedPending;
-      const thisLiftQty = totalLiftQuantity;
-      const newPending = Math.max(0, startingPending - thisLiftQty);
+      const poUpdateResults = await Promise.all(
+        itemsToSubmit.map((item) => {
+          const rowPending = Math.max(
+            0,
+            roundQuantity(toNumber(item.pendingQuantity) - toNumber(item.quantityToLift)),
+          );
+          const updatePayloadPO = {
+            "Pending PO Qty": rowPending.toString(),
+            "Transporter Name": formData.TransporterName || null,
+            transpoter_rate_type: formData.rateType || null,
+            Actual4: rowPending <= 0 ? timestamp : null,
+          };
 
-      const updatePayloadPO = {
-        "Pending PO Qty": newPending.toString(),
-        "Transporter Name": formData.TransporterName || null,
-        transpoter_rate_type: formData.rateType || null,
-      };
+          return supabase
+            .from("INDENT-PO")
+            .update(updatePayloadPO)
+            .eq("id", item.rowId);
+        }),
+      );
 
-      if (newPending <= 0) {
-        updatePayloadPO["Actual4"] = timestamp;
-      } else {
-        updatePayloadPO["Actual4"] = null;
-      }
-
-      const { error: updateError } = await supabase
-        .from("INDENT-PO")
-        .update(updatePayloadPO)
-        .in("id", selectedPO.dbRowIds || []);
-
+      const updateError = poUpdateResults.find((result) => result.error)?.error;
       if (updateError) {
         console.error("INDENT-PO update failed:", updateError);
         throw new Error(`Failed to update INDENT-PO: ${updateError.message}`);
@@ -1683,6 +1758,62 @@ export default function LiftMaterial() {
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleExportDateChange = (section, key, value) => {
+    setExportDateRanges((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [key]: value,
+      },
+    }));
+  };
+
+  const downloadCsv = (filename, columns, rows) => {
+    const escapeCsv = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const headers = columns.map((column) => escapeCsv(column.header)).join(",");
+    const body = rows.map((row) =>
+      columns.map((column) => escapeCsv(row[column.dataKey])).join(","),
+    );
+    const csv = [headers, ...body].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportSection = (section) => {
+    const isPending = section === "pending";
+    const range = exportDateRanges[section];
+    const rows = isPending
+      ? filteredPurchaseOrders.filter((po) =>
+          isWithinExportDateRange(po.plannedRaw || po.planned, range),
+        )
+      : filteredMaterialLifts.filter((lift) =>
+          isWithinExportDateRange(lift.createdAtRaw || lift.createdAt, range),
+        );
+    const columns = (isPending ? PO_COLUMNS_META : LIFTS_COLUMNS_META).filter(
+      (column) =>
+        column.dataKey !== "actionColumn" &&
+        column.dataKey !== "cancelAction" &&
+        (isPending
+          ? column.alwaysVisible || visiblePoColumns[column.dataKey] !== false
+          : visibleLiftsColumns[column.dataKey]),
+    );
+    const from = range.from || "all";
+    const to = range.to || "all";
+    const filename = `${isPending ? "lift-pending" : "lift-history"}_${from}_to_${to}.csv`;
+
+    if (rows.length === 0) {
+      toast.warning("No data found for selected date range.");
+      return;
+    }
+
+    downloadCsv(filename, columns, rows);
   };
 
   const clearAllFilters = () => {
@@ -1860,8 +1991,8 @@ export default function LiftMaterial() {
             >
               <Card className="flex-col flex-1 border shadow-sm border-border">
                 <CardHeader className="px-4 py-3 bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="min-w-0">
                       <CardTitle className="flex items-center text-sm font-semibold text-foreground">
                         <FileCheck className="h-4 w-4 text-[#7da23a] mr-2" />{" "}
                         Available Purchase Orders (
@@ -1872,17 +2003,49 @@ export default function LiftMaterial() {
                         quantities are completed.
                       </CardDescription>
                     </div>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs bg-transparent"
-                        >
-                          <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" />{" "}
-                          View Columns
-                        </Button>
-                      </PopoverTrigger>
+                    <div className="flex w-full flex-wrap items-end justify-start gap-2 lg:w-auto lg:justify-end">
+                      <div className="grid gap-1">
+                        <Label className="text-[10px] text-gray-500">From</Label>
+                        <Input
+                          type="date"
+                          value={exportDateRanges.pending.from}
+                          onChange={(e) =>
+                            handleExportDateChange("pending", "from", e.target.value)
+                          }
+                          className="h-8 w-[150px] bg-white text-xs"
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <Label className="text-[10px] text-gray-500">To</Label>
+                        <Input
+                          type="date"
+                          value={exportDateRanges.pending.to}
+                          onChange={(e) =>
+                            handleExportDateChange("pending", "to", e.target.value)
+                          }
+                          className="h-8 w-[150px] bg-white text-xs"
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportSection("pending")}
+                        className="h-8 text-xs bg-white"
+                      >
+                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                        Export
+                      </Button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs bg-transparent"
+                          >
+                            <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" />{" "}
+                            View Columns
+                          </Button>
+                        </PopoverTrigger>
                       <PopoverContent className="w-[220px] p-3">
                         <div className="grid gap-2">
                           <p className="text-sm font-medium">
@@ -1955,7 +2118,8 @@ export default function LiftMaterial() {
                           </div>
                         </div>
                       </PopoverContent>
-                    </Popover>
+                      </Popover>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-col flex-1 p-0">
@@ -2102,8 +2266,8 @@ export default function LiftMaterial() {
             >
               <Card className="flex-col flex-1 border shadow-sm border-border">
                 <CardHeader className="px-4 py-3 bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="min-w-0">
                       <CardTitle className="flex items-center text-sm font-semibold text-foreground">
                         <History className="h-4 w-4 text-[#7da23a] mr-2" /> All
                         Material Lifts ({filteredMaterialLifts.length})
@@ -2112,17 +2276,49 @@ export default function LiftMaterial() {
                         Sorted from latest to oldest recorded lift.
                       </CardDescription>
                     </div>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs bg-transparent"
-                        >
-                          <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" />{" "}
-                          View Columns
-                        </Button>
-                      </PopoverTrigger>
+                    <div className="flex w-full flex-wrap items-end justify-start gap-2 lg:w-auto lg:justify-end">
+                      <div className="grid gap-1">
+                        <Label className="text-[10px] text-gray-500">From</Label>
+                        <Input
+                          type="date"
+                          value={exportDateRanges.history.from}
+                          onChange={(e) =>
+                            handleExportDateChange("history", "from", e.target.value)
+                          }
+                          className="h-8 w-[150px] bg-white text-xs"
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <Label className="text-[10px] text-gray-500">To</Label>
+                        <Input
+                          type="date"
+                          value={exportDateRanges.history.to}
+                          onChange={(e) =>
+                            handleExportDateChange("history", "to", e.target.value)
+                          }
+                          className="h-8 w-[150px] bg-white text-xs"
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportSection("history")}
+                        className="h-8 text-xs bg-white"
+                      >
+                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                        Export
+                      </Button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs bg-transparent"
+                          >
+                            <MixerHorizontalIcon className="mr-1.5 h-3.5 w-3.5" />{" "}
+                            View Columns
+                          </Button>
+                        </PopoverTrigger>
                       <PopoverContent className="w-[220px] p-3">
                         <div className="grid gap-2">
                           <p className="text-sm font-medium">
@@ -2195,7 +2391,8 @@ export default function LiftMaterial() {
                           </div>
                         </div>
                       </PopoverContent>
-                    </Popover>
+                      </Popover>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-col flex-1 p-0">
@@ -2428,6 +2625,7 @@ export default function LiftMaterial() {
                       <thead className="sticky top-0 z-30">
                         <tr className="bg-slate-50 border-b border-slate-200">
                           <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product</th>
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-left bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">RI Number</th>
                           <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Indent Qty</th>
                           <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lifted</th>
                           <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Pending</th>
@@ -2442,6 +2640,9 @@ export default function LiftMaterial() {
                           <tr key={item.key} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
                             <td className="px-3 py-2 font-medium text-slate-700 text-xs">
                               {item.material}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-slate-600">
+                              {item.indentId || "-"}
                             </td>
                             <td className="px-3 py-2 text-right text-xs">
                               {item.maxQuantity}

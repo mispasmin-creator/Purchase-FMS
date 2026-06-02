@@ -52,7 +52,7 @@ export default function PurchaseReturnPage() {
     const [records, setRecords] = useState([]);
     const [pendingMismatches, setPendingMismatches] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState("finalized");
+    const [activeTab, setActiveTab] = useState("pending");
     const [showForm, setShowForm] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [form, setForm] = useState(EMPTY_FORM);
@@ -71,20 +71,52 @@ export default function PurchaseReturnPage() {
             if (returnError) throw returnError;
 
             // 2. Fetch Pending Mismatches
-            const { data: mismatchData, error: mismatchError } = await supabase
-                .from("Mismatch")
-                .select("*")
-                .eq("Status", "Purchase Return")
-                .eq("coordination_status", "COORDINATED");
+            const [
+                { data: mismatchData, error: mismatchError },
+                { data: coordinatedReturnData, error: coordinatedReturnError },
+            ] = await Promise.all([
+                supabase
+                    .from("Mismatch")
+                    .select("*")
+                    .eq("Status", "Purchase Return")
+                    .eq("coordination_status", "COORDINATED"),
+                supabase
+                    .from("purchaser_coordinates")
+                    .select("*")
+                    .eq("status", "COORDINATED")
+                    .eq("type", "Return Material and Make Debit Note"),
+            ]);
 
             if (mismatchError) throw mismatchError;
+            if (coordinatedReturnError) throw coordinatedReturnError;
 
             let fetchedReturns = returnData || [];
             let fetchedMismatches = mismatchData || [];
 
+            const existingPendingIds = new Set(
+                fetchedMismatches.map((m) => String(m.id || "").trim()).filter(Boolean)
+            );
+            const coordinatedMismatchIds = (coordinatedReturnData || [])
+                .map((item) => String(item.mismatch_id || "").trim())
+                .filter((id) => id && !existingPendingIds.has(id));
+
+            if (coordinatedMismatchIds.length > 0) {
+                const { data: fallbackMismatchData, error: fallbackMismatchError } = await supabase
+                    .from("Mismatch")
+                    .select("*")
+                    .in("id", coordinatedMismatchIds);
+
+                if (fallbackMismatchError) throw fallbackMismatchError;
+                fetchedMismatches = [...fetchedMismatches, ...(fallbackMismatchData || [])];
+            }
+
             // Filter out mismatches that already have a finalized return entry
-            const existingMismatchIds = new Set(fetchedReturns.map(r => r.mismatch_id).filter(id => id));
-            fetchedMismatches = fetchedMismatches.filter(m => !existingMismatchIds.has(m.id));
+            const existingMismatchIds = new Set(
+                fetchedReturns.map(r => String(r.mismatch_id || "").trim()).filter(Boolean)
+            );
+            fetchedMismatches = fetchedMismatches.filter(
+                m => !existingMismatchIds.has(String(m.id || "").trim())
+            );
 
             // Role-based filtering
             if (user?.firmName) {
@@ -146,7 +178,7 @@ export default function PurchaseReturnPage() {
             ...EMPTY_FORM,
             purchaseReturnNo: prNo,
             poNo: mismatch["Indent Number"] || "",
-            actionType: "Purchase Return",
+            actionType: mismatch["Action Type"] || "Purchase Return",
             partyName: mismatch["Party Name"] || "",
             productName: mismatch["Product Name"] || "",
             qty: mismatch["Quantity"] || mismatch["Lifting Quantity"] || "0",
@@ -264,9 +296,23 @@ export default function PurchaseReturnPage() {
 
                 // Also update the Mismatch record status to indicate it's been processed
                 if (form.mismatch_id) {
+                    const shouldMakeDebitAfterReturn =
+                        form.actionType === "Return Material and Make Debit Note";
+
+                    const mismatchUpdate = shouldMakeDebitAfterReturn
+                        ? {
+                            Status: "Credit Notes",
+                            coordination_status: "COORDINATED",
+                            "Action Type": "Make Debit Note",
+                        }
+                        : {
+                            Status: "Resolved - Return",
+                            "Action Type": form.actionType,
+                        };
+
                     await supabase
                         .from("Mismatch")
-                        .update({ Status: "Resolved - Return" })
+                        .update(mismatchUpdate)
                         .eq("id", form.mismatch_id);
                 }
             }
@@ -318,11 +364,11 @@ export default function PurchaseReturnPage() {
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                 <TabsList className="bg-white border rounded-lg p-1">
-                    <TabsTrigger value="finalized" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 h-9 px-4">
-                        Finalized Returns ({records.length})
-                    </TabsTrigger>
                     <TabsTrigger value="pending" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700 h-9 px-4">
                         Pending Mismatches ({pendingMismatches.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="finalized" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 h-9 px-4">
+                        Finalized Returns ({records.length})
                     </TabsTrigger>
                 </TabsList>
 
@@ -345,26 +391,20 @@ export default function PurchaseReturnPage() {
                                     <table className="w-full text-sm border-collapse">
                                         <thead className="sticky top-0 z-30">
                                             <tr className="bg-gray-50 border-b border-gray-200">
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Actions</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm w-[60px]">#</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR No.</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No.</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Qty</th>
-                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-right bg-gray-50/95 backdrop-blur-sm shadow-sm sticky right-0 z-40">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-100">
                                             {records.map((rec, idx) => (
                                                 <tr key={rec.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-green-50/50 transition-colors border-b border-gray-100`}>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-[#6b8e2f]">{rec["Purchase Return No."]}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{rec["Po No."] || "—"}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{rec["Party Name"]}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Product Name"]}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{rec["Qty"]}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-right sticky right-0 z-20 bg-inherit shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.05)]">
-                                                        <div className="flex items-center justify-end gap-1">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-left">
+                                                        <div className="flex items-center justify-start gap-1">
                                                             <Button variant="ghost" size="xs" className="h-7 w-7 p-0 text-[#7da23a] hover:bg-[#7da23a]/10" onClick={() => setViewRecord(rec)}>
                                                                 <Eye className="w-3.5 h-3.5" />
                                                             </Button>
@@ -373,6 +413,12 @@ export default function PurchaseReturnPage() {
                                                             </Button>
                                                         </div>
                                                     </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-[#6b8e2f]">{rec["Purchase Return No."]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{rec["Po No."] || "—"}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{rec["Party Name"]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Product Name"]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{rec["Qty"]}</td>
                                                 </tr>
                                             ))}
                                             {records.length === 0 && (
@@ -406,23 +452,18 @@ export default function PurchaseReturnPage() {
                                 <table className="w-full text-sm border-collapse">
                                     <thead className="sticky top-0 z-30">
                                         <tr className="bg-gray-50 border-b border-gray-200">
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Actions</th>
                                             <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm w-[60px]">#</th>
                                             <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift No</th>
                                             <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No</th>
                                             <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
                                             <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-right bg-gray-50/95 backdrop-blur-sm shadow-sm sticky right-0 z-40">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-100">
                                         {pendingMismatches.map((m, idx) => (
                                             <tr key={m.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-orange-50/10'} hover:bg-orange-50/20 transition-colors border-b border-gray-100`}>
-                                                <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700">{m["Lift Number"]}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{m["Indent Number"] || "—"}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{m["Party Name"]}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{m["Product Name"]}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-right sticky right-0 z-20 bg-inherit shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.05)]">
+                                                <td className="px-4 py-3 whitespace-nowrap text-left">
                                                     <Button 
                                                         size="xs" 
                                                         className="bg-orange-600 hover:bg-orange-700 text-white shadow-sm h-7 text-[10px] font-bold uppercase tracking-wider px-3"
@@ -432,6 +473,11 @@ export default function PurchaseReturnPage() {
                                                         Create PR
                                                     </Button>
                                                 </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700">{m["Lift Number"]}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{m["Indent Number"] || "—"}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{m["Party Name"]}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{m["Product Name"]}</td>
                                             </tr>
                                         ))}
                                         {pendingMismatches.length === 0 && (

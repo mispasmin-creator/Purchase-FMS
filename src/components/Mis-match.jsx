@@ -325,8 +325,8 @@ export default function MismatchAnalysis() {
       return;
     }
 
-    // If Purchase Return, just update status in Mismatch (Creation is handled on PR page)
-    if (actionType === "Purchase Return") {
+    // If material return is needed, send it to Purchase Return first.
+    if (actionType === "Return Material and Make Debit Note") {
       setSubmitting(true);
       try {
         // ONLY update Mismatch status - the separate page will handle the record creation
@@ -334,6 +334,7 @@ export default function MismatchAnalysis() {
           .from("Mismatch")
           .update({
             Status: "Purchase Return",
+            coordination_status: "COORDINATED",
             "Action Type": actionType,
             Remarks: formData.remarks || "",
           })
@@ -379,14 +380,9 @@ export default function MismatchAnalysis() {
 
       const currentDate = new Date();
 
-      // Determine status based on action type
-      const status =
-        actionType === "Debit Note for Transporter"
-          ? "Credit Notes - Transporter"
-          : "Credit Notes";
-
       const updates = {
-        Status: status,
+        Status: "Credit Notes",
+        coordination_status: "COORDINATED",
         "Action Type": actionType,
         Remarks: formData.remarks || "",
         "Debit Amount": parseFloat(formData.debitAmount) || null,
@@ -467,10 +463,8 @@ export default function MismatchAnalysis() {
   const renderModal = () => {
     if (!editingRow) return null;
 
-    const isDebitNote =
-      actionType === "Debit Note for Vendor" ||
-      actionType === "Debit Note for Transporter";
-    const isPurchaseReturn = actionType === "Purchase Return";
+    const isDebitNote = actionType === "Make Debit Note";
+    const isPurchaseReturn = actionType === "Return Material and Make Debit Note";
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -545,13 +539,10 @@ export default function MismatchAnalysis() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
                 >
                   <option value="">-- Select Action Type --</option>
-                  <option value="Debit Note for Vendor">
-                    Debit Note for Vendor
+                  <option value="Make Debit Note">Make Debit Note</option>
+                  <option value="Return Material and Make Debit Note">
+                    Return Material and Make Debit Note
                   </option>
-                  <option value="Debit Note for Transporter">
-                    Debit Note for Transporter
-                  </option>
-                  <option value="Purchase Return">Purchase Return</option>
                 </select>
               </div>
 
@@ -562,12 +553,12 @@ export default function MismatchAnalysis() {
                     <Info className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-orange-800">
-                        Assign to Purchase Return
+                        Return Material First
                       </p>
                       <p className="text-xs text-orange-600 mt-1">
-                        Click confirm to mark this mismatch for purchase return.
-                        You can then manage return details through the separate
-                        "Purchase Return" page in the sidebar.
+                        Click confirm to send this mismatch to Purchase Return.
+                        After return finalization, it will move to the Debit Note
+                        page.
                       </p>
                     </div>
                   </div>
@@ -639,7 +630,7 @@ export default function MismatchAnalysis() {
                   {submitting
                     ? "Submitting..."
                     : isPurchaseReturn
-                      ? "Confirm Purchase Return"
+                      ? "Confirm Return Material"
                       : "Submit Debit Note"}
                 </button>
               )}
@@ -1135,8 +1126,6 @@ export default function MismatchAnalysis() {
           mismatchItem["Product Name"] || lift.material || po.materialName || po.rawMaterialName,
         firmName: mismatchItem["Firm Name"] || lift.firmName || po.firmName,
         timestamp: String(mismatchItem["Timestamp"] || "").replace("T", " "),
-        status: mismatchItem["Status"] || lift.status || "",
-        remarks: mismatchItem["Remarks"] || "",
 
         // Live stage derived from LIFT-ACCOUNTS actual timestamps
         stage: liveStage,

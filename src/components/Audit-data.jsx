@@ -435,6 +435,11 @@ const CallTrackerPage = () => {
   const getLiftKey = (row) => String(row["Lift ID"] || row["Lift Number"] || row["Lift No"] || "").trim();
   const getLiftTransporterRate = (row) => liftTransporterRateMap[getLiftKey(row)] || "";
   const getTotalFreightValue = (row) => row["Total Freight"] || getLiftTransporterRate(row) || "";
+  const getQtyDifferenceStatus = (row) => {
+    const materialQty = parseFloat(row["Truck Qty"] || 0);
+    const truckQty = parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0);
+    return (truckQty - materialQty).toFixed(3);
+  };
   const shouldShowInTallyEntry = (row) => (
     hasBiltyDetails(row) && !row.Actual4 && (row.Planned4 || (row.Actual2 && isAuditDone(row)) || (row.Actual5 && isReAuditDone(row)))
   );
@@ -1252,7 +1257,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
+        qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: getTotalFreightValue(row),
@@ -1391,7 +1396,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
+        qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: getTotalFreightValue(row),
@@ -1479,7 +1484,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
+        qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: getTotalFreightValue(row),
@@ -1568,7 +1573,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
+        qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: getTotalFreightValue(row),
@@ -1656,7 +1661,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
+        qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: getTotalFreightValue(row),
@@ -1758,7 +1763,7 @@ const CallTrackerPage = () => {
           rate: row["Rate"] || '',
           truckQty: row["Truck Qty"] || '',
           biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-          qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
+          qtyDifferenceStatus: getQtyDifferenceStatus(row),
           differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
           weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
           totalFreight: getTotalFreightValue(row),
@@ -1848,7 +1853,7 @@ const CallTrackerPage = () => {
         rate: row["Rate"] || '',
         truckQty: row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
-        qtyDifferenceStatus: (parseFloat(row["Truck Qty"] || 0) - parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0)).toFixed(3),
+        qtyDifferenceStatus: getQtyDifferenceStatus(row),
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
         totalFreight: getTotalFreightValue(row),
         debitAmount: row["Debit Amount"] || '',
