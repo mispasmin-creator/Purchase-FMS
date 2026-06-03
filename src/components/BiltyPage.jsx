@@ -148,14 +148,17 @@ export default function BiltyPage() {
     try {
       const [
         { data: liftData, error: liftErr },
-        { data: poData, error: poErr }
+        { data: poData, error: poErr },
+        { data: mismatchData, error: mismatchErr }
       ] = await Promise.all([
         supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
         supabase.from("INDENT-PO").select("*"),
+        supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
       ]);
  
       if (liftErr) throw liftErr;
       if (poErr) throw poErr;
+      if (mismatchErr) throw mismatchErr;
 
       const formatTimestamp = (dateValue) => {
         if (!dateValue) return "";
@@ -248,6 +251,53 @@ export default function BiltyPage() {
         };
       }).filter(row => row && row.id);
 
+      const acknowledgedMismatchRows = (mismatchData || [])
+        .filter((row) => String(row.Status || row["Status"] || "").trim().toLowerCase() === "acknowledge")
+        .map((row) => {
+          const liftNo = String(row["Lift Number"] || row["Lift ID"] || "").trim();
+          const biltyNumber = String(row["Bilty No."] || row["Bilty No"] || "").trim();
+          const biltyImageUrl = String(row["Bilty Image"] || "").trim();
+          const timestamp = row["Bilty Actual"] || row["Actual 3"] || row.Planned2 || row.Timestamp;
+          const indentNo = String(row["Indent Number"] || row["Indent No"] || row["Indent No."] || "").trim();
+          const materialName = String(row["Product Name"] || row["Raw Material Name"] || "").trim();
+          const po = findPoRow(indentNo, materialName);
+
+          return {
+            _id: `mismatch-${row.id}-${liftNo}`,
+            _dbId: row.id,
+            _sourceTable: "Mismatch",
+            id: liftNo,
+            vendorName: String(row["Party Name"] || row["Vendor Name"] || "").trim(),
+            rawMaterialName: materialName,
+            liftType: String(row["Type"] || "").trim(),
+            truckNo: String(row["Truck No."] || row["Truck No"] || "").trim(),
+            driverNo: String(row["Driver No"] || row["Driver No."] || "").trim(),
+            transporterName: String(row["Transporter Name"] || "").trim(),
+            rateType: String(row["Type Of Rate"] || row["Type Of Transporting Rate"] || "").trim(),
+            transportingRate: String(row["Transporter Rate"] || row["Transporting Per MT Rate"] || "").trim(),
+            originalQty: String(row["Qty"] || row["Quantity"] || "").trim(),
+            totalBillQuantity: String(row["Total Bill Quantity"] || "").trim(),
+            actualQty: String(row["Actual Quantity"] || row["Lifting Qty"] || "").trim(),
+            indentNo,
+            billNo: String(row["Bill No."] || row["Bill No"] || "").trim(),
+            firmName: String(row["Firm Name"] || "").trim(),
+            planned3: formatTimestamp(row.Timestamp || row.Planned2),
+            isPending: !biltyNumber || !biltyImageUrl,
+            isHistory: Boolean(biltyNumber && biltyImageUrl),
+            biltyNumber,
+            biltyImageUrl,
+            billImage: String(row["Bill Image"] || "").trim(),
+            timestamp: formatTimestamp(timestamp),
+            poCopy: po ? String(po["PO Copy"] || "").trim() : "",
+            poRate: po ? String(po["Rate"] || "").trim() : "",
+          };
+        })
+        .filter(row => row.id);
+
+      const acknowledgedMismatchLiftIds = new Set(acknowledgedMismatchRows.map((row) => row.id));
+      processedRawRows = processedRawRows.filter((row) => !acknowledgedMismatchLiftIds.has(row.id));
+      processedRawRows = [...processedRawRows, ...acknowledgedMismatchRows];
+
       if (firmNameFilter && String(firmNameFilter).toLowerCase() !== "all") {
         const userFirmNameLower = String(firmNameFilter).toLowerCase();
         processedRawRows = processedRawRows.filter(
@@ -269,8 +319,8 @@ export default function BiltyPage() {
     fetchLiftData({ force: true });
   }, [fetchLiftData]);
 
-  useRealtime(["LIFT-ACCOUNTS"], () => {
-    console.log("[Realtime] Bilty Page refreshing due to LIFT-ACCOUNTS table change");
+  useRealtime(["LIFT-ACCOUNTS", "Mismatch"], () => {
+    console.log("[Realtime] Bilty Page refreshing due to LIFT-ACCOUNTS/Mismatch table change");
     fetchLiftData({ showLoader: false });
   });
 
@@ -376,14 +426,18 @@ export default function BiltyPage() {
       const now = new Date();
       const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
 
-      const updateData = {
+      const updateData = selectedLift._sourceTable === "Mismatch" ? {
+        "Bilty No.": formData.biltyNumber,
+        "Bilty Image": biltyImageUrl,
+        Planned2: selectedLift.planned2Raw || timestamp,
+      } : {
         "Actual 3": timestamp,
         "Bilty No.": formData.biltyNumber,
         "Bilty Image": biltyImageUrl,
       };
 
       const { error: updateError } = await supabase
-        .from("LIFT-ACCOUNTS")
+        .from(selectedLift._sourceTable === "Mismatch" ? "Mismatch" : "LIFT-ACCOUNTS")
         .update(updateData)
         .eq("id", selectedLift._dbId);
 

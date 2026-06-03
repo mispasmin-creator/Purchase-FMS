@@ -15,6 +15,34 @@ export const sumField = (items, fieldName) => {
   return hasValidNumber ? total.toFixed(3).replace(/\.?0+$/, '') : '-';
 };
 
+const parseNumber = (value) => {
+  if (value === null || value === undefined || value === '') return NaN;
+  const num = parseFloat(String(value).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(num) ? num : NaN;
+};
+
+const formatNumber = (value) => (
+  Number.isFinite(value) ? value.toFixed(3).replace(/\.?0+$/, '') : '-'
+);
+
+const sumReAuditParentFreight = (items) => {
+  const rateType = String(items.find(item => item.typeOfRate)?.typeOfRate || '').toLowerCase().replace(/[^a-z]/g, '');
+  const parentTransporterRate = parseNumber(sumField(items, 'transporterRate'));
+  const parentTruckQty = parseNumber(sumField(items, 'liftingQty'));
+  const parentMaterialQty = parseNumber(sumField(items, 'truckQty'));
+  const qtyForFreight = Number.isFinite(parentTruckQty) ? parentTruckQty : parentMaterialQty;
+
+  if (rateType.includes('permt') && Number.isFinite(parentTransporterRate) && Number.isFinite(qtyForFreight)) {
+    return formatNumber(parentTransporterRate * qtyForFreight);
+  }
+
+  if (rateType.includes('fixed') && Number.isFinite(parentTransporterRate)) {
+    return formatNumber(parentTransporterRate);
+  }
+
+  return '-';
+};
+
 // Helper to render cell value with elegant badge for Multiple
 export const renderCellVal = (val) => {
   if (val === 'Multiple') {
@@ -323,6 +351,10 @@ export const ParentRow = ({
       <ExternalLink className="h-3 w-3 mr-1" /> View
     </a>
   ) : (debitImages.length > 1 ? 'Multiple' : '-');
+  const summedTotalFreight = activeTab === 'REAUDIT'
+    ? sumReAuditParentFreight(group.items)
+    : sumField(group.items, 'totalFreight');
+  const displayTotalFreight = summedTotalFreight !== '-' ? `₹${summedTotalFreight}` : '-';
 
   const statuses = [...new Set(group.items.map(i => i.status).filter(Boolean))];
   const displayStatus = statuses.length === 1 ? statuses[0] : (statuses.length > 1 ? 'Multiple' : '-');
@@ -455,7 +487,7 @@ export const ParentRow = ({
       {visibleColumns.weightSlip && <td className="px-4 py-3 whitespace-nowrap text-xs font-medium">{renderCellVal(displayWeightSlip)}</td>}
       {visibleColumns.debitAmount && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-red-600">{renderCellVal(sumField(group.items, 'debitAmount') !== '-' ? `₹${sumField(group.items, 'debitAmount')}` : '-')}</td>}
       {visibleColumns.debitNoteUrl && <td className="px-4 py-3 whitespace-nowrap text-xs font-medium">{renderCellVal(displayDebitImage)}</td>}
-      {visibleColumns.totalFreight && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-800">{renderCellVal(sumField(group.items, 'totalFreight') !== '-' ? `₹${sumField(group.items, 'totalFreight')}` : '-')}</td>}
+      {visibleColumns.totalFreight && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-800">{renderCellVal(displayTotalFreight)}</td>}
       {visibleColumns.auditStatus && <td className="px-4 py-3 whitespace-nowrap">{displayAuditStatus === 'Multiple' ? renderCellVal(displayAuditStatus) : <StatusBadge value={displayAuditStatus} />}</td>}
       {visibleColumns.rectifyStatus && <td className="px-4 py-3 whitespace-nowrap">{displayRectifyStatus === 'Multiple' ? renderCellVal(displayRectifyStatus) : <StatusBadge value={displayRectifyStatus} />}</td>}
       {visibleColumns.reAuditStatus && <td className="px-4 py-3 whitespace-nowrap">{displayReAuditStatus === 'Multiple' ? renderCellVal(displayReAuditStatus) : <StatusBadge value={displayReAuditStatus} />}</td>}
@@ -603,7 +635,7 @@ export const SubRow = ({
           ) : "-"}
         </td>
       )}
-      {visibleColumns.totalFreight && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-800">{row.totalFreight ? `₹${row.totalFreight}` : '-'}</td>}
+      {visibleColumns.totalFreight && <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-800">{activeTab === 'REAUDIT' ? '-' : (row.totalFreight ? `₹${row.totalFreight}` : '-')}</td>}
       {visibleColumns.auditStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.auditStatus} /></td>}
       {visibleColumns.rectifyStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.rectifyStatus} /></td>}
       {visibleColumns.reAuditStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.reAuditStatus} /></td>}
