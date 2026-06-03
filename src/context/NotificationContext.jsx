@@ -426,6 +426,10 @@ export function NotificationProvider({ children }) {
             if (error) throw error;
 
             let filtered = data.filter((row) => {
+                const transporter = String(row["Transporter Name"] || "").trim().toUpperCase();
+                if (transporter === "FOR" || transporter === "OWNED TRUCK" || transporter === "BY COMPANY") {
+                    return false;
+                }
                 const planned3 = row["Planned 3"];
                 const actual3 = row["Actual 3"];
                 const needsUnloadApproval = String(row["Unload Approval Required"] || "").trim().toLowerCase() === "yes";

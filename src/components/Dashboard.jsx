@@ -651,9 +651,21 @@ export default function Dashboard() {
     ];
 
     liftAccountsStages.forEach(({ key, columnName }) => {
-      const pendingCount = filteredLiftAccountData.filter(
-        (lift) => !lift[key] || lift[key] === null || lift[key] === "",
-      ).length;
+      const pendingCount = filteredLiftAccountData.filter((lift) => {
+        const transporter = String(lift.transporterName || "").trim().toUpperCase();
+        const isBypassed = transporter === "FOR" || transporter === "OWNED TRUCK" || transporter === "BY COMPANY";
+        if (isBypassed) {
+          if (columnName === "AE") {
+            // "Bilty Entry" is bypassed
+            return false;
+          }
+          if (columnName === "AJ") {
+            // "Lab Testing" checks actualAE (Actual 2 / Lab) instead of actualAJ (Actual 3 / Bilty)
+            return !lift.actualAE || lift.actualAE === null || lift.actualAE === "";
+          }
+        }
+        return !lift[key] || lift[key] === null || lift[key] === "";
+      }).length;
       pendingCounts.push({
         stageName: stageNames.liftAccounts[columnName],
         pendingCount: pendingCount,
@@ -811,6 +823,11 @@ export default function Dashboard() {
         ? Math.floor((today - createdDate) / (1000 * 60 * 60 * 24))
         : null;
 
+      const isBypassed = lifts.length > 0 && lifts.some(l => {
+        const t = String(l.transporterName || "").trim().toUpperCase();
+        return t === "FOR" || t === "OWNED TRUCK" || t === "BY COMPANY";
+      });
+
       const steps = [
         { label: "HOD Approved", done: !!indent.actualM, category: "indent" },
         { label: "Factory Approved", done: !!indent.actual7, category: "indent" },
@@ -819,8 +836,16 @@ export default function Dashboard() {
         { label: "PO Entry (Tally)", done: !!indent.actualAL, category: "indent" },
         { label: "Material Lifted", done: lifts.length > 0, category: "lift" },
         { label: "Material Received", done: lifts.some((l) => l.actualU), category: "lift" },
-        { label: "Bilty Entry", done: lifts.some((l) => l.actualAE), category: "lift" },
-        { label: "Lab Testing", done: lifts.some((l) => l.actualAJ), category: "lift" },
+        { 
+          label: "Bilty Entry", 
+          done: isBypassed ? lifts.some((l) => l.actualU) : lifts.some((l) => l.actualAE), 
+          category: "lift" 
+        },
+        { 
+          label: "Lab Testing", 
+          done: isBypassed ? lifts.some((l) => l.actualAE) : lifts.some((l) => l.actualAJ), 
+          category: "lift" 
+        },
         { label: "Final Tally", done: lifts.some((l) => l.actualBB), category: "lift" },
         { label: "Accounts Audit", done: accounts.some((a) => a.actualAA || a.actualAU), category: "accounts" },
       ];
@@ -837,9 +862,9 @@ export default function Dashboard() {
       const liftStatus =
         lifts.length === 0 ? "Lift Pending"
         : lifts.some((l) => !l.actualU) ? "In Transit"
-        : lifts.some((l) => !l.actualAJ) ? "Lab Pending"
-        : lifts.some((l) => !l.actualBB) ? "Tally Pending"
-        : "Lift Done";
+        : isBypassed
+          ? (lifts.some((l) => !l.actualAE) ? "Lab Pending" : lifts.some((l) => !l.actualBB) ? "Tally Pending" : "Lift Done")
+          : (lifts.some((l) => !l.actualAJ) ? "Lab Pending" : lifts.some((l) => !l.actualBB) ? "Tally Pending" : "Lift Done");
 
       // Urgency based on age + pending
       const urgency =
@@ -2890,12 +2915,21 @@ export default function Dashboard() {
                                                 </thead>
                                                 <tbody>
                                                   {indent.lifts.map((lift) => {
+                                                    const transporter = String(lift.transporterName || "").trim().toUpperCase();
+                                                    const isBypassed = transporter === "FOR" || transporter === "OWNED TRUCK" || transporter === "BY COMPANY";
                                                     const liftPendingAt =
                                                       !lift.actualU ? "Receipt Pending"
-                                                      : !lift.actualAE ? "Bilty Pending"
-                                                      : !lift.actualAJ ? "Lab Pending"
-                                                      : !lift.actualBB ? "Final Tally Pending"
-                                                      : "Done";
+                                                      : isBypassed ? (
+                                                          !lift.actualAE ? "Lab Pending"
+                                                          : !lift.actualBB ? "Final Tally Pending"
+                                                          : "Done"
+                                                        )
+                                                      : (
+                                                          !lift.actualAE ? "Bilty Pending"
+                                                          : !lift.actualAJ ? "Lab Pending"
+                                                          : !lift.actualBB ? "Final Tally Pending"
+                                                          : "Done"
+                                                        );
                                                     return (
                                                       <tr key={lift.id} className="bg-white border-t border-gray-100 hover:bg-blue-50/30">
                                                         <td className="px-3 py-2 font-bold text-[#7da23a]">#{lift.id}</td>
@@ -2914,14 +2948,24 @@ export default function Dashboard() {
                                                           </span>
                                                         </td>
                                                         <td className="px-3 py-2 text-center">
-                                                          <span className={lift.actualAE ? "text-green-600 font-bold" : "text-red-400"}>
-                                                            {lift.actualAE ? "✓" : "✗"}
-                                                          </span>
+                                                          {isBypassed ? (
+                                                            <span className="text-gray-400">—</span>
+                                                          ) : (
+                                                            <span className={lift.actualAE ? "text-green-600 font-bold" : "text-red-400"}>
+                                                              {lift.actualAE ? "✓" : "✗"}
+                                                            </span>
+                                                          )}
                                                         </td>
                                                         <td className="px-3 py-2 text-center">
-                                                          <span className={lift.actualAJ ? "text-green-600 font-bold" : "text-red-400"}>
-                                                            {lift.actualAJ ? "✓" : "✗"}
-                                                          </span>
+                                                          {isBypassed ? (
+                                                            <span className={lift.actualAE ? "text-green-600 font-bold" : "text-red-400"}>
+                                                              {lift.actualAE ? "✓" : "✗"}
+                                                            </span>
+                                                          ) : (
+                                                            <span className={lift.actualAJ ? "text-green-600 font-bold" : "text-red-400"}>
+                                                              {lift.actualAJ ? "✓" : "✗"}
+                                                            </span>
+                                                          )}
                                                         </td>
                                                         <td className="px-3 py-2 text-center">
                                                           <span className={lift.actualBB ? "text-green-600 font-bold" : "text-red-400"}>

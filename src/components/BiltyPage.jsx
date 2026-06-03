@@ -181,26 +181,74 @@ export default function BiltyPage() {
         return String(dateValue);
       };
 
-      const findPoRow = (indentNo, material) => {
+      const findPoRow = (indentNo, material, vendorName = "") => {
         if (!indentNo) return null;
         const key = String(indentNo).trim().toLowerCase();
         const mat = String(material || "").trim().toLowerCase();
+        const vendor = String(vendorName || "").trim().toLowerCase();
 
-        const candidates = (poData || []).filter(r => {
+        const allPos = poData || [];
+
+        // Try direct match first
+        let candidates = allPos.filter(r => {
           const k1 = String(r["Indent Id."] || "").trim().toLowerCase();
           const k2 = String(r["po_number"] || "").trim().toLowerCase();
-          return k1 === key || k2 === key || (key.match(/\d+/)?.[0] && (k1.includes(key.match(/\d+/)[0]) || k2.includes(key.match(/\d+/)[0])));
+          return k1 === key || k2 === key;
         });
+
+        // If no direct match, try stricter numeric match
+        if (candidates.length === 0) {
+          const parts = key.match(/\d+/g);
+          const lastNumPart = parts ? parts[parts.length - 1] : null;
+
+          if (lastNumPart && lastNumPart.length >= 3) {
+            candidates = allPos.filter(r => {
+              const k1 = String(r["Indent Id."] || "").trim().toLowerCase();
+              const k2 = String(r["po_number"] || "").trim().toLowerCase();
+              const p1 = k1.match(/\d+/g);
+              const p2 = k2.match(/\d+/g);
+              const r1 = p1 ? p1[p1.length - 1] : null;
+              const r2 = p2 ? p2[p2.length - 1] : null;
+              
+              const isNumMatch = r1 === lastNumPart || r2 === lastNumPart;
+              if (!isNumMatch) return false;
+
+              // Verify vendor if possible
+              if (vendor) {
+                const poVendor = String(r["Vendor name"] || r["Vendor"] || "").trim().toLowerCase();
+                return poVendor.includes(vendor) || vendor.includes(poVendor);
+              }
+              return true;
+            });
+          }
+        }
 
         if (candidates.length === 0) return null;
         if (candidates.length === 1) return candidates[0];
+
+        // If multiple candidates, prioritize the one matching the material
+        const exactMaterialMatch = candidates.find(r => 
+          String(r["Material"] || "").trim().toLowerCase() === mat
+        );
+        if (exactMaterialMatch) return exactMaterialMatch;
+
+        // Otherwise check PO Items within candidates
+        const itemMatch = candidates.find(r => {
+          const items = Array.isArray(r["PO Items"]) ? r["PO Items"] : [];
+          return items.some(it => String(it.material || it.productName || "").trim().toLowerCase() === mat);
+        });
         
-        return candidates.find(c => String(c["Raw Material Name"] || "").trim().toLowerCase() === mat) || candidates[0];
+        return itemMatch || candidates[0];
       };
 
       let processedRawRows = (liftData || []).map((row) => {
         const firmNameStr = String(row["Firm Name"] || "").trim().toUpperCase();
         const transporterNameStr = String(row["Transporter Name"] || "").trim().toUpperCase();
+
+        // Condition 0: Transporter is "For", "Owned Truck", or "By Company"
+        if (transporterNameStr === "FOR" || transporterNameStr === "OWNED TRUCK" || transporterNameStr === "BY COMPANY") {
+            return null;
+        }
 
         // Condition 1: RKL or Purab AND Transporter is "For"
         if ((firmNameStr === "RKL" || firmNameStr === "PURAB") && transporterNameStr === "FOR") {
@@ -242,62 +290,101 @@ export default function BiltyPage() {
           timestamp: formatTimestamp(row["Actual 3"]),
           // PO Info
           ...(() => {
-            const po = findPoRow(row["Indent no."], row["Raw Material Name"]);
+            const po = findPoRow(row["Indent no."], row["Raw Material Name"], row["Vendor Name"]);
+            let poRate = po ? String(po["Rate"] || "").trim() : "";
+            if (po && po["PO Items"] && Array.isArray(po["PO Items"])) {
+              const matLower = String(row["Raw Material Name"] || "").trim().toLowerCase();
+              const itemMatch = po["PO Items"].find(it =>
+                String(it.material || it.productName || "").trim().toLowerCase() === matLower
+              );
+              if (itemMatch) {
+                poRate = String(itemMatch.rate || "").trim();
+              }
+            }
+            if (row["Lift No"] === "LF-237") {
+              console.log("[LF-237 Lift Accounts Debug] poRate resolved to:", poRate, "po:", po);
+            }
             return {
               poCopy: po ? String(po["PO Copy"] || "").trim() : "",
-              poRate: po ? String(po["Rate"] || "").trim() : "",
+              poRate: poRate,
             };
           })()
         };
       }).filter(row => row && row.id);
 
+      const liftMap = new Map();
+      (liftData || []).forEach(l => {
+        const liftNo = String(l["Lift No"] || "").trim();
+        if (liftNo) liftMap.set(liftNo, l);
+      });
+
       const acknowledgedMismatchRows = (mismatchData || [])
         .filter((row) => String(row.Status || row["Status"] || "").trim().toLowerCase() === "acknowledge")
         .map((row) => {
           const liftNo = String(row["Lift Number"] || row["Lift ID"] || "").trim();
-          const biltyNumber = String(row["Bilty No."] || row["Bilty No"] || "").trim();
-          const biltyImageUrl = String(row["Bilty Image"] || "").trim();
-          const timestamp = row["Bilty Actual"] || row["Actual 3"] || row.Planned2 || row.Timestamp;
-          const indentNo = String(row["Indent Number"] || row["Indent No"] || row["Indent No."] || "").trim();
-          const materialName = String(row["Product Name"] || row["Raw Material Name"] || "").trim();
-          const po = findPoRow(indentNo, materialName);
+          const liftRecord = liftMap.get(liftNo) || {};
+          const vendorName = String(row["Party Name"] || row["Vendor Name"] || liftRecord["Vendor Name"] || "").trim();
+          const biltyNumber = String(row["Bilty No."] || row["Bilty No"] || liftRecord["Bilty No."] || "").trim();
+          const biltyImageUrl = String(row["Bilty Image"] || liftRecord["Bilty Image"] || "").trim();
+          const timestamp = row["Bilty Actual"] || row["Actual 3"] || liftRecord["Actual 3"] || row.Planned2 || row.Timestamp;
+          const indentNo = String(row["Indent Number"] || row["Indent No"] || row["Indent No."] || liftRecord["Indent no."] || "").trim();
+          const materialName = String(row["Product Name"] || row["Raw Material Name"] || liftRecord["Raw Material Name"] || "").trim();
+          const po = findPoRow(indentNo, materialName, vendorName);
 
           return {
             _id: `mismatch-${row.id}-${liftNo}`,
             _dbId: row.id,
             _sourceTable: "Mismatch",
             id: liftNo,
-            vendorName: String(row["Party Name"] || row["Vendor Name"] || "").trim(),
+            vendorName: String(row["Party Name"] || row["Vendor Name"] || liftRecord["Vendor Name"] || "").trim(),
             rawMaterialName: materialName,
-            liftType: String(row["Type"] || "").trim(),
-            truckNo: String(row["Truck No."] || row["Truck No"] || "").trim(),
-            driverNo: String(row["Driver No"] || row["Driver No."] || "").trim(),
-            transporterName: String(row["Transporter Name"] || "").trim(),
-            rateType: String(row["Type Of Rate"] || row["Type Of Transporting Rate"] || "").trim(),
-            transportingRate: String(row["Transporter Rate"] || row["Transporting Per MT Rate"] || "").trim(),
-            originalQty: String(row["Qty"] || row["Quantity"] || "").trim(),
-            totalBillQuantity: String(row["Total Bill Quantity"] || "").trim(),
-            actualQty: String(row["Actual Quantity"] || row["Lifting Qty"] || "").trim(),
+            liftType: String(row["Type"] || liftRecord["Type"] || "").trim(),
+            truckNo: String(row["Truck No."] || row["Truck No"] || liftRecord["Truck No."] || "").trim(),
+            driverNo: String(row["Driver No"] || row["Driver No."] || liftRecord["Driver No."] || "").trim(),
+            transporterName: String(row["Transporter Name"] || liftRecord["Transporter Name"] || "").trim(),
+            rateType: String(row["Type Of Rate"] || row["Type Of Transporting Rate"] || liftRecord["Type Of Transporting Rate"] || "").trim(),
+            transportingRate: String(row["Transporter Rate"] || row["Transporting Per MT Rate"] || liftRecord["Transporting Per MT Rate"] || "").trim(),
+            originalQty: String(row["Qty"] || row["Quantity"] || liftRecord["Qty"] || "").trim(),
+            totalBillQuantity: String(row["Total Bill Quantity"] || liftRecord["Total Bill Quantity"] || "").trim(),
+            actualQty: String(row["Actual Quantity"] || row["Lifting Qty"] || liftRecord["Actual Quantity"] || "").trim(),
             indentNo,
-            billNo: String(row["Bill No."] || row["Bill No"] || "").trim(),
-            firmName: String(row["Firm Name"] || "").trim(),
-            planned3: formatTimestamp(row.Timestamp || row.Planned2),
+            billNo: String(row["Bill No."] || row["Bill No"] || liftRecord["Bill No."] || "").trim(),
+            firmName: String(row["Firm Name"] || liftRecord["Firm Name"] || "").trim(),
+            planned3: formatTimestamp(row.Timestamp || row.Planned2 || liftRecord["Planned 3"]),
             isPending: !biltyNumber || !biltyImageUrl,
             isHistory: Boolean(biltyNumber && biltyImageUrl),
             biltyNumber,
             biltyImageUrl,
-            billImage: String(row["Bill Image"] || "").trim(),
+            billImage: String(row["Bill Image"] || liftRecord["Bill Image"] || "").trim(),
             timestamp: formatTimestamp(timestamp),
             poCopy: po ? String(po["PO Copy"] || "").trim() : "",
-            poRate: po ? String(po["Rate"] || "").trim() : "",
+            poRate: (() => {
+              let poRate = po ? String(po["Rate"] || "").trim() : "";
+              if (po && po["PO Items"] && Array.isArray(po["PO Items"])) {
+                const matLower = String(materialName || "").trim().toLowerCase();
+                const itemMatch = po["PO Items"].find(it =>
+                  String(it.material || it.productName || "").trim().toLowerCase() === matLower
+                );
+                if (itemMatch) {
+                  poRate = String(itemMatch.rate || "").trim();
+                }
+              }
+              if (liftNo === "LF-237") {
+                console.log("[LF-237 Mismatch Debug] poRate resolved to:", poRate, "po:", po);
+              }
+              return poRate;
+            })(),
           };
         })
-        .filter(row => row.id);
+        .filter(row => {
+          if (!row.id) return false;
+          const transporter = String(row.transporterName || "").trim().toUpperCase();
+          return !(transporter === "FOR" || transporter === "OWNED TRUCK" || transporter === "BY COMPANY");
+        });
 
       const acknowledgedMismatchLiftIds = new Set(acknowledgedMismatchRows.map((row) => row.id));
       processedRawRows = processedRawRows.filter((row) => !acknowledgedMismatchLiftIds.has(row.id));
       processedRawRows = [...processedRawRows, ...acknowledgedMismatchRows];
-
       if (firmNameFilter && String(firmNameFilter).toLowerCase() !== "all") {
         const userFirmNameLower = String(firmNameFilter).toLowerCase();
         processedRawRows = processedRawRows.filter(

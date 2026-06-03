@@ -92,6 +92,8 @@ const CallTrackerPage = () => {
   const [liftActualQtyMap, setLiftActualQtyMap] = useState({}); 
   const [liftDateOfReceivingMap, setLiftDateOfReceivingMap] = useState({}); 
   const [liftTransporterRateMap, setLiftTransporterRateMap] = useState({}); 
+  const [liftActual2Map, setLiftActual2Map] = useState({});
+  const [liftTransporterMap, setLiftTransporterMap] = useState({});
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('AUDIT'); 
   const [poToIndentMap, setPoToIndentMap] = useState({});
@@ -428,6 +430,12 @@ const CallTrackerPage = () => {
   const isReAuditDone = (row) => String(row.Status5 || '').trim().toLowerCase() === 'done';
   const hasBiltyDetails = (row, liftNo) => {
     const normalizedLiftNo = String(liftNo || row["Lift ID"] || row["Lift Number"] || row["Lift No"] || "").trim();
+    const transporter = String(row["Transporter Name"] || liftTransporterMap[normalizedLiftNo] || "").trim().toUpperCase();
+    const isBypassed = transporter === "FOR" || transporter === "OWNED TRUCK" || transporter === "BY COMPANY";
+    if (isBypassed) {
+      const labCompleted = String(row["Actual 2"] || liftActual2Map[normalizedLiftNo] || "").trim();
+      return Boolean(labCompleted);
+    }
     const biltyNo = String(row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[normalizedLiftNo] || "").trim();
     const biltyImage = String(row["Bilty Image"] || liftBiltyImageMap[normalizedLiftNo] || "").trim();
     return Boolean(biltyNo && biltyImage);
@@ -1175,7 +1183,7 @@ const CallTrackerPage = () => {
       try {
         const { data } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Date Of Receiving", "Transporter Rate"');
+          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Date Of Receiving", "Transporter Rate", "Actual 2", "Transporter Name"');
         const weightSlipMap = {};
         const typeMap = {};
         const biltyNoMap = {};
@@ -1183,6 +1191,8 @@ const CallTrackerPage = () => {
         const actualQtyMap = {};
         const dateOfReceivingMap = {};
         const transporterRateMap = {};
+        const actual2Map = {};
+        const transporterMap = {};
         (data || []).forEach(l => {
           const key = String(l["Lift No"] || "").trim();
           if (key) {
@@ -1193,6 +1203,8 @@ const CallTrackerPage = () => {
             actualQtyMap[key] = String(l["Actual Quantity"] || "").trim();
             dateOfReceivingMap[key] = String(l["Date Of Receiving"] || "").trim();
             transporterRateMap[key] = String(l["Transporter Rate"] || "").trim();
+            actual2Map[key] = String(l["Actual 2"] || "").trim();
+            transporterMap[key] = String(l["Transporter Name"] || "").trim();
           }
         });
         setLiftWeightSlipMap(weightSlipMap);
@@ -1202,6 +1214,8 @@ const CallTrackerPage = () => {
         setLiftActualQtyMap(actualQtyMap);
         setLiftDateOfReceivingMap(dateOfReceivingMap);
         setLiftTransporterRateMap(transporterRateMap);
+        setLiftActual2Map(actual2Map);
+        setLiftTransporterMap(transporterMap);
       } catch (e) {
         console.error('Failed to fetch LIFT-ACCOUNTS meta:', e);
       }

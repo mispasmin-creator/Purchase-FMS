@@ -309,11 +309,21 @@ const AccountsAudit = () => {
           // Condition: Show if Planned2 is set (normal flow)
           if (row.planned2 && row.planned2 !== "") return true;
 
-          // OR Show if it meets Skip Kitting criteria (bypass flow)
-          const firmName = String(row.firmName).trim().toUpperCase();
-          const transporterName = String(row.transporterName)
+          const transporterName = String(row.transporterName || "")
             .trim()
             .toUpperCase();
+
+          // OR Show if it meets bypass flow for For, Owned Truck, By Company
+          if (
+            transporterName === "FOR" ||
+            transporterName === "OWNED TRUCK" ||
+            transporterName === "BY COMPANY"
+          ) {
+            return true;
+          }
+
+          // OR Show if it meets Skip Kitting criteria (bypass flow)
+          const firmName = String(row.firmName).trim().toUpperCase();
 
           // Condition 1: RKL or Purab AND Transporter is "For"
           if (
