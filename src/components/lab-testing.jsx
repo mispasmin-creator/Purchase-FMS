@@ -677,6 +677,15 @@ export default function LabTesting() {
             actualQty_fromReceipt: String(row["Actual Quantity"] || "").trim(),
             billNo: String(row["Bill No."] || "").trim(),
             truckNo: String(row["Truck No."] || "").trim(),
+            areaLifting: String(row["Area lifting"] || "").trim(),
+            billImage: String(row["Bill Image"] || "").trim(),
+            transporterName: String(row["Transporter Name"] || "").trim(),
+            transporterRate: String(row["Transporter Rate"] || "").trim(),
+            typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
+            rate: String(row["Rate"] || "").trim(),
+            truckQty: String(row["Truck Qty"] || "").trim(),
+            biltyNo: String(row["Bilty No."] || "").trim(),
+            biltyImage: String(row["Bilty Image"] || "").trim(),
             dateOfReceiving_formatted: formatTimestamp(
               row["Date Of Receiving"],
             ),
@@ -1238,7 +1247,7 @@ export default function LabTesting() {
       // Fetch existing mismatch record
       const { data: existingMismatch, error: existingMismatchError } = await supabase
         .from("Mismatch")
-        .select("id, Status")
+        .select("*")
         .eq("Lift Number", selectedReceiptForModal.liftNo)
         .maybeSingle();
 
@@ -1266,6 +1275,30 @@ export default function LabTesting() {
       if (isMismatch) {
         mismatchUpdatePayload.Status = "Pending";
       }
+      const isBlank = (value) =>
+        value === null || value === undefined || String(value).trim() === "";
+      const sourceMismatchFields = {
+        Type: selectedReceiptForModal.type || null,
+        "Bill No.": selectedReceiptForModal.billNo || null,
+        "Area Lifting": selectedReceiptForModal.areaLifting || null,
+        "Truck No.": selectedReceiptForModal.truckNo || null,
+        "Transporter Name": selectedReceiptForModal.transporterName || null,
+        Transporter: selectedReceiptForModal.transporterName || null,
+        "Bill Image": selectedReceiptForModal.billImage || null,
+        "Bilty No.": selectedReceiptForModal.biltyNo || null,
+        "Type Of Rate": selectedReceiptForModal.typeOfRate || null,
+        Rate: selectedReceiptForModal.rate || null,
+        "Truck Qty": selectedReceiptForModal.truckQty || null,
+        "Bilty Image": selectedReceiptForModal.biltyImage || null,
+        "Total Freight": selectedReceiptForModal.transporterRate || null,
+        Planned2: timestamp,
+      };
+      const getMissingSourceFields = (existing = {}) =>
+        Object.fromEntries(
+          Object.entries(sourceMismatchFields).filter(
+            ([key, value]) => !isBlank(value) && isBlank(existing[key]),
+          ),
+        );
 
       if (existingMismatch) {
         // An existing record was found — update lab difference columns.
@@ -1274,7 +1307,10 @@ export default function LabTesting() {
         // If lab has mismatch, also set Status to Pending.
         const { error: mismatchError } = await supabase
           .from("Mismatch")
-          .update(mismatchUpdatePayload)
+          .update({
+            ...mismatchUpdatePayload,
+            ...getMissingSourceFields(existingMismatch),
+          })
           .eq("id", existingMismatch.id);
 
         if (mismatchError) {
@@ -1292,9 +1328,7 @@ export default function LabTesting() {
           "Party Name": selectedReceiptForModal.vendorName,
           "Product Name": selectedReceiptForModal.rawMaterialName,
           "Qty": selectedReceiptForModal.qty,
-          "Bill No.": selectedReceiptForModal.billNo,
-          "Truck No.": selectedReceiptForModal.truckNo,
-          "Area Lifting": selectedReceiptForModal.areaLifting || null,
+          ...sourceMismatchFields,
         };
 
         const { error: mismatchError } = await supabase

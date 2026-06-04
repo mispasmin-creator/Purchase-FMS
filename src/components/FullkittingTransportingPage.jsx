@@ -465,11 +465,21 @@ export default function FullkittingTransportingPage() {
 
             if (fullkittinError) throw fullkittinError;
             
-            // Also update Mismatch table to signal Audit stage (Planned2) and sync data
+            const { data: existingMismatchForKitting, error: existingMismatchFetchError } = await supabase
+                .from("Mismatch")
+                .select("Planned2")
+                .eq("Lift Number", selectedKittingItem?.liftNumber)
+                .maybeSingle();
+
+            if (existingMismatchFetchError) {
+                console.warn("Could not read existing Mismatch Planned2:", existingMismatchFetchError);
+            }
+
+            // Also update Mismatch table to sync kitting data. Preserve Audit planned date if it already exists.
             const { error: mismatchUpdateError } = await supabase
                 .from("Mismatch")
                 .update({ 
-                    Planned2: timestamp,
+                    Planned2: existingMismatchForKitting?.Planned2 || timestamp,
                     "Transporter Name": kittingFormData.transporterName,
                     Transporter: kittingFormData.transporterName,
                     "Truck No.": kittingFormData.vehicleNumber,

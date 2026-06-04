@@ -492,6 +492,13 @@ export default function ReceiptCheck() {
             driverNo: String(row["Driver No."] || "").trim(),
             areaLifting: String(row["Area lifting"] || "").trim(),
             truckNo: String(row["Truck No."] || "").trim(),
+            transporterName: String(row["Transporter Name"] || "").trim(),
+            transporterRate: String(row["Transporter Rate"] || "").trim(),
+            typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
+            rate: String(row["Rate"] || "").trim(),
+            truckQty: String(row["Truck Qty"] || "").trim(),
+            biltyNo: String(row["Bilty No."] || "").trim(),
+            biltyImage: String(row["Bilty Image"] || "").trim(),
             plannedDate_formatted: formatTimestamp(row["Planned 1"]),
             // Filter columns - using Planned 1 and Actual 1
             filterColPlanned1: row["Planned 1"],
@@ -902,6 +909,30 @@ export default function ReceiptCheck() {
       // Calculate quantity difference and update Mismatch table only for shortages (actual < billed)
       if (qtyDiff < 0) {
         const qtyDiffStatus = "Mismatch";
+        const isBlank = (value) =>
+          value === null || value === undefined || String(value).trim() === "";
+        const sourceMismatchFields = {
+          Type: selectedLift.type || null,
+          "Bill No.": selectedLift.billNo || null,
+          "Area Lifting": selectedLift.areaLifting || null,
+          "Truck No.": selectedLift.truckNo || null,
+          "Transporter Name": selectedLift.transporterName || null,
+          Transporter: selectedLift.transporterName || null,
+          "Bill Image": selectedLift.billCopy || null,
+          "Bilty No.": selectedLift.biltyNo || null,
+          "Type Of Rate": selectedLift.typeOfRate || null,
+          Rate: selectedLift.rate || null,
+          "Truck Qty": selectedLift.truckQty || null,
+          "Bilty Image": selectedLift.biltyImage || null,
+          "Total Freight": selectedLift.transporterRate || null,
+          Planned2: timestamp,
+        };
+        const getMissingSourceFields = (existing = {}) =>
+          Object.fromEntries(
+            Object.entries(sourceMismatchFields).filter(
+              ([key, value]) => !isBlank(value) && isBlank(existing[key]),
+            ),
+          );
 
         const mismatchPayload = {
           "Quantity Difference": qtyDiff,
@@ -913,7 +944,7 @@ export default function ReceiptCheck() {
         // Check for existing mismatch record
         const { data: existingMismatch, error: existingMismatchError } = await supabase
           .from("Mismatch")
-          .select("id")
+          .select("*")
           .eq('"Lift ID"', selectedLift.id)
           .maybeSingle();
 
@@ -921,7 +952,10 @@ export default function ReceiptCheck() {
           // Update existing
           const { error: mismatchUpdateError } = await supabase
             .from("Mismatch")
-            .update(mismatchPayload)
+            .update({
+              ...mismatchPayload,
+              ...getMissingSourceFields(existingMismatch),
+            })
             .eq("id", existingMismatch.id);
 
           if (mismatchUpdateError) {
@@ -939,9 +973,7 @@ export default function ReceiptCheck() {
             "Party Name": selectedLift.vendorName,
             "Product Name": selectedLift.rawMaterialName,
             "Qty": selectedLift.qty,
-            "Bill No.": selectedLift.billNo,
-            "Truck No.": selectedLift.truckNo,
-            "Area Lifting": selectedLift.areaLifting || null,
+            ...sourceMismatchFields,
           };
 
           const { error: mismatchInsertError } = await supabase
