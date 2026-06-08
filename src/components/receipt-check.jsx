@@ -1537,6 +1537,8 @@ export default function ReceiptCheck() {
             { label: "Total Bill Quantity", dbKey: "Total Bill Quantity", value: superAdminEditItem.totalBillQuantity_fromSheet, type: "number" },
             { label: "Actual Quantity", dbKey: "Actual Quantity", value: superAdminEditItem.actualQuantity_fromSheet, type: "number" },
             { label: "Weight Slip Qty", dbKey: "Weight Slip Qty", value: superAdminEditItem.weightSlipQty_fromSheet, type: "number" },
+            { label: "Weight Slip Image", dbKey: "Image Of Weight Slip", value: superAdminEditItem.weightSlipImageUrl_fromSheet, type: "file", folder: "receipt-weight-slip" },
+            { label: "Physical Image Of Product", dbKey: "Physical Image Of Product", value: superAdminEditItem.physicalImageUrl_fromSheet, type: "file", folder: "receipt-physical" },
           ]}
           onClose={() => setSuperAdminEditItem(null)}
           onSaved={() => { setSuperAdminEditItem(null); setRefreshTrigger((p) => p + 1); }}

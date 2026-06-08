@@ -101,7 +101,20 @@ export const StandardRow = ({
       } transition-colors border-b border-gray-100 group`}
     >
       {activeTab === 'HISTORY' ? (
-        <td className={`sticky left-0 z-10 px-4 py-3 whitespace-nowrap text-xs text-purple-700 font-medium border-r border-gray-150 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white group-hover:bg-slate-50' : 'bg-[#fafafb] group-hover:bg-slate-50'}`}>{row.completedAt || '-'}</td>
+        <td className={`sticky left-0 z-10 px-4 py-3 whitespace-nowrap text-xs text-purple-700 font-medium border-r border-gray-150 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white group-hover:bg-slate-50' : 'bg-[#fafafb] group-hover:bg-slate-50'}`}>
+          <div className="flex items-center gap-2">
+            <span>{row.completedAt || '-'}</span>
+            {isSuperAdmin && row.supabaseId && (
+              <button
+                onClick={() => setSuperAdminEditRow(row)}
+                className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-[10px] font-medium rounded-md hover:bg-purple-200 border border-purple-300 transition-all duration-200 shadow-2xs"
+              >
+                <ShieldCheck className="w-2.5 h-2.5 mr-0.5" />
+                Edit
+              </button>
+            )}
+          </div>
+        </td>
       ) : visibleColumns.actions && (
         <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap bg-[#fbfefd] group-hover:bg-[#f2faf5] border-r border-emerald-100/50 transition-colors duration-150">
           <div className="flex items-center gap-1.5">
@@ -115,7 +128,7 @@ export const StandardRow = ({
               <Edit2 className="w-3 h-3 mr-1" />
               Add Entry
             </button>
-            {isSuperAdmin && !row.isNewFromLift && row.supabaseId && (
+            {isSuperAdmin && row.supabaseId && (
               <button
                 onClick={() => setSuperAdminEditRow(row)}
                 className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300 transition-all duration-200"
@@ -512,7 +525,9 @@ export const SubRow = ({
   groupIdx,
   visibleColumns,
   STAGES,
-  activeTab
+  activeTab,
+  isSuperAdmin,
+  setSuperAdminEditRow
 }) => {
   const stageInfo = STAGES[row.currentStage] || {
     name: row.currentStage || 'Unknown',
@@ -531,12 +546,30 @@ export const SubRow = ({
           <div className="flex items-center gap-1.5 animate-fade-in">
             <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-slate-100 text-purple-600 border border-slate-200/60 font-bold mr-2 text-[10px]">↳</span>
             <span>{row.completedAt || '-'}</span>
+            {isSuperAdmin && row.supabaseId && (
+              <button
+                onClick={() => setSuperAdminEditRow(row)}
+                className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-[10px] font-medium rounded-md hover:bg-purple-200 border border-purple-300 transition-all duration-200 shadow-2xs"
+              >
+                <ShieldCheck className="w-2.5 h-2.5 mr-0.5" />
+                Edit
+              </button>
+            )}
           </div>
         </td>
       ) : visibleColumns.actions && (
         <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap pl-6 bg-[#fafbfe] group-hover:bg-[#f1f3f9] border-r border-slate-200/50 border-l-4 border-l-slate-200 transition-colors duration-150">
           <div className="flex items-center gap-1.5">
             <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-slate-100 text-[#7da23a] border border-slate-200/60 font-bold mr-2 text-[10px]">↳</span>
+            {isSuperAdmin && row.supabaseId && (
+              <button
+                onClick={() => setSuperAdminEditRow(row)}
+                className="inline-flex items-center px-2 py-1.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-200 border border-purple-300 transition-all duration-200 shadow-2xs"
+              >
+                <ShieldCheck className="w-3 h-3 mr-1" />
+                Edit
+              </button>
+            )}
           </div>
         </td>
       )}

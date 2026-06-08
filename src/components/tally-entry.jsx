@@ -551,7 +551,7 @@ export default function TallyEntry() {
               </p>
             </div>
           ) : (
-            <div className="overflow-auto h-full">
+            <div className="overflow-auto max-h-[calc(100vh-420px)] min-h-[350px] relative custom-scrollbar [&_[data-slot=table-container]]:overflow-visible">
               <Table>
                 <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
                   <TableRow>

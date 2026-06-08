@@ -133,6 +133,8 @@ const AuditTable = ({
                         visibleColumns={visibleColumns}
                         STAGES={STAGES}
                         activeTab={activeTab}
+                        isSuperAdmin={isSuperAdmin}
+                        setSuperAdminEditRow={setSuperAdminEditRow}
                       />
                     ))}
                   </React.Fragment>

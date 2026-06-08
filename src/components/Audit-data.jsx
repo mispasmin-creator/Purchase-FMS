@@ -1346,6 +1346,7 @@ const CallTrackerPage = () => {
         currentStage: 'AUDIT',
         isNewFromLift: true, 
         supabaseId: `lift_${row.id || index}`, 
+        liftDbId: row.id,
         indentNumber: (() => {
           const raw = String(row["Indent no."] || '').trim().toUpperCase();
           const parts = raw.split('/');
@@ -2220,43 +2221,120 @@ const CallTrackerPage = () => {
       {/* SuperAdmin Edit Modal */}
       {superAdminEditRow && (
         <SuperAdminEditModal
-          title={`Edit Mismatch Record — ${superAdminEditRow.liftNumber}`}
-          tableName="Mismatch"
+          title={
+            superAdminEditRow.isNewFromLift
+              ? `Edit Lift Record — ${superAdminEditRow.liftNumber}`
+              : `Edit Mismatch Record — ${superAdminEditRow.liftNumber}`
+          }
+          tableName={superAdminEditRow.isNewFromLift ? "LIFT-ACCOUNTS" : "Mismatch"}
           pkField="id"
-          pkValue={superAdminEditRow.supabaseId}
-          fields={[
-            { label: "Lift ID", dbKey: "Lift ID", value: superAdminEditRow.liftNumber, type: "text" },
-            { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditRow.billNo, type: "text" },
-            { label: "Party Name", dbKey: "Party Name", value: superAdminEditRow.partyName, type: "text" },
-            { label: "Product Name", dbKey: "Product Name", value: superAdminEditRow.productName, type: "text" },
-            { label: "Qty", dbKey: "Qty", value: superAdminEditRow.qty, type: "number" },
-            { label: "Area Lifting", dbKey: "Area Lifting", value: superAdminEditRow.areaLifting, type: "text" },
-            { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditRow.truckNo, type: "text" },
-            { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditRow.transporterName, type: "text" },
-            { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditRow.billImage, type: "text" },
-            { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditRow.biltyNo, type: "text" },
-            { label: "Type Of Rate", dbKey: "Type Of Rate", value: superAdminEditRow.typeOfRate, type: "text" },
-            { label: "Rate", dbKey: "Rate", value: superAdminEditRow.rate, type: "number" },
-            { label: "Truck Qty", dbKey: "Truck Qty", value: superAdminEditRow.truckQty, type: "number" },
-            { label: "Bilty Image URL", dbKey: "Bilty Image", value: superAdminEditRow.biltyImage, type: "text" },
-            { label: "Weight Slip URL", dbKey: "Weight Slip", value: superAdminEditRow.weightSlip, type: "text" },
-            { label: "Total Freight", dbKey: "Total Freight", value: superAdminEditRow.totalFreight, type: "number" },
-            { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditRow.debitAmount, type: "number" },
-            { label: "Debit Note URL", dbKey: "Debit Note URL", value: superAdminEditRow.debitNoteUrl, type: "text" },
-            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditRow.firmName, type: "text" },
-            { label: "Vendor Name", dbKey: "Vendor Name", value: superAdminEditRow.vendorName, type: "text" },
-            { label: "Indent Number", dbKey: "Indent Number", value: superAdminEditRow.indentNumber, type: "text" },
-            { label: "Lifting Qty", dbKey: "Lifting Qty", value: superAdminEditRow.liftingQty, type: "number" },
-            { label: "Date Of Receiving", dbKey: "Date Of Receiving", value: superAdminEditRow.dateOfReceiving, type: "date" },
-            { label: "Remarks", dbKey: "Remarks", value: superAdminEditRow.remarks, type: "textarea" },
-            { label: "Audit Remarks", dbKey: "Remarks2", value: superAdminEditRow.auditRemarks, type: "textarea" },
-            { label: "Rectify Remarks", dbKey: "Remarks3", value: superAdminEditRow.rectifyRemarks, type: "textarea" },
-            { label: "Tally Remarks", dbKey: "Remarks4", value: superAdminEditRow.tallyRemarks, type: "textarea" },
-            { label: "Re-Audit Remarks", dbKey: "Remarks5", value: superAdminEditRow.reauditRemarks, type: "textarea" },
-            { label: "Bill Remarks", dbKey: "Remarks6", value: superAdminEditRow.billRemarks, type: "textarea" },
-          ]}
+          pkValue={
+            superAdminEditRow.isNewFromLift
+              ? superAdminEditRow.liftDbId
+              : superAdminEditRow.supabaseId
+          }
+          fields={
+            superAdminEditRow.isNewFromLift
+              ? [
+                  { label: "Lift Number", dbKey: "Lift No", value: superAdminEditRow.liftNumber, type: "text" },
+                  { label: "Indent No.", dbKey: "Indent no.", value: superAdminEditRow.indentNumber, type: "text" },
+                  { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditRow.firmName, type: "text" },
+                  {
+                    label: "PO Rate",
+                    dbKey: "PO Rate",
+                    value: superAdminEditRow.poRate,
+                    type: "number",
+                    customTable: "INDENT-PO",
+                    customPkField: "po_number",
+                    customPkValue: superAdminEditRow.indentNumber,
+                    saveDbKey: "Rate"
+                  },
+                  { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditRow.billNo, type: "text" },
+                  { label: "Bill Receiving Date", dbKey: "Date Of Receiving", value: superAdminEditRow.dateOfReceiving, type: "date" },
+                  { label: "Party Name", dbKey: "Vendor Name", value: superAdminEditRow.partyName || superAdminEditRow.vendorName, type: "text" },
+                  { label: "Product Name", dbKey: "Raw Material Name", value: superAdminEditRow.productName, type: "text" },
+                  { label: "Remarks", dbKey: "Remarks", value: superAdminEditRow.remarks, type: "textarea", skipSave: true },
+                  { label: "PO Qty", dbKey: "Qty", value: superAdminEditRow.qty, type: "number" },
+                  { label: "Area Lifting", dbKey: "Area lifting", value: superAdminEditRow.areaLifting, type: "text" },
+                  { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditRow.truckNo, type: "text" },
+                  { label: "Transporter", dbKey: "Transporter Name", value: superAdminEditRow.transporterName, type: "text" },
+                  { label: "Transporter Rate", dbKey: "Transporter Rate", value: superAdminEditRow.transporterRate, type: "number" },
+                  { label: "Bill Image", dbKey: "Bill Image", value: superAdminEditRow.billImage, type: "file", folder: "bill-images" },
+                  { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditRow.biltyNo, type: "text" },
+                  { label: "Type Of Rate", dbKey: "Type Of Transporting Rate", value: superAdminEditRow.typeOfRate, type: "text" },
+                  { label: "Material Rate", dbKey: "Rate", value: superAdminEditRow.rate, type: "number" },
+                  { label: "Material Qty", dbKey: "Truck Qty", value: superAdminEditRow.truckQty, type: "number" },
+                  { label: "Truck Qty", dbKey: "Lifting Qty", value: superAdminEditRow.liftingQty, type: "number" },
+                  { label: "Bilty Image", dbKey: "Bilty Image", value: superAdminEditRow.biltyImage, type: "file", folder: "lift-bilty" },
+                  { label: "Qty Diff Status", dbKey: "qtyDifferenceStatus", value: superAdminEditRow.qtyDifferenceStatus, type: "text", readOnly: true },
+                  { label: "Weight Slip", dbKey: "Image Of Weight Slip", value: superAdminEditRow.weightSlip, type: "file", folder: "receipt-weight-slip" },
+                  { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditRow.debitAmount, type: "number", skipSave: true },
+                  { label: "Debit Image", dbKey: "Debit Note URL", value: superAdminEditRow.debitNoteUrl, type: "file", folder: "debit-notes", skipSave: true },
+                  { label: "Total Freight", dbKey: "Total Freight", value: superAdminEditRow.totalFreight, type: "number" },
+                ]
+              : [
+                  { label: "Lift Number", dbKey: "Lift ID", value: superAdminEditRow.liftNumber, type: "text" },
+                  { label: "Indent No.", dbKey: "Indent Number", value: superAdminEditRow.indentNumber, type: "text" },
+                  { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditRow.firmName, type: "text" },
+                  {
+                    label: "PO Rate",
+                    dbKey: "PO Rate",
+                    value: superAdminEditRow.poRate,
+                    type: "number",
+                    customTable: "INDENT-PO",
+                    customPkField: "po_number",
+                    customPkValue: superAdminEditRow.indentNumber,
+                    saveDbKey: "Rate"
+                  },
+                  { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditRow.billNo, type: "text" },
+                  { label: "Bill Receiving Date", dbKey: "Date Of Receiving", value: superAdminEditRow.dateOfReceiving, type: "date" },
+                  { label: "Party Name", dbKey: "Party Name", value: superAdminEditRow.partyName, type: "text" },
+                  { label: "Product Name", dbKey: "Product Name", value: superAdminEditRow.productName, type: "text" },
+                  { label: "Remarks", dbKey: "Remarks", value: superAdminEditRow.remarks, type: "textarea" },
+                  { label: "PO Qty", dbKey: "Qty", value: superAdminEditRow.qty, type: "number" },
+                  { label: "Area Lifting", dbKey: "Area Lifting", value: superAdminEditRow.areaLifting, type: "text" },
+                  { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditRow.truckNo, type: "text" },
+                  { label: "Transporter", dbKey: "Transporter Name", value: superAdminEditRow.transporterName, type: "text" },
+                  { label: "Transporter Rate", dbKey: "Transporter Rate", value: superAdminEditRow.transporterRate, type: "number" },
+                  { label: "Bill Image", dbKey: "Bill Image", value: superAdminEditRow.billImage, type: "file", folder: "bill-images" },
+                  { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditRow.biltyNo, type: "text" },
+                  { label: "Type Of Rate", dbKey: "Type Of Rate", value: superAdminEditRow.typeOfRate, type: "text" },
+                  { label: "Material Rate", dbKey: "Rate", value: superAdminEditRow.rate, type: "number" },
+                  { label: "Material Qty", dbKey: "Truck Qty", value: superAdminEditRow.truckQty, type: "number" },
+                  {
+                    label: "Truck Qty",
+                    dbKey: "Lifting Qty",
+                    value: superAdminEditRow.liftingQty,
+                    type: "number",
+                    customTable: "LIFT-ACCOUNTS",
+                    customPkField: "Lift No",
+                    customPkValue: superAdminEditRow.liftNumber,
+                    saveDbKey: "Lifting Qty"
+                  },
+                  { label: "Bilty Image", dbKey: "Bilty Image", value: superAdminEditRow.biltyImage, type: "file", folder: "lift-bilty" },
+                  { label: "Qty Diff Status", dbKey: "qtyDifferenceStatus", value: superAdminEditRow.qtyDifferenceStatus, type: "text", readOnly: true },
+                  { label: "Weight Slip", dbKey: "Weight Slip", value: superAdminEditRow.weightSlip, type: "file", folder: "receipt-weight-slip" },
+                  { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditRow.debitAmount, type: "number" },
+                  { label: "Debit Image", dbKey: "Debit Note URL", value: superAdminEditRow.debitNoteUrl, type: "file", folder: "debit-notes" },
+                  { label: "Total Freight", dbKey: "Total Freight", value: superAdminEditRow.totalFreight, type: "number" },
+                  { label: "Audit Remarks", dbKey: "Remarks2", value: superAdminEditRow.auditRemarks, type: "textarea" },
+                  { label: "Rectify Remarks", dbKey: "Remarks3", value: superAdminEditRow.rectifyRemarks, type: "textarea" },
+                  { label: "Tally Remarks", dbKey: "Remarks4", value: superAdminEditRow.tallyRemarks, type: "textarea" },
+                  { label: "Re-Audit Remarks", dbKey: "Remarks5", value: superAdminEditRow.reauditRemarks, type: "textarea" },
+                  { label: "Bill Remarks", dbKey: "Remarks6", value: superAdminEditRow.billRemarks, type: "textarea" },
+                ]
+          }
           onClose={() => setSuperAdminEditRow(null)}
-          onSaved={() => { setSuperAdminEditRow(null); fetchData(); }}
+          onSaved={() => {
+            setSuperAdminEditRow(null);
+            fetchData();
+            fetchAuditDataFromSupabase();
+            fetchTallyEntryDataFromSupabase();
+            fetchBillEntryDataFromSupabase();
+            fetchRectifyDataFromSupabase();
+            fetchReAuditDataFromSupabase();
+            fetchHistoryDataFromSupabase();
+          }}
         />
       )}
 

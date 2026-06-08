@@ -235,6 +235,11 @@ const ELIGIBLE_TESTS_COLUMNS_META = [
     alwaysVisible: true,
   },
   {
+    header: "RI Number",
+    dataKey: "indentNo",
+    toggleable: true,
+  },
+  {
     header: "Planned Date",
     dataKey: "aiCondition_val_formatted",
     toggleable: true,
@@ -253,6 +258,11 @@ const RECORDED_TESTS_COLUMNS_META = [
     dataKey: "liftNo",
     toggleable: true,
     alwaysVisible: true,
+  },
+  {
+    header: "RI Number",
+    dataKey: "indentNo",
+    toggleable: true,
   },
   {
     header: "Test Date (AM)",
