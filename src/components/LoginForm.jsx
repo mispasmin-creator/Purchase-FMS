@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, ShieldCheck, User } from "lucide-react";
+import { Loader2, ShieldCheck, User, Eye, EyeOff } from "lucide-react";
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginRole, setLoginRole] = useState("user"); // "user" | "superadmin"
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -135,26 +136,37 @@ export default function LoginForm() {
             </div>
             <div>
               <Label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</Label>
-              <Input
-                type="password"
-                id="password"
-                name="password"
-                placeholder="Enter your password"
-                value={formData.password}
-                onChange={handleChange}
-                disabled={isLoading}
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
-                  errors.password
-                    ? "border-red-500 ring-1 ring-red-500"
-                    : isSuperAdminMode
-                    ? "border-purple-300 focus:border-[#7b2ff7] focus:ring-[#7b2ff7]"
-                    : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"
-                }`}
-                aria-invalid={!!errors.password}
-                aria-describedby={errors.password ? "password-error" : undefined}
-              />
+              <div className="relative mt-1">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  name="password"
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  className={`block w-full pr-10 rounded-md shadow-sm sm:text-sm ${
+                    errors.password
+                      ? "border-red-500 ring-1 ring-red-500"
+                      : isSuperAdminMode
+                      ? "border-purple-300 focus:border-[#7b2ff7] focus:ring-[#7b2ff7]"
+                      : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"
+                  }`}
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? "password-error" : undefined}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
               {errors.password && <p id="password-error" className="text-red-500 text-xs mt-1">{errors.password}</p>}
             </div>
+            
+
             <Button
               type="submit"
               className={`w-full py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 ${
