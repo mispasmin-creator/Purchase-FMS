@@ -67,7 +67,7 @@ export default function LoginForm() {
         >
           <div className="flex justify-center mb-4">
             <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center p-2 shadow-sm">
-              <img src="/passary.jpeg" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
             </div>
           </div>
           <CardTitle className="text-center text-2xl font-bold text-white">Purchase Management System</CardTitle>

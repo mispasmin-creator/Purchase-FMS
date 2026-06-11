@@ -629,7 +629,7 @@ function App() {
               <div className="flex items-center gap-5">
                 <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center justify-center shrink-0 w-[5rem] h-[4rem]">
                   <img
-                    src="/passary.jpeg"
+                    src="/logo.png"
                     alt="Logo"
                     className="w-full h-full object-contain mix-blend-multiply"
                   />
@@ -661,7 +661,7 @@ function App() {
             <>
               <div className="bg-slate-50 rounded-xl p-2 border border-slate-100 shadow-sm flex items-center justify-center w-12 h-10 mb-6 mt-4">
                 <img
-                  src="/passary.jpeg"
+                  src="/logo.png"
                   alt="Logo"
                   className="w-full h-full object-contain mix-blend-multiply"
                 />
@@ -786,7 +786,7 @@ function App() {
             <div className="flex items-center gap-5">
               <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center justify-center shrink-0 w-[5rem] h-[4rem]">
                 <img
-                  src="/passary.jpeg"
+                  src="/logo.png"
                   alt="Logo"
                   className="w-full h-full object-contain mix-blend-multiply"
                 />
