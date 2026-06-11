@@ -429,7 +429,8 @@ const CallTrackerPage = () => {
   const isAuditDone = (row) => String(row.Status2 || '').trim().toLowerCase() === 'done';
   const isReAuditDone = (row) => String(row.Status5 || '').trim().toLowerCase() === 'done';
   const hasBiltyDetails = (row, liftNo) => {
-    const normalizedLiftNo = String(liftNo || row["Lift ID"] || row["Lift Number"] || row["Lift No"] || "").trim();
+    const actualLiftNo = (typeof liftNo === 'string') ? liftNo : null;
+    const normalizedLiftNo = String(actualLiftNo || row["Lift ID"] || row["Lift Number"] || row["Lift No"] || "").trim();
     const transporter = String(row["Transporter Name"] || liftTransporterMap[normalizedLiftNo] || "").trim().toUpperCase();
     const isBypassed = transporter === "FOR" || transporter === "OWNED TRUCK" || transporter === "BY COMPANY";
     if (isBypassed) {
