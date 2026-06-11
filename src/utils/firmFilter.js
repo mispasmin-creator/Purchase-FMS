@@ -16,8 +16,12 @@ export function canViewFirm(userFirmName, dataFirmName, pageName = null, userPag
 
     if (pageName && userPageFirms) {
         const pageFirmsList = userPageFirms[pageName];
-        if (pageFirmsList && Array.isArray(pageFirmsList)) {
-            activeUserFirm = pageFirmsList;
+        if (pageFirmsList) {
+            if (Array.isArray(pageFirmsList)) {
+                activeUserFirm = pageFirmsList;
+            } else if (typeof pageFirmsList === "object" && Array.isArray(pageFirmsList.firms)) {
+                activeUserFirm = pageFirmsList.firms;
+            }
         }
     }
 
@@ -61,8 +65,12 @@ export function applyFirmFilter(query, firmName, columnName = "Firm Name", pageN
 
     if (pageName && userPageFirms) {
         const pageFirmsList = userPageFirms[pageName];
-        if (pageFirmsList && Array.isArray(pageFirmsList)) {
-            activeFirmName = pageFirmsList;
+        if (pageFirmsList) {
+            if (Array.isArray(pageFirmsList)) {
+                activeFirmName = pageFirmsList;
+            } else if (typeof pageFirmsList === "object" && Array.isArray(pageFirmsList.firms)) {
+                activeFirmName = pageFirmsList.firms;
+            }
         }
     }
 

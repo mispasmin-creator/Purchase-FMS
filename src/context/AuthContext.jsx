@@ -348,8 +348,14 @@ export function AuthProvider({ children }) {
       const pageName = PATH_TO_PAGE_MAP[pathname]
       if (pageName) {
         const pageFirmsList = user.pageFirms[pageName]
-        if (pageFirmsList && Array.isArray(pageFirmsList)) {
-          updatedUser.firmName = pageFirmsList
+        if (pageFirmsList) {
+          if (Array.isArray(pageFirmsList)) {
+            updatedUser.firmName = pageFirmsList
+          } else if (typeof pageFirmsList === "object" && Array.isArray(pageFirmsList.firms)) {
+            updatedUser.firmName = pageFirmsList.firms
+          } else {
+            updatedUser.firmName = user.globalFirms || user.firmName
+          }
         } else {
           updatedUser.firmName = user.globalFirms || user.firmName
         }
@@ -370,8 +376,12 @@ export function AuthProvider({ children }) {
 
     if (user.pageFirms) {
       const pageFirmsList = user.pageFirms[pageName]
-      if (pageFirmsList && Array.isArray(pageFirmsList)) {
-        return pageFirmsList.map(f => String(f || "").toLowerCase().trim()).includes(normSearchFirm)
+      if (pageFirmsList) {
+        const firms = Array.isArray(pageFirmsList) ? pageFirmsList : (pageFirmsList.firms || [])
+        const mappedList = firms.map(f => String(f || "").toLowerCase().trim())
+        if (mappedList.includes("all") || mappedList.includes(normSearchFirm)) {
+          return true
+        }
       }
     }
 
@@ -386,7 +396,21 @@ export function AuthProvider({ children }) {
     return String(globalFirms).toLowerCase().trim() === normSearchFirm
   }
 
-  const isReadOnly = !!(user?.isReadOnly)
+  const isReadOnly = useMemo(() => {
+    if (!user) return false
+    if (user.isReadOnly) return true
+
+    const pathname = location.pathname
+    const pageName = PATH_TO_PAGE_MAP[pathname]
+    if (pageName && user.pageFirms) {
+      const pageFirmsList = user.pageFirms[pageName]
+      if (pageFirmsList && !Array.isArray(pageFirmsList) && typeof pageFirmsList === "object") {
+        return !!pageFirmsList.readOnly
+      }
+    }
+    return false
+  }, [user, location.pathname])
+
   const isSuperAdmin = !!(user?.isSuperAdmin)
 
   return (

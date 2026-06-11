@@ -39,8 +39,8 @@ const PENDING_BILTY_COLUMNS_META = [
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Type Of Transporting Rate", dataKey: "rateType", toggleable: true },
   { header: "Transporting Per MT Rate", dataKey: "transportingRate", toggleable: true },
-  { header: "Bill Copy", dataKey: "billImage", isLink: true, linkText: "View Bill" },
-  { header: "PO Copy", dataKey: "poCopy", isLink: true, linkText: "View PO" },
+  { header: "Bill Copy", dataKey: "billImage", isLink: true, linkText: "View Bill", toggleable: true },
+  { header: "PO Copy", dataKey: "poCopy", isLink: true, linkText: "View PO", toggleable: true },
   { header: "PO Rate", dataKey: "poRate", toggleable: true },
   { header: "Original Qty", dataKey: "originalQty", toggleable: true },
   { header: "Total Bill Qty", dataKey: "totalBillQuantity", toggleable: true },
@@ -61,14 +61,14 @@ const BILTY_HISTORY_COLUMNS_META = [
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Type Of Transporting Rate", dataKey: "rateType", toggleable: true },
   { header: "Transporting Per MT Rate", dataKey: "transportingRate", toggleable: true },
-  { header: "Bill Copy", dataKey: "billImage", isLink: true, linkText: "View Bill" },
-  { header: "PO Copy", dataKey: "poCopy", isLink: true, linkText: "View PO" },
+  { header: "Bill Copy", dataKey: "billImage", isLink: true, linkText: "View Bill", toggleable: true },
+  { header: "PO Copy", dataKey: "poCopy", isLink: true, linkText: "View PO", toggleable: true },
   { header: "PO Rate", dataKey: "poRate", toggleable: true },
   { header: "Original Qty", dataKey: "originalQty", toggleable: true },
   { header: "Total Bill Qty", dataKey: "totalBillQuantity", toggleable: true },
   { header: "Actual Qty", dataKey: "actualQty", toggleable: true },
   { header: "Bilty Number", dataKey: "biltyNumber", toggleable: true },
-  { header: "Bilty Image", dataKey: "biltyImageUrl", isLink: true, linkText: "View Bilty" },
+  { header: "Bilty Image", dataKey: "biltyImageUrl", isLink: true, linkText: "View Bilty", toggleable: true },
 ];
 
 export default function BiltyPage() {
@@ -544,8 +544,8 @@ export default function BiltyPage() {
   const renderCell = (item, column) => {
     const value = item[column.dataKey];
     if (column.isLink) {
-      return value && String(value).startsWith("http") ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 hover:underline font-medium text-xs inline-flex items-center gap-1">
+      return value ? (
+        <a href={String(value).startsWith("http") ? value : `https://${value}`} target="_blank" rel="noopener noreferrer" className="text-[#7da23a] hover:text-green-800 hover:underline font-medium text-xs inline-flex items-center gap-1">
           <ExternalLink className="h-3 w-3" />{column.linkText || "View"}
         </a>
       ) : <span className="text-gray-400 text-xs">N/A</span>;

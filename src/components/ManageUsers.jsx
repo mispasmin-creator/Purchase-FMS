@@ -226,7 +226,8 @@ const parseFirms = (firmName) => {
 
 const syncGlobalFirms = (pageFirmsObj) => {
   const uniqueFirms = new Set();
-  Object.values(pageFirmsObj).forEach((firms) => {
+  Object.values(pageFirmsObj).forEach((val) => {
+    const firms = Array.isArray(val) ? val : (val?.firms || []);
     if (Array.isArray(firms)) {
       firms.forEach((f) => uniqueFirms.add(f));
     }
@@ -237,13 +238,24 @@ const syncGlobalFirms = (pageFirmsObj) => {
 const getPagePermissionsWithFirms = (rawPages) => {
   if (!rawPages) return [];
   
+  const processEntry = (page, val) => {
+    let firms = [];
+    let isReadOnly = false;
+    if (Array.isArray(val)) {
+      firms = val;
+    } else if (val && typeof val === "object") {
+      firms = val.firms || [];
+      isReadOnly = !!val.readOnly;
+    } else {
+      firms = parseFirms(val);
+    }
+    const firmStr = firms.length > 0 ? ` (${firms.join(", ")})` : "";
+    const accessStr = isReadOnly ? " [View Only]" : "";
+    return `${page}${firmStr}${accessStr}`;
+  };
+
   if (rawPages && typeof rawPages === "object" && !Array.isArray(rawPages)) {
-    return Object.entries(rawPages).map(([page, firms]) => {
-      if (Array.isArray(firms) && firms.length > 0) {
-        return `${page} (${firms.join(", ")})`;
-      }
-      return page;
-    });
+    return Object.entries(rawPages).map(([page, val]) => processEntry(page, val));
   }
 
   const parsedPermissions = parsePermissions(rawPages);
@@ -252,12 +264,7 @@ const getPagePermissionsWithFirms = (rawPages) => {
     try {
       const parsed = JSON.parse(rawPages.trim());
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return Object.entries(parsed).map(([page, firms]) => {
-          if (Array.isArray(firms) && firms.length > 0) {
-            return `${page} (${firms.join(", ")})`;
-          }
-          return page;
-        });
+        return Object.entries(parsed).map(([page, val]) => processEntry(page, val));
       }
     } catch (e) {
       // Fallback
@@ -338,19 +345,36 @@ export default function ManageUsers() {
     let pageFirms = {};
     let userPermissions = [];
 
+    const expandAll = (firms) => {
+      return firms.includes("all") ? ["Pmmpl", "Purab", "Rkl"] : firms;
+    };
+
     if (isViewOnly) {
       // viewonly users
     } else if (typeof rawPages === "string" && (rawPages.trim().toLowerCase() === "all" || rawPages.trim().toLowerCase() === "super admin")) {
       userPermissions = ["admin"];
     } else if (rawPages) {
       if (Array.isArray(rawPages)) {
-        const globalFirms = parseFirms(user["Firm Name"]);
+        const globalFirms = expandAll(parseFirms(user["Firm Name"]));
         rawPages.forEach((page) => {
-          pageFirms[page] = globalFirms;
+          pageFirms[page] = { firms: globalFirms, readOnly: false };
         });
         userPermissions = rawPages;
       } else if (typeof rawPages === "object") {
-        pageFirms = rawPages;
+        pageFirms = {};
+        Object.entries(rawPages).forEach(([page, val]) => {
+          let firms = [];
+          let isReadOnly = false;
+          if (Array.isArray(val)) {
+            firms = val;
+          } else if (val && typeof val === "object") {
+            firms = val.firms || [];
+            isReadOnly = !!val.readOnly;
+          } else {
+            firms = parseFirms(val);
+          }
+          pageFirms[page] = { firms: expandAll(firms), readOnly: isReadOnly };
+        });
         userPermissions = Object.keys(rawPages);
       } else if (typeof rawPages === "string") {
         const trimmed = rawPages.trim();
@@ -358,20 +382,33 @@ export default function ManageUsers() {
           try {
             const parsed = JSON.parse(trimmed);
             if (Array.isArray(parsed)) {
-              const globalFirms = parseFirms(user["Firm Name"]);
+              const globalFirms = expandAll(parseFirms(user["Firm Name"]));
               parsed.forEach((page) => {
-                pageFirms[page] = globalFirms;
+                pageFirms[page] = { firms: globalFirms, readOnly: false };
               });
               userPermissions = parsed;
             } else if (parsed && typeof parsed === "object") {
-              pageFirms = parsed;
+              pageFirms = {};
+              Object.entries(parsed).forEach(([page, val]) => {
+                let firms = [];
+                let isReadOnly = false;
+                if (Array.isArray(val)) {
+                  firms = val;
+                } else if (val && typeof val === "object") {
+                  firms = val.firms || [];
+                  isReadOnly = !!val.readOnly;
+                } else {
+                  firms = parseFirms(val);
+                }
+                pageFirms[page] = { firms: expandAll(firms), readOnly: isReadOnly };
+              });
               userPermissions = Object.keys(parsed);
             }
           } catch (e) {
-            const globalFirms = parseFirms(user["Firm Name"]);
+            const globalFirms = expandAll(parseFirms(user["Firm Name"]));
             const pagesArray = trimmed.split(",").map((p) => p.trim()).filter(Boolean);
             pagesArray.forEach((page) => {
-              pageFirms[page] = globalFirms;
+              pageFirms[page] = { firms: globalFirms, readOnly: false };
             });
             userPermissions = pagesArray;
           }
@@ -383,7 +420,7 @@ export default function ManageUsers() {
       username: user["User Name"] || "",
       password: user["Password"] || "",
       name: user["Name"] || "",
-      firmName: parseFirms(user["Firm Name"]),
+      firmName: (isViewOnly || userPermissions.includes("admin")) ? parseFirms(user["Firm Name"]) : syncGlobalFirms(pageFirms),
       permissions: userPermissions,
       pageFirms,
       isViewOnly,
@@ -415,7 +452,10 @@ export default function ManageUsers() {
           delete newPageFirms[permission];
         } else {
           newPermissions = [...filtered, permission];
-          newPageFirms[permission] = prev.firmName.length > 0 ? prev.firmName : ["Pmmpl"];
+          newPageFirms[permission] = {
+            firms: prev.firmName.length > 0 ? prev.firmName : ["Pmmpl"],
+            readOnly: false
+          };
         }
       }
       const newGlobalFirms = permission === "admin" ? prev.firmName : syncGlobalFirms(newPageFirms);
@@ -447,7 +487,8 @@ export default function ManageUsers() {
 
   const handleTogglePageFirm = (page, firm) => {
     setFormData((prev) => {
-      const currentPageFirms = prev.pageFirms?.[page] || [];
+      const currentPageObj = prev.pageFirms?.[page] || { firms: [], readOnly: false };
+      const currentPageFirms = currentPageObj.firms || [];
       let newPageFirms;
       if (currentPageFirms.includes(firm)) {
         newPageFirms = currentPageFirms.filter((f) => f !== firm);
@@ -457,7 +498,10 @@ export default function ManageUsers() {
 
       const updatedPageFirms = {
         ...prev.pageFirms,
-        [page]: newPageFirms,
+        [page]: {
+          firms: newPageFirms,
+          readOnly: currentPageObj.readOnly
+        },
       };
 
       if (newPageFirms.length === 0) {
@@ -482,16 +526,23 @@ export default function ManageUsers() {
       const activePages = ALL_PAGES.filter(p => p.toLowerCase().includes(pageSearch.toLowerCase()));
       
       activePages.forEach((page) => {
-        const currentPageFirms = updatedPageFirms[page] || [];
+        const currentPageObj = updatedPageFirms[page] || { firms: [], readOnly: false };
+        const currentPageFirms = currentPageObj.firms || [];
         if (checked) {
           if (!currentPageFirms.includes(firm)) {
-            updatedPageFirms[page] = [...currentPageFirms, firm];
+            updatedPageFirms[page] = {
+              firms: [...currentPageFirms, firm],
+              readOnly: currentPageObj.readOnly
+            };
           }
         } else {
-          updatedPageFirms[page] = currentPageFirms.filter((f) => f !== firm);
+          updatedPageFirms[page] = {
+            firms: currentPageFirms.filter((f) => f !== firm),
+            readOnly: currentPageObj.readOnly
+          };
         }
 
-        if (updatedPageFirms[page] && updatedPageFirms[page].length === 0) {
+        if (updatedPageFirms[page] && updatedPageFirms[page].firms.length === 0) {
           delete updatedPageFirms[page];
         }
       });
@@ -512,7 +563,11 @@ export default function ManageUsers() {
     setFormData((prev) => {
       const updatedPageFirms = { ...prev.pageFirms };
       if (checked) {
-        updatedPageFirms[page] = ["Pmmpl", "Purab", "Rkl"];
+        const currentReadOnly = updatedPageFirms[page]?.readOnly || false;
+        updatedPageFirms[page] = {
+          firms: ["Pmmpl", "Purab", "Rkl"],
+          readOnly: currentReadOnly
+        };
       } else {
         delete updatedPageFirms[page];
       }
@@ -529,17 +584,38 @@ export default function ManageUsers() {
     });
   };
 
+  const handleTogglePageAccessLevel = (page, readOnly) => {
+    setFormData((prev) => {
+      if (!prev.pageFirms?.[page]) return prev;
+      
+      const updatedPageFirms = {
+        ...prev.pageFirms,
+        [page]: {
+          ...prev.pageFirms[page],
+          readOnly: readOnly
+        }
+      };
+      
+      return {
+        ...prev,
+        pageFirms: updatedPageFirms
+      };
+    });
+  };
+
   const isFirmCheckedForAllPages = (firm) => {
     const activePages = ALL_PAGES.filter(p => p.toLowerCase().includes(pageSearch.toLowerCase()));
     if (activePages.length === 0) return false;
     return activePages.every((page) => {
-      const firms = formData.pageFirms?.[page] || [];
+      const pageObj = formData.pageFirms?.[page];
+      const firms = pageObj ? (Array.isArray(pageObj) ? pageObj : (pageObj.firms || [])) : [];
       return firms.includes(firm);
     });
   };
 
   const isPageCheckedForAllFirms = (page) => {
-    const firms = formData.pageFirms?.[page] || [];
+    const pageObj = formData.pageFirms?.[page];
+    const firms = pageObj ? (Array.isArray(pageObj) ? pageObj : (pageObj.firms || [])) : [];
     return ["Pmmpl", "Purab", "Rkl"].every((f) => firms.includes(f));
   };
 
@@ -1226,14 +1302,14 @@ export default function ManageUsers() {
                         {formData.isViewOnly ? "View Only mode enables access to all pages." : "Full Admin mode enables access to all pages."}
                       </div>
                     ) : (
-                      <table className="w-full text-xs border-separate border-spacing-0 relative" style={{ minWidth: "440px" }}>
+                      <table className="w-full text-xs border-separate border-spacing-0 relative" style={{ minWidth: "500px" }}>
                         <thead>
                           <tr>
-                            <th className="font-bold text-gray-700 bg-slate-50 py-2.5 px-3 text-left align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[32%]">
+                            <th className="font-bold text-gray-700 bg-slate-50 py-2.5 px-3 text-left align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[30%]">
                               Page Name
                             </th>
                             {["Pmmpl", "Purab", "Rkl"].map((firm) => (
-                              <th key={firm} className="text-center font-bold text-gray-700 bg-slate-50 py-2.5 px-2 align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[16%]">
+                              <th key={firm} className="text-center font-bold text-gray-700 bg-slate-50 py-2.5 px-2 align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[14%]">
                                 <div className="flex flex-col items-center gap-1">
                                   <span>{firm}</span>
                                   <Checkbox
@@ -1244,7 +1320,10 @@ export default function ManageUsers() {
                                 </div>
                               </th>
                             ))}
-                            <th className="text-center font-bold text-gray-700 bg-slate-50 py-2.5 px-2 align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[20%]">
+                            <th className="text-center font-bold text-gray-700 bg-slate-50 py-2.5 px-2 align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[18%]">
+                              Access Level
+                            </th>
+                            <th className="text-center font-bold text-gray-700 bg-slate-50 py-2.5 px-2 align-middle sticky top-0 z-20 shadow-[0_1px_0_0_#e2e8f0] w-[10%]">
                               Row Action
                             </th>
                           </tr>
@@ -1252,7 +1331,10 @@ export default function ManageUsers() {
                         <tbody>
                           {ALL_PAGES.filter(p => p.toLowerCase().includes(pageSearch.toLowerCase())).map((page) => {
                             const isAllRowChecked = isPageCheckedForAllFirms(page);
-                            const currentFirms = formData.pageFirms?.[page] || [];
+                            const pageObj = formData.pageFirms?.[page];
+                            const currentFirms = pageObj ? (Array.isArray(pageObj) ? pageObj : (pageObj.firms || [])) : [];
+                            const isPageReadOnly = pageObj && !Array.isArray(pageObj) ? !!pageObj.readOnly : false;
+                            const hasAccess = currentFirms.length > 0;
                             return (
                               <tr key={page} className="hover:bg-slate-50/50 transition-colors">
                                 <td className="font-medium text-gray-700 py-2 px-3 align-middle border-b border-gray-100">{page}</td>
@@ -1260,13 +1342,30 @@ export default function ManageUsers() {
                                   <td key={firm} className="text-center py-2 px-2 align-middle border-b border-gray-100">
                                     <div className="flex justify-center">
                                       <Checkbox
-                                        checked={currentFirms.includes(firm)}
+                                        checked={currentFirms.includes(firm) || currentFirms.includes("all")}
                                         onCheckedChange={() => handleTogglePageFirm(page, firm)}
                                         className="h-4 w-4 data-[state=checked]:bg-[#7da23a] data-[state=checked]:border-[#7da23a]"
                                       />
                                     </div>
                                   </td>
                                 ))}
+                                <td className="py-2 px-2 align-middle border-b border-gray-100">
+                                  <div className="flex justify-center">
+                                    <Select
+                                      disabled={!hasAccess}
+                                      value={isPageReadOnly ? "view" : "edit"}
+                                      onValueChange={(val) => handleTogglePageAccessLevel(page, val === "view")}
+                                    >
+                                      <SelectTrigger className="h-7 text-[10px] w-24 bg-white border-gray-200">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="edit">Full Access</SelectItem>
+                                        <SelectItem value="view">View Only</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </td>
                                 <td className="text-center py-2 px-2 align-middle border-b border-gray-100">
                                   <div className="flex justify-center">
                                     <Button
