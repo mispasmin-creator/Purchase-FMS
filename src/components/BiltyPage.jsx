@@ -280,9 +280,7 @@ export default function BiltyPage() {
           unloadApprovalRequired: String(row["Unload Approval Required"] || "").trim(),
           unloadApprovalStatus: String(row["Unload Approval Status"] || "").trim(),
           planned3: formatTimestamp(row["Planned 3"]),
-          isPending: row["Planned 3"] && !row["Actual 3"] && !row["Bilty No."] &&
-                    (String(row["Unload Approval Required"] || "").trim().toLowerCase() !== "yes" ||
-                     String(row["Unload Approval Status"] || "").trim().toLowerCase() === "approved"),
+          isPending: row["Planned 3"] && !row["Actual 3"] && !row["Bilty No."],
           isHistory: row["Planned 3"] && (row["Actual 3"] || row["Bilty No."]),
           biltyNumber: String(row["Bilty No."] || "").trim(),
           biltyImageUrl: String(row["Bilty Image"] || "").trim(),

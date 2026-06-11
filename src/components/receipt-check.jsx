@@ -847,13 +847,13 @@ export default function ReceiptCheck() {
         .join(", ");
 
       // Highest priority: If quantity shortage, always require unload approval regardless of other conditions
-      const needsUnloadApproval = qtyDiff < 0 || Boolean(unloadApprovalTrigger);
+      // Since unload approval page is removed, we set needsUnloadApproval to false
+      const needsUnloadApproval = false;
 
       const isReSubmittingApproved =
         selectedLift.unloadApprovalStatus === "Approved" &&
         selectedLift.unloadApprovalRequired === "Yes";
-      const isFinalReceiptSubmission =
-        !needsUnloadApproval || isReSubmittingApproved;
+      const isFinalReceiptSubmission = true;
 
       // Prepare update data for Supabase LIFT-ACCOUNTS
       const updateData = {
@@ -865,26 +865,15 @@ export default function ReceiptCheck() {
         Moisture: formData.moisture || null,
         "Physical Image Of Product": physicalImageUrl || null,
         "Image Of Weight Slip": weightSlipImageUrl || null,
-        "Unload Approval Required": needsUnloadApproval ? "Yes" : "No",
-        "Planned Unload Approval":
-          needsUnloadApproval && !isReSubmittingApproved
-            ? timestamp
-            : selectedLift.plannedUnloadApproval || null,
-        "Actual Unload Approval": isReSubmittingApproved
-          ? selectedLift.actualUnloadApproval
-          : null,
-        "Unload Approval Status": isReSubmittingApproved
-          ? "Completed"
-          : needsUnloadApproval
-            ? "Pending"
-            : "Approved",
+        "Unload Approval Required": "No",
+        "Planned Unload Approval": selectedLift.plannedUnloadApproval || null,
+        "Actual Unload Approval": selectedLift.actualUnloadApproval || null,
+        "Unload Approval Status": "Approved",
         "Unload Approval Trigger":
           unloadApprovalTrigger || selectedLift.unloadApprovalTrigger || null,
         "Unload Approval Remarks": selectedLift.unloadApprovalRemarks || null,
         "Unload Approval By": selectedLift.unloadApprovalBy || null,
-        "Planned 2": isFinalReceiptSubmission
-          ? selectedLift["Planned 2"] || timestamp
-          : selectedLift["Planned 2"] || null,
+        "Planned 2": selectedLift["Planned 2"] || timestamp,
       };
 
       console.log(

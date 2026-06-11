@@ -293,6 +293,7 @@ function App() {
       countKey: "unload-management",
       countLabel: "Pending",
       component: <ManagementUnloadApproval />,
+      hidden: true,
     },
     {
       id: "lab-testing",

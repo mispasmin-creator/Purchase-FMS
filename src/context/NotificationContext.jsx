@@ -280,9 +280,7 @@ export function NotificationProvider({ children }) {
             let filtered = data.filter((row) => {
                 const planned2 = row["Planned 2"];
                 const actual2 = row["Actual 2"];
-                const needsUnloadApproval = String(row["Unload Approval Required"] || "").trim().toLowerCase() === "yes";
-                const isUnloadApproved = String(row["Unload Approval Status"] || "").trim().toLowerCase() === "approved";
-                return planned2 !== null && planned2 !== "" && (actual2 === null || actual2 === "") && (!needsUnloadApproval || isUnloadApproved);
+                return planned2 !== null && planned2 !== "" && (actual2 === null || actual2 === "");
             });
             
             if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
@@ -432,9 +430,7 @@ export function NotificationProvider({ children }) {
                 }
                 const planned3 = row["Planned 3"];
                 const actual3 = row["Actual 3"];
-                const needsUnloadApproval = String(row["Unload Approval Required"] || "").trim().toLowerCase() === "yes";
-                const isUnloadApproved = String(row["Unload Approval Status"] || "").trim().toLowerCase() === "approved";
-                return planned3 !== null && planned3 !== "" && (actual3 === null || actual3 === "") && (!needsUnloadApproval || isUnloadApproved);
+                return planned3 !== null && planned3 !== "" && (actual3 === null || actual3 === "");
             });
             
             if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
@@ -595,29 +591,7 @@ export function NotificationProvider({ children }) {
     }
 
     async function getPendingUnloadApprovals(user, allowedSteps) {
-        try {
-            const { data, error } = await supabase
-                .from("LIFT-ACCOUNTS")
-                .select("*");
-
-            if (error) throw error;
-
-            let filtered = data.filter((row) =>
-                String(row["Unload Approval Required"] || "").trim().toLowerCase() === "yes" &&
-                String(row["Unload Approval Status"] || "").trim().toLowerCase() === "pending" &&
-                row["Actual 1"],
-            );
-
-            if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
-                const userFirmNameLower = String(user.firmName).toLowerCase();
-                filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
-            }
-
-            return filtered.length;
-        } catch (error) {
-            console.error("Error fetching pending unload approvals:", error);
-            return 0;
-        }
+        return 0;
     }
 
 
