@@ -54,7 +54,12 @@ import ArrangeLogistics from "./components/ArrangeLogistics";
 import LogisticsApproval from "./components/LogisticsApproval";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   LayoutDashboard,
   FilePlus,
@@ -651,9 +656,6 @@ function App() {
                   <span className="text-base font-medium text-[#7da23a] leading-tight">
                     {user?.username || "user"}
                   </span>
-                  <span className="text-[13px] text-slate-500 leading-tight mt-0.5">
-                    all - khem
-                  </span>
                 </div>
               </div>
             </>
@@ -780,7 +782,11 @@ function App() {
 
       {/* Mobile Sidebar */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-        <SheetContent side="left" className="p-0 flex flex-col w-60 relative">
+        <SheetContent side="left" className="p-0 flex flex-col w-60">
+          <SheetTitle className="sr-only">Mobile navigation</SheetTitle>
+          <SheetDescription className="sr-only">
+            Main navigation links for Purchase FMS.
+          </SheetDescription>
           {/* Mobile Header */}
           <div className="py-6 flex flex-col gap-8 border-b border-gray-200 bg-white z-10 px-6 shrink-0">
             <div className="flex items-center gap-5">
@@ -807,9 +813,6 @@ function App() {
               <div className="flex flex-col">
                 <span className="text-base font-medium text-[#7da23a] leading-tight">
                   {user?.username || "user"}
-                </span>
-                <span className="text-[13px] text-slate-500 leading-tight mt-0.5">
-                  all - khem
                 </span>
               </div>
             </div>
