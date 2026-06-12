@@ -92,7 +92,8 @@ export default function FullkittingTransportingPage() {
         biltyNumber: "",
         rateType: "",
         amount: "",
-        biltyImage: null
+        biltyImage: null,
+        transporterBillImage: null
     });
     const [, setFmsNames] = useState([]);
     const [, setRateTypes] = useState([]);
@@ -419,6 +420,7 @@ export default function FullkittingTransportingPage() {
             rateType: item?.typeOfRate || "",
             amount: item?.transportRate ? String(item.transportRate) : "",
             biltyImage: item?.biltyImage || null,
+            transporterBillImage: null,
         });
         setIsKittingModalOpen(true);
     };
@@ -450,6 +452,16 @@ export default function FullkittingTransportingPage() {
                 biltyImageVal = kittingFormData.biltyImage;
             }
 
+            let transporterBillImageUrl = null;
+            if (kittingFormData.transporterBillImage instanceof File) {
+                const { url } = await uploadFileToStorage(
+                    kittingFormData.transporterBillImage,
+                    'image',
+                    'transporter-bill-images',
+                );
+                transporterBillImageUrl = url;
+            }
+
             const { error: fullkittinError } = await supabase
                 .from("fullkittin")
                 .insert([{
@@ -465,7 +477,8 @@ export default function FullkittingTransportingPage() {
                     "Bilty Number": kittingFormData.biltyNumber,
                     "Rate Type": kittingFormData.rateType,
                     "Amount": kittingFormData.amount ? Number(kittingFormData.amount) : null,
-                    "Bilty Image": biltyImageVal
+                    "Bilty Image": biltyImageVal,
+                    "Transporter Bill Image": transporterBillImageUrl
                 }]);
 
             if (fullkittinError) throw fullkittinError;
@@ -1069,6 +1082,26 @@ export default function FullkittingTransportingPage() {
                                             <div className="space-y-2">
                                                 <Label htmlFor="amount" className="text-sm font-medium text-gray-700">Amount</Label>
                                                 <Input id="amount" type="number" value={kittingFormData.amount} onChange={(e) => setKittingFormData({ ...kittingFormData, amount: e.target.value })} placeholder="Your answer" className="w-full" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="transporterBillImage" className="text-sm font-medium text-gray-700">Transporter Bill Image</Label>
+                                                <Input
+                                                    id="transporterBillImage"
+                                                    type="file"
+                                                    accept="image/*,.pdf"
+                                                    onChange={(e) =>
+                                                        setKittingFormData({
+                                                            ...kittingFormData,
+                                                            transporterBillImage: e.target.files?.[0] || null,
+                                                        })
+                                                    }
+                                                    className="w-full"
+                                                />
+                                                {kittingFormData.transporterBillImage && (
+                                                    <p className="text-xs text-gray-500">
+                                                        Selected: {kittingFormData.transporterBillImage.name}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-sm font-medium text-gray-700">Bilty Image</Label>

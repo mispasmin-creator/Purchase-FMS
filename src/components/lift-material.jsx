@@ -212,6 +212,7 @@ const LIFTS_COLUMNS_META = [
 
 const createEmptyLiftForm = () => ({
   billNo: "",
+  dateOfBill: "",
   Arealifting: "",
   liftingLeadTime: "",
   truckNo: "",
@@ -352,6 +353,7 @@ export default function LiftMaterial() {
     loading: false,
   });
   const [filters, setFilters] = useState({
+    firmName: "all",
     vendorName: "all",
     materialName: "all",
     liftType: "all",
@@ -773,6 +775,7 @@ export default function LiftMaterial() {
           quantity: String(row["Qty"] || "").trim(),
           material: String(row["Raw Material Name"] || "").trim(),
           billNo: String(row["Bill No."] || "").trim(),
+          dateOfBill: String(row["Date Of Bill"] || "").trim(),
           areaName: String(row["Area lifting"] || "").trim(),
           liftingLeadTime: String(
             row["Lead Time To Reach Factory (days)"] || "",
@@ -943,6 +946,7 @@ export default function LiftMaterial() {
   };
 
   const uniqueFilterOptions = useMemo(() => {
+    const firms = new Set();
     const vendors = new Set();
     const materials = new Set();
     const types = new Set();
@@ -951,6 +955,7 @@ export default function LiftMaterial() {
     const transporters = new Set();
 
     purchaseOrders.forEach((po) => {
+      if (po.firmName) firms.add(po.firmName);
       if (po.vendorName) vendors.add(po.vendorName);
       if (po.rawMaterialName) materials.add(po.rawMaterialName);
       (po.items || []).forEach((item) => {
@@ -963,6 +968,7 @@ export default function LiftMaterial() {
     });
 
     materialLifts.forEach((lift) => {
+      if (lift.firmName) firms.add(lift.firmName);
       if (lift.vendorName) vendors.add(lift.vendorName);
       if (lift.material) materials.add(lift.material);
       if (lift.liftType) types.add(lift.liftType);
@@ -974,6 +980,7 @@ export default function LiftMaterial() {
     });
 
     return {
+      firmName: [...firms].sort(),
       vendorName: [...vendors].sort(),
       materialName: [...materials].sort(),
       liftType: [...types].sort(),
@@ -1031,6 +1038,9 @@ export default function LiftMaterial() {
 
   const filteredPurchaseOrders = useMemo(() => {
     let filtered = purchaseOrders;
+    if (filters.firmName !== "all") {
+      filtered = filtered.filter((po) => po.firmName === filters.firmName);
+    }
     if (filters.vendorName !== "all") {
       filtered = filtered.filter((po) => po.vendorName === filters.vendorName);
     }
@@ -1068,6 +1078,9 @@ export default function LiftMaterial() {
 
   const filteredMaterialLifts = useMemo(() => {
     let filtered = materialLifts;
+    if (filters.firmName !== "all") {
+      filtered = filtered.filter((lift) => lift.firmName === filters.firmName);
+    }
     if (filters.vendorName !== "all") {
       filtered = filtered.filter(
         (lift) => lift.vendorName === filters.vendorName,
@@ -1558,6 +1571,7 @@ export default function LiftMaterial() {
           Qty: item.maxQuantity || null,
           "Raw Material Name": item.material,
           "Bill No.": formData.billNo,
+          "Date Of Bill": formData.dateOfBill || null,
           "Area lifting": formData.Arealifting,
           "Lead Time To Reach Factory (days)":
             Number(formData.liftingLeadTime) || null,
@@ -1820,6 +1834,7 @@ export default function LiftMaterial() {
 
   const clearAllFilters = () => {
     setFilters({
+      firmName: "all",
       vendorName: "all",
       materialName: "all",
       liftType: "all",
@@ -1906,7 +1921,20 @@ export default function LiftMaterial() {
                   Clear All
                 </Button>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <div>
+                  <Label className="block mb-1 text-xs">Firm Name</Label>
+                  <SearchableSelect
+                    value={filters.firmName}
+                    onValueChange={(value) =>
+                      handleFilterChange("firmName", value)
+                    }
+                    options={["all", ...uniqueFilterOptions.firmName]}
+                    placeholder="Firms"
+                    className="h-9"
+                  />
+                </div>
+
                 <div>
                   <Label className="block mb-1 text-xs">Vendor Name</Label>
                   <SearchableSelect
@@ -2529,6 +2557,7 @@ export default function LiftMaterial() {
             { label: "Vendor Name", dbKey: "Vendor Name", value: superAdminEditItem.vendorName, type: "text" },
             { label: "Raw Material Name", dbKey: "Raw Material Name", value: superAdminEditItem.material, type: "text" },
             { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditItem.billNo, type: "text" },
+            { label: "Date Of Bill", dbKey: "Date Of Bill", value: superAdminEditItem.dateOfBill, type: "date" },
             { label: "Qty", dbKey: "Qty", value: superAdminEditItem.quantity, type: "number" },
             { label: "Lifting Qty", dbKey: "Lifting Qty", value: superAdminEditItem.liftingQty, type: "number" },
             { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditItem.truckNo, type: "text" },
@@ -2726,6 +2755,11 @@ export default function LiftMaterial() {
                       name: "billNo",
                       type: "text",
                       isRequired: true,
+                    },
+                    {
+                      label: "Date Of Bill",
+                      name: "dateOfBill",
+                      type: "date",
                     },
                     {
                       label: "Area Lifting",
