@@ -192,7 +192,7 @@ export default function MismatchAnalysis() {
     try {
       const { data, error: fetchError } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('id, Timestamp, "Lift ID", "Lift Number", "Indent Number", "Product Name", "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference", "Party Name", "Firm Name", Status, Remarks, Rate, "Action Type", "Debit Amount", "Debit Note URL", "Total Freight", "Truck No.", "Truck Qty", Qty, "Bill No.", "Area Lifting", "Bill Image", "Bilty No.", "Bilty Image", "Weight Slip", "Type Of Rate"')
         .order("Timestamp", { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -641,20 +641,37 @@ export default function MismatchAnalysis() {
     );
   };
 
-  // Fetch LIFT-ACCOUNTS data from Supabase
-  const fetchLiftAccountsData = useCallback(async () => {
+  // Optimized Fetch LIFT-ACCOUNTS data for Mismatches
+  const fetchLiftAccountsForMismatches = useCallback(async (mismatches) => {
+    const list = mismatches || mismatchSheetData;
+    if (!list || list.length === 0) {
+      setLiftAccountsData([]);
+      setLoadingLifts(false);
+      return;
+    }
     setLoadingLifts(true);
-    setError(null);
     try {
+      const liftIds = Array.from(
+        new Set(
+          list
+            .map((item) => item["Lift Number"] || item["Lift ID"])
+            .filter(Boolean)
+        )
+      );
+      if (liftIds.length === 0) {
+        setLiftAccountsData([]);
+        setLoadingLifts(false);
+        return;
+      }
+
       const { data, error: fetchError } = await supabase
         .from("LIFT-ACCOUNTS")
-        .select("*")
-        .order("Timestamp", { ascending: false });
+        .select('"Lift No", "Indent no.", "Vendor Name", "Qty", "Raw Material Name", "Planned 1", "Actual 1", "Planned 2", "Actual 2", "Planned 3", "Actual 3", "Bill No.", "Area lifting", "Lead Time To Reach Factory (days)", "Lifting Qty", "Type", "Transporter Name", "Truck No.", "Driver No.", "Bilty No.", "Type Of Transporting Rate", "Rate", "Bill Image", "Truck Qty", "Date Of Receiving", "Total Bill Quantity", "Actual Quantity", "Physical Condition", "Moisture", "Physical Image Of Product", "Image Of Weight Slip", "Bilty No. 2", "Bilty Image", "Status", "Date Of Test", "Moisture Percent Age %", "BD Percent Age %", "AP Percent Age %", "Alumina Percent Age %", "Iron Percent Age %", "Sieve Analysis", "LOI %", "SIO2 %", "CaO %", "MgO %", "TiO2 %", "K2O + Na2O %", "Free Iron %", "Firm Name", "Weight Slip Qty", "Transporter Rate", "Transporting Rate", "Testing Certificate", "Timestamp"')
+        .in("Lift No", liftIds);
 
       if (fetchError) throw fetchError;
 
       let formattedData = (data || []).map((row) => {
-        // Format timestamp for display
         let createdAt = "";
         let timestamp = "";
         if (row["Timestamp"]) {
@@ -680,7 +697,6 @@ export default function MismatchAnalysis() {
           }
         }
 
-        // Format dates
         const formatDate = (dateValue) => {
           if (!dateValue) return "";
           try {
@@ -695,7 +711,6 @@ export default function MismatchAnalysis() {
         };
 
         return {
-          // Core fields Normalized for lookup
           id: String(row["Lift No"] || "").trim(),
           liftNo: String(row["Lift No"] || "").trim(),
           indentNo: String(row["Indent no."] || "").trim(),
@@ -703,16 +718,12 @@ export default function MismatchAnalysis() {
           quantity: String(row["Qty"] || "").trim(),
           material: String(row["Raw Material Name"] || "").trim(),
           rawMaterialName: String(row["Raw Material Name"] || "").trim(),
-
-          // Stage tracking: Planned + Actual from LIFT-ACCOUNTS
           planned1: row["Planned 1"] || null,
           actual1: row["Actual 1"] || null,
           planned2: row["Planned 2"] || null,
           actual2: row["Actual 2"] || null,
           planned3: row["Planned 3"] || null,
           actual3: row["Actual 3"] || null,
-
-          // LIFT-ACCOUNTS columns (Exact match to schema)
           billNo: String(row["Bill No."] || "").trim(),
           areaLifting: String(row["Area lifting"] || "").trim(),
           leadTimeToFactory: String(row["Lead Time To Reach Factory (days)"] || "").trim(),
@@ -760,53 +771,82 @@ export default function MismatchAnalysis() {
         };
       });
 
-      // Filter by user's firm name if applicable
       if (user?.firmName) {
         formattedData = formattedData.filter((lift) =>
           canViewFirm(user.firmName, lift.firmName),
         );
       }
-      
-      // Removed strict 'independent' filter to allow lookups for all lift types in Mismatch
-      // formattedData = formattedData.filter(
-      //   (lift) => String(lift.liftType || "").toLowerCase() === "independent",
-      // );
 
       setLiftAccountsData(formattedData);
     } catch (err) {
-      setError(`Failed to load LIFT-ACCOUNTS data: ${err.message}`);
+      setError((prev) => prev ? `${prev}\nFailed to load LIFT-ACCOUNTS data: ${err.message}` : `Failed to load LIFT-ACCOUNTS data: ${err.message}`);
       setLiftAccountsData([]);
     } finally {
       setLoadingLifts(false);
     }
-  }, [user]);
+  }, [user, mismatchSheetData]);
 
-  // Fetch INDENT-PO data from Supabase
-  const fetchPurchaseOrdersData = useCallback(async () => {
+  // Keep fetchLiftAccountsData compatible for external callers, calling our optimized function
+  const fetchLiftAccountsData = useCallback(async () => {
+    await fetchLiftAccountsForMismatches();
+  }, [fetchLiftAccountsForMismatches]);
+
+  // Optimized Fetch INDENT-PO data for Mismatches
+  const fetchPOsForMismatches = useCallback(async (mismatches) => {
+    const list = mismatches || mismatchSheetData;
+    if (!list || list.length === 0) {
+      setPurchaseOrdersData([]);
+      setLoadingPOs(false);
+      return;
+    }
     setLoadingPOs(true);
     try {
-      const { data, error: fetchError } = await supabase
-        .from("INDENT-PO")
-        .select("*");
+      const indentIds = Array.from(
+        new Set(
+          list
+            .flatMap((item) => [
+              item["Indent Number"],
+              item["Indent Id."],
+              item["PO Number"],
+              item["po_number"],
+              item["Indent No"],
+              item["Indent No."]
+            ])
+            .filter(Boolean)
+        )
+      );
+      if (indentIds.length === 0) {
+        setPurchaseOrdersData([]);
+        setLoadingPOs(false);
+        return;
+      }
 
-      if (fetchError) throw fetchError;
+      // Fetch from INDENT-PO in parallel by po_number and Indent Id. to be safe
+      const [res1, res2] = await Promise.all([
+        supabase
+          .from("INDENT-PO")
+          .select('"Indent Id.", po_number, "Firm Name", "Vendor name", Vendor, Material, Quantity, Rate, "Pending PO Qty", "Approved Qty", "Approval Status", "Order Cancel Qty", "Reason Of Cancel Qty", Status, "Alumina %", "Iron %", Timestamp')
+          .in("po_number", indentIds),
+        supabase
+          .from("INDENT-PO")
+          .select('"Indent Id.", po_number, "Firm Name", "Vendor name", Vendor, Material, Quantity, Rate, "Pending PO Qty", "Approved Qty", "Approval Status", "Order Cancel Qty", "Reason Of Cancel Qty", Status, "Alumina %", "Iron %", Timestamp')
+          .in("Indent Id.", indentIds)
+      ]);
 
-      // Format dates
-      const formatDate = (dateValue) => {
-        if (!dateValue) return "";
-        try {
-          const d = new Date(dateValue);
-          if (!isNaN(d.getTime())) {
-            return d.toLocaleDateString("en-GB");
-          }
-        } catch (e) {
-          return String(dateValue);
+      const rawData = [...(res1.data || []), ...(res2.data || [])];
+      
+      // Deduplicate merged PO rows
+      const seen = new Set();
+      const uniqueData = [];
+      for (const row of rawData) {
+        const key = `${row["Indent Id."]}-${row["po_number"]}-${row["Material"]}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueData.push(row);
         }
-        return String(dateValue);
-      };
+      }
 
-      const formattedData = (data || []).map((row) => {
-        // Format timestamp for display
+      const formattedData = uniqueData.map((row) => {
         let poTimestamp = "";
         if (row["Timestamp"]) {
           try {
@@ -830,10 +870,7 @@ export default function MismatchAnalysis() {
         }
 
         return {
-          // Normalization for Hybrid Lookup
           indentNo: String(row["po_number"] || row["Indent Id."] || "").trim(),
-          
-          // INDENT-PO columns (Exact match to schema)
           indentId: String(row["Indent Id."] || "").trim(),
           poNumber: String(row["po_number"] || "").trim(),
           firmName: String(row["Firm Name"] || "").trim(),
@@ -865,7 +902,25 @@ export default function MismatchAnalysis() {
     } finally {
       setLoadingPOs(false);
     }
-  }, []);
+  }, [mismatchSheetData]);
+
+  // Keep fetchPurchaseOrdersData compatible for external callers, calling our optimized function
+  const fetchPurchaseOrdersData = useCallback(async () => {
+    await fetchPOsForMismatches();
+  }, [fetchPOsForMismatches]);
+
+  // Watch mismatchSheetData to load Lifts and POs
+  useEffect(() => {
+    if (mismatchSheetData && mismatchSheetData.length > 0) {
+      fetchLiftAccountsForMismatches(mismatchSheetData);
+      fetchPOsForMismatches(mismatchSheetData);
+    } else {
+      setLiftAccountsData([]);
+      setPurchaseOrdersData([]);
+      setLoadingLifts(false);
+      setLoadingPOs(false);
+    }
+  }, [mismatchSheetData, fetchLiftAccountsForMismatches, fetchPOsForMismatches]);
 
   const fetchTLData = useCallback(async () => {
     setLoadingTL(true);
@@ -915,13 +970,9 @@ export default function MismatchAnalysis() {
   }, []);
 
   useEffect(() => {
-    fetchLiftAccountsData();
-    fetchPurchaseOrdersData();
     fetchTLData();
     fetchMismatchSheetData();
   }, [
-    fetchLiftAccountsData,
-    fetchPurchaseOrdersData,
     fetchTLData,
     fetchMismatchSheetData,
   ]);

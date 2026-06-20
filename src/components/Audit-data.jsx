@@ -1228,27 +1228,40 @@ const CallTrackerPage = () => {
     setLoadingAudit(true);
     try {
       const [
-        { data: mismatchData, error: mismatchError },
+        { data: pendingMismatchData, error: mismatchError },
+        { data: allMismatchLiftIds, error: liftIdsError },
         { data: fullkittingData, error: fkError },
         { data: liftAccountsData, error: laError }
       ] = await Promise.all([
-        supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
-        supabase.from("fullkittin").select('"Bilty Number"'),
-        supabase.from("LIFT-ACCOUNTS").select("*")
+        supabase
+          .from("Mismatch")
+          .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
+          .is("Actual2", null)
+          .order("Timestamp", { ascending: false }),
+        supabase
+          .from("Mismatch")
+          .select('"Lift ID"'),
+        supabase
+          .from("fullkittin")
+          .select('"Bilty Number"'),
+        supabase
+          .from("LIFT-ACCOUNTS")
+          .select('id, "Timestamp", "Lift No", "Type", "Bill No.", "Vendor Name", "Raw Material Name", "Qty", "Area lifting", "Truck No.", "Transporter Name", "Transporter Rate", "Bill Image", "Bilty No.", "Type Of Transporting Rate", "Rate", "Truck Qty", "Bilty Image", "Image Of Weight Slip", "Status", "Indent no.", "Firm Name", "Actual Quantity", "Date Of Receiving", "Actual 1"')
+          .not("Actual 1", "is", null)
       ]);
 
       if (mismatchError) throw mismatchError;
+      if (liftIdsError) throw liftIdsError;
       if (fkError) throw fkError;
       if (laError) console.warn('LIFT-ACCOUNTS fetch warning:', laError);
 
       setLiftAccountsRawData(liftAccountsData || []);
 
-      const filteredByActual = (mismatchData || []).filter(row => {
-        if (row.Actual2) return false;
+      const filteredByActual = (pendingMismatchData || []).filter(row => {
         return hasBiltyDetails(row);
       });
 
-      const mismatchLiftIds = new Set((mismatchData || []).map(m => String(m["Lift ID"] || "").trim()).filter(Boolean));
+      const mismatchLiftIds = new Set((allMismatchLiftIds || []).map(m => String(m["Lift ID"] || "").trim()).filter(Boolean));
       const newFromLift = (liftAccountsData || []).filter(la => {
         const liftNo = String(la["Lift No"] || "").trim();
         return liftNo && !mismatchLiftIds.has(liftNo) && la["Actual 1"] && hasBiltyDetails(la, liftNo);
@@ -1388,7 +1401,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .is("Actual4", null)
         .order("Timestamp", { ascending: false });
 
@@ -1475,7 +1488,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .not("Planned6", "is", null)
         .is("Actual6", null)
         .order("Timestamp", { ascending: false });
@@ -1563,7 +1576,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .not("Planned3", "is", null)
         .is("Actual3", null)
         .eq("Status2", "Not Done")
@@ -1652,7 +1665,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .not("Planned5", "is", null)
         .is("Actual5", null)
         .order("Timestamp", { ascending: false });
@@ -1739,7 +1752,10 @@ const CallTrackerPage = () => {
     setLoadingAll(true);
     try {
       const [{ data: mismatchData, error: mismatchError }, { data: fullkittingData, error: fkError }] = await Promise.all([
-        supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
+        supabase
+          .from("Mismatch")
+          .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
+          .order("Timestamp", { ascending: false }),
         supabase.from("fullkittin").select('"Bilty Number"')
       ]);
 
@@ -1844,7 +1860,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .not("Actual6", "is", null)
         .order("Timestamp", { ascending: false });
 

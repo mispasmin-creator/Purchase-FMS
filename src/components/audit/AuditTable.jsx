@@ -1,5 +1,5 @@
-import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { StandardRow, ParentRow, SubRow } from './AuditTableRows';
 
 const AuditTable = ({
@@ -17,6 +17,19 @@ const AuditTable = ({
   STAGES,
   getGroupKey
 }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 100;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [groupedData]);
+
+  const totalPages = Math.ceil(groupedData.length / pageSize);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return groupedData.slice(start, start + pageSize);
+  }, [groupedData, currentPage, pageSize]);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
       <div className="overflow-auto max-h-[calc(100vh-250px)] relative custom-scrollbar">
@@ -86,7 +99,7 @@ const AuditTable = ({
                 </td>
               </tr>
             ) : (
-              groupedData.map((group, groupIdx) => {
+              paginatedData.map((group, groupIdx) => {
                 const groupKey = getGroupKey(group.firmName, group.billNo, group.partyName);
                 const isExpanded = expandedGroups.has(groupKey);
                 const hasMultiple = group.items.length > 1;
@@ -144,6 +157,90 @@ const AuditTable = ({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 sm:px-6 select-none shrink-0">
+          {/* Mobile buttons */}
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+          {/* Desktop pagination controls */}
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs text-gray-600">
+                Showing <span className="font-semibold text-gray-900">{Math.min((currentPage - 1) * pageSize + 1, groupedData.length)}</span> to{' '}
+                <span className="font-semibold text-gray-900">{Math.min(currentPage * pageSize, groupedData.length)}</span> of{' '}
+                <span className="font-semibold text-gray-900">{groupedData.length}</span> groups
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-xs" aria-label="Pagination">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                >
+                  <span className="sr-only">Previous</span>
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  // Only render page numbers near current page to keep it clean
+                  if (page === 1 || page === totalPages || (page >= currentPage - 2 && page <= currentPage + 2)) {
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`relative inline-flex items-center px-4 py-2 text-xs font-semibold focus:z-20 transition-all cursor-pointer ${
+                          page === currentPage
+                            ? 'z-10 bg-green-600 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
+                            : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  }
+                  if (page === currentPage - 3 || page === currentPage + 3) {
+                    return (
+                      <span
+                        key={page}
+                        className="relative inline-flex items-center px-4 py-2 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 focus:outline-offset-0"
+                      >
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                })}
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                >
+                  <span className="sr-only">Next</span>
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
