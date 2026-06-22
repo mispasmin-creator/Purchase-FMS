@@ -1087,11 +1087,23 @@ export default function MismatchAnalysis() {
       }
 
       // Identify Mismatch Types
+      const rateTypeStr = String(lift.typeOfTransportingRate || mismatchItem["Type Of Rate"] || mismatchItem["Type Of Transporting Rate"] || "").toUpperCase();
+      const liftTypeStr = String(lift.liftType || mismatchItem["Type"] || "").toUpperCase();
+      const isTransporter = rateTypeStr.includes("TO PAY") || liftTypeStr.includes("TRANSPORTER");
+      const isVendor = liftTypeStr.includes("VENDOR") || rateTypeStr.includes("PAID") || rateTypeStr.includes("BILLED") || rateTypeStr.includes("FOR");
+      
+      
+      // Handle both MT and KG: if bill quantity > 500, it's likely in KG. (Trucks carry 9-40 MT)
+      const baseBillQty = parseFloat(lift.liftingQty || lift.quantity || po.poQuantity || 0);
+      const isKG = baseBillQty > 500; 
+      const multiplier = isKG ? 1000 : 1;
+      const tolerance = isTransporter ? (-0.10 * multiplier) : (-0.05 * multiplier);
+
       const mismatchTypes = [];
       const hasRate = Math.abs(parseFloat(mismatchItem["Rate Difference"] || 0)) > 0.001;
-      const hasQty = (parseFloat(mismatchItem["Quantity Difference"] || 0) < -0.001 || 
-                     parseFloat(mismatchItem["Diff Qty"] || 0) < -0.001 || 
-                     (mismatchItem["Qty Diff Status"] === "Mismatch" && parseFloat(mismatchItem["Quantity Difference"] || 0) < 0));
+      const hasQty = (parseFloat(mismatchItem["Quantity Difference"] || 0) < tolerance || 
+                     parseFloat(mismatchItem["Diff Qty"] || 0) < tolerance || 
+                     (mismatchItem["Qty Diff Status"] === "Mismatch" && parseFloat(mismatchItem["Quantity Difference"] || 0) < tolerance));
       
       const aluminaDiff = mismatchItem["Alumina Difference"];
       const ironDiff = mismatchItem["Iron Difference"];
@@ -1185,6 +1197,7 @@ export default function MismatchAnalysis() {
         remarks: mismatchItem["Remarks"] || mismatchItem.Remarks || "",
         mismatchTypes,
         diffSummary,
+        qtyUnit: isKG ? "KG" : "MT",
 
         // Explicit Mapping for Mismatch Summaries
         materialRate: lift.materialRate || mismatchItem["Rate"] || mismatchItem["Material Rate (Lift)"],
@@ -1526,6 +1539,10 @@ export default function MismatchAnalysis() {
       column.dataKey === "bdDiff"
     ) {
       const numValue = parseFloat(value) || 0;
+      let displayValue = numValue > 0 ? `+${value}` : value;
+      if (column.dataKey === "qtyDifference" && value !== undefined && value !== null) {
+        displayValue = `${displayValue} ${item.qtyUnit || ""}`;
+      }
       return (
         <span
           className={
@@ -1534,9 +1551,18 @@ export default function MismatchAnalysis() {
               : "text-[#7da23a] font-semibold"
           }
         >
-          {numValue > 0 ? `+${value}` : value}
+          {displayValue}
         </span>
       );
+    }
+
+    if (
+      (column.dataKey === "billQuantity" || 
+       column.dataKey === "actualQuantity" || 
+       column.dataKey === "differenceQty") && 
+      value && value !== "N/A"
+    ) {
+      return <span>{value} <span className="text-[10px] text-gray-500 ml-0.5">{item.qtyUnit || ""}</span></span>;
     }
 
     return value || <span className="text-gray-400 text-xs">N/A</span>;

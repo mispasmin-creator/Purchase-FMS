@@ -895,8 +895,18 @@ export default function ReceiptCheck() {
         );
       }
 
-      // Calculate quantity difference and update Mismatch table only for shortages (actual < billed)
-      if (qtyDiff < 0) {
+      // Calculate quantity difference and update Mismatch table only for shortages beyond tolerance (Vendor: 50KG, Transporter: 100KG)
+      const rateTypeStr = String(selectedLift.typeOfRate || selectedLift.type || "").trim().toUpperCase();
+      const liftTypeStr = String(selectedLift.liftType || selectedLift.type || "").trim().toUpperCase();
+      const isTransporter = rateTypeStr.includes("TO PAY") || liftTypeStr.includes("TRANSPORTER");
+      const isVendor = liftTypeStr.includes("VENDOR") || rateTypeStr.includes("PAID") || rateTypeStr.includes("BILLED") || rateTypeStr.includes("FOR");
+      
+      const baseBillQty = parseFloat(formData.totalBillQuantity) || 0;
+      const isKG = baseBillQty > 500;
+      const multiplier = isKG ? 1000 : 1;
+      const tolerance = isTransporter ? (-0.10 * multiplier) : (-0.05 * multiplier);
+
+      if (qtyDiff < tolerance) {
         const qtyDiffStatus = "Mismatch";
         const isBlank = (value) =>
           value === null || value === undefined || String(value).trim() === "";
