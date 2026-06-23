@@ -1260,13 +1260,14 @@ export default function Dashboard() {
         } else if (dropdownFormData.type === "Transporter") {
           insertData = {
             "Transporter Name": dropdownFormData.transporterName.trim() || null,
+            "Type Of KYC Form": "Transportation",
           };
         }
 
         const response = await supabase.from("Master").insert([insertData]);
         error = response.error;
       } else if (dropdownFormData.type === "Raw Material") {
-        const insertData = {
+        const tlInsertData = {
           NAME: dropdownFormData.rawMaterialName.trim() || null,
           "TL Alumina": dropdownFormData.aluminaRange
             ? parseFloat(dropdownFormData.aluminaRange)
@@ -1282,8 +1283,19 @@ export default function Dashboard() {
             : null,
         };
 
-        const response = await supabase.from("TL").insert([insertData]);
-        error = response.error;
+        const masterInsertData = {
+          "Raw Material Name": dropdownFormData.rawMaterialName.trim() || null,
+          "Type Of KYC Form": "Product",
+          "Product Name": dropdownFormData.rawMaterialName.trim() || null,
+        };
+
+        // Insert into both TL (for tolerance ranges) and Master (for standard raw material dropdowns)
+        const [tlRes, masterRes] = await Promise.all([
+          supabase.from("TL").insert([tlInsertData]),
+          supabase.from("Master").insert([masterInsertData]),
+        ]);
+
+        error = tlRes.error || masterRes.error;
       }
 
       if (error) {
@@ -1301,6 +1313,7 @@ export default function Dashboard() {
         apRange: "",
         bdRange: "",
       });
+      fetchData(); // Refresh the dashboard state to show new changes
     } catch (err) {
       toast.error("Error adding dropdown data", { description: err.message });
     } finally {

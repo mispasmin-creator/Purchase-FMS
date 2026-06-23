@@ -291,9 +291,15 @@ const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
     const key = makeLiftItemKey(poNumber, materialName, uniqueId);
 
     const maxQuantity = toNumber(item.quantity || fallbackQuantity);
-    // Use the specific key if available (future proofing), otherwise fallback to aggregated material key
+    // Use the specific key lookup first. Only fall back to the aggregated base key
+    // when the item has NO specific indentId (e.g. old data). If an indentId exists,
+    // the specific key result (even 0) is authoritative — otherwise all same-material
+    // items under one PO would share each other's lifted qty.
+    const hasSpecificId = Boolean(item.indentId || item.id);
     const liftedQuantity = roundQuantity(
-      liftedQtyByItem[key] || liftedQtyByBaseItem[aggregationKey] || 0,
+      hasSpecificId
+        ? (liftedQtyByItem[key] ?? 0)
+        : (liftedQtyByItem[key] ?? liftedQtyByBaseItem[aggregationKey] ?? 0),
     );
     const itemCancelQty = toNumber(item.orderCancelQty || 0);
     const pendingQuantity = Math.max(
