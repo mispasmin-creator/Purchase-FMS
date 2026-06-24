@@ -1799,7 +1799,7 @@ export default function LiftMaterial() {
       columns.map((column) => escapeCsv(row[column.dataKey])).join(","),
     );
     const csv = [headers, ...body].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -1824,7 +1824,7 @@ export default function LiftMaterial() {
         column.dataKey !== "cancelAction" &&
         (isPending
           ? column.alwaysVisible || visiblePoColumns[column.dataKey] !== false
-          : visibleLiftsColumns[column.dataKey]),
+          : column.alwaysVisible || visibleLiftsColumns[column.dataKey] !== false),
     );
     const from = range.from || "all";
     const to = range.to || "all";
@@ -2069,7 +2069,7 @@ export default function LiftMaterial() {
                         className="h-8 text-xs bg-white"
                       >
                         <Download className="mr-1.5 h-3.5 w-3.5" />
-                        Export
+                        Export CSV
                       </Button>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -2342,7 +2342,7 @@ export default function LiftMaterial() {
                         className="h-8 text-xs bg-white"
                       >
                         <Download className="mr-1.5 h-3.5 w-3.5" />
-                        Export
+                        Export CSV
                       </Button>
                       <Popover>
                         <PopoverTrigger asChild>
