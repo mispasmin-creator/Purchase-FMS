@@ -110,13 +110,63 @@ export default function PurchaseReturnPage() {
                 fetchedMismatches = [...fetchedMismatches, ...(fallbackMismatchData || [])];
             }
 
-            // Filter out mismatches that already have a finalized return entry
-            const existingMismatchIds = new Set(
-                fetchedReturns.map(r => String(r.mismatch_id || "").trim()).filter(Boolean)
+            // Calculate total returned quantity per mismatch
+            const returnedQtyMap = {};
+            fetchedReturns.forEach(r => {
+                const mId = String(r.mismatch_id || "").trim();
+                if (mId) {
+                    returnedQtyMap[mId] = (returnedQtyMap[mId] || 0) + (parseFloat(r.Qty) || 0);
+                }
+            });
+
+            // Fetch LIFT-ACCOUNTS data for these mismatches to get the correct received quantity
+            const liftNos = Array.from(
+                new Set(
+                    fetchedMismatches
+                        .map(m => m["Lift Number"] || m["Lift ID"])
+                        .filter(Boolean)
+                )
             );
-            fetchedMismatches = fetchedMismatches.filter(
-                m => !existingMismatchIds.has(String(m.id || "").trim())
-            );
+
+            let liftAccounts = [];
+            if (liftNos.length > 0) {
+                const { data: liftData, error: liftError } = await supabase
+                    .from("LIFT-ACCOUNTS")
+                    .select('"Lift No", "Actual Quantity"')
+                    .in("Lift No", liftNos);
+                if (!liftError && liftData) {
+                    liftAccounts = liftData;
+                }
+            }
+
+            const liftQtyMap = {};
+            liftAccounts.forEach(la => {
+                const lNo = String(la["Lift No"] || "").trim();
+                if (lNo) {
+                    liftQtyMap[lNo] = parseFloat(la["Actual Quantity"]) || 0;
+                }
+            });
+
+            // Keep track of pending quantity for each mismatch and filter out completed ones
+            fetchedMismatches = fetchedMismatches.map(m => {
+                const mId = String(m.id || "").trim();
+                const liftNo = String(m["Lift Number"] || m["Lift ID"] || "").trim();
+                
+                // Prioritize received quantity from LIFT-ACCOUNTS (Actual Quantity) if available, fallback to mismatch fields
+                const receivedQty = liftQtyMap[liftNo];
+                const totalQty = (receivedQty !== undefined && receivedQty > 0)
+                    ? receivedQty
+                    : (parseFloat(m["Qty"]) || parseFloat(m["Quantity"]) || parseFloat(m["Lifting Quantity"]) || 0);
+
+                const returnedQty = returnedQtyMap[mId] || 0;
+                const pendingQty = Math.max(0, totalQty - returnedQty);
+                return {
+                    ...m,
+                    pendingQty: pendingQty,
+                    totalQty: totalQty,
+                    returnedQty: returnedQty
+                };
+            }).filter(m => m.pendingQty > 0);
 
             // Role-based filtering
             if (user?.firmName) {
@@ -181,7 +231,7 @@ export default function PurchaseReturnPage() {
             actionType: mismatch["Action Type"] || "Purchase Return",
             partyName: mismatch["Party Name"] || "",
             productName: mismatch["Product Name"] || "",
-            qty: mismatch["Quantity"] || mismatch["Lifting Quantity"] || "0",
+            qty: mismatch.pendingQty !== undefined ? String(mismatch.pendingQty) : (mismatch["Qty"] || mismatch["Quantity"] || mismatch["Lifting Quantity"] || "0"),
             returnReason: mismatch["Remarks"] || "",
             liftNo: mismatch["Lift Number"] || "",
             firmName: mismatch["Firm Name"] || "",
@@ -246,6 +296,80 @@ export default function PurchaseReturnPage() {
         }
     };
 
+    const updateMismatchStatus = async (mismatchId, actionType) => {
+        if (!mismatchId) return;
+        try {
+            const { data: mismatch, error: mismatchFetchError } = await supabase
+                .from("Mismatch")
+                .select("*")
+                .eq("id", mismatchId)
+                .single();
+
+            if (mismatchFetchError || !mismatch) throw mismatchFetchError || new Error("Mismatch not found");
+
+            const { data: allReturns, error: returnsFetchError } = await supabase
+                .from("Purchase Returns")
+                .select("Qty")
+                .eq("mismatch_id", mismatchId);
+
+            if (returnsFetchError) throw returnsFetchError;
+
+            // Fetch LIFT-ACCOUNTS to get actual received quantity as base
+            let totalQty = 0;
+            const liftNo = String(mismatch["Lift Number"] || mismatch["Lift ID"] || "").trim();
+            if (liftNo) {
+                const { data: liftData, error: liftError } = await supabase
+                    .from("LIFT-ACCOUNTS")
+                    .select('"Actual Quantity"')
+                    .eq("Lift No", liftNo)
+                    .maybeSingle();
+                
+                if (!liftError && liftData && liftData["Actual Quantity"]) {
+                    totalQty = parseFloat(liftData["Actual Quantity"]) || 0;
+                }
+            }
+
+            if (!totalQty) {
+                totalQty = parseFloat(mismatch["Qty"]) || parseFloat(mismatch["Quantity"]) || parseFloat(mismatch["Lifting Quantity"]) || 0;
+            }
+
+            const totalReturned = (allReturns || []).reduce((sum, r) => sum + (parseFloat(r.Qty) || 0), 0);
+
+            if (totalReturned >= totalQty) {
+                const shouldMakeDebitAfterReturn =
+                    actionType === "Return Material and Make Debit Note";
+
+                const mismatchUpdate = shouldMakeDebitAfterReturn
+                    ? {
+                        Status: "Credit Notes",
+                        coordination_status: "COORDINATED",
+                        "Action Type": "Make Debit Note",
+                    }
+                    : {
+                        Status: "Resolved - Return",
+                        "Action Type": actionType,
+                    };
+
+                await supabase
+                    .from("Mismatch")
+                    .update(mismatchUpdate)
+                    .eq("id", mismatchId);
+            } else {
+                const mismatchUpdate = {
+                    Status: "Purchase Return",
+                    coordination_status: "COORDINATED",
+                    "Action Type": actionType,
+                };
+                await supabase
+                    .from("Mismatch")
+                    .update(mismatchUpdate)
+                    .eq("id", mismatchId);
+            }
+        } catch (err) {
+            console.error("Error updating mismatch status:", err);
+        }
+    };
+
     // ── Submission Logic ───────────────────────────────────────────────────
     const handleSubmit = async () => {
         if (!form.purchaseReturnNo || !form.qty) {
@@ -287,6 +411,10 @@ export default function PurchaseReturnPage() {
                     .update(payload)
                     .eq("id", form.id);
                 if (error) throw error;
+
+                if (form.mismatch_id) {
+                    await updateMismatchStatus(form.mismatch_id, form.actionType);
+                }
             } else {
                 // INSERT
                 const { error } = await supabase
@@ -296,24 +424,7 @@ export default function PurchaseReturnPage() {
 
                 // Also update the Mismatch record status to indicate it's been processed
                 if (form.mismatch_id) {
-                    const shouldMakeDebitAfterReturn =
-                        form.actionType === "Return Material and Make Debit Note";
-
-                    const mismatchUpdate = shouldMakeDebitAfterReturn
-                        ? {
-                            Status: "Credit Notes",
-                            coordination_status: "COORDINATED",
-                            "Action Type": "Make Debit Note",
-                        }
-                        : {
-                            Status: "Resolved - Return",
-                            "Action Type": form.actionType,
-                        };
-
-                    await supabase
-                        .from("Mismatch")
-                        .update(mismatchUpdate)
-                        .eq("id", form.mismatch_id);
+                    await updateMismatchStatus(form.mismatch_id, form.actionType);
                 }
             }
 

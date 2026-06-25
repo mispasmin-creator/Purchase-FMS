@@ -47,6 +47,7 @@ const KITTING_COLUMNS_META = [
     { header: "Material Rate", dataKey: "materialRate", toggleable: true },
     { header: "Bill Image", dataKey: "billImage", toggleable: true, isLink: true, linkText: "View Bill" },
     { header: "Bilty Image", dataKey: "biltyImage", toggleable: true, isLink: true, linkText: "View Bilty" },
+    { header: "Transporter Bill Image", dataKey: "transporterBillImage", toggleable: true, isLink: true, linkText: "View Transporter Bill" },
     { header: "Kitting Link", dataKey: "kittingLink", toggleable: true, isLink: true, linkText: "View Kitting" },
 ];
 
@@ -137,7 +138,7 @@ export default function FullkittingTransportingPage() {
             });
             return visibility;
         };
-        setVisiblePendingColumns(initializeVisibility(KITTING_COLUMNS_META.filter(col => col.dataKey !== 'kittingLink')));
+        setVisiblePendingColumns(initializeVisibility(KITTING_COLUMNS_META.filter(col => col.dataKey !== 'kittingLink' && col.dataKey !== 'transporterBillImage')));
         setVisibleHistoryColumns(initializeVisibility(KITTING_COLUMNS_META));
     }, []);
 
@@ -282,6 +283,7 @@ export default function FullkittingTransportingPage() {
                     indentNo: indentNum,
                     biltyNo: fkData["Bilty Number"] || biltyNo,
                     biltyImage: fkData["Bilty Image"] || String(row["Bilty Image"] || "").trim(),
+                    transporterBillImage: fkData["Transporter Bill Image"] || null,
                     typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
                     transportingRate: String(row["Transporting Per MT Rate"] || row["Transporting Rate"] || "").trim(),
                     transportRate: fkData["Amount"] || String(row["Transporter Rate"] || "").trim(),
@@ -560,6 +562,20 @@ export default function FullkittingTransportingPage() {
                     }
                 }
 
+                if (edit.transporterBillImage !== undefined) {
+                    if (edit.transporterBillImage instanceof File) {
+                        try {
+                            const { url } = await uploadFileToStorage(edit.transporterBillImage, 'image', 'transporter-bill-images');
+                            updateObj["Transporter Bill Image"] = url;
+                        } catch (err) {
+                            console.error("Error uploading transporter bill image:", err);
+                            throw new Error(`Failed to upload transporter bill image for ${original.liftNumber}: ${err.message}`);
+                        }
+                    } else {
+                        updateObj["Transporter Bill Image"] = edit.transporterBillImage;
+                    }
+                }
+
                 if (Object.keys(updateObj).length === 0) return null;
 
                 return supabase.from("fullkittin").update(updateObj).eq("id", original.fullkittingId);
@@ -629,7 +645,7 @@ export default function FullkittingTransportingPage() {
     const renderCellContent = (item, column, tabKey) => {
         const value = item[column.dataKey];
         const isEditing = tabKey === 'history' && selectedHistoryRows.has(item.id);
-        const editFields = ['transporterName', 'truckNo', 'materialLoadDetails', 'biltyNo', 'transportRate', 'biltyImage'];
+        const editFields = ['transporterName', 'truckNo', 'materialLoadDetails', 'biltyNo', 'transportRate', 'biltyImage', 'transporterBillImage'];
 
         if (column.dataKey === 'actionColumn') {
             return (
@@ -656,7 +672,8 @@ export default function FullkittingTransportingPage() {
         }
 
         if (isEditing && editFields.includes(column.dataKey)) {
-            if (column.dataKey === 'biltyImage') {
+            if (column.dataKey === 'biltyImage' || column.dataKey === 'transporterBillImage') {
+                const labelText = column.dataKey === 'biltyImage' ? "Bilty" : "Transporter Bill";
                 return (
                     <div className="flex flex-col gap-1">
                         {value ? (
@@ -666,7 +683,7 @@ export default function FullkittingTransportingPage() {
                                 rel="noopener noreferrer" 
                                 className="text-[#7da23a] hover:text-green-800 hover:underline inline-flex items-center text-[10px]"
                             >
-                                <ExternalLink className="h-2.5 w-2.5 mr-1" /> View Current
+                                <ExternalLink className="h-2.5 w-2.5 mr-1" /> View Current {labelText}
                             </a>
                         ) : (
                             <span className="text-gray-400 text-[10px]">No Current Image</span>
@@ -839,7 +856,7 @@ export default function FullkittingTransportingPage() {
         );
     };
 
-    const pendingKittingColumns = useMemo(() => KITTING_COLUMNS_META.filter(col => col.dataKey !== 'kittingLink'), []);
+    const pendingKittingColumns = useMemo(() => KITTING_COLUMNS_META.filter(col => col.dataKey !== 'kittingLink' && col.dataKey !== 'transporterBillImage'), []);
     const historyKittingColumns = useMemo(() => KITTING_COLUMNS_META.filter(col => col.dataKey !== 'actionColumn'), []);
 
 
