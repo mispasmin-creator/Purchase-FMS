@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useContext } from "react";
-import { useSearchParams } from "react-router-dom";
 import {
     Loader2,
     Plus,
@@ -31,6 +30,11 @@ const EMPTY_FORM = {
     partyName: "",
     productName: "",
     qty: "",
+    totalReturnQty: "",
+    returnThisTime: "",
+    returnedQtyBefore: 0,
+    maxReturnQty: 0,
+    hasFixedTotalReturnQty: false,
     returnReason: "",
     transport: "",
     typeOfTransport: "",
@@ -112,10 +116,20 @@ export default function PurchaseReturnPage() {
 
             // Calculate total returned quantity per mismatch
             const returnedQtyMap = {};
+            const totalReturnQtyMap = {};
             fetchedReturns.forEach(r => {
                 const mId = String(r.mismatch_id || "").trim();
                 if (mId) {
-                    returnedQtyMap[mId] = (returnedQtyMap[mId] || 0) + (parseFloat(r.Qty) || 0);
+                    const returnedThisTime =
+                        parseFloat(r["Return This Time"]) || parseFloat(r.Qty) || 0;
+                    const configuredTotal = parseFloat(r["Total Return Qty"]) || 0;
+                    returnedQtyMap[mId] = (returnedQtyMap[mId] || 0) + returnedThisTime;
+                    if (configuredTotal > 0) {
+                        totalReturnQtyMap[mId] = Math.max(
+                            totalReturnQtyMap[mId] || 0,
+                            configuredTotal
+                        );
+                    }
                 }
             });
 
@@ -159,12 +173,16 @@ export default function PurchaseReturnPage() {
                     : (parseFloat(m["Qty"]) || parseFloat(m["Quantity"]) || parseFloat(m["Lifting Quantity"]) || 0);
 
                 const returnedQty = returnedQtyMap[mId] || 0;
-                const pendingQty = Math.max(0, totalQty - returnedQty);
+                const configuredTotalReturnQty = totalReturnQtyMap[mId] || 0;
+                const returnTargetQty = configuredTotalReturnQty || totalQty;
+                const pendingQty = Math.max(0, returnTargetQty - returnedQty);
                 return {
                     ...m,
                     pendingQty: pendingQty,
                     totalQty: totalQty,
-                    returnedQty: returnedQty
+                    returnedQty: returnedQty,
+                    totalReturnQty: configuredTotalReturnQty,
+                    returnTargetQty: returnTargetQty,
                 };
             }).filter(m => m.pendingQty > 0);
 
@@ -231,7 +249,14 @@ export default function PurchaseReturnPage() {
             actionType: mismatch["Action Type"] || "Purchase Return",
             partyName: mismatch["Party Name"] || "",
             productName: mismatch["Product Name"] || "",
-            qty: mismatch.pendingQty !== undefined ? String(mismatch.pendingQty) : (mismatch["Qty"] || mismatch["Quantity"] || mismatch["Lifting Quantity"] || "0"),
+            qty: "",
+            totalReturnQty: mismatch.totalReturnQty
+                ? String(mismatch.totalReturnQty)
+                : "",
+            returnThisTime: "",
+            returnedQtyBefore: mismatch.returnedQty || 0,
+            maxReturnQty: mismatch.totalQty || 0,
+            hasFixedTotalReturnQty: Boolean(mismatch.totalReturnQty),
             returnReason: mismatch["Remarks"] || "",
             liftNo: mismatch["Lift Number"] || "",
             firmName: mismatch["Firm Name"] || "",
@@ -249,7 +274,24 @@ export default function PurchaseReturnPage() {
             actionType: rec["Action Type"],
             partyName: rec["Party Name"],
             productName: rec["Product Name"],
-            qty: rec["Qty"],
+            qty: rec["Return This Time"] ?? rec["Qty"],
+            totalReturnQty: rec["Total Return Qty"] ?? rec["Qty"] ?? "",
+            returnThisTime: rec["Return This Time"] ?? rec["Qty"] ?? "",
+            returnedQtyBefore: records
+                .filter((item) =>
+                    String(item.mismatch_id || "") === String(rec.mismatch_id || "") &&
+                    String(item.id) !== String(rec.id)
+                )
+                .reduce(
+                    (sum, item) =>
+                        sum +
+                        (parseFloat(item["Return This Time"]) ||
+                            parseFloat(item["Qty"]) ||
+                            0),
+                    0
+                ),
+            maxReturnQty: 0,
+            hasFixedTotalReturnQty: Boolean(rec["Total Return Qty"]),
             returnReason: rec["Return Reason"],
             transport: rec["Transport"],
             typeOfTransport: rec["Type of Transport"],
@@ -269,7 +311,11 @@ export default function PurchaseReturnPage() {
     };
 
     const handleChange = (field, value) => {
-        setForm((prev) => ({ ...prev, [field]: value }));
+        setForm((prev) => ({
+            ...prev,
+            [field]: value,
+            ...(field === "returnThisTime" ? { qty: value } : {}),
+        }));
     };
 
     // ── When Po No. changes (optional additional logic) ────────────────────
@@ -309,7 +355,7 @@ export default function PurchaseReturnPage() {
 
             const { data: allReturns, error: returnsFetchError } = await supabase
                 .from("Purchase Returns")
-                .select("Qty")
+                .select('"Qty", "Total Return Qty", "Return This Time"')
                 .eq("mismatch_id", mismatchId);
 
             if (returnsFetchError) throw returnsFetchError;
@@ -333,9 +379,20 @@ export default function PurchaseReturnPage() {
                 totalQty = parseFloat(mismatch["Qty"]) || parseFloat(mismatch["Quantity"]) || parseFloat(mismatch["Lifting Quantity"]) || 0;
             }
 
-            const totalReturned = (allReturns || []).reduce((sum, r) => sum + (parseFloat(r.Qty) || 0), 0);
+            const totalReturned = (allReturns || []).reduce(
+                (sum, r) =>
+                    sum +
+                    (parseFloat(r["Return This Time"]) || parseFloat(r.Qty) || 0),
+                0
+            );
+            const configuredTotalReturnQty = (allReturns || []).reduce(
+                (maxQty, r) =>
+                    Math.max(maxQty, parseFloat(r["Total Return Qty"]) || 0),
+                0
+            );
+            const returnTargetQty = configuredTotalReturnQty || totalQty;
 
-            if (totalReturned >= totalQty) {
+            if (totalReturned >= returnTargetQty) {
                 const shouldMakeDebitAfterReturn =
                     actionType === "Return Material and Make Debit Note";
 
@@ -372,8 +429,25 @@ export default function PurchaseReturnPage() {
 
     // ── Submission Logic ───────────────────────────────────────────────────
     const handleSubmit = async () => {
-        if (!form.purchaseReturnNo || !form.qty) {
-            toast.warning("Please provide PR No. and Quantity.");
+        const totalReturnQty = parseFloat(form.totalReturnQty);
+        const returnThisTime = parseFloat(form.returnThisTime);
+        const returnedQtyBefore = parseFloat(form.returnedQtyBefore) || 0;
+        const remainingReturnQty = totalReturnQty - returnedQtyBefore;
+
+        if (!form.purchaseReturnNo || !totalReturnQty || !returnThisTime) {
+            toast.warning("Please provide PR No., Total Return Qty and Return This Time.");
+            return;
+        }
+        if (totalReturnQty <= 0 || returnThisTime <= 0) {
+            toast.warning("Return quantities must be greater than zero.");
+            return;
+        }
+        if (form.maxReturnQty > 0 && totalReturnQty > form.maxReturnQty) {
+            toast.warning(`Total Return Qty cannot exceed received quantity (${form.maxReturnQty}).`);
+            return;
+        }
+        if (remainingReturnQty <= 0 || returnThisTime > remainingReturnQty + 0.000001) {
+            toast.warning(`Return This Time cannot exceed pending return quantity (${Math.max(0, remainingReturnQty)}).`);
             return;
         }
 
@@ -390,7 +464,9 @@ export default function PurchaseReturnPage() {
                 "Action Type": form.actionType || "Purchase Return",
                 "Party Name": form.partyName || null,
                 "Product Name": form.productName || null,
-                "Qty": form.qty || 0,
+                "Qty": returnThisTime,
+                "Total Return Qty": totalReturnQty,
+                "Return This Time": returnThisTime,
                 "Return Reason": form.returnReason || null,
                 "Transport": form.transport || null,
                 "Type of Transport": form.typeOfTransport || null,
@@ -643,8 +719,58 @@ export default function PurchaseReturnPage() {
                                         <input type="text" value={form.productName} readOnly={form.id !== null} onChange={(e) => handleChange("productName", e.target.value)} className={`w-full px-4 py-3 rounded-xl border text-sm outline-none ${form.id !== null ? "bg-gray-50 border-gray-200" : "border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500"}`} />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Quantity</label>
-                                        <input type="number" value={form.qty} readOnly={form.id !== null} onChange={(e) => handleChange("qty", e.target.value)} className={`w-full px-4 py-3 rounded-xl border text-sm outline-none ${form.id !== null ? "bg-gray-50 border-gray-200" : "border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500"}`} />
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Total Qty</label>
+                                        <input
+                                            type="number"
+                                            value={form.maxReturnQty || ""}
+                                            readOnly
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-600 outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Total Return Qty</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max={form.maxReturnQty > 0 ? form.maxReturnQty : undefined}
+                                            step="any"
+                                            value={form.totalReturnQty}
+                                            readOnly={form.hasFixedTotalReturnQty}
+                                            onChange={(e) => handleChange("totalReturnQty", e.target.value)}
+                                            className={`w-full px-4 py-3 rounded-xl border text-sm outline-none ${form.hasFixedTotalReturnQty ? "bg-gray-50 border-gray-200" : "border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500"}`}
+                                            placeholder="e.g. 5"
+                                        />
+                                        {form.maxReturnQty > 0 && !form.hasFixedTotalReturnQty && (
+                                            <p className="mt-1 text-[11px] text-gray-500">
+                                                Maximum received quantity: {form.maxReturnQty}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Return This Time</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max={Math.max(
+                                                0,
+                                                (parseFloat(form.totalReturnQty) || 0) -
+                                                (parseFloat(form.returnedQtyBefore) || 0)
+                                            )}
+                                            step="any"
+                                            value={form.returnThisTime}
+                                            onChange={(e) => handleChange("returnThisTime", e.target.value)}
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                                            placeholder="e.g. 2.5"
+                                        />
+                                        {form.totalReturnQty && (
+                                            <p className="mt-1 text-[11px] text-orange-600">
+                                                Pending before this return: {Math.max(
+                                                    0,
+                                                    (parseFloat(form.totalReturnQty) || 0) -
+                                                    (parseFloat(form.returnedQtyBefore) || 0)
+                                                )}
+                                            </p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Return Reason</label>
