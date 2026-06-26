@@ -141,21 +141,39 @@ export default function PurchaseReturnPage() {
                 fetchedMismatches = [...fetchedMismatches, ...(fallbackMismatchData || [])];
             }
 
-            // Calculate total returned quantity per mismatch
-            const returnedQtyMap = {};
-            const totalReturnQtyMap = {};
+            // Deduplicate by mismatch id (safety guard for double-fetch edge cases)
+            const seenMismatchIds = new Set();
+            fetchedMismatches = fetchedMismatches.filter(m => {
+                const mId = String(m.id || "").trim();
+                if (!mId || seenMismatchIds.has(mId)) return false;
+                seenMismatchIds.add(mId);
+                return true;
+            });
+
+            // Build returned qty maps — keyed by BOTH mismatch_id AND Lift No
+            const returnedQtyMap = {};         // by mismatch_id
+            const totalReturnQtyMap = {};      // by mismatch_id
+            const returnedQtyByLiftMap = {};   // by Lift No (covers records with no mismatch_id)
+            const totalReturnQtyByLiftMap = {};// by Lift No
+
             fetchedReturns.forEach(r => {
                 const mId = String(r.mismatch_id || "").trim();
+                const liftNo = String(r["Lift No"] || "").trim();
+                const returnedThisTime = parseFloat(r["Return This Time"]) || parseFloat(r["Qty"]) || 0;
+                const configuredTotal = parseFloat(r["Total Return Qty"]) || 0;
+
+                // Group by mismatch_id
                 if (mId) {
-                    const returnedThisTime =
-                        parseFloat(r["Return This Time"]) || parseFloat(r.Qty) || 0;
-                    const configuredTotal = parseFloat(r["Total Return Qty"]) || 0;
                     returnedQtyMap[mId] = (returnedQtyMap[mId] || 0) + returnedThisTime;
                     if (configuredTotal > 0) {
-                        totalReturnQtyMap[mId] = Math.max(
-                            totalReturnQtyMap[mId] || 0,
-                            configuredTotal
-                        );
+                        totalReturnQtyMap[mId] = Math.max(totalReturnQtyMap[mId] || 0, configuredTotal);
+                    }
+                }
+                // Group by Lift No (handles records where mismatch_id is null)
+                if (liftNo) {
+                    returnedQtyByLiftMap[liftNo] = (returnedQtyByLiftMap[liftNo] || 0) + returnedThisTime;
+                    if (configuredTotal > 0) {
+                        totalReturnQtyByLiftMap[liftNo] = Math.max(totalReturnQtyByLiftMap[liftNo] || 0, configuredTotal);
                     }
                 }
             });
@@ -199,10 +217,25 @@ export default function PurchaseReturnPage() {
                     ? receivedQty
                     : (parseFloat(m["Qty"]) || parseFloat(m["Quantity"]) || parseFloat(m["Lifting Quantity"]) || 0);
 
-                const returnedQty = returnedQtyMap[mId] || 0;
-                const configuredTotalReturnQty = totalReturnQtyMap[mId] || 0;
-                const returnTargetQty = configuredTotalReturnQty || totalQty;
+                // Merge both lookup sources — take max returned qty (most accurate)
+                const returnedByMismatchId = returnedQtyMap[mId] || 0;
+                const returnedByLiftNo = returnedQtyByLiftMap[liftNo] || 0;
+                const returnedQty = Math.max(returnedByMismatchId, returnedByLiftNo);
+
+                // configuredTotalReturnQty — prefer mismatch_id lookup, fallback to Lift No lookup
+                const configuredTotalReturnQty =
+                    totalReturnQtyMap[mId] || totalReturnQtyByLiftMap[liftNo] || 0;
+
+                // returnTargetQty: prefer user-configured total, then liftAccount qty, then mismatch qty
+                const returnTargetQty = configuredTotalReturnQty > 0
+                    ? configuredTotalReturnQty
+                    : totalQty;
+                // How much is still pending — use floating point tolerance of 0.001
                 const pendingQty = Math.max(0, returnTargetQty - returnedQty);
+                // A mismatch is still "pending" if:
+                // 1. pendingQty > 0.001 (more to return), OR
+                // 2. No returns have been made at all and target qty is known
+                const isStillPending = pendingQty > 0.001 || (returnedQty === 0 && returnTargetQty > 0);
                 return {
                     ...m,
                     pendingQty: pendingQty,
@@ -210,8 +243,27 @@ export default function PurchaseReturnPage() {
                     returnedQty: returnedQty,
                     totalReturnQty: configuredTotalReturnQty,
                     returnTargetQty: returnTargetQty,
+                    isStillPending,
                 };
-            }).filter(m => m.pendingQty > 0);
+            }).filter(m => m.isStillPending);
+
+            // Deduplicate by Lift Number — if two Mismatch rows exist for the same lift,
+            // keep the one with the higher pendingQty (most work remaining)
+            const seenLiftNos = new Map();
+            fetchedMismatches.forEach(m => {
+                const liftNo = String(m["Lift Number"] || m["Lift ID"] || "").trim();
+                if (!liftNo) return;
+                const existing = seenLiftNos.get(liftNo);
+                if (!existing || m.pendingQty > existing.pendingQty) {
+                    seenLiftNos.set(liftNo, m);
+                }
+            });
+            // Also keep mismatches without a lift number (manual entries), dedup by mismatch id
+            const noLiftEntries = fetchedMismatches.filter(m => {
+                const liftNo = String(m["Lift Number"] || m["Lift ID"] || "").trim();
+                return !liftNo;
+            });
+            fetchedMismatches = [...seenLiftNos.values(), ...noLiftEntries];
 
             // Role-based filtering
             if (user?.firmName) {
@@ -309,12 +361,12 @@ export default function PurchaseReturnPage() {
         const otherLiftReturns = records
             .filter((item) => {
                 if (String(item.id) === String(rec.id)) return false;
-
-                if (mismatchId) {
-                    return String(item.mismatch_id || "").trim() === mismatchId;
-                }
-
-                return String(item["Lift No"] || "").trim() === liftNo;
+                const itemMismatchId = String(item.mismatch_id || "").trim();
+                const itemLiftNo = String(item["Lift No"] || "").trim();
+                // Match by EITHER same mismatch_id OR same Lift No (covers all partial returns for this lift)
+                if (mismatchId && itemMismatchId === mismatchId) return true;
+                if (liftNo && itemLiftNo === liftNo) return true;
+                return false;
             })
             .reduce(
                 (sum, item) =>
@@ -324,7 +376,8 @@ export default function PurchaseReturnPage() {
                         0),
                 0
             );
-        const returnedQtyBefore = mismatchId ? otherLiftReturns : 0;
+        // Always use the sum of OTHER records for same lift/mismatch as "already returned before this edit"
+        const returnedQtyBefore = otherLiftReturns;
 
         let maxReturnQty = 0;
         if (liftNo) {
@@ -334,10 +387,8 @@ export default function PurchaseReturnPage() {
                 .eq("Lift No", liftNo)
                 .maybeSingle();
 
-            const receivedQty = parseFloat(liftData?.["Actual Quantity"]) || 0;
-            maxReturnQty = mismatchId
-                ? receivedQty
-                : Math.max(0, receivedQty - otherLiftReturns);
+            // Always use full received qty from LIFT-ACCOUNTS as the total baseline
+            maxReturnQty = parseFloat(liftData?.["Actual Quantity"]) || 0;
         }
 
         setForm({
@@ -419,7 +470,8 @@ export default function PurchaseReturnPage() {
                 supabase
                     .from("Purchase Returns")
                     .select('ID, mismatch_id, "Qty", "Return This Time"')
-                    .eq("Lift No", liftNo),
+                    .eq("Lift No", liftNo)
+                    .not("ID", "is", null),
             ]);
 
             if (liftError) throw liftError;
@@ -589,14 +641,48 @@ export default function PurchaseReturnPage() {
             const istDate = new Date(Date.now() + istOffset);
             const istTimestamp = istDate.toISOString().replace("Z", "+05:30");
 
+            let mismatchId = form.mismatch_id;
+
+            if (!form.id && !mismatchId) {
+                // Create a Mismatch record for manual purchase return
+                const mismatchPayload = {
+                    Timestamp: istTimestamp,
+                    "Lift ID": form.liftNo || null,
+                    "Lift Number": form.liftNo || null,
+                    "Indent Number": form.poNo || null,
+                    "Firm Name": normalizeFirmName(form.firmName) || normalizeFirmName(user?.firmName) || null,
+                    "Party Name": form.partyName || null,
+                    "Product Name": form.productName || null,
+                    Qty: form.maxReturnQty ? parseFloat(form.maxReturnQty) : null,
+                    Status: "Purchase Return", // Starts as pending return
+                    coordination_status: "COORDINATED",
+                    "Action Type": "Return Material and Make Debit Note",
+                    Remarks: form.returnReason || "Manual Purchase Return",
+                };
+
+                const { data: mismatchData, error: mismatchError } = await supabase
+                    .from("Mismatch")
+                    .insert([mismatchPayload])
+                    .select("id")
+                    .single();
+
+                if (mismatchError) {
+                    console.error("Error creating mismatch for manual return:", mismatchError);
+                    throw new Error(`Failed to create mismatch record: ${mismatchError.message}`);
+                }
+                mismatchId = mismatchData.id;
+            }
+
+            const actionTypeToUse = form.actionType || "Return Material and Make Debit Note";
+
             const payload = {
                 "Time Stamp": istTimestamp,
                 "Purchase Return No.": form.purchaseReturnNo,
-                "Po No.": form.poNo || null,
-                "Action Type": form.actionType || "Purchase Return",
+                "Po No.": form.poNo || "",
+                "Action Type": actionTypeToUse,
                 "Party Name": form.partyName || null,
                 "Product Name": form.productName || null,
-                "Qty": returnThisTime,
+                "Qty": Math.round(returnThisTime),
                 "Total Return Qty": totalReturnQty,
                 "Return This Time": returnThisTime,
                 "Return Reason": form.returnReason || null,
@@ -609,7 +695,7 @@ export default function PurchaseReturnPage() {
                 "Org. Bill No": form.orgBillNo || null,
                 "Lift No": form.liftNo || null,
                 "Firm Name": normalizeFirmName(form.firmName) || normalizeFirmName(user?.firmName) || null,
-                mismatch_id: form.mismatch_id || null,
+                mismatch_id: mismatchId || null,
                 "Total Qty": form.maxReturnQty ? parseFloat(form.maxReturnQty) : null,
             };
 
@@ -621,8 +707,8 @@ export default function PurchaseReturnPage() {
                     .eq("ID", form.id);
                 if (error) throw error;
 
-                if (form.mismatch_id) {
-                    await updateMismatchStatus(form.mismatch_id, form.actionType);
+                if (mismatchId) {
+                    await updateMismatchStatus(mismatchId, actionTypeToUse);
                 }
             } else {
                 // INSERT
@@ -632,8 +718,8 @@ export default function PurchaseReturnPage() {
                 if (error) throw error;
 
                 // Also update the Mismatch record status to indicate it's been processed
-                if (form.mismatch_id) {
-                    await updateMismatchStatus(form.mismatch_id, form.actionType);
+                if (mismatchId) {
+                    await updateMismatchStatus(mismatchId, actionTypeToUse);
                 }
             }
 
@@ -714,10 +800,13 @@ export default function PurchaseReturnPage() {
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Actions</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm w-[60px]">#</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR No.</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift No</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No.</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Qty</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Return Qty</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Return This Time</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-100">
@@ -735,15 +824,18 @@ export default function PurchaseReturnPage() {
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
                                                     <td className="px-4 py-3 whitespace-nowrap font-bold text-[#6b8e2f]">{rec["Purchase Return No."]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700 text-xs">{rec["Lift No"] || "—"}</td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{rec["Po No."] || "—"}</td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{rec["Party Name"]}</td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Product Name"]}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{rec["Qty"]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{rec["Total Qty"] ?? rec["Qty"]}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">{rec["Total Return Qty"] ?? "—"}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-[#6b8e2f]">{rec["Return This Time"] ?? "—"}</td>
                                                 </tr>
                                             ))}
                                             {records.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                                    <td colSpan={10} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
                                                         <div className="flex flex-col items-center justify-center">
                                                             <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
                                                             <p className="text-sm font-medium">No finalized returns found.</p>
@@ -778,6 +870,9 @@ export default function PurchaseReturnPage() {
                                             <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No</th>
                                             <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
                                             <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Return Qty</th>
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Returned</th>
+                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Pending Qty</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-100">
@@ -798,11 +893,20 @@ export default function PurchaseReturnPage() {
                                                 <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{m["Indent Number"] || "—"}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{m["Party Name"]}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{m["Product Name"]}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-800">{m.returnTargetQty > 0 ? m.returnTargetQty : "—"}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-green-700">{m.returnedQty > 0 ? m.returnedQty.toFixed(2) : "0"}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                                                        m.pendingQty > 0.001 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                        {m.pendingQty > 0.001 ? m.pendingQty.toFixed(2) : "—"}
+                                                    </span>
+                                                </td>
                                             </tr>
                                         ))}
                                         {pendingMismatches.length === 0 && (
                                             <tr>
-                                                <td colSpan={6} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                                <td colSpan={9} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
                                                     <div className="flex flex-col items-center justify-center">
                                                         <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
                                                         <p className="text-sm font-medium">No pending mismatches found.</p>
@@ -833,6 +937,32 @@ export default function PurchaseReturnPage() {
                                 </button>
                             </div>
 
+                            {/* Return Progress Summary — shown when context is available */}
+                            {(form.mismatch_id || form.maxReturnQty > 0 || form.id !== null || parseFloat(form.totalReturnQty) > 0) && (() => {
+                                const isEditMode = form.id !== null;
+                                const totalTarget = parseFloat(form.totalReturnQty) || parseFloat(form.maxReturnQty) || 0;
+                                // For edit: "already returned" includes this record; for new: only previous records
+                                const thisRecordQty = isEditMode ? (parseFloat(form.returnThisTime) || 0) : 0;
+                                const alreadyReturned = (parseFloat(form.returnedQtyBefore) || 0) + thisRecordQty;
+                                const stillPending = Math.max(0, totalTarget - alreadyReturned);
+                                return (
+                                    <div className="mb-6 grid grid-cols-3 gap-3">
+                                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+                                            <p className="text-[10px] uppercase font-bold text-blue-400 tracking-widest mb-1">Total Received Qty</p>
+                                            <p className="text-xl font-extrabold text-blue-700">{form.maxReturnQty > 0 ? form.maxReturnQty : (totalTarget > 0 ? totalTarget : "—")}</p>
+                                        </div>
+                                        <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-center">
+                                            <p className="text-[10px] uppercase font-bold text-green-400 tracking-widest mb-1">Already Returned</p>
+                                            <p className="text-xl font-extrabold text-green-700">{alreadyReturned.toFixed(2)}</p>
+                                            {isEditMode && <p className="text-[9px] text-green-400 mt-0.5">Incl. this record</p>}
+                                        </div>
+                                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
+                                            <p className="text-[10px] uppercase font-bold text-orange-400 tracking-widest mb-1">Still Pending</p>
+                                            <p className="text-xl font-extrabold text-orange-600">{stillPending > 0.001 ? stillPending.toFixed(2) : "0"}</p>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                             <div className="space-y-6">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>

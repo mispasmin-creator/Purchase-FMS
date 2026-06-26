@@ -245,10 +245,8 @@ export default function DebitNote() {
           .eq("type", "Make Debit Note"),
         supabase
           .from("Purchase Returns")
-          .select("*")
-          .is("mismatch_id", null),
+          .select("*"),
       ]);
-
       if (fetchError) throw fetchError;
       if (coordinatedDebitError) throw coordinatedDebitError;
       if (manualReturnsError) throw manualReturnsError;
@@ -311,8 +309,15 @@ export default function DebitNote() {
         };
       });
 
-      // Map manual returns to the same data structure
-      const formattedManualReturns = (manualReturnsData || []).map((row) => {
+      // Build set of Lift Nos that have Purchase Return records
+      const prLiftNos = new Set(
+        (manualReturnsData || [])
+          .map((row) => String(row["Lift No"] || "").trim())
+          .filter(Boolean)
+      );
+
+      // Show ALL Purchase Return records individually (PR-003, PR-004 etc. each as a separate row)
+      const formattedPurchaseReturns = (manualReturnsData || []).map((row) => {
         const liftId = String(row["Lift No"] || "").trim();
         return {
           id: `MANUAL-${row.ID}`,
@@ -325,19 +330,26 @@ export default function DebitNote() {
           partyName: String(row["Party Name"] || "").trim(),
           productName: String(row["Product Name"] || "").trim(),
           transporterName: String(row["Transport"] || "").trim(),
-          status: "Credit Notes", // Show it as Credit Notes so it falls in the "Pending" tab!
+          status: "Credit Notes",
           debitAmount: "",
           debitNoteUrl: "",
           remarks: String(row["Return Reason"] || "").trim(),
           planned: null,
           actual: null,
-          qty: row["Qty"] || row["Total Return Qty"] || 0,
+          qty: row["Return This Time"] || row["Qty"] || row["Total Return Qty"] || 0,
+          returnThisTime: row["Return This Time"] || null,
+          totalReturnQty: row["Total Return Qty"] || null,
           _rawPlanned: null,
           _rawActual: null,
         };
       });
 
-      const allMergedData = [...formattedData, ...formattedManualReturns];
+      // Only include Mismatch rows for lifts that have NO Purchase Return records
+      const mismatchOnlyRows = formattedData.filter(
+        (item) => !item.liftId || !prLiftNos.has(item.liftId)
+      );
+
+      const allMergedData = [...mismatchOnlyRows, ...formattedPurchaseReturns];
 
       const filteredData = allMergedData.filter(
         (item) => canViewFirm(user?.firmName, item.firmName)
