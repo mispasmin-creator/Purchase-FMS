@@ -23,6 +23,25 @@ import { AuthContext } from "../context/AuthContext";
 import { useRealtime } from "../hooks/useRealtime";
 import { canViewFirm } from "../utils/firmFilter";
 
+const normalizeFirmName = (val) => {
+    if (!val) return null;
+    if (Array.isArray(val)) {
+        return val[0] || null;
+    }
+    const str = String(val).trim();
+    if (str.startsWith("[") && str.endsWith("]")) {
+        try {
+            const parsed = JSON.parse(str);
+            if (Array.isArray(parsed)) {
+                return parsed[0] || null;
+            }
+        } catch (e) {
+            // Ignore parse error
+        }
+    }
+    return str;
+};
+
 const EMPTY_FORM = {
     purchaseReturnNo: "",
     poNo: "",
@@ -61,6 +80,7 @@ export default function PurchaseReturnPage() {
     const [submitting, setSubmitting] = useState(false);
     const [form, setForm] = useState(EMPTY_FORM);
     const [viewRecord, setViewRecord] = useState(null);
+    const [availableLifts, setAvailableLifts] = useState([]);
 
     // ── Fetch all records ──────────────────────────────────────────────────
     const fetchRecords = useCallback(async () => {
@@ -74,10 +94,11 @@ export default function PurchaseReturnPage() {
 
             if (returnError) throw returnError;
 
-            // 2. Fetch Pending Mismatches
+            // 2. Fetch Pending Mismatches and LIFT-ACCOUNTS
             const [
                 { data: mismatchData, error: mismatchError },
                 { data: coordinatedReturnData, error: coordinatedReturnError },
+                { data: liftAccountsData, error: liftAccountsError },
             ] = await Promise.all([
                 supabase
                     .from("Mismatch")
@@ -89,13 +110,19 @@ export default function PurchaseReturnPage() {
                     .select("*")
                     .eq("status", "COORDINATED")
                     .eq("type", "Return Material and Make Debit Note"),
+                supabase
+                    .from("LIFT-ACCOUNTS")
+                    .select("*")
+                    .order("Timestamp", { ascending: false }),
             ]);
 
             if (mismatchError) throw mismatchError;
             if (coordinatedReturnError) throw coordinatedReturnError;
+            if (liftAccountsError) throw liftAccountsError;
 
             let fetchedReturns = returnData || [];
             let fetchedMismatches = mismatchData || [];
+            let fetchedLifts = liftAccountsData || [];
 
             const existingPendingIds = new Set(
                 fetchedMismatches.map((m) => String(m.id || "").trim()).filter(Boolean)
@@ -194,10 +221,19 @@ export default function PurchaseReturnPage() {
                 fetchedMismatches = fetchedMismatches.filter((rec) =>
                     canViewFirm(user.firmName, rec["Firm Name"])
                 );
+                fetchedLifts = fetchedLifts.filter((lift) =>
+                    canViewFirm(user.firmName, lift["Firm Name"])
+                );
             }
 
-            setRecords(fetchedReturns);
+            const mappedReturns = fetchedReturns.map(r => ({
+                ...r,
+                id: r.ID !== undefined ? r.ID : r.id
+            }));
+
+            setRecords(mappedReturns);
             setPendingMismatches(fetchedMismatches);
+            setAvailableLifts(fetchedLifts);
         } catch (err) {
             console.error("Failed to fetch records:", err);
             toast.error("Failed to load records.");
@@ -211,7 +247,7 @@ export default function PurchaseReturnPage() {
     }, [fetchRecords]);
 
     // Live sync
-    useRealtime(["Purchase Returns", "Mismatch"], () => {
+    useRealtime(["Purchase Returns", "Mismatch", "LIFT-ACCOUNTS"], () => {
         console.log("[Realtime] PR Page refreshing due to table change");
         fetchRecords();
     });
@@ -267,7 +303,43 @@ export default function PurchaseReturnPage() {
     };
 
     // ── Open form for editing existing finalized record ────────────────────
-    const handleEditRecord = (rec) => {
+    const handleEditRecord = async (rec) => {
+        const liftNo = String(rec["Lift No"] || "").trim();
+        const mismatchId = String(rec.mismatch_id || "").trim();
+        const otherLiftReturns = records
+            .filter((item) => {
+                if (String(item.id) === String(rec.id)) return false;
+
+                if (mismatchId) {
+                    return String(item.mismatch_id || "").trim() === mismatchId;
+                }
+
+                return String(item["Lift No"] || "").trim() === liftNo;
+            })
+            .reduce(
+                (sum, item) =>
+                    sum +
+                    (parseFloat(item["Return This Time"]) ||
+                        parseFloat(item["Qty"]) ||
+                        0),
+                0
+            );
+        const returnedQtyBefore = mismatchId ? otherLiftReturns : 0;
+
+        let maxReturnQty = 0;
+        if (liftNo) {
+            const { data: liftData } = await supabase
+                .from("LIFT-ACCOUNTS")
+                .select('"Actual Quantity"')
+                .eq("Lift No", liftNo)
+                .maybeSingle();
+
+            const receivedQty = parseFloat(liftData?.["Actual Quantity"]) || 0;
+            maxReturnQty = mismatchId
+                ? receivedQty
+                : Math.max(0, receivedQty - otherLiftReturns);
+        }
+
         setForm({
             purchaseReturnNo: rec["Purchase Return No."],
             poNo: rec["Po No."],
@@ -277,20 +349,8 @@ export default function PurchaseReturnPage() {
             qty: rec["Return This Time"] ?? rec["Qty"],
             totalReturnQty: rec["Total Return Qty"] ?? rec["Qty"] ?? "",
             returnThisTime: rec["Return This Time"] ?? rec["Qty"] ?? "",
-            returnedQtyBefore: records
-                .filter((item) =>
-                    String(item.mismatch_id || "") === String(rec.mismatch_id || "") &&
-                    String(item.id) !== String(rec.id)
-                )
-                .reduce(
-                    (sum, item) =>
-                        sum +
-                        (parseFloat(item["Return This Time"]) ||
-                            parseFloat(item["Qty"]) ||
-                            0),
-                    0
-                ),
-            maxReturnQty: 0,
+            returnedQtyBefore,
+            maxReturnQty: rec["Total Qty"] !== undefined && rec["Total Qty"] !== null ? parseFloat(rec["Total Qty"]) : maxReturnQty,
             hasFixedTotalReturnQty: Boolean(rec["Total Return Qty"]),
             returnReason: rec["Return Reason"],
             transport: rec["Transport"],
@@ -339,6 +399,78 @@ export default function PurchaseReturnPage() {
             }
         } catch (err) {
             console.error("Auto-fetch error:", err);
+        }
+    };
+
+    const handleLiftNoBlur = async (value) => {
+        const liftNo = String(value || "").trim();
+        if (!liftNo) return;
+
+        try {
+            const [
+                { data: liftData, error: liftError },
+                { data: previousReturns, error: returnsError },
+            ] = await Promise.all([
+                supabase
+                    .from("LIFT-ACCOUNTS")
+                    .select("*")
+                    .eq("Lift No", liftNo)
+                    .maybeSingle(),
+                supabase
+                    .from("Purchase Returns")
+                    .select('ID, mismatch_id, "Qty", "Return This Time"')
+                    .eq("Lift No", liftNo),
+            ]);
+
+            if (liftError) throw liftError;
+            if (returnsError) throw returnsError;
+            if (!liftData) {
+                toast.warning(`Lift No. ${liftNo} was not found.`);
+                return;
+            }
+
+            const previouslyReturnedQty = (previousReturns || [])
+                .filter((item) => String(item.ID) !== String(form.id || ""))
+                .reduce(
+                    (sum, item) =>
+                        sum +
+                        (parseFloat(item["Return This Time"]) ||
+                            parseFloat(item["Qty"]) ||
+                            0),
+                    0
+                );
+
+            setForm((prev) => ({
+                ...prev,
+                liftNo,
+                poNo:
+                    liftData["Indent no."] ||
+                    liftData["Indent Number"] ||
+                    prev.poNo,
+                partyName:
+                    liftData["Vendor Name"] ||
+                    liftData["Party Name"] ||
+                    prev.partyName,
+                productName:
+                    liftData["Raw Material Name"] ||
+                    liftData["Product Name"] ||
+                    prev.productName,
+                billNo: liftData["Bill No."] || prev.billNo,
+                billCopy:
+                    liftData["Bill Image"] ||
+                    liftData["Bill Copy"] ||
+                    prev.billCopy,
+                firmName: normalizeFirmName(liftData["Firm Name"]) || prev.firmName,
+                maxReturnQty: Math.max(
+                    0,
+                    (parseFloat(liftData["Actual Quantity"]) || 0) -
+                    previouslyReturnedQty
+                ),
+                returnedQtyBefore: 0,
+            }));
+        } catch (err) {
+            console.error("Lift auto-fetch error:", err);
+            toast.error("Failed to load the selected Lift quantity.");
         }
     };
 
@@ -434,8 +566,8 @@ export default function PurchaseReturnPage() {
         const returnedQtyBefore = parseFloat(form.returnedQtyBefore) || 0;
         const remainingReturnQty = totalReturnQty - returnedQtyBefore;
 
-        if (!form.purchaseReturnNo || !totalReturnQty || !returnThisTime) {
-            toast.warning("Please provide PR No., Total Return Qty and Return This Time.");
+        if (!form.purchaseReturnNo || !form.liftNo || !form.poNo || !totalReturnQty || !returnThisTime) {
+            toast.warning("Please provide PR No., Lift No., PO / Indent No, Total Return Qty and Return This Time.");
             return;
         }
         if (totalReturnQty <= 0 || returnThisTime <= 0) {
@@ -476,8 +608,9 @@ export default function PurchaseReturnPage() {
                 "Amount": form.amount || null,
                 "Org. Bill No": form.orgBillNo || null,
                 "Lift No": form.liftNo || null,
-                "Firm Name": form.firmName || user?.firmName || null,
+                "Firm Name": normalizeFirmName(form.firmName) || normalizeFirmName(user?.firmName) || null,
                 mismatch_id: form.mismatch_id || null,
+                "Total Qty": form.maxReturnQty ? parseFloat(form.maxReturnQty) : null,
             };
 
             if (form.id) {
@@ -485,7 +618,7 @@ export default function PurchaseReturnPage() {
                 const { error } = await supabase
                     .from("Purchase Returns")
                     .update(payload)
-                    .eq("id", form.id);
+                    .eq("ID", form.id);
                 if (error) throw error;
 
                 if (form.mismatch_id) {
@@ -707,7 +840,38 @@ export default function PurchaseReturnPage() {
                                         <input type="text" value={form.purchaseReturnNo} readOnly className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 outline-none" />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">PO / Indent No</label>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Lift No *</label>
+                                        {Boolean(form.mismatch_id) || form.id !== null ? (
+                                            <input
+                                                type="text"
+                                                value={form.liftNo}
+                                                readOnly
+                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 outline-none cursor-not-allowed"
+                                            />
+                                        ) : (
+                                            <select
+                                                value={form.liftNo}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    handleChange("liftNo", val);
+                                                    handleLiftNoBlur(val);
+                                                }}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 bg-white"
+                                            >
+                                                <option value="">Select Lift No.</option>
+                                                {Array.from(new Set(availableLifts.map(l => String(l["Lift No"] || "").trim()).filter(Boolean))).map(liftNum => {
+                                                    const lift = availableLifts.find(l => String(l["Lift No"] || "").trim() === liftNum);
+                                                    return (
+                                                        <option key={liftNum} value={liftNum}>
+                                                            {liftNum} {lift ? `(${lift["Vendor Name"] || lift["Party Name"] || "No Vendor"})` : ""}
+                                                        </option>
+                                                    );
+                                                })}
+                                            </select>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">PO / Indent No *</label>
                                         <input type="text" value={form.poNo} onChange={(e) => handleChange("poNo", e.target.value)} onBlur={(e) => handlePoNoBlur(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all" />
                                     </div>
                                     <div>
@@ -723,8 +887,13 @@ export default function PurchaseReturnPage() {
                                         <input
                                             type="number"
                                             value={form.maxReturnQty || ""}
-                                            readOnly
-                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-600 outline-none"
+                                            readOnly={Boolean(form.mismatch_id)}
+                                            onChange={(e) => handleChange("maxReturnQty", e.target.value)}
+                                            className={`w-full px-4 py-3 rounded-xl border text-sm outline-none ${
+                                                Boolean(form.mismatch_id)
+                                                    ? "bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed"
+                                                    : "border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                                            }`}
                                         />
                                     </div>
                                     <div>
@@ -737,7 +906,11 @@ export default function PurchaseReturnPage() {
                                             value={form.totalReturnQty}
                                             readOnly={form.hasFixedTotalReturnQty}
                                             onChange={(e) => handleChange("totalReturnQty", e.target.value)}
-                                            className={`w-full px-4 py-3 rounded-xl border text-sm outline-none ${form.hasFixedTotalReturnQty ? "bg-gray-50 border-gray-200" : "border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500"}`}
+                                            className={`w-full px-4 py-3 rounded-xl border text-sm outline-none ${
+                                                form.hasFixedTotalReturnQty
+                                                    ? "bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed"
+                                                    : "border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                                            }`}
                                             placeholder="e.g. 5"
                                         />
                                         {form.maxReturnQty > 0 && !form.hasFixedTotalReturnQty && (
@@ -820,6 +993,7 @@ export default function PurchaseReturnPage() {
                                     ["Bill No.", viewRecord["Bill No"] || viewRecord["Bill No."]],
                                     ["Party Name", viewRecord["Party Name"]],
                                     ["Product Name", viewRecord["Product Name"]],
+                                    ["Total Qty", viewRecord["Total Qty"]],
                                     ["Qty", viewRecord["Qty"]],
                                     ["Action Type", viewRecord["Action Type"]],
                                     ["Return Reason", viewRecord["Return Reason"]],

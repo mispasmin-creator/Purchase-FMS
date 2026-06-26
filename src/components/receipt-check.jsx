@@ -686,9 +686,28 @@ export default function ReceiptCheck() {
               lift.billNo === filters.orderNumber);
         return matches;
       })
-      .sort(
-        (a, b) => new Date(b.actual1Timestamp) - new Date(a.actual1Timestamp),
-      );
+      .sort((a, b) => {
+        const parseDate = (item) => {
+          // 1. Try parsing the raw date value (filterColActual1)
+          if (item.filterColActual1) {
+            const d = new Date(item.filterColActual1);
+            if (!isNaN(d.getTime())) return d.getTime();
+          }
+          // 2. Try parsing the formatted timestamp (actual1Timestamp - "DD/MM/YYYY HH:mm:ss")
+          if (item.actual1Timestamp) {
+            const match = item.actual1Timestamp.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+            if (match) {
+              const [, day, month, year, hour, minute, second] = match.map(Number);
+              return new Date(year, month - 1, day, hour, minute, second).getTime();
+            }
+            // Standard parse fallback
+            const d = new Date(item.actual1Timestamp);
+            if (!isNaN(d.getTime())) return d.getTime();
+          }
+          return 0;
+        };
+        return parseDate(b) - parseDate(a);
+      });
   }, [allLiftsData, filters]);
 
   const handleInputChange = (e) => {

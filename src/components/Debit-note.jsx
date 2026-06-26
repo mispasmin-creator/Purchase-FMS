@@ -38,6 +38,25 @@ import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
 import { useRealtime } from "../hooks/useRealtime";
 
+const normalizeFirmName = (val) => {
+  if (!val) return null;
+  if (Array.isArray(val)) {
+    return val[0] || null;
+  }
+  const str = String(val).trim();
+  if (str.startsWith("[") && str.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(str);
+      if (Array.isArray(parsed)) {
+        return parsed[0] || null;
+      }
+    } catch (e) {
+      // Ignore parse error
+    }
+  }
+  return str;
+};
+
 // Column configuration
 const DEBIT_NOTE_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
@@ -212,6 +231,7 @@ export default function DebitNote() {
       const [
         { data, error: fetchError },
         { data: coordinatedDebitData, error: coordinatedDebitError },
+        { data: manualReturnsData, error: manualReturnsError },
       ] = await Promise.all([
         supabase
           .from("Mismatch")
@@ -223,10 +243,15 @@ export default function DebitNote() {
           .select("*")
           .eq("status", "COORDINATED")
           .eq("type", "Make Debit Note"),
+        supabase
+          .from("Purchase Returns")
+          .select("*")
+          .is("mismatch_id", null),
       ]);
 
       if (fetchError) throw fetchError;
       if (coordinatedDebitError) throw coordinatedDebitError;
+      if (manualReturnsError) throw manualReturnsError;
 
       let sourceRows = data || [];
       const existingMismatchIds = new Set(
@@ -268,7 +293,7 @@ export default function DebitNote() {
           timestamp: formatTimestamp(row["Timestamp"]),
           liftId,
           indentNo: String(row["Indent Number"] || "").trim(),
-          firmName: String(row["Firm Name"] || "").trim(),
+          firmName: normalizeFirmName(row["Firm Name"]) || "",
           partyName: String(row["Party Name"] || "").trim(),
           productName: String(row["Product Name"] || "").trim(),
           transporterName: String(row["Transporter Name"] || "").trim(),
@@ -286,7 +311,35 @@ export default function DebitNote() {
         };
       });
 
-      const filteredData = formattedData.filter(
+      // Map manual returns to the same data structure
+      const formattedManualReturns = (manualReturnsData || []).map((row) => {
+        const liftId = String(row["Lift No"] || "").trim();
+        return {
+          id: `MANUAL-${row.ID}`,
+          supabaseId: row.ID,
+          isManualReturn: true,
+          timestamp: formatTimestamp(row["Time Stamp"]),
+          liftId,
+          indentNo: String(row["Po No."] || "").trim(),
+          firmName: normalizeFirmName(row["Firm Name"]) || "",
+          partyName: String(row["Party Name"] || "").trim(),
+          productName: String(row["Product Name"] || "").trim(),
+          transporterName: String(row["Transport"] || "").trim(),
+          status: "Credit Notes", // Show it as Credit Notes so it falls in the "Pending" tab!
+          debitAmount: "",
+          debitNoteUrl: "",
+          remarks: String(row["Return Reason"] || "").trim(),
+          planned: null,
+          actual: null,
+          qty: row["Qty"] || row["Total Return Qty"] || 0,
+          _rawPlanned: null,
+          _rawActual: null,
+        };
+      });
+
+      const allMergedData = [...formattedData, ...formattedManualReturns];
+
+      const filteredData = allMergedData.filter(
         (item) => canViewFirm(user?.firmName, item.firmName)
       );
 
@@ -306,8 +359,8 @@ export default function DebitNote() {
   }, [fetchMismatchData]);
 
   // Subscribe to real-time updates
-  useRealtime(["Mismatch"], () => {
-    console.log("[Realtime] Debit Note page refreshing due to Mismatch table change");
+  useRealtime(["Mismatch", "Purchase Returns"], () => {
+    console.log("[Realtime] Debit Note page refreshing due to table change");
     fetchMismatchData();
   });
 
@@ -457,20 +510,58 @@ export default function DebitNote() {
 
       const actualTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
-      // Update in Supabase - match by Lift ID and Indent Number
-      const { data: updateData, error: updateError } = await supabase
-        .from("Mismatch")
-        .update({
+      if (editingItem.isManualReturn) {
+        // Create a Mismatch record for manual purchase return
+        const mismatchPayload = {
+          Timestamp: now.toISOString(),
+          "Lift ID": editingItem.liftId || null,
+          "Lift Number": editingItem.liftId || null,
+          "Indent Number": editingItem.indentNo || null,
+          "Firm Name": normalizeFirmName(editingItem.firmName) || null,
+          "Party Name": editingItem.partyName || null,
+          "Product Name": editingItem.productName || null,
+          Qty: editingItem.qty ? parseFloat(editingItem.qty) : null,
+          Status: "Completed",
+          coordination_status: "COORDINATED",
+          "Action Type": "Make Debit Note",
           "Remark": remarks.trim(),
           "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
           "Debit Note URL": publicUrl,
           "Actual": actualTimestamp
-        })
-        .eq("Lift ID", editingItem.liftId)
-        .eq("Indent Number", editingItem.indentNo)
-        .select();
+        };
 
-      if (updateError) throw updateError;
+        const { data: mismatchData, error: mismatchError } = await supabase
+          .from("Mismatch")
+          .insert([mismatchPayload])
+          .select("id")
+          .single();
+
+        if (mismatchError) throw mismatchError;
+
+        // Link mismatch_id to the manual return
+        const { error: prUpdateError } = await supabase
+          .from("Purchase Returns")
+          .update({ mismatch_id: mismatchData.id })
+          .eq("ID", editingItem.supabaseId);
+
+        if (prUpdateError) throw prUpdateError;
+
+      } else {
+        // Update in Supabase - match by Lift ID and Indent Number
+        const { data: updateData, error: updateError } = await supabase
+          .from("Mismatch")
+          .update({
+            "Remark": remarks.trim(),
+            "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
+            "Debit Note URL": publicUrl,
+            "Actual": actualTimestamp
+          })
+          .eq("Lift ID", editingItem.liftId)
+          .eq("Indent Number", editingItem.indentNo)
+          .select();
+
+        if (updateError) throw updateError;
+      }
 
       // Update local state
       setMismatchData(prev => prev.map(item =>
@@ -922,7 +1013,7 @@ export default function DebitNote() {
                           </p>
                         </div>
                       ) : (
-                        <div className="overflow-auto max-h-[calc(100vh-600px)] relative custom-scrollbar rounded-b-lg">
+                        <div className="overflow-auto max-h-[calc(100vh-320px)] min-h-[450px] relative custom-scrollbar rounded-b-lg">
                           <table className="w-full text-sm border-collapse">
                             <thead className="sticky top-0 z-30">
                               <tr className="bg-yellow-50 border-b border-yellow-200">
@@ -1011,7 +1102,7 @@ export default function DebitNote() {
                         </p>
                       </div>
                     ) : (
-                      <div className="overflow-auto max-h-[calc(100vh-600px)] relative custom-scrollbar rounded-b-lg">
+                      <div className="overflow-auto max-h-[calc(100vh-320px)] min-h-[450px] relative custom-scrollbar rounded-b-lg">
                         <table className="w-full text-sm border-collapse">
                           <thead className="sticky top-0 z-30">
                             <tr className="bg-green-50 border-b border-green-200">
