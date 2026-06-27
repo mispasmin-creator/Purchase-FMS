@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { RefreshCw, Save, X, Edit2, Image, Filter, CheckCircle, Clock, AlertCircle, ExternalLink, Search, ShieldCheck, Download } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
@@ -18,6 +19,7 @@ import HistoryTab from './audit/tabs/HistoryTab';
 import AllStagesTab from './audit/tabs/AllStagesTab';
 
 const CallTrackerPage = () => {
+  const location = useLocation();
   const { user, isSuperAdmin } = useContext(AuthContext);
   const [superAdminEditRow, setSuperAdminEditRow] = useState(null);
   const [accountsData, setAccountsData] = useState([]);
@@ -1940,6 +1942,21 @@ const CallTrackerPage = () => {
     fetchAllDataFromSupabase();
     fetchHistoryDataFromSupabase();
   }, [submittedRows, user, liftWeightSlipMap, liftTransporterRateMap]);
+
+  useEffect(() => {
+    if (location.state?.returnToTab === 'REAUDIT' && !loadingReAudit && reAuditMismatchData.length > 0) {
+      setActiveTab('REAUDIT');
+      if (location.state.openRowId) {
+        const targetRow = reAuditMismatchData.find(r => r.supabaseId === location.state.openRowId || r.id === location.state.openRowId || r.id === `mismatch_reaudit_${location.state.openRowId}`);
+        if (targetRow) {
+          setEditingRow(targetRow.id);
+          window.history.replaceState({}, document.title);
+        }
+      } else {
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, loadingReAudit, reAuditMismatchData]);
 
   useEffect(() => {
     setVisibleColumns(prev => {

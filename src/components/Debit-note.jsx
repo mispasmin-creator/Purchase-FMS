@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useContext, useMemo } from "react";
+import { useState, useEffect, useCallback, useContext, useMemo, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Loader2,
   AlertTriangle,
@@ -68,6 +69,7 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Product Name", dataKey: "productName", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
+  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
   { header: "Debit Amount", dataKey: "debitAmount", toggleable: true },
   { header: "Debit Image", dataKey: "debitNoteUrl", toggleable: true },
   { header: "Remarks", dataKey: "remarks", toggleable: true },
@@ -152,6 +154,9 @@ const SearchableSelect = ({
 };
 
 export default function DebitNote() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const processedReAuditRef = useRef(false);
   const { user, isSuperAdmin } = useContext(AuthContext);
   const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
   const [mismatchData, setMismatchData] = useState([]);
@@ -212,8 +217,9 @@ export default function DebitNote() {
       const hasActual = isValidTimestamp(item.actual);
       const statusLower = (item.status || "").toLowerCase();
 
-      // Pending: Planned exists OR Status is Credit Notes (and actual is not set, and not a return)
-      if ((hasPlanned || statusLower.includes('credit')) && !hasActual && !statusLower.includes('return')) {
+      // Pending: Planned exists OR Status is Credit Notes OR sent from Re-Audit (and actual is not set, and not a return)
+      const isEligibleDebitNote = item.isReAuditItem ? item.isFromReAudit : (hasPlanned || statusLower.includes('credit') || item.actionType === "Make Debit Note");
+      if (isEligibleDebitNote && !hasActual && !statusLower.includes('return')) {
         pending.push(item);
       } else if (hasActual) {
         history.push(item);
@@ -306,6 +312,10 @@ export default function DebitNote() {
           // Store raw values for updates
           _rawPlanned: row["Planned"],
           _rawActual: row["Actual"],
+          actionType: row["Action Type"] || "",
+          isReAuditItem: Boolean(row["Planned5"]),
+          isFromReAudit: row["Action Type"] === "Make Debit Note (Re-Audit)",
+          qtyDifferenceStatus: row["Qty Diff Status"] || row["Diff Qty"] || row["Difference Qty"] || "",
         };
       });
 
@@ -344,9 +354,9 @@ export default function DebitNote() {
         };
       });
 
-      // Only include Mismatch rows for lifts that have NO Purchase Return records
+      // Only include Mismatch rows for lifts that have NO Purchase Return records, unless sent from Re-Audit
       const mismatchOnlyRows = formattedData.filter(
-        (item) => !item.liftId || !prLiftNos.has(item.liftId)
+        (item) => !item.liftId || !prLiftNos.has(item.liftId) || (item.isReAuditItem ? item.isFromReAudit : item.actionType === "Make Debit Note")
       );
 
       const allMergedData = [...mismatchOnlyRows, ...formattedPurchaseReturns];
@@ -369,6 +379,47 @@ export default function DebitNote() {
   useEffect(() => {
     fetchMismatchData();
   }, [fetchMismatchData]);
+
+  // Auto-inject and open edit modal for Re-Audit item
+  useEffect(() => {
+    if (!loading && location.state?.fromReAudit && location.state?.reauditRow && !processedReAuditRef.current) {
+      processedReAuditRef.current = true;
+      const reauditRow = location.state.reauditRow;
+      const existingItem = mismatchData.find(item => item.supabaseId === reauditRow.supabaseId || (item.liftId && item.liftId === reauditRow.liftNumber));
+      
+      let targetItem = existingItem;
+      if (!existingItem) {
+        targetItem = {
+          id: `REAUDIT-${reauditRow.supabaseId || Date.now()}`,
+          supabaseId: reauditRow.supabaseId,
+          timestamp: reauditRow.timestamp || "",
+          liftId: reauditRow.liftNumber || reauditRow.liftId || "",
+          indentNo: reauditRow.indentNumber || reauditRow.indentNo || "",
+          firmName: reauditRow.firmName || "",
+          partyName: reauditRow.partyName || "",
+          productName: reauditRow.productName || "",
+          transporterName: reauditRow.transporterName || "",
+          status: "Pending",
+          debitAmount: reauditRow.debitAmount || "",
+          debitNoteUrl: reauditRow.debitNoteUrl || "",
+          remarks: reauditRow.remarks || `Qty Diff Status: ${reauditRow.qtyDifferenceStatus || '0.000'}`,
+          qtyDifferenceStatus: reauditRow.qtyDifferenceStatus || "",
+          isFromReAudit: true
+        };
+        setMismatchData(prev => [targetItem, ...prev]);
+      } else {
+        existingItem.isFromReAudit = true;
+        existingItem.qtyDifferenceStatus = reauditRow.qtyDifferenceStatus || existingItem.qtyDifferenceStatus || "";
+      }
+      
+      if (targetItem) {
+        setEditingRow(targetItem.id);
+        setRemarks(targetItem.remarks || `Qty Diff Status: ${reauditRow.qtyDifferenceStatus || '0.000'}`);
+        setDebitAmount(targetItem.debitAmount || "");
+        setDebitImageFile(null);
+      }
+    }
+  }, [loading, location.state, mismatchData]);
 
   // Subscribe to real-time updates
   useRealtime(["Mismatch", "Purchase Returns"], () => {
@@ -559,18 +610,20 @@ export default function DebitNote() {
         if (prUpdateError) throw prUpdateError;
 
       } else {
-        // Update in Supabase - match by Lift ID and Indent Number
-        const { data: updateData, error: updateError } = await supabase
-          .from("Mismatch")
-          .update({
-            "Remark": remarks.trim(),
-            "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
-            "Debit Note URL": publicUrl,
-            "Actual": actualTimestamp
-          })
-          .eq("Lift ID", editingItem.liftId)
-          .eq("Indent Number", editingItem.indentNo)
-          .select();
+        // Update in Supabase - match by ID if available, or fallback to Lift ID & Indent Number
+        const updatePayload = {
+          "Remark": remarks.trim(),
+          "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
+          "Debit Note URL": publicUrl,
+          "Actual": actualTimestamp
+        };
+        let query = supabase.from("Mismatch").update(updatePayload);
+        if (editingItem.supabaseId) {
+          query = query.eq("id", editingItem.supabaseId);
+        } else {
+          query = query.eq("Lift ID", editingItem.liftId).eq("Indent Number", editingItem.indentNo);
+        }
+        const { data: updateData, error: updateError } = await query.select();
 
         if (updateError) throw updateError;
       }
@@ -594,6 +647,13 @@ export default function DebitNote() {
 
       // Refresh data from Supabase to update counts
       await fetchMismatchData();
+
+      if (location.state?.fromReAudit || editingItem.isFromReAudit) {
+        toast.success("Returning to Re-Audit page...");
+        setTimeout(() => {
+          navigate('/accounts-audit', { state: { returnToTab: 'REAUDIT', openRowId: editingItem.supabaseId || editingItem.id } });
+        }, 1200);
+      }
 
     } catch (error) {
       console.error("Error submitting remarks:", error);
@@ -624,6 +684,16 @@ export default function DebitNote() {
 
     if (column.dataKey === "status") {
       return renderStatusBadge(value);
+    }
+
+    if (column.dataKey === "qtyDifferenceStatus") {
+      return value ? (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-extrabold bg-red-100 text-red-800 border border-red-300 shadow-2xs">
+          {value}
+        </span>
+      ) : (
+        <span className="text-gray-400 text-xs">-</span>
+      );
     }
 
     if (column.dataKey === "debitAmount") {
@@ -769,14 +839,22 @@ export default function DebitNote() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {editingItem?.qtyDifferenceStatus && (
+                  <div className="md:col-span-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+                    <span className="text-xs font-bold text-red-800">Creating Debit Note for Qty Diff Status</span>
+                    <span className="px-2.5 py-1 bg-red-600 text-white font-extrabold rounded text-xs shadow-2xs">
+                      Qty Diff: {editingItem.qtyDifferenceStatus}
+                    </span>
+                  </div>
+                )}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Debit Amount</Label>
+                  <Label className="text-sm font-medium">Debit Amount <span className="text-red-500">*</span></Label>
                   <Input
                     type="number"
-                    placeholder="Set from Mismatch module"
+                    placeholder="Enter Debit Amount"
                     value={debitAmount}
-                    readOnly
-                    className="bg-gray-50 cursor-not-allowed text-gray-600"
+                    onChange={(e) => setDebitAmount(e.target.value)}
+                    className="bg-white text-gray-800 font-medium"
                   />
                 </div>
                 <div className="space-y-2">
