@@ -143,11 +143,6 @@ const PROCESSED_RECEIPTS_COLUMNS_META = [
     dataKey: "dateOfReceiving_formatted",
     toggleable: true,
   },
-  {
-    header: "Receipt Timestamp (Col U)",
-    dataKey: "actual1Timestamp",
-    toggleable: true,
-  },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
