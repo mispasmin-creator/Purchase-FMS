@@ -78,7 +78,7 @@ const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Bill Rate", dataKey: "materialRate", toggleable: true },
   { header: "Bill Qty", dataKey: "billQuantity", toggleable: true },
   { header: "Receive Qty", dataKey: "actualQuantity", toggleable: true },
-  { header: "Qty Diff (Bill-Rec)", dataKey: "qtyDiffBillRec", toggleable: true },
+  { header: "Diff(Bill-Rec)", dataKey: "diffBillRec", toggleable: true },
   { header: "PO Al2O3%", dataKey: "poAlumina", toggleable: true },
   { header: "PO Fe%", dataKey: "poIron", toggleable: true },
   { header: "Lab Al2O3%", dataKey: "aluminaPercent", toggleable: true },
@@ -127,7 +127,7 @@ const HISTORY_COLUMNS_META = [
   { header: "Type Of Rate", dataKey: "typeOfTransportingRate", toggleable: true },
   { header: "Bill Rate", dataKey: "materialRate", toggleable: true },
   { header: "Receive Qty", dataKey: "actualQuantity", toggleable: true },
-  { header: "Qty Diff (Bill-Rec)", dataKey: "qtyDiffBillRec", toggleable: true },
+  { header: "Diff(Bill-Rec)", dataKey: "diffBillRec", toggleable: true },
   {
     header: "Bilty Image",
     dataKey: "biltyImageUrl",
@@ -1155,6 +1155,12 @@ export default function MismatchAnalysis() {
         hasLab ? "Lab" : ""
       ].filter(Boolean).join(", ");
 
+      const billQtyVal = parseFloat(lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Qty"]);
+      const actQtyVal = parseFloat(lift.actualQuantity || mismatchItem["Actual Quantity"]);
+      const diffBillRecVal = (!isNaN(billQtyVal) && !isNaN(actQtyVal))
+        ? parseFloat((billQtyVal - actQtyVal).toFixed(3))
+        : "N/A";
+
       return {
         ...lift,
         ...po,
@@ -1208,11 +1214,7 @@ export default function MismatchAnalysis() {
         poQuantity: po.poQuantity || po.quantity || mismatchItem["Quantity (PO)"],
         billQuantity: lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Qty"] || "N/A",
         actualQuantity: lift.actualQuantity || mismatchItem["Actual Quantity"] || "N/A",
-        qtyDiffBillRec: (() => {
-          const bQty = parseFloat(lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Qty"]);
-          const aQty = parseFloat(lift.actualQuantity || mismatchItem["Actual Quantity"]);
-          return (!isNaN(bQty) && !isNaN(aQty)) ? Number((bQty - aQty).toFixed(3)) : "N/A";
-        })(),
+        diffBillRec: diffBillRecVal,
         billNo: lift.billNo || mismatchItem["Bill No."] || mismatchItem["Bill No"] || "",
         areaLifting: lift.areaLifting || mismatchItem["Area Lifting"] || mismatchItem["Area lifting"] || "",
         billImageUrl: lift.billImageUrl || mismatchItem["Bill Image"] || "",
@@ -1563,21 +1565,32 @@ export default function MismatchAnalysis() {
       );
     }
 
+    if (column.dataKey === "diffBillRec") {
+      if (value === "N/A" || value === undefined || value === null) {
+        return <span className="text-gray-400 text-xs">N/A</span>;
+      }
+      const numValue = parseFloat(value) || 0;
+      let displayValue = numValue > 0 ? `+${value}` : value;
+      return (
+        <span
+          className={
+            numValue > 0
+              ? "text-red-600 font-semibold"
+              : numValue < 0
+                ? "text-[#7da23a] font-semibold"
+                : "text-gray-700 font-medium"
+          }
+        >
+          {displayValue} <span className="text-[10px] text-gray-500 ml-0.5">{item.qtyUnit || ""}</span>
+        </span>
+      );
+    }
+
     if (
       (column.dataKey === "billQuantity" || 
        column.dataKey === "actualQuantity" || 
        column.dataKey === "differenceQty") && 
       value && value !== "N/A"
-    ) {
-      return <span>{value} <span className="text-[10px] text-gray-500 ml-0.5">{item.qtyUnit || ""}</span></span>;
-    }
-
-    if (
-      column.dataKey === "qtyDiffBillRec" && 
-      value !== undefined && 
-      value !== null && 
-      value !== "" && 
-      value !== "N/A"
     ) {
       return <span>{value} <span className="text-[10px] text-gray-500 ml-0.5">{item.qtyUnit || ""}</span></span>;
     }
