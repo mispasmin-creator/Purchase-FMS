@@ -289,7 +289,7 @@ export default function FullkittingTransportingPage() {
                     fullkittingRemarks: fkData["Fullkitting Remarks"] || "",
                     typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
                     transportingRate: String(row["Transporting Per MT Rate"] || row["Transporting Rate"] || "").trim(),
-                    transportRate: fkData["Amount"] || String(row["Transporter Rate"] || "").trim(),
+                    transportRate: fkData["Amount"] !== undefined && fkData["Amount"] !== null ? fkData["Amount"] : "",
                     rate: Number(row["Rate"]) || 0,
                     truckNo: fkData["Vehicle Number"] || String(row["Truck No."] || "").trim(),
                     hasBilty: biltyNo ? "Yes" : "No",

@@ -1,6 +1,8 @@
 import React from 'react';
-import { X, RefreshCw, Save, CheckCircle, AlertCircle, Image, ExternalLink } from 'lucide-react';
+import { X, RefreshCw, Save, CheckCircle, AlertCircle, Image, ExternalLink, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { getQtyDifference } from './AuditTableRows';
+import { supabase } from '../../supabase';
 
 const AuditEntryModal = ({
   visibleColumns = {},
@@ -22,6 +24,7 @@ const AuditEntryModal = ({
   setEditingGroupItems,
   activeTab
 }) => {
+  const navigate = useNavigate();
   if (!editingRow) return null;
 
   let row = null;
@@ -68,6 +71,9 @@ const AuditEntryModal = ({
     ? (activeTab === 'ALL' ? (row.currentStage || 'AUDIT') : activeTab)
     : row.currentStage;
   const normalizedStage = itemStage === 'RE_AUDIT' ? 'REAUDIT' : itemStage;
+  const isReAuditStage = ['REAUDIT', 'RE_AUDIT'].includes(normalizedStage);
+  const isMakingDebitNote = Boolean(window._isMakingDebitNote);
+  const isDebitNoteCreated = Boolean(row.debit_note_created || row.debitAmount || row.debitNoteUrl || row["Debit Amount"] || row["Debit Note URL"]);
   const statusOptions = ['RECTIFY', 'REAUDIT'].includes(normalizedStage)
     ? ['Done']
     : ['Done', 'Not Done'];
@@ -89,6 +95,7 @@ const AuditEntryModal = ({
             </div>
             <button
               onClick={() => {
+                window._isMakingDebitNote = false;
                 setEditingRow(null);
                 setEditingGroupItems(null);
               }}
@@ -207,6 +214,65 @@ const AuditEntryModal = ({
             </div>
           </div>
 
+          {isReAuditStage && (isDebitNoteCreated || isMakingDebitNote) && (
+            <div className="mb-6">
+              {isDebitNoteCreated ? (
+                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl shadow-xs">
+                  <div className="flex items-center text-green-800 font-semibold text-sm">
+                    <CheckCircle className="w-5 h-5 mr-2 text-green-600 shrink-0" />
+                    <span>Debit Note Created {row.debitAmount ? `(Amount: ₹${row.debitAmount})` : ''}</span>
+                  </div>
+                  {(row.debitNoteUrl || row["Debit Note URL"]) && (
+                    <a
+                      href={row.debitNoteUrl || row["Debit Note URL"]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-white border border-green-300 rounded-lg hover:bg-green-100 transition-colors shadow-2xs"
+                    >
+                      View Debit Note <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col p-4 bg-amber-50 border border-amber-200 rounded-xl gap-3 shadow-xs">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center text-amber-900 font-medium text-sm">
+                      <AlertCircle className="w-5 h-5 mr-2 text-amber-600 shrink-0" />
+                      <span>Create Debit Note required for Qty Diff Status before proceeding.</span>
+                    </div>
+                    <span className="inline-flex items-center px-3 py-1 bg-red-100 text-red-800 border border-red-300 rounded-lg text-xs font-extrabold shadow-2xs">
+                      Qty Diff Status: {row.qtyDifferenceStatus || '0.000'}
+                    </span>
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (row.supabaseId || row.id) {
+                          const targetId = row.supabaseId || (typeof row.id === 'string' && row.id.includes('_') ? row.id.split('_').pop() : row.id);
+                          await supabase.from("Mismatch").update({ 
+                            coordination_status: "COORDINATED", 
+                            "Action Type": "Make Debit Note (Re-Audit)",
+                            "Qty Diff Status": row.qtyDifferenceStatus || '0.000',
+                            "Diff Qty": row.qtyDifferenceStatus || '0.000'
+                          }).eq("id", targetId);
+                        }
+                        window._isMakingDebitNote = false;
+                        setEditingRow(null);
+                        if (setEditingGroupItems) setEditingGroupItems(null);
+                        navigate('/debit-note', { state: { fromReAudit: true, reauditRow: row } });
+                      }}
+                      className="inline-flex items-center justify-center px-4 py-2 text-xs font-bold text-white bg-linear-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 rounded-lg shadow-sm hover:shadow transition-all whitespace-nowrap cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5 mr-1.5" />
+                      Create Debit Note (Qty Diff: {row.qtyDifferenceStatus || '0.000'})
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
@@ -220,6 +286,7 @@ const AuditEntryModal = ({
                 ))}
               </select>
             </div>
+
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
@@ -236,6 +303,7 @@ const AuditEntryModal = ({
           <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
             <button
               onClick={() => {
+                window._isMakingDebitNote = false;
                 setEditingRow(null);
                 setEditingGroupItems(null);
               }}
@@ -246,7 +314,7 @@ const AuditEntryModal = ({
             </button>
             <button
               onClick={submitFormData}
-              disabled={submitting || (!isGroupEdit && ['RECTIFY', 'TALLY_ENTRY', 'REAUDIT', 'RE_AUDIT', 'BILL_ENTRY'].includes(row.currentStage) && formData.status !== 'Done')}
+              disabled={submitting || (!isGroupEdit && ['RECTIFY', 'TALLY_ENTRY', 'REAUDIT', 'RE_AUDIT', 'BILL_ENTRY'].includes(row.currentStage) && formData.status !== 'Done') || (isReAuditStage && isMakingDebitNote && !isDebitNoteCreated)}
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
             >
               {submitting ? (
