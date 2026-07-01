@@ -48,6 +48,7 @@ const KITTING_COLUMNS_META = [
     { header: "Bill Image", dataKey: "billImage", toggleable: true, isLink: true, linkText: "View Bill" },
     { header: "Bilty Image", dataKey: "biltyImage", toggleable: true, isLink: true, linkText: "View Bilty" },
     { header: "Transporter Bill Image", dataKey: "transporterBillImage", toggleable: true, isLink: true, linkText: "View Transporter Bill" },
+    { header: "Fullkitting Remarks", dataKey: "fullkittingRemarks", toggleable: true },
     { header: "Kitting Link", dataKey: "kittingLink", toggleable: true, isLink: true, linkText: "View Kitting" },
 ];
 
@@ -94,7 +95,8 @@ export default function FullkittingTransportingPage() {
         rateType: "",
         amount: "",
         biltyImage: null,
-        transporterBillImage: null
+        transporterBillImage: null,
+        fullkittingRemarks: ""
     });
     const [, setFmsNames] = useState([]);
     const [, setRateTypes] = useState([]);
@@ -138,7 +140,7 @@ export default function FullkittingTransportingPage() {
             });
             return visibility;
         };
-        setVisiblePendingColumns(initializeVisibility(KITTING_COLUMNS_META.filter(col => col.dataKey !== 'kittingLink' && col.dataKey !== 'transporterBillImage')));
+        setVisiblePendingColumns(initializeVisibility(KITTING_COLUMNS_META.filter(col => col.dataKey !== 'kittingLink' && col.dataKey !== 'transporterBillImage' && col.dataKey !== 'fullkittingRemarks')));
         setVisibleHistoryColumns(initializeVisibility(KITTING_COLUMNS_META));
     }, []);
 
@@ -284,6 +286,7 @@ export default function FullkittingTransportingPage() {
                     biltyNo: fkData["Bilty Number"] || biltyNo,
                     biltyImage: fkData["Bilty Image"] || String(row["Bilty Image"] || "").trim(),
                     transporterBillImage: fkData["Transporter Bill Image"] || null,
+                    fullkittingRemarks: fkData["Fullkitting Remarks"] || "",
                     typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
                     transportingRate: String(row["Transporting Per MT Rate"] || row["Transporting Rate"] || "").trim(),
                     transportRate: fkData["Amount"] || String(row["Transporter Rate"] || "").trim(),
@@ -423,6 +426,7 @@ export default function FullkittingTransportingPage() {
             amount: item?.transportRate ? String(item.transportRate) : "",
             biltyImage: item?.biltyImage || null,
             transporterBillImage: null,
+            fullkittingRemarks: "",
         });
         setIsKittingModalOpen(true);
     };
@@ -480,7 +484,8 @@ export default function FullkittingTransportingPage() {
                     "Rate Type": kittingFormData.rateType,
                     "Amount": kittingFormData.amount ? Number(kittingFormData.amount) : null,
                     "Bilty Image": biltyImageVal,
-                    "Transporter Bill Image": transporterBillImageUrl
+                    "Transporter Bill Image": transporterBillImageUrl,
+                    "Fullkitting Remarks": kittingFormData.fullkittingRemarks
                 }]);
 
             if (fullkittinError) throw fullkittinError;
@@ -547,6 +552,7 @@ export default function FullkittingTransportingPage() {
                 if (edit.materialLoadDetails !== undefined) updateObj["Material Load Details"] = edit.materialLoadDetails;
                 if (edit.biltyNo !== undefined) updateObj["Bilty Number"] = edit.biltyNo;
                 if (edit.transportRate !== undefined) updateObj["Amount"] = edit.transportRate === "" ? null : Number(edit.transportRate);
+                if (edit.fullkittingRemarks !== undefined) updateObj["Fullkitting Remarks"] = edit.fullkittingRemarks;
                 
                 if (edit.biltyImage !== undefined) {
                     if (edit.biltyImage instanceof File) {
@@ -645,7 +651,7 @@ export default function FullkittingTransportingPage() {
     const renderCellContent = (item, column, tabKey) => {
         const value = item[column.dataKey];
         const isEditing = tabKey === 'history' && selectedHistoryRows.has(item.id);
-        const editFields = ['transporterName', 'truckNo', 'materialLoadDetails', 'biltyNo', 'transportRate', 'biltyImage', 'transporterBillImage'];
+        const editFields = ['transporterName', 'truckNo', 'materialLoadDetails', 'biltyNo', 'transportRate', 'biltyImage', 'transporterBillImage', 'fullkittingRemarks'];
 
         if (column.dataKey === 'actionColumn') {
             return (
@@ -856,7 +862,7 @@ export default function FullkittingTransportingPage() {
         );
     };
 
-    const pendingKittingColumns = useMemo(() => KITTING_COLUMNS_META.filter(col => col.dataKey !== 'kittingLink' && col.dataKey !== 'transporterBillImage'), []);
+    const pendingKittingColumns = useMemo(() => KITTING_COLUMNS_META.filter(col => col.dataKey !== 'kittingLink' && col.dataKey !== 'transporterBillImage' && col.dataKey !== 'fullkittingRemarks'), []);
     const historyKittingColumns = useMemo(() => KITTING_COLUMNS_META.filter(col => col.dataKey !== 'actionColumn'), []);
 
 
@@ -1119,6 +1125,21 @@ export default function FullkittingTransportingPage() {
                                                         Selected: {kittingFormData.transporterBillImage.name}
                                                     </p>
                                                 )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="fullkittingRemarks" className="text-sm font-medium text-gray-700">Fullkitting Remarks</Label>
+                                                <Input
+                                                    id="fullkittingRemarks"
+                                                    value={kittingFormData.fullkittingRemarks}
+                                                    onChange={(e) =>
+                                                        setKittingFormData({
+                                                            ...kittingFormData,
+                                                            fullkittingRemarks: e.target.value,
+                                                        })
+                                                    }
+                                                    placeholder="Enter remarks"
+                                                    className="w-full"
+                                                />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-sm font-medium text-gray-700">Bilty Image</Label>
