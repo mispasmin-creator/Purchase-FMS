@@ -67,6 +67,8 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "partyName", toggleable: true },
   { header: "Product Name", dataKey: "productName", toggleable: true },
+  { header: "Qty", dataKey: "qty", toggleable: true },
+  { header: "Product Rate", dataKey: "productRate", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
   { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
@@ -316,6 +318,10 @@ export default function DebitNote() {
           isReAuditItem: Boolean(row["Planned5"]),
           isFromReAudit: row["Action Type"] === "Make Debit Note (Re-Audit)",
           qtyDifferenceStatus: row["Qty Diff Status"] || row["Diff Qty"] || row["Difference Qty"] || "",
+          // Qty from Mismatch table (PO Qty) — shown for Re-Audit rows
+          qty: row["Qty"] || row["Quantity"] || row["Lifting Quantity"] || "",
+          // Product Rate from Mismatch table
+          productRate: row["Rate"] || "",
         };
       });
 
@@ -346,9 +352,12 @@ export default function DebitNote() {
           remarks: String(row["Return Reason"] || "").trim(),
           planned: null,
           actual: null,
-          qty: row["Return This Time"] || row["Qty"] || row["Total Return Qty"] || 0,
+          // Qty = Return This Time (from Finalized return tab of Purchase Return page)
+          qty: row["Return This Time"] || row["Qty"] || row["Total Return Qty"] || "",
           returnThisTime: row["Return This Time"] || null,
           totalReturnQty: row["Total Return Qty"] || null,
+          // Product Rate from Purchase Return row (if available)
+          productRate: row["Rate"] || row["Amount"] || "",
           _rawPlanned: null,
           _rawActual: null,
         };
@@ -696,6 +705,26 @@ export default function DebitNote() {
       );
     }
 
+    if (column.dataKey === "qty") {
+      const qtyVal = item.qty;
+      return qtyVal !== "" && qtyVal !== null && qtyVal !== undefined ? (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+          {qtyVal}
+        </span>
+      ) : (
+        <span className="text-gray-400 text-xs">-</span>
+      );
+    }
+
+    if (column.dataKey === "productRate") {
+      const rateVal = item.productRate;
+      return rateVal !== "" && rateVal !== null && rateVal !== undefined ? (
+        <span className="font-semibold text-indigo-700">₹{rateVal}</span>
+      ) : (
+        <span className="text-gray-400 text-xs">-</span>
+      );
+    }
+
     if (column.dataKey === "debitAmount") {
       return value ? <span className="font-semibold text-red-600">₹{value}</span> : <span className="text-gray-400 text-xs">N/A</span>;
     }
@@ -901,7 +930,7 @@ export default function DebitNote() {
                 </Button>
                 <Button
                   onClick={handleSubmitRemarks}
-                  disabled={submitting || !remarks.trim()}
+                  disabled={submitting || !remarks.trim() || !debitAmount || (!debitImageFile && !editingItem?.debitNoteUrl)}
                 >
                   {submitting ? (
                     <>
@@ -1107,7 +1136,7 @@ export default function DebitNote() {
                           <table className="w-full text-sm border-collapse">
                             <thead className="sticky top-0 z-30">
                               <tr className="bg-yellow-50 border-b border-yellow-200">
-                                {DEBIT_NOTE_COLUMNS_META.map((col) => (
+                                {DEBIT_NOTE_COLUMNS_META.filter(col => col.dataKey !== "status").map((col) => (
                                   <th
                                     key={col.dataKey}
                                     className={`px-3 py-3 text-xs font-bold text-yellow-800 uppercase text-left bg-yellow-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap ${col.dataKey === "actions" ? "w-[150px]" : ""}`}
@@ -1123,7 +1152,7 @@ export default function DebitNote() {
                                   key={item.id}
                                   className={`hover:bg-yellow-50/50 transition-colors border-b border-gray-100 ${editingRow === item.id ? "bg-yellow-100 ring-1 ring-yellow-300" : ""}`}
                                 >
-                                  {DEBIT_NOTE_COLUMNS_META.map((column) => (
+                                  {DEBIT_NOTE_COLUMNS_META.filter(col => col.dataKey !== "status").map((column) => (
                                     <td
                                       key={`${item.id}-${column.dataKey}`}
                                       className={`text-xs px-3 py-2 ${column.dataKey === "actions" ? "w-[150px]" : ""}`}

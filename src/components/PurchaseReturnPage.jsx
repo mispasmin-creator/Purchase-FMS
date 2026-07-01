@@ -61,9 +61,11 @@ const EMPTY_FORM = {
     builtyNo: "",
     rateType: "",
     amount: "",
+    productRate: "",
     orgBillNo: "",
     billNo: "",
     billCopy: "",
+    creditNoteUrl: "",
     liftNo: "",
     firmName: "",
     mismatch_id: null,
@@ -81,6 +83,7 @@ export default function PurchaseReturnPage() {
     const [form, setForm] = useState(EMPTY_FORM);
     const [viewRecord, setViewRecord] = useState(null);
     const [availableLifts, setAvailableLifts] = useState([]);
+    const [creditNoteImageFile, setCreditNoteImageFile] = useState(null);
 
     // ── Fetch all records ──────────────────────────────────────────────────
     const fetchRecords = useCallback(async () => {
@@ -410,9 +413,11 @@ export default function PurchaseReturnPage() {
             builtyNo: rec["Builty No"],
             rateType: rec["Rate Type"],
             amount: rec["Amount"],
+            productRate: rec["Product Rate"] || "",
             orgBillNo: rec["Org. Bill No"],
             billNo: rec["Bill No"] || rec["Bill No."],
             billCopy: rec["Bill Copy"] || rec["Bill Image"],
+            creditNoteUrl: rec["Credit Note URL"] || "",
             liftNo: rec["Lift No"],
             firmName: rec["Firm Name"],
             mismatch_id: rec.mismatch_id,
@@ -512,6 +517,7 @@ export default function PurchaseReturnPage() {
                     liftData["Bill Image"] ||
                     liftData["Bill Copy"] ||
                     prev.billCopy,
+                productRate: liftData["Rate"] || liftData["Product Rate"] || liftData["Rate (INR)"] || prev.productRate,
                 firmName: normalizeFirmName(liftData["Firm Name"]) || prev.firmName,
                 maxReturnQty: Math.max(
                     0,
@@ -611,7 +617,6 @@ export default function PurchaseReturnPage() {
         }
     };
 
-    // ── Submission Logic ───────────────────────────────────────────────────
     const handleSubmit = async () => {
         const totalReturnQty = parseFloat(form.totalReturnQty);
         const returnThisTime = parseFloat(form.returnThisTime);
@@ -640,6 +645,21 @@ export default function PurchaseReturnPage() {
             const istOffset = 5.5 * 60 * 60 * 1000;
             const istDate = new Date(Date.now() + istOffset);
             const istTimestamp = istDate.toISOString().replace("Z", "+05:30");
+
+            // Upload Credit Note image if provided
+            let creditNoteUrl = form.creditNoteUrl || null;
+            if (creditNoteImageFile) {
+                const fileExt = creditNoteImageFile.name.split('.').pop();
+                const fileName = `credit-note/${form.liftNo || 'unknown'}_cn_${Date.now()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('image')
+                    .upload(fileName, creditNoteImageFile);
+                if (uploadError) throw uploadError;
+                const { data: publicUrlData } = supabase.storage
+                    .from('image')
+                    .getPublicUrl(fileName);
+                creditNoteUrl = publicUrlData.publicUrl;
+            }
 
             let mismatchId = form.mismatch_id;
 
@@ -692,11 +712,14 @@ export default function PurchaseReturnPage() {
                 "Builty No": form.builtyNo || null,
                 "Rate Type": form.rateType || null,
                 "Amount": form.amount || null,
+                "Product Rate": form.productRate ? parseFloat(form.productRate) : null,
+                "Bill No": form.billNo || null,
                 "Org. Bill No": form.orgBillNo || null,
                 "Lift No": form.liftNo || null,
                 "Firm Name": normalizeFirmName(form.firmName) || normalizeFirmName(user?.firmName) || null,
                 mismatch_id: mismatchId || null,
                 "Total Qty": form.maxReturnQty ? parseFloat(form.maxReturnQty) : null,
+                "Credit Note URL": creditNoteUrl || null,
             };
 
             if (form.id) {
@@ -726,6 +749,7 @@ export default function PurchaseReturnPage() {
             toast.success("✅ Purchase Return saved successfully!");
             setShowForm(false);
             setForm(EMPTY_FORM);
+            setCreditNoteImageFile(null);
             fetchRecords();
         } catch (err) {
             console.error("Submit error:", err);
@@ -1013,6 +1037,17 @@ export default function PurchaseReturnPage() {
                                         <input type="text" value={form.productName} readOnly={form.id !== null} onChange={(e) => handleChange("productName", e.target.value)} className={`w-full px-4 py-3 rounded-xl border text-sm outline-none ${form.id !== null ? "bg-gray-50 border-gray-200" : "border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500"}`} />
                                     </div>
                                     <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Product Rate</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            value={form.productRate}
+                                            onChange={(e) => handleChange("productRate", e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                                            placeholder="₹ Rate per unit"
+                                        />
+                                    </div>
+                                    <div>
                                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Total Qty</label>
                                         <input
                                             type="number"
@@ -1080,12 +1115,40 @@ export default function PurchaseReturnPage() {
                                         <input type="text" value={form.returnReason} onChange={(e) => handleChange("returnReason", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all" placeholder="Reason for return" />
                                     </div>
                                     <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Bill Number</label>
+                                        <input
+                                            type="text"
+                                            value={form.billNo}
+                                            onChange={(e) => handleChange("billNo", e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                                            placeholder="Bill No."
+                                        />
+                                    </div>
+                                    <div>
                                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Transporter Name</label>
                                         <input type="text" value={form.transport} onChange={(e) => handleChange("transport", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all" placeholder="Enter transporter" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Vehicle Number</label>
                                         <input type="text" value={form.vehicleNo} onChange={(e) => handleChange("vehicleNo", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all" placeholder="e.g. WB 12 XX XXXX" />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Credit Note Image</label>
+                                        <input
+                                            type="file"
+                                            accept="image/*,application/pdf,.pdf"
+                                            onChange={(e) => setCreditNoteImageFile(e.target.files[0] || null)}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none cursor-pointer file:cursor-pointer file:bg-green-50 file:text-[#6b8e2f] file:border-0 file:rounded-lg file:px-3 file:py-1.5 file:mr-3 file:text-xs hover:file:bg-green-100 transition-all"
+                                        />
+                                        {form.creditNoteUrl && !creditNoteImageFile && (
+                                            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-[#7da23a]">
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                                <a href={form.creditNoteUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-green-700">Previously uploaded — click to view</a>
+                                            </div>
+                                        )}
+                                        {creditNoteImageFile && (
+                                            <p className="mt-1 text-[11px] text-gray-500">Selected: {creditNoteImageFile.name}</p>
+                                        )}
                                     </div>
                                 </div>
 
