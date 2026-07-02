@@ -64,6 +64,7 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Timestamp", dataKey: "timestamp", toggleable: true, alwaysVisible: true },
   { header: "Lift ID", dataKey: "liftId", toggleable: true, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true, alwaysVisible: true },
+  { header: "Purchase Return No.", dataKey: "purchaseReturnNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "partyName", toggleable: true },
   { header: "Product Name", dataKey: "productName", toggleable: true },
@@ -329,6 +330,8 @@ export default function DebitNote() {
           billNo: row["Bill No."] || row["Bill No"] || "",
           // Bill Image from Mismatch table
           billImage: row["Bill Image"] || "",
+          // Purchase Return No. from Mismatch table
+          purchaseReturnNo: String(row["Purchase Return No."] || "").trim(),
         };
       });
 
@@ -368,6 +371,8 @@ export default function DebitNote() {
           billNo: row["Bill No"] || "",
           // Bill Image from Purchase Return row
           billImage: row["Bill Image"] || row["Bill Copy"] || "",
+          // Purchase Return No from Purchase Return row
+          purchaseReturnNo: String(row["Purchase Return No."] || "").trim(),
           // Credit Note image URL
           creditNoteUrl: row["Credit Note URL"] || "",
           _rawPlanned: null,
@@ -611,7 +616,8 @@ export default function DebitNote() {
           "Remark": remarks.trim(),
           "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
           "Debit Note URL": publicUrl,
-          "Actual": actualTimestamp
+          "Actual": actualTimestamp,
+          "Purchase Return No.": editingItem.purchaseReturnNo || null
         };
 
         const { data: mismatchData, error: mismatchError } = await supabase
@@ -636,7 +642,8 @@ export default function DebitNote() {
           "Remark": remarks.trim(),
           "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
           "Debit Note URL": publicUrl,
-          "Actual": actualTimestamp
+          "Actual": actualTimestamp,
+          "Purchase Return No.": editingItem.purchaseReturnNo || null
         };
         let query = supabase.from("Mismatch").update(updatePayload);
         if (editingItem.supabaseId) {
@@ -1025,6 +1032,7 @@ export default function DebitNote() {
             { label: "Product Name", dbKey: "Product Name", value: superAdminEditItem.productName, type: "text" },
             { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
             { label: "Indent Number", dbKey: "Indent Number", value: superAdminEditItem.indentNo, type: "text" },
+            { label: "Purchase Return No.", dbKey: "Purchase Return No.", value: superAdminEditItem.purchaseReturnNo, type: "text" },
             { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditItem.transporterName, type: "text" },
             { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditItem.debitAmount, type: "number" },
             { label: "Debit Note URL", dbKey: "Debit Note URL", value: superAdminEditItem.debitNoteUrl, type: "text" },
