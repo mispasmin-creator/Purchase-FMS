@@ -342,48 +342,56 @@ export default function DebitNote() {
           .filter(Boolean)
       );
 
-      const formattedPurchaseReturns = (manualReturnsData || []).map((row) => {
-        const liftId = String(row["Lift No"] || "").trim();
-        return {
-          id: `MANUAL-${row.ID}`,
-          supabaseId: row.ID,
-          isManualReturn: true,
-          timestamp: formatTimestamp(row["Time Stamp"]),
-          liftId,
-          indentNo: String(row["Po No."] || "").trim(),
-          firmName: normalizeFirmName(row["Firm Name"]) || "",
-          partyName: String(row["Party Name"] || "").trim(),
-          productName: String(row["Product Name"] || "").trim(),
-          transporterName: String(row["Transport"] || "").trim(),
-          status: "Credit Notes",
-          debitAmount: "",
-          debitNoteUrl: "",
-          remarks: String(row["Return Reason"] || "").trim(),
-          planned: null,
-          actual: null,
-          // Qty = Return This Time (from Finalized return tab of Purchase Return page)
-          qty: row["Return This Time"] || row["Qty"] || row["Total Return Qty"] || "",
-          returnThisTime: row["Return This Time"] || null,
-          totalReturnQty: row["Total Return Qty"] || null,
-          // Product Rate from Purchase Return row
-          productRate: row["Product Rate"] || "",
-          // Bill No from Purchase Return row
-          billNo: row["Bill No"] || "",
-          // Bill Image from Purchase Return row
-          billImage: row["Bill Image"] || row["Bill Copy"] || "",
-          // Purchase Return No from Purchase Return row
-          purchaseReturnNo: String(row["Purchase Return No."] || "").trim(),
-          // Credit Note image URL
-          creditNoteUrl: row["Credit Note URL"] || "",
-          _rawPlanned: null,
-          _rawActual: null,
-        };
-      });
-
       // Only include Mismatch rows for lifts that have NO Purchase Return records, unless sent from Re-Audit
       const mismatchOnlyRows = formattedData.filter(
         (item) => !item.liftId || !prLiftNos.has(item.liftId) || (item.isReAuditItem ? item.isFromReAudit : item.actionType === "Make Debit Note")
       );
+
+      const mismatchOnlyIds = new Set(mismatchOnlyRows.map(item => String(item.supabaseId)));
+
+      const formattedPurchaseReturns = (manualReturnsData || [])
+        .filter(row => {
+          const mId = String(row.mismatch_id || "").trim();
+          // Exclude Purchase Return rows that are already covered by a Debit Note Mismatch
+          return !mId || !mismatchOnlyIds.has(mId);
+        })
+        .map((row) => {
+          const liftId = String(row["Lift No"] || "").trim();
+          return {
+            id: `MANUAL-${row.ID}`,
+            supabaseId: row.ID,
+            isManualReturn: true,
+            timestamp: formatTimestamp(row["Time Stamp"]),
+            liftId,
+            indentNo: String(row["Po No."] || "").trim(),
+            firmName: normalizeFirmName(row["Firm Name"]) || "",
+            partyName: String(row["Party Name"] || "").trim(),
+            productName: String(row["Product Name"] || "").trim(),
+            transporterName: String(row["Transport"] || "").trim(),
+            status: "Credit Notes",
+            debitAmount: "",
+            debitNoteUrl: "",
+            remarks: String(row["Return Reason"] || "").trim(),
+            planned: null,
+            actual: null,
+            // Qty = Return This Time (from Finalized return tab of Purchase Return page)
+            qty: row["Return This Time"] || row["Qty"] || row["Total Return Qty"] || "",
+            returnThisTime: row["Return This Time"] || null,
+            totalReturnQty: row["Total Return Qty"] || null,
+            // Product Rate from Purchase Return row
+            productRate: row["Product Rate"] || "",
+            // Bill No from Purchase Return row
+            billNo: row["Bill No"] || "",
+            // Bill Image from Purchase Return row
+            billImage: row["Bill Image"] || row["Bill Copy"] || "",
+            // Purchase Return No from Purchase Return row
+            purchaseReturnNo: String(row["Purchase Return No."] || "").trim(),
+            // Credit Note image URL
+            creditNoteUrl: row["Credit Note URL"] || "",
+            _rawPlanned: null,
+            _rawActual: null,
+          };
+      });
 
       const allMergedData = [...mismatchOnlyRows, ...formattedPurchaseReturns];
 
