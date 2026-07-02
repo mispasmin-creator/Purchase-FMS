@@ -1242,7 +1242,9 @@ export default function MismatchAnalysis() {
           item["Status"] !== "Credit Notes" &&
           item["Status"] !== "Others" &&
           item["Status"] !== "Purchase Return" &&
-          item["Status"] !== "Acknowledge",
+          item["Status"] !== "Acknowledge" &&
+          item["Status"] !== "Completed" &&
+          item["Status"] !== "Resolved - Return",
       )
       .map(getHybridRow)
       .filter(row => row.mismatchTypes.length > 0);
@@ -1255,7 +1257,7 @@ export default function MismatchAnalysis() {
 
   const historyMismatchData = useMemo(() => {
     const raw = mismatchSheetData
-      .filter(item => item.Status !== "Pending" && item.Status !== "Not Done")
+      .filter(item => item.Status !== "Pending" && item.Status !== "Not Done" && item.Status !== "Purchase Return")
       .map(getHybridRow);
 
     if (user?.firmName) {
