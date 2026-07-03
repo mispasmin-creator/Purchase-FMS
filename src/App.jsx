@@ -404,7 +404,7 @@ function App() {
     //   stepName: "Sale Of Raw Material",
     //   showNotification: false,
     //   component: <SaleOfRawMaterial />,
-    // },
+    // }, 
     {
       id: "rectify-mistake",
       label: "Rectify Mistake",
