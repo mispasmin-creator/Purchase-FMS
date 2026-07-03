@@ -295,6 +295,14 @@ export default function DebitNote() {
       }
 
       // Map to our data structure
+      const returnQtyMap = {};
+      (manualReturnsData || []).forEach(row => {
+          const mId = String(row.mismatch_id || "").trim();
+          if (mId) {
+             returnQtyMap[mId] = row["Return This Time"] || "";
+          }
+      });
+
       const formattedData = sourceRows.map((row, index) => {
         const liftId = String(row["Lift ID"] || "").trim();
         return {
@@ -322,8 +330,8 @@ export default function DebitNote() {
           isReAuditItem: Boolean(row["Planned5"]),
           isFromReAudit: row["Action Type"] === "Make Debit Note (Re-Audit)",
           qtyDifferenceStatus: row["Qty Diff Status"] || row["Diff Qty"] || row["Difference Qty"] || "",
-          // Qty from Mismatch table (PO Qty) — shown for Re-Audit rows
-          qty: row["Qty"] || row["Quantity"] || row["Lifting Quantity"] || "",
+          // Qty from Mismatch table (PO Qty) — shown for Re-Audit rows, or mapped from Purchase Returns if applicable
+          qty: returnQtyMap[String(row.id)] || row["Qty"] || row["Quantity"] || row["Lifting Quantity"] || "",
           // Product Rate from Mismatch table
           productRate: row["Rate"] || "",
           // Bill No from Mismatch table
@@ -375,7 +383,7 @@ export default function DebitNote() {
             planned: null,
             actual: null,
             // Qty = Return This Time (from Finalized return tab of Purchase Return page)
-            qty: row["Return This Time"] || row["Qty"] || row["Total Return Qty"] || "",
+            qty: row["Return This Time"] || "",
             returnThisTime: row["Return This Time"] || null,
             totalReturnQty: row["Total Return Qty"] || null,
             // Product Rate from Purchase Return row
