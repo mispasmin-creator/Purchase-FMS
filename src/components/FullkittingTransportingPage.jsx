@@ -434,10 +434,7 @@ export default function FullkittingTransportingPage() {
     const submitKittingForm = async () => {
         if (!selectedKittingItem) return;
 
-        if (String(kittingFormData.status).toLowerCase() !== "yes") {
-            toast.error("Kitting submit karne ke liye Status ko 'Yes' hona zaroori hai.");
-            return;
-        }
+
 
         setIsSubmittingKitting(true);
         try {
