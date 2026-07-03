@@ -113,6 +113,7 @@ const HISTORY_COLUMNS_META = [
   { header: "Lift Number", dataKey: "liftNo", toggleable: true },
   { header: "Type", dataKey: "liftType", toggleable: true },
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Date Of Bill", dataKey: "dateOfBill", toggleable: true },
   { header: "Bill Qty", dataKey: "billQuantity", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
@@ -194,7 +195,7 @@ export default function MismatchAnalysis() {
     try {
       const { data, error: fetchError } = await supabase
         .from("Mismatch")
-        .select('id, Timestamp, "Lift ID", "Lift Number", "Indent Number", "Product Name", "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference", "Party Name", "Firm Name", Status, Remarks, Rate, "Action Type", "Debit Amount", "Debit Note URL", "Total Freight", "Truck No.", "Truck Qty", Qty, "Bill No.", "Area Lifting", "Bill Image", "Bilty No.", "Bilty Image", "Weight Slip", "Type Of Rate"')
+        .select('id, Timestamp, "Lift ID", "Lift Number", "Indent Number", "Product Name", "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference", "Party Name", "Firm Name", Status, Remarks, Rate, "Action Type", "Debit Amount", "Debit Note URL", "Total Freight", "Truck No.", "Truck Qty", Qty, "Bill No.", "Date Of Bill", "Area Lifting", "Bill Image", "Bilty No.", "Bilty Image", "Weight Slip", "Type Of Rate"')
         .order("Timestamp", { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -727,6 +728,7 @@ export default function MismatchAnalysis() {
           planned3: row["Planned 3"] || null,
           actual3: row["Actual 3"] || null,
           billNo: String(row["Bill No."] || "").trim(),
+          dateOfBill: String(row["Date Of Bill"] || "").trim(),
           areaLifting: String(row["Area lifting"] || "").trim(),
           leadTimeToFactory: String(row["Lead Time To Reach Factory (days)"] || "").trim(),
           liftingQty: String(row["Lifting Qty"] || "").trim(),
@@ -1216,6 +1218,7 @@ export default function MismatchAnalysis() {
         actualQuantity: lift.actualQuantity || mismatchItem["Actual Quantity"] || "N/A",
         diffBillRec: diffBillRecVal,
         billNo: lift.billNo || mismatchItem["Bill No."] || mismatchItem["Bill No"] || "",
+        dateOfBill: lift.dateOfBill || mismatchItem["Date Of Bill"] || "",
         areaLifting: lift.areaLifting || mismatchItem["Area Lifting"] || mismatchItem["Area lifting"] || "",
         billImageUrl: lift.billImageUrl || mismatchItem["Bill Image"] || "",
         biltyNo: lift.biltyNo || mismatchItem["Bilty No."] || mismatchItem["Bilty No"] || "",
@@ -1859,6 +1862,8 @@ export default function MismatchAnalysis() {
             { label: "Bill Rate (LIFT-ACCOUNTS)", dbKey: "rateLift", saveDbKey: "Rate", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.materialRate, type: "number" },
             
             { label: "Bill Qty (Mismatch)", dbKey: "Truck Qty", value: superAdminEditItem.billQuantity, type: "number" },
+            { label: "Date Of Bill (Mismatch)", dbKey: "Date Of Bill", value: superAdminEditItem.dateOfBill, type: "date" },
+            { label: "Date Of Bill (LIFT-ACCOUNTS)", dbKey: "dateOfBillLift", saveDbKey: "Date Of Bill", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.dateOfBill, type: "date" },
             { label: "Bill Qty (LIFT-ACCOUNTS)", dbKey: "truckQtyLift", saveDbKey: "Truck Qty", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.billQuantity, type: "number" },
             
             { label: "Receive Qty (LIFT-ACCOUNTS)", dbKey: "actualQtyLift", saveDbKey: "Actual Quantity", customTable: "LIFT-ACCOUNTS", customPkField: "Lift No", customPkValue: superAdminEditItem.liftNo, value: superAdminEditItem.actualQuantity, type: "number" },

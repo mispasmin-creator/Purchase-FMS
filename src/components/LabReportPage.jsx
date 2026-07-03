@@ -16,6 +16,7 @@ const COLUMN_GROUPS = [
       { id: "liftNo", label: "Lift Number" },
       { id: "poNumber", label: "PO Number" },
       { id: "billNo", label: "Bill No." },
+      { id: "dateOfBill", label: "Date Of Bill" },
       { id: "partyName", label: "Party Name" },
       { id: "productName", label: "Product Name" },
       { id: "qty", label: "Qty" },
@@ -199,6 +200,7 @@ export default function LabReportPage() {
           liftNo: String(row["Lift No"] || "").trim(),
           poNumber: indentNo,
           billNo: String(row["Bill No."] || "").trim(),
+          dateOfBill: String(row["Date Of Bill"] || "").trim(),
           partyName: String(row["Vendor Name"] || "").trim(),
           productName: String(row["Raw Material Name"] || "").trim(),
           qty: String(row["Qty"] || "").trim(),
@@ -598,6 +600,7 @@ export default function LabReportPage() {
           productName: String(row["Raw Material Name"] || "").trim(),
           qty: liftQty,
           billNo: String(row["Bill No."] || "").trim(),
+          dateOfBill: String(row["Date Of Bill"] || "").trim(),
           poRate,
           liftBillRate: String(row["Rate"] || "").trim(),
           transportRateType: rateType,
@@ -876,6 +879,7 @@ export default function LabReportPage() {
         { label: "Billing Qty (Truck Qty)", dbKey: "Truck Qty", value: row.billingQty ?? row.totalTruckQty, type: "number" },
         { label: "Truck No.", dbKey: "Truck No.", value: row.truckNo, type: "text" },
         { label: "Bill No.", dbKey: "Bill No.", value: row.billNo, type: "text" },
+        { label: "Date Of Bill", dbKey: "Date Of Bill", value: row.dateOfBill, type: "date" },
         { label: "Status", dbKey: "Status", value: row.status, type: "text" },
         { label: "Date Of Test", dbKey: "Date Of Test", value: row.dateOfTest, type: "date" },
         { label: "Moisture %", dbKey: "Moisture Percent Age %", value: row.moisture, type: "number" },
@@ -1172,6 +1176,7 @@ export default function LabReportPage() {
                     {visibleColumns.liftNo && <TH>LN-Lift Number</TH>}
                     {visibleColumns.poNumber && <TH>Po Number</TH>}
                     {visibleColumns.billNo && <TH>Bill No.</TH>}
+                    {visibleColumns.dateOfBill && <TH>Date Of Bill</TH>}
                     {visibleColumns.partyName && <TH>Party Name</TH>}
                     {visibleColumns.productName && <TH>Product Name</TH>}
                     {visibleColumns.qty && <TH>Qty</TH>}
@@ -1217,6 +1222,7 @@ export default function LabReportPage() {
                         {visibleColumns.liftNo && <TD className="font-medium text-indigo-700">{row.liftNo || "-"}</TD>}
                         {visibleColumns.poNumber && <TD>{row.poNumber || "-"}</TD>}
                         {visibleColumns.billNo && <TD>{row.billNo || "-"}</TD>}
+                        {visibleColumns.dateOfBill && <TD>{row.dateOfBill || "-"}</TD>}
                         {visibleColumns.partyName && <TD className="max-w-[140px] truncate" title={row.partyName}>{row.partyName || "-"}</TD>}
                         {visibleColumns.productName && <TD className="max-w-[120px] truncate" title={row.productName}>{row.productName || "-"}</TD>}
                         {visibleColumns.qty && <TD className="text-right">{row.qty || "-"}</TD>}

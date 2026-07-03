@@ -485,6 +485,7 @@ const CallTrackerPage = () => {
                 "Lift Number": item.liftNumber,
                 "Type": item.type || rawLift["Type"] || "",
                 "Bill No.": item.billNo || rawLift["Bill No."] || "",
+                "Date Of Bill": item.dateOfBill || rawLift["Date Of Bill"] || "",
                 "Party Name": item.partyName || rawLift["Vendor Name"] || "",
                 "Product Name": item.productName || rawLift["Raw Material Name"] || "",
                 "Qty": parseNumeric(item.qty || rawLift["Qty"]),
@@ -654,6 +655,7 @@ const CallTrackerPage = () => {
             "Lift Number": newLiftRow.liftNumber,
             "Type": newLiftRow.type || rawLift["Type"] || "",
             "Bill No.": newLiftRow.billNo || rawLift["Bill No."] || "",
+            "Date Of Bill": newLiftRow.dateOfBill || rawLift["Date Of Bill"] || "",
             "Party Name": newLiftRow.partyName || rawLift["Vendor Name"] || "",
             "Product Name": newLiftRow.productName || rawLift["Raw Material Name"] || "",
             "Qty": parseNumeric(newLiftRow.qty || rawLift["Qty"]),
@@ -1237,7 +1239,7 @@ const CallTrackerPage = () => {
       ] = await Promise.all([
         supabase
           .from("Mismatch")
-          .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
+          .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Date Of Bill", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
           .is("Actual2", null)
           .is("Actual", null)
           .order("Timestamp", { ascending: false }),
@@ -1249,7 +1251,7 @@ const CallTrackerPage = () => {
           .select('"Bilty Number"'),
         supabase
           .from("LIFT-ACCOUNTS")
-          .select('id, "Timestamp", "Lift No", "Type", "Bill No.", "Vendor Name", "Raw Material Name", "Qty", "Area lifting", "Truck No.", "Transporter Name", "Transporter Rate", "Bill Image", "Bilty No.", "Type Of Transporting Rate", "Rate", "Truck Qty", "Bilty Image", "Image Of Weight Slip", "Status", "Indent no.", "Firm Name", "Actual Quantity", "Date Of Receiving", "Actual 1"')
+          .select('id, "Timestamp", "Lift No", "Type", "Bill No.", "Date Of Bill", "Vendor Name", "Raw Material Name", "Qty", "Area lifting", "Truck No.", "Transporter Name", "Transporter Rate", "Bill Image", "Bilty No.", "Type Of Transporting Rate", "Rate", "Truck Qty", "Bilty Image", "Image Of Weight Slip", "Status", "Indent no.", "Firm Name", "Actual Quantity", "Date Of Receiving", "Actual 1"')
           .not("Actual 1", "is", null)
       ]);
 
@@ -1276,6 +1278,7 @@ const CallTrackerPage = () => {
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
+        dateOfBill: row["Date Of Bill"] || '',
         partyName: row["Party Name"] || '',
         productName: row["Product Name"] || '',
         qty: row["Qty"] || row["Quantity"] || '',
@@ -1332,6 +1335,7 @@ const CallTrackerPage = () => {
         liftNumber: row["Lift No"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || '',
+        dateOfBill: row["Date Of Bill"] || '',
         partyName: row["Vendor Name"] || '',
         productName: row["Raw Material Name"] || '',
         qty: row["Qty"] || '',
@@ -1404,7 +1408,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Date Of Bill", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .is("Actual4", null)
         .is("Actual", null)
         .order("Timestamp", { ascending: false });
@@ -1417,6 +1421,7 @@ const CallTrackerPage = () => {
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
+        dateOfBill: row["Date Of Bill"] || '',
         partyName: row["Party Name"] || '',
         productName: row["Product Name"] || '',
         qty: row["Qty"] || row["Quantity"] || '',
@@ -1492,7 +1497,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Date Of Bill", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .not("Planned6", "is", null)
         .is("Actual6", null)
         .is("Actual", null)
@@ -1506,6 +1511,7 @@ const CallTrackerPage = () => {
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
+        dateOfBill: row["Date Of Bill"] || '',
         partyName: row["Party Name"] || '',
         productName: row["Product Name"] || '',
         qty: row["Qty"] || row["Quantity"] || '',
@@ -1581,7 +1587,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Date Of Bill", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .not("Planned3", "is", null)
         .is("Actual3", null)
         .eq("Status2", "Not Done")
@@ -1595,6 +1601,7 @@ const CallTrackerPage = () => {
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
+        dateOfBill: row["Date Of Bill"] || '',
         partyName: row["Party Name"] || '',
         productName: row["Product Name"] || '',
         qty: row["Qty"] || row["Quantity"] || '',
@@ -1670,7 +1677,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Date Of Bill", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .not("Planned5", "is", null)
         .is("Actual5", null)
         .is("Actual", null)
@@ -1684,6 +1691,7 @@ const CallTrackerPage = () => {
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
+        dateOfBill: row["Date Of Bill"] || '',
         partyName: row["Party Name"] || '',
         productName: row["Product Name"] || '',
         qty: row["Qty"] || row["Quantity"] || '',
@@ -1760,7 +1768,7 @@ const CallTrackerPage = () => {
       const [{ data: mismatchData, error: mismatchError }, { data: fullkittingData, error: fkError }] = await Promise.all([
         supabase
           .from("Mismatch")
-          .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
+          .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Date Of Bill", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
           .order("Timestamp", { ascending: false }),
         supabase.from("fullkittin").select('"Bilty Number"')
       ]);
@@ -1789,6 +1797,7 @@ const CallTrackerPage = () => {
           liftNumber: row["Lift ID"] || '',
           type: row["Type"] || '',
           billNo: row["Bill No."] || row["Bill No"] || '',
+        dateOfBill: row["Date Of Bill"] || '',
           partyName: row["Party Name"] || '',
           productName: row["Product Name"] || '',
           qty: row["Qty"] || row["Quantity"] || '',
@@ -1866,7 +1875,7 @@ const CallTrackerPage = () => {
     try {
       const { data, error } = await supabase
         .from("Mismatch")
-        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
+        .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Date Of Bill", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .not("Actual6", "is", null)
         .is("Actual", null)
         .order("Timestamp", { ascending: false });
@@ -1880,6 +1889,7 @@ const CallTrackerPage = () => {
         liftNumber: row["Lift ID"] || '',
         type: row["Type"] || '',
         billNo: row["Bill No."] || row["Bill No"] || '',
+        dateOfBill: row["Date Of Bill"] || '',
         partyName: row["Party Name"] || '',
         productName: row["Product Name"] || '',
         qty: row["Qty"] || row["Quantity"] || '',

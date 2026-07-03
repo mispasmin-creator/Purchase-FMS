@@ -34,6 +34,7 @@ const PENDING_BILTY_COLUMNS_META = [
   { header: "Lift Type", dataKey: "liftType", toggleable: true },
   { header: "Indent No.", dataKey: "indentNo", toggleable: true },
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Date Of Bill", dataKey: "dateOfBill", toggleable: true },
   { header: "Truck Number", dataKey: "truckNo", toggleable: true },
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
@@ -56,6 +57,7 @@ const BILTY_HISTORY_COLUMNS_META = [
   { header: "Lift Type", dataKey: "liftType", toggleable: true },
   { header: "Indent No.", dataKey: "indentNo", toggleable: true },
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Date Of Bill", dataKey: "dateOfBill", toggleable: true },
   { header: "Truck Number", dataKey: "truckNo", toggleable: true },
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
@@ -276,6 +278,7 @@ export default function BiltyPage() {
           actualQty: String(row["Actual Quantity"] || "").trim(),
           indentNo: String(row["Indent no."] || "").trim(),
           billNo: String(row["Bill No."] || "").trim(),
+          dateOfBill: String(row["Date Of Bill"] || "").trim(),
           firmName: String(row["Firm Name"] || "").trim(),
           unloadApprovalRequired: String(row["Unload Approval Required"] || "").trim(),
           unloadApprovalStatus: String(row["Unload Approval Status"] || "").trim(),
@@ -347,6 +350,7 @@ export default function BiltyPage() {
             actualQty: String(row["Actual Quantity"] || row["Lifting Qty"] || liftRecord["Actual Quantity"] || "").trim(),
             indentNo,
             billNo: String(row["Bill No."] || row["Bill No"] || liftRecord["Bill No."] || "").trim(),
+            dateOfBill: String(liftRecord["Date Of Bill"] || row["Date Of Bill"] || "").trim(),
             firmName: String(row["Firm Name"] || liftRecord["Firm Name"] || "").trim(),
             planned3: formatTimestamp(row.Timestamp || row.Planned2 || liftRecord["Planned 3"]),
             isPending: !biltyNumber || !biltyImageUrl,
@@ -733,12 +737,12 @@ export default function BiltyPage() {
       {superAdminEditLift && (
         <SuperAdminEditModal
           title={`Edit Lift — ${superAdminEditLift.id}`}
-          tableName="LIFT-ACCOUNTS"
+          tableName={superAdminEditLift._sourceTable === "Mismatch" ? "Mismatch" : "LIFT-ACCOUNTS"}
           pkField="id"
           pkValue={superAdminEditLift._dbId}
           fields={[
             { label: "Lift No.", dbKey: "Lift No", value: superAdminEditLift.id, type: "text" },
-            { label: "Vendor Name", dbKey: "Vendor Name", value: superAdminEditLift.vendorName, type: "text" },
+            { label: "Party Name", dbKey: "Vendor Name", value: superAdminEditLift.vendorName, type: "text" },
             { label: "Raw Material Name", dbKey: "Raw Material Name", value: superAdminEditLift.rawMaterialName, type: "text" },
             { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditLift.truckNo, type: "text" },
             { label: "Driver No.", dbKey: "Driver No.", value: superAdminEditLift.driverNo, type: "text" },
@@ -747,6 +751,7 @@ export default function BiltyPage() {
             { label: "Transporting Per MT Rate", dbKey: "Transporting Per MT Rate", value: superAdminEditLift.transportingRate, type: "number" },
             { label: "Qty", dbKey: "Qty", value: superAdminEditLift.originalQty, type: "number" },
             { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditLift.billNo, type: "text" },
+            { label: "Date Of Bill", dbKey: "Date Of Bill", value: superAdminEditLift.dateOfBill, type: "date" },
             { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditLift.firmName, type: "text" },
             { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditLift.biltyNumber, type: "text" },
             { label: "Bilty Image URL", dbKey: "Bilty Image", value: superAdminEditLift.biltyImageUrl, type: "text" },

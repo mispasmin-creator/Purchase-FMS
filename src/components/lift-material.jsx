@@ -183,6 +183,7 @@ const LIFTS_COLUMNS_META = [
     toggleable: true,
   },
   { header: "Bill No.", dataKey: "billNo", toggleable: true },
+  { header: "Date Of Bill", dataKey: "dateOfBill", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Bilty Number", dataKey: "biltyNo", toggleable: true },
