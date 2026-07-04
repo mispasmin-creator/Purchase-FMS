@@ -195,7 +195,7 @@ export default function MismatchAnalysis() {
     try {
       const { data, error: fetchError } = await supabase
         .from("Mismatch")
-        .select('id, Timestamp, "Lift ID", "Lift Number", "Indent Number", "Product Name", "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference", "Party Name", "Firm Name", Status, Remarks, Rate, "Action Type", "Debit Amount", "Debit Note URL", "Total Freight", "Truck No.", "Truck Qty", Qty, "Bill No.", "Date Of Bill", "Area Lifting", "Bill Image", "Bilty No.", "Bilty Image", "Weight Slip", "Type Of Rate"')
+        .select('id, Timestamp, "Lift ID", "Lift Number", "Indent Number", "Product Name", "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference", "Party Name", "Firm Name", Status, Remarks, Rate, "Action Type", "Debit Amount", "Debit Note URL", "Total Freight", "Truck No.", "Truck Qty", Qty, "Bill No.", "Area Lifting", "Bill Image", "Bilty No.", "Bilty Image", "Weight Slip", "Type Of Rate"')
         .order("Timestamp", { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -669,7 +669,7 @@ export default function MismatchAnalysis() {
 
       const { data, error: fetchError } = await supabase
         .from("LIFT-ACCOUNTS")
-        .select('"Lift No", "Indent no.", "Vendor Name", "Qty", "Raw Material Name", "Planned 1", "Actual 1", "Planned 2", "Actual 2", "Planned 3", "Actual 3", "Bill No.", "Area lifting", "Lead Time To Reach Factory (days)", "Lifting Qty", "Type", "Transporter Name", "Truck No.", "Driver No.", "Bilty No.", "Type Of Transporting Rate", "Rate", "Bill Image", "Truck Qty", "Date Of Receiving", "Total Bill Quantity", "Actual Quantity", "Physical Condition", "Moisture", "Physical Image Of Product", "Image Of Weight Slip", "Bilty No. 2", "Bilty Image", "Status", "Date Of Test", "Moisture Percent Age %", "BD Percent Age %", "AP Percent Age %", "Alumina Percent Age %", "Iron Percent Age %", "Sieve Analysis", "LOI %", "SIO2 %", "CaO %", "MgO %", "TiO2 %", "K2O + Na2O %", "Free Iron %", "Firm Name", "Weight Slip Qty", "Transporter Rate", "Transporting Rate", "Testing Certificate", "Timestamp"')
+        .select('"Lift No", "Indent no.", "Vendor Name", "Qty", "Raw Material Name", "Planned 1", "Actual 1", "Planned 2", "Actual 2", "Planned 3", "Actual 3", "Bill No.", "Date Of Bill", "Area lifting", "Lead Time To Reach Factory (days)", "Lifting Qty", "Type", "Transporter Name", "Truck No.", "Driver No.", "Bilty No.", "Type Of Transporting Rate", "Rate", "Bill Image", "Truck Qty", "Date Of Receiving", "Total Bill Quantity", "Actual Quantity", "Physical Condition", "Moisture", "Physical Image Of Product", "Image Of Weight Slip", "Bilty No. 2", "Bilty Image", "Status", "Date Of Test", "Moisture Percent Age %", "BD Percent Age %", "AP Percent Age %", "Alumina Percent Age %", "Iron Percent Age %", "Sieve Analysis", "LOI %", "SIO2 %", "CaO %", "MgO %", "TiO2 %", "K2O + Na2O %", "Free Iron %", "Firm Name", "Weight Slip Qty", "Transporter Rate", "Transporting Rate", "Testing Certificate", "Timestamp"')
         .in("Lift No", liftIds);
 
       if (fetchError) throw fetchError;
@@ -1218,7 +1218,7 @@ export default function MismatchAnalysis() {
         actualQuantity: lift.actualQuantity || mismatchItem["Actual Quantity"] || "N/A",
         diffBillRec: diffBillRecVal,
         billNo: lift.billNo || mismatchItem["Bill No."] || mismatchItem["Bill No"] || "",
-        dateOfBill: lift.dateOfBill || mismatchItem["Date Of Bill"] || "",
+        dateOfBill: lift.dateOfBill || "",
         areaLifting: lift.areaLifting || mismatchItem["Area Lifting"] || mismatchItem["Area lifting"] || "",
         billImageUrl: lift.billImageUrl || mismatchItem["Bill Image"] || "",
         biltyNo: lift.biltyNo || mismatchItem["Bilty No."] || mismatchItem["Bilty No"] || "",
