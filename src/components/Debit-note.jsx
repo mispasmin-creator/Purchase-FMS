@@ -74,6 +74,7 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Bill Image", dataKey: "billImage", toggleable: true },
   { header: "Credit Note", dataKey: "creditNoteUrl", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+  { header: "Vehicle No", dataKey: "vehicleNo", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
   { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
   { header: "Debit Amount", dataKey: "debitAmount", toggleable: true },
@@ -163,7 +164,8 @@ export default function DebitNote() {
   const location = useLocation();
   const navigate = useNavigate();
   const processedReAuditRef = useRef(false);
-  const { user, isSuperAdmin } = useContext(AuthContext);
+  const { user, isSuperAdmin: isSuperAdminContext } = useContext(AuthContext);
+  const isSuperAdmin = !!(isSuperAdminContext || user?.isSuperAdmin);
   const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
   const [mismatchData, setMismatchData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -296,10 +298,12 @@ export default function DebitNote() {
 
       // Map to our data structure
       const returnQtyMap = {};
+      const vehicleNoMap = {};
       (manualReturnsData || []).forEach(row => {
           const mId = String(row.mismatch_id || "").trim();
           if (mId) {
              returnQtyMap[mId] = row["Return This Time"] || "";
+             vehicleNoMap[mId] = row["Vehicle No"] || "";
           }
       });
 
@@ -309,12 +313,14 @@ export default function DebitNote() {
           id: `MISMATCH-${index}`,
           supabaseId: row.id,
           timestamp: formatTimestamp(row["Timestamp"]),
+          _rawTimestamp: row["Timestamp"],
           liftId,
           indentNo: String(row["Indent Number"] || "").trim(),
           firmName: normalizeFirmName(row["Firm Name"]) || "",
           partyName: String(row["Party Name"] || "").trim(),
           productName: String(row["Product Name"] || "").trim(),
           transporterName: String(row["Transporter Name"] || "").trim(),
+          vehicleNo: vehicleNoMap[String(row.id)] || row["Truck No."] || "",
           status: directDebitMismatchIds.has(String(row.id || "").trim())
             ? "Credit Notes"
             : String(row["Status"] || "").trim(),
@@ -370,12 +376,14 @@ export default function DebitNote() {
             supabaseId: row.ID,
             isManualReturn: true,
             timestamp: formatTimestamp(row["Time Stamp"]),
+            _rawTimestamp: row["Time Stamp"],
             liftId,
             indentNo: String(row["Po No."] || "").trim(),
             firmName: normalizeFirmName(row["Firm Name"]) || "",
             partyName: String(row["Party Name"] || "").trim(),
             productName: String(row["Product Name"] || "").trim(),
             transporterName: String(row["Transport"] || "").trim(),
+            vehicleNo: row["Vehicle No"] || "",
             status: "Credit Notes",
             debitAmount: "",
             debitNoteUrl: "",
@@ -1038,22 +1046,52 @@ export default function DebitNote() {
       {renderEditModal()}
       {superAdminEditItem && (
         <SuperAdminEditModal
-          title={`Edit Mismatch — ${superAdminEditItem.liftId}`}
-          tableName="Mismatch"
-          pkField="id"
+          title={`Edit ${superAdminEditItem.isManualReturn ? "Purchase Return" : "Mismatch"} Record — ${superAdminEditItem.liftId || superAdminEditItem.supabaseId}`}
+          tableName={superAdminEditItem.isManualReturn ? "Purchase Returns" : "Mismatch"}
+          pkField={superAdminEditItem.isManualReturn ? "ID" : "id"}
           pkValue={superAdminEditItem.supabaseId}
-          fields={[
-            { label: "Lift ID", dbKey: "Lift ID", value: superAdminEditItem.liftId, type: "text" },
-            { label: "Party Name", dbKey: "Party Name", value: superAdminEditItem.partyName, type: "text" },
-            { label: "Product Name", dbKey: "Product Name", value: superAdminEditItem.productName, type: "text" },
-            { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
-            { label: "Indent Number", dbKey: "Indent Number", value: superAdminEditItem.indentNo, type: "text" },
-            { label: "Purchase Return No.", dbKey: "Purchase Return No.", value: superAdminEditItem.purchaseReturnNo, type: "text" },
-            { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditItem.transporterName, type: "text" },
-            { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditItem.debitAmount, type: "number" },
-            { label: "Debit Note URL", dbKey: "Debit Note URL", value: superAdminEditItem.debitNoteUrl, type: "text" },
-            { label: "Remarks", dbKey: "Remarks", value: superAdminEditItem.remarks, type: "textarea" },
-          ]}
+          fields={
+            superAdminEditItem.isManualReturn ? [
+              { label: "Timestamp", dbKey: "Time Stamp", value: superAdminEditItem._rawTimestamp || superAdminEditItem.timestamp, type: "text" },
+              { label: "Lift ID", dbKey: "Lift No", value: superAdminEditItem.liftId, type: "text" },
+              { label: "Indent Number", dbKey: "Po No.", value: superAdminEditItem.indentNo, type: "text" },
+              { label: "Purchase Return No.", dbKey: "Purchase Return No.", value: superAdminEditItem.purchaseReturnNo, type: "text" },
+              { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+              { label: "Party Name", dbKey: "Party Name", value: superAdminEditItem.partyName, type: "text" },
+              { label: "Product Name", dbKey: "Product Name", value: superAdminEditItem.productName, type: "text" },
+              { label: "Qty", dbKey: "Return This Time", value: superAdminEditItem.qty, type: "number" },
+              { label: "Qty (Internal)", dbKey: "Qty", value: superAdminEditItem.qty, type: "number" },
+              { label: "Product Rate", dbKey: "Product Rate", value: superAdminEditItem.productRate, type: "number" },
+              { label: "Bill No", dbKey: "Bill No", value: superAdminEditItem.billNo, type: "text" },
+              { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditItem.billImage, type: "text" },
+              { label: "Credit Note URL", dbKey: "Credit Note URL", value: superAdminEditItem.creditNoteUrl, type: "text" },
+              { label: "Transporter Name", dbKey: "Transport", value: superAdminEditItem.transporterName, type: "text" },
+              { label: "Vehicle No", dbKey: "Vehicle No", value: superAdminEditItem.vehicleNo, type: "text" },
+              { label: "Qty Diff Status", dbKey: "qtyDifferenceStatus", value: superAdminEditItem.qtyDifferenceStatus || "", type: "text", skipSave: true, readOnly: true },
+              { label: "Debit Amount", dbKey: "Amount", value: superAdminEditItem.debitAmount || "", type: "number" },
+              { label: "Debit Image URL", dbKey: "debitNoteUrl", value: superAdminEditItem.debitNoteUrl || "", type: "text", skipSave: true, readOnly: true },
+              { label: "Remarks", dbKey: "Return Reason", value: superAdminEditItem.remarks, type: "textarea" },
+            ] : [
+              { label: "Timestamp", dbKey: "Timestamp", value: superAdminEditItem._rawTimestamp || superAdminEditItem.timestamp, type: "text" },
+              { label: "Lift ID", dbKey: "Lift ID", value: superAdminEditItem.liftId, type: "text" },
+              { label: "Indent Number", dbKey: "Indent Number", value: superAdminEditItem.indentNo, type: "text" },
+              { label: "Purchase Return No.", dbKey: "Purchase Return No.", value: superAdminEditItem.purchaseReturnNo, type: "text" },
+              { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem.firmName, type: "text" },
+              { label: "Party Name", dbKey: "Party Name", value: superAdminEditItem.partyName, type: "text" },
+              { label: "Product Name", dbKey: "Product Name", value: superAdminEditItem.productName, type: "text" },
+              { label: "Qty", dbKey: "Qty", value: superAdminEditItem.qty, type: "number" },
+              { label: "Product Rate", dbKey: "Rate", value: superAdminEditItem.productRate, type: "number" },
+              { label: "Bill No", dbKey: "Bill No.", value: superAdminEditItem.billNo, type: "text" },
+              { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditItem.billImage, type: "text" },
+              { label: "Credit Note URL", dbKey: "creditNoteUrl", value: superAdminEditItem.creditNoteUrl || "", type: "text", skipSave: true, readOnly: true },
+              { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditItem.transporterName, type: "text" },
+              { label: "Vehicle No", dbKey: "Truck No.", value: superAdminEditItem.vehicleNo, type: "text" },
+              { label: "Qty Diff Status", dbKey: "Qty Diff Status", value: superAdminEditItem.qtyDifferenceStatus || "", type: "text" },
+              { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditItem.debitAmount, type: "number" },
+              { label: "Debit Image URL", dbKey: "Debit Note URL", value: superAdminEditItem.debitNoteUrl, type: "text" },
+              { label: "Remarks", dbKey: "Remarks", value: superAdminEditItem.remarks, type: "textarea" },
+            ]
+          }
           onClose={() => setSuperAdminEditItem(null)}
           onSaved={() => { setSuperAdminEditItem(null); fetchMismatchData(); }}
         />

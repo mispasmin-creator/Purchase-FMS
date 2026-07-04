@@ -8,6 +8,7 @@ import {
     FileText,
     Eye,
     Edit,
+    ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,7 @@ import { supabase } from "../supabase";
 import { AuthContext } from "../context/AuthContext";
 import { useRealtime } from "../hooks/useRealtime";
 import { canViewFirm } from "../utils/firmFilter";
+import SuperAdminEditModal from "./SuperAdminEditModal";
 
 const normalizeFirmName = (val) => {
     if (!val) return null;
@@ -73,7 +75,8 @@ const EMPTY_FORM = {
 };
 
 export default function PurchaseReturnPage() {
-    const { user } = useContext(AuthContext);
+    const { user, isSuperAdmin: isSuperAdminContext } = useContext(AuthContext);
+    const isSuperAdmin = !!(isSuperAdminContext || user?.isSuperAdmin);
     const [records, setRecords] = useState([]);
     const [pendingMismatches, setPendingMismatches] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -84,6 +87,8 @@ export default function PurchaseReturnPage() {
     const [viewRecord, setViewRecord] = useState(null);
     const [availableLifts, setAvailableLifts] = useState([]);
     const [creditNoteImageFile, setCreditNoteImageFile] = useState(null);
+    const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
+    const [superAdminEditMismatch, setSuperAdminEditMismatch] = useState(null);
 
     // ── Fetch all records ──────────────────────────────────────────────────
     const fetchRecords = useCallback(async () => {
@@ -775,6 +780,69 @@ export default function PurchaseReturnPage() {
 
     return (
         <div className="p-4 md:p-6 space-y-6">
+            {superAdminEditItem && (
+                <SuperAdminEditModal
+                    title={`Edit Purchase Return Record — ${superAdminEditItem["Purchase Return No."] || superAdminEditItem.id}`}
+                    tableName="Purchase Returns"
+                    pkField="ID"
+                    pkValue={superAdminEditItem.id}
+                    fields={[
+                        { label: "Purchase Return No.", dbKey: "Purchase Return No.", value: superAdminEditItem["Purchase Return No."], type: "text" },
+                        { label: "Lift No", dbKey: "Lift No", value: superAdminEditItem["Lift No"], type: "text" },
+                        { label: "Po No.", dbKey: "Po No.", value: superAdminEditItem["Po No."], type: "text" },
+                        { label: "Party Name", dbKey: "Party Name", value: superAdminEditItem["Party Name"], type: "text" },
+                        { label: "Product Name", dbKey: "Product Name", value: superAdminEditItem["Product Name"], type: "text" },
+                        { label: "Product Rate", dbKey: "Product Rate", value: superAdminEditItem["Product Rate"], type: "number" },
+                        { label: "Bill No", dbKey: "Bill No", value: superAdminEditItem["Bill No"], type: "text" },
+                        { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditItem["Bill Image"] || superAdminEditItem["Bill Copy"], type: "text" },
+                        { label: "Total Qty", dbKey: "Total Qty", value: superAdminEditItem["Total Qty"] ?? superAdminEditItem["Qty"], type: "number" },
+                        { label: "Total Return Qty", dbKey: "Total Return Qty", value: superAdminEditItem["Total Return Qty"], type: "number" },
+                        { label: "Return This Time", dbKey: "Return This Time", value: superAdminEditItem["Return This Time"], type: "number" },
+                        { label: "Qty (Internal)", dbKey: "Qty", value: superAdminEditItem["Qty"], type: "number" },
+                        { label: "Credit Note URL", dbKey: "Credit Note URL", value: superAdminEditItem["Credit Note URL"], type: "text" },
+                        { label: "Return Reason", dbKey: "Return Reason", value: superAdminEditItem["Return Reason"], type: "textarea" },
+                        { label: "Transport", dbKey: "Transport", value: superAdminEditItem["Transport"], type: "text" },
+                        { label: "Type of Transport", dbKey: "Type of Transport", value: superAdminEditItem["Type of Transport"], type: "text" },
+                        { label: "Vehicle No", dbKey: "Vehicle No", value: superAdminEditItem["Vehicle No"], type: "text" },
+                        { label: "Builty No", dbKey: "Builty No", value: superAdminEditItem["Builty No"], type: "text" },
+                        { label: "Rate Type", dbKey: "Rate Type", value: superAdminEditItem["Rate Type"], type: "text" },
+                        { label: "Amount", dbKey: "Amount", value: superAdminEditItem["Amount"], type: "text" },
+                        { label: "Org. Bill No", dbKey: "Org. Bill No", value: superAdminEditItem["Org. Bill No"], type: "text" },
+                        { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditItem["Firm Name"], type: "text" },
+                    ]}
+                    onClose={() => setSuperAdminEditItem(null)}
+                    onSaved={() => {
+                        setSuperAdminEditItem(null);
+                        fetchRecords();
+                    }}
+                />
+            )}
+            {superAdminEditMismatch && (
+                <SuperAdminEditModal
+                    title={`Edit Mismatch — ${superAdminEditMismatch["Lift Number"] || superAdminEditMismatch.id}`}
+                    tableName="Mismatch"
+                    pkField="id"
+                    pkValue={superAdminEditMismatch.id}
+                    fields={[
+                        { label: "Lift Number", dbKey: "Lift Number", value: superAdminEditMismatch["Lift Number"], type: "text" },
+                        { label: "Lift ID (Internal)", dbKey: "Lift ID", value: superAdminEditMismatch["Lift ID"], type: "text" },
+                        { label: "Indent Number", dbKey: "Indent Number", value: superAdminEditMismatch["Indent Number"], type: "text" },
+                        { label: "Firm Name", dbKey: "Firm Name", value: superAdminEditMismatch["Firm Name"], type: "text" },
+                        { label: "Party Name", dbKey: "Party Name", value: superAdminEditMismatch["Party Name"], type: "text" },
+                        { label: "Product Name", dbKey: "Product Name", value: superAdminEditMismatch["Product Name"], type: "text" },
+                        { label: "Qty", dbKey: "Qty", value: superAdminEditMismatch["Qty"], type: "number" },
+                        { label: "Status", dbKey: "Status", value: superAdminEditMismatch["Status"], type: "text" },
+                        { label: "coordination_status", dbKey: "coordination_status", value: superAdminEditMismatch["coordination_status"], type: "text" },
+                        { label: "Action Type", dbKey: "Action Type", value: superAdminEditMismatch["Action Type"], type: "text" },
+                        { label: "Remarks", dbKey: "Remarks", value: superAdminEditMismatch["Remarks"], type: "textarea" },
+                    ]}
+                    onClose={() => setSuperAdminEditMismatch(null)}
+                    onSaved={() => {
+                        setSuperAdminEditMismatch(null);
+                        fetchRecords();
+                    }}
+                />
+            )}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-green-100 rounded-xl">
@@ -853,6 +921,17 @@ export default function PurchaseReturnPage() {
                                                             <Button variant="ghost" size="xs" className="h-7 w-7 p-0 text-primary hover:bg-primary/10" onClick={() => handleEditRecord(rec)}>
                                                                 <Edit className="w-3.5 h-3.5" />
                                                             </Button>
+                                                            {isSuperAdmin && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="xs"
+                                                                    className="h-7 w-7 p-0 text-purple-600 hover:bg-purple-100/50 border border-purple-200"
+                                                                    onClick={() => setSuperAdminEditItem(rec)}
+                                                                    title="Super Admin Edit"
+                                                                >
+                                                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
@@ -930,15 +1009,28 @@ export default function PurchaseReturnPage() {
                                     <tbody className="bg-white divide-y divide-gray-100">
                                         {pendingMismatches.map((m, idx) => (
                                             <tr key={m.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-orange-50/10'} hover:bg-orange-50/20 transition-colors border-b border-gray-100`}>
-                                                <td className="px-4 py-3 whitespace-nowrap text-left">
-                                                    <Button 
-                                                        size="xs" 
-                                                        className="bg-orange-600 hover:bg-orange-700 text-white shadow-sm h-7 text-[10px] font-bold uppercase tracking-wider px-3"
-                                                        onClick={() => handleCreateFromMismatch(m)}
-                                                    >
-                                                        <Plus className="w-3 h-3 mr-1" />
-                                                        Create PR
-                                                    </Button>
+                                                <td className="px-4 py-3 whitespace-nowrap text-left font-medium">
+                                                    <div className="flex items-center justify-start gap-1">
+                                                        <Button 
+                                                            size="xs" 
+                                                            className="bg-orange-600 hover:bg-orange-700 text-white shadow-sm h-7 text-[10px] font-bold uppercase tracking-wider px-3"
+                                                            onClick={() => handleCreateFromMismatch(m)}
+                                                        >
+                                                            <Plus className="w-3 h-3 mr-1" />
+                                                            Create PR
+                                                        </Button>
+                                                        {isSuperAdmin && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="xs"
+                                                                className="h-7 w-7 p-0 text-purple-600 hover:bg-purple-100/50 border border-purple-200"
+                                                                onClick={() => setSuperAdminEditMismatch(m)}
+                                                                title="Super Admin Edit Mismatch"
+                                                            >
+                                                                <ShieldCheck className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700">{m["Lift Number"]}</td>
