@@ -13,6 +13,7 @@ const COLUMN_GROUPS = [
     label: "Lift & PO Information",
     color: "bg-indigo-700",
     columns: [
+      { id: "timestamp", label: "Timestamp" },
       { id: "liftNo", label: "Lift Number" },
       { id: "poNumber", label: "PO Number" },
       { id: "billNo", label: "Bill No." },
@@ -272,14 +273,16 @@ export default function LabReportPage() {
     if (fromDate) {
       const f = new Date(fromDate);
       f.setHours(0, 0, 0, 0);
-      const rowDate = new Date(r.timestamp);
-      if (rowDate < f) return false;
+      if (!r.dateOfTest) return false;
+      const rowDate = new Date(r.dateOfTest);
+      if (isNaN(rowDate.getTime()) || rowDate < f) return false;
     }
     if (toDate) {
       const t = new Date(toDate);
       t.setHours(23, 59, 59, 999);
-      const rowDate = new Date(r.timestamp);
-      if (rowDate > t) return false;
+      if (!r.dateOfTest) return false;
+      const rowDate = new Date(r.dateOfTest);
+      if (isNaN(rowDate.getTime()) || rowDate > t) return false;
     }
 
     if (testStatusFilter !== "all") {
@@ -322,6 +325,7 @@ export default function LabReportPage() {
       const headers = visibleCols.map(c => c.label);
       const data = filtered.map(r => {
         return visibleCols.map(c => {
+          if (c.id === "timestamp") return r.timestamp ? fmtDate(r.timestamp) : "-";
           if (c.id === "dateOfTest") return r.dateOfTest ? fmtDate(r.dateOfTest) : "-";
           if (c.id === "status") {
             const isTested = r.dateOfTest && String(r.dateOfTest).trim() !== "";
@@ -1173,6 +1177,7 @@ export default function LabReportPage() {
                   </tr>
                   {/* Column row */}
                   <tr className="bg-gray-100">
+                    {visibleColumns.timestamp && <TH>Timestamp</TH>}
                     {visibleColumns.liftNo && <TH>LN-Lift Number</TH>}
                     {visibleColumns.poNumber && <TH>Po Number</TH>}
                     {visibleColumns.billNo && <TH>Bill No.</TH>}
@@ -1219,6 +1224,7 @@ export default function LabReportPage() {
                     const rowBg = i % 2 === 0 ? "bg-white" : "bg-gray-50";
                     return (
                       <tr key={i} className={`${rowBg} hover:bg-blue-50/40`}>
+                        {visibleColumns.timestamp && <TD>{row.timestamp ? fmtDate(row.timestamp) : "-"}</TD>}
                         {visibleColumns.liftNo && <TD className="font-medium text-indigo-700">{row.liftNo || "-"}</TD>}
                         {visibleColumns.poNumber && <TD>{row.poNumber || "-"}</TD>}
                         {visibleColumns.billNo && <TD>{row.billNo || "-"}</TD>}
