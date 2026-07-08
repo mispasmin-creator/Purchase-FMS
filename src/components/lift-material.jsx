@@ -176,6 +176,11 @@ const LIFTS_COLUMNS_META = [
   { header: "PO Qty", dataKey: "quantity", toggleable: true },
   { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
+  {
+    header: "Per MT Transportation Rate",
+    dataKey: "perMTTransportationRate",
+    toggleable: true,
+  },
   { header: "Rate Type", dataKey: "rateType", toggleable: true },
   {
     header: "Transportation Total Amount",
@@ -771,7 +776,18 @@ export default function LiftMaterial() {
           }
         }
 
+        let perMTTransportationRate = "-";
+        const currentRateType = String(row["Type Of Transporting Rate"] || "").trim().toLowerCase();
+        if (currentRateType === "per mt" || currentRateType === "fixed") {
+          const tRate = parseFloat(String(row["Transporter Rate"] || "").trim());
+          const bQty = parseFloat(String(row["Lifting Qty"] || "").trim());
+          if (!isNaN(tRate) && !isNaN(bQty) && bQty !== 0) {
+            perMTTransportationRate = (tRate / bQty).toFixed(2);
+          }
+        }
+
         return {
+          perMTTransportationRate,
           _dbId: row.id,
           id: String(row["Lift No"] || "").trim(),
           indentNo:

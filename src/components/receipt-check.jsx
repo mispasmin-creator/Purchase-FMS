@@ -117,6 +117,18 @@ const AWAITING_RECEIPT_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
+  { header: "Rate", dataKey: "rate", toggleable: true },
+  {
+    header: "Per MT Transportation Rate",
+    dataKey: "perMTTransportationRate",
+    toggleable: true,
+  },
+  { header: "Rate Type", dataKey: "typeOfRate", toggleable: true },
+  {
+    header: "Transportation Total Amount",
+    dataKey: "transporterRate",
+    toggleable: true,
+  },
   {
     header: "Bill Copy",
     dataKey: "billCopy",
@@ -152,6 +164,19 @@ const PROCESSED_RECEIPTS_COLUMNS_META = [
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "PO Qty", dataKey: "qty", toggleable: true },
   { header: "ACTUAL Qty", dataKey: "actualQuantity_fromSheet", toggleable: true },
+  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
+  { header: "Rate", dataKey: "rate", toggleable: true },
+  {
+    header: "Per MT Transportation Rate",
+    dataKey: "perMTTransportationRate",
+    toggleable: true,
+  },
+  { header: "Rate Type", dataKey: "typeOfRate", toggleable: true },
+  {
+    header: "Transportation Total Amount",
+    dataKey: "transporterRate",
+    toggleable: true,
+  },
   {
     header: "Bill Copy",
     dataKey: "billCopy",
@@ -470,7 +495,18 @@ export default function ReceiptCheck() {
         };
 
         let processedData = (data || []).map((row) => {
+          let perMTTransportationRate = "-";
+          const currentRateType = String(row["Type Of Transporting Rate"] || "").trim().toLowerCase();
+          if (currentRateType === "per mt" || currentRateType === "fixed") {
+            const tRate = parseFloat(String(row["Transporter Rate"] || "").trim());
+            const bQty = parseFloat(String(row["Lifting Qty"] || "").trim());
+            if (!isNaN(tRate) && !isNaN(bQty) && bQty !== 0) {
+              perMTTransportationRate = (tRate / bQty).toFixed(2);
+            }
+          }
+
           const rowData = {
+            perMTTransportationRate,
             _id: `lift-${row.id}`,
             _dbId: row.id, // Store the Supabase row ID for updates
             id: String(row["Lift No"] || "").trim(),
