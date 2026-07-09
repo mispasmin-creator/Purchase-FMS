@@ -1187,7 +1187,8 @@ const CallTrackerPage = () => {
       try {
         const { data } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Date Of Receiving", "Transporter Rate", "Actual 2", "Transporter Name", "Date Of Bill"');
+          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Date Of Receiving", "Transporter Rate", "Actual 2", "Transporter Name", "Date Of Bill"')
+          .order("id", { ascending: false });
         const weightSlipMap = {};
         const typeMap = {};
         const biltyNoMap = {};
@@ -2338,7 +2339,16 @@ const CallTrackerPage = () => {
                     saveDbKey: "Rate"
                   },
                   { label: "Bill No.", dbKey: "Bill No.", value: superAdminEditRow.billNo, type: "text" },
-                  { label: "Bill Receiving Date", dbKey: "Date Of Receiving", value: superAdminEditRow.dateOfReceiving, type: "date" },
+                  {
+                    label: "Bill Receiving Date",
+                    dbKey: "Date Of Receiving",
+                    value: superAdminEditRow.dateOfReceiving,
+                    type: "date",
+                    customTable: "LIFT-ACCOUNTS",
+                    customPkField: "Lift No",
+                    customPkValue: superAdminEditRow.liftNumber,
+                    saveDbKey: "Date Of Receiving"
+                  },
                   { label: "Party Name", dbKey: "Party Name", value: superAdminEditRow.partyName, type: "text" },
                   { label: "Product Name", dbKey: "Product Name", value: superAdminEditRow.productName, type: "text" },
                   { label: "Remarks", dbKey: "Remarks", value: superAdminEditRow.remarks, type: "textarea" },
