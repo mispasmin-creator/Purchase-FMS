@@ -364,6 +364,7 @@ export default function LiftMaterial() {
     reason: "",
     loading: false,
   });
+  const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
     firmName: "all",
     vendorName: "all",
@@ -1093,11 +1094,26 @@ export default function LiftMaterial() {
         (po) => po.transporterName === filters.transporterName,
       );
     }
+    const searchLower = searchQuery.trim().toLowerCase();
+    if (searchLower) {
+      filtered = filtered.filter((po) => {
+        return (
+          String(po.poNumber || "").toLowerCase().includes(searchLower) ||
+          String(po.indentNo || "").toLowerCase().includes(searchLower) ||
+          String(po.firmName || "").toLowerCase().includes(searchLower) ||
+          String(po.vendorName || "").toLowerCase().includes(searchLower) ||
+          String(po.rawMaterialName || "").toLowerCase().includes(searchLower) ||
+          String(po.transporterName || "").toLowerCase().includes(searchLower) ||
+          String(po.doNumber || "").toLowerCase().includes(searchLower) ||
+          String(po.status || "").toLowerCase().includes(searchLower)
+        );
+      });
+    }
     filtered = filtered.filter((po) =>
       isWithinExportDateRange(po.plannedRaw || po.planned, exportDateRanges.pending),
     );
     return filtered;
-  }, [purchaseOrders, filters, exportDateRanges.pending]);
+  }, [purchaseOrders, filters, exportDateRanges.pending, searchQuery]);
 
   const filteredMaterialLifts = useMemo(() => {
     let filtered = materialLifts;
@@ -1136,11 +1152,29 @@ export default function LiftMaterial() {
         (lift) => lift.transporterName === filters.transporterName,
       );
     }
+    const searchLower = searchQuery.trim().toLowerCase();
+    if (searchLower) {
+      filtered = filtered.filter((lift) => {
+        return (
+          String(lift.id || "").toLowerCase().includes(searchLower) ||
+          String(lift.indentNo || "").toLowerCase().includes(searchLower) ||
+          String(lift.riNo || "").toLowerCase().includes(searchLower) ||
+          String(lift.firmName || "").toLowerCase().includes(searchLower) ||
+          String(lift.vendorName || "").toLowerCase().includes(searchLower) ||
+          String(lift.material || "").toLowerCase().includes(searchLower) ||
+          String(lift.truckNo || "").toLowerCase().includes(searchLower) ||
+          String(lift.transporterName || "").toLowerCase().includes(searchLower) ||
+          String(lift.billNo || "").toLowerCase().includes(searchLower) ||
+          String(lift.biltyNo || "").toLowerCase().includes(searchLower) ||
+          String(lift.doNumber || "").toLowerCase().includes(searchLower)
+        );
+      });
+    }
     filtered = filtered.filter((lift) =>
       isWithinExportDateRange(lift.createdAtRaw || lift.createdAt, exportDateRanges.history),
     );
     return filtered;
-  }, [materialLifts, filters, exportDateRanges.history]);
+  }, [materialLifts, filters, exportDateRanges.history, searchQuery]);
 
   const selectedLiftSummary = useMemo(() => {
     const activeItems = selectedLiftItems.filter(
@@ -1856,6 +1890,7 @@ export default function LiftMaterial() {
   };
 
   const clearAllFilters = () => {
+    setSearchQuery("");
     setFilters({
       firmName: "all",
       vendorName: "all",
@@ -1932,14 +1967,25 @@ export default function LiftMaterial() {
             </TabsList>
 
             <div className="p-4 mb-4 rounded-lg bg-green-50/50">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <Label className="text-sm font-medium">Filters</Label>
+              <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <Label className="text-sm font-medium">Filters</Label>
+                </div>
+                <div className="sm:ml-4 w-full sm:w-72">
+                  <Input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-8 text-xs bg-white border-gray-300 focus:border-[#7da23a] focus:ring-[#7da23a]"
+                  />
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={clearAllFilters}
-                  className="ml-auto bg-white"
+                  className="sm:ml-auto bg-white h-8 text-xs"
                 >
                   Clear All
                 </Button>

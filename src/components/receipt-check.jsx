@@ -354,6 +354,7 @@ export default function ReceiptCheck() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [dataTableForSubmit, setDataTableForSubmit] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
     vendorName: "all",
     materialName: "all",
@@ -389,6 +390,7 @@ export default function ReceiptCheck() {
   };
 
   const clearAllFilters = () => {
+    setSearchQuery("");
     setFilters({
       vendorName: "all",
       materialName: "all",
@@ -670,9 +672,26 @@ export default function ReceiptCheck() {
           matches &&
           (lift.indentNo === filters.orderNumber ||
             lift.billNo === filters.orderNumber);
+
+      const searchLower = searchQuery.trim().toLowerCase();
+      if (searchLower) {
+        matches =
+          matches &&
+          ((lift.id && lift.id.toLowerCase().includes(searchLower)) ||
+            (lift.indentNo && lift.indentNo.toLowerCase().includes(searchLower)) ||
+            (lift.firmName && lift.firmName.toLowerCase().includes(searchLower)) ||
+            (lift.billNo && lift.billNo.toLowerCase().includes(searchLower)) ||
+            (lift.vendorName && lift.vendorName.toLowerCase().includes(searchLower)) ||
+            (lift.rawMaterialName && lift.rawMaterialName.toLowerCase().includes(searchLower)) ||
+            (lift.areaLifting && lift.areaLifting.toLowerCase().includes(searchLower)) ||
+            (lift.truckNo && lift.truckNo.toLowerCase().includes(searchLower)) ||
+            (lift.driverNo && lift.driverNo.toLowerCase().includes(searchLower)) ||
+            (lift.transporterName && lift.transporterName.toLowerCase().includes(searchLower)));
+      }
+
       return matches;
     });
-  }, [allLiftsData, filters]);
+  }, [allLiftsData, filters, searchQuery]);
 
   // Update Notification Context
   useEffect(() => {
@@ -718,6 +737,23 @@ export default function ReceiptCheck() {
             matches &&
             (lift.indentNo === filters.orderNumber ||
               lift.billNo === filters.orderNumber);
+
+        const searchLower = searchQuery.trim().toLowerCase();
+        if (searchLower) {
+          matches =
+            matches &&
+            ((lift.id && lift.id.toLowerCase().includes(searchLower)) ||
+              (lift.indentNo && lift.indentNo.toLowerCase().includes(searchLower)) ||
+              (lift.firmName && lift.firmName.toLowerCase().includes(searchLower)) ||
+              (lift.billNo && lift.billNo.toLowerCase().includes(searchLower)) ||
+              (lift.vendorName && lift.vendorName.toLowerCase().includes(searchLower)) ||
+              (lift.rawMaterialName && lift.rawMaterialName.toLowerCase().includes(searchLower)) ||
+              (lift.areaLifting && lift.areaLifting.toLowerCase().includes(searchLower)) ||
+              (lift.truckNo && lift.truckNo.toLowerCase().includes(searchLower)) ||
+              (lift.driverNo && lift.driverNo.toLowerCase().includes(searchLower)) ||
+              (lift.transporterName && lift.transporterName.toLowerCase().includes(searchLower)));
+        }
+
         return matches;
       })
       .sort((a, b) => {
@@ -742,7 +778,7 @@ export default function ReceiptCheck() {
         };
         return parseDate(b) - parseDate(a);
       });
-  }, [allLiftsData, filters]);
+  }, [allLiftsData, filters, searchQuery]);
 
   const handleInputChange = (e) => {
     const { name, value, type, files } = e.target;
@@ -1434,14 +1470,25 @@ export default function ReceiptCheck() {
               </TabsTrigger>
             </TabsList>
             <div className="p-4 mb-4 rounded-lg bg-green-50/50">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <Label className="text-sm font-medium">Filters</Label>
+              <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <Label className="text-sm font-medium">Filters</Label>
+                </div>
+                <div className="sm:ml-4 w-full sm:w-72">
+                  <Input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-8 text-xs bg-white border-gray-300 focus:border-[#7da23a] focus:ring-[#7da23a]"
+                  />
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={clearAllFilters}
-                  className="ml-auto bg-white"
+                  className="sm:ml-auto bg-white h-8 text-xs"
                 >
                   Clear All
                 </Button>
