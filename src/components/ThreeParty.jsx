@@ -1351,6 +1351,7 @@ export default function ThreeParty() {
                                 <SelectItem value="Loose">Loose</SelectItem>
                                 <SelectItem value="25kg">25kg</SelectItem>
                                 <SelectItem value="40kg">40kg</SelectItem>
+                                <SelectItem value="10 Kg">10 Kg</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1371,6 +1372,12 @@ export default function ThreeParty() {
                                 <SelectItem value="Advance">Advance</SelectItem>
                                 <SelectItem value="After Delivery">
                                   After Delivery
+                                </SelectItem>
+                                <SelectItem value="Credit 7 Days">
+                                  Credit 7 Days
+                                </SelectItem>
+                                <SelectItem value="Credit 15 Days">
+                                  Credit 15 Days
                                 </SelectItem>
                                 <SelectItem value="Credit 30 Days">
                                   Credit 30 Days
