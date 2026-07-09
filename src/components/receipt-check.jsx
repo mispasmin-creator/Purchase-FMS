@@ -117,6 +117,7 @@ const AWAITING_RECEIPT_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
+  { header: "Total Bag Qty", dataKey: "totalBagsQty_fromSheet", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
   {
     header: "Per MT Transportation Rate",
@@ -191,6 +192,11 @@ const PROCESSED_RECEIPTS_COLUMNS_META = [
   {
     header: "Weight Slip Qty",
     dataKey: "weightSlipQty_fromSheet",
+    toggleable: true,
+  },
+  {
+    header: "Total Bag Qty",
+    dataKey: "totalBagsQty_fromSheet",
     toggleable: true,
   },
   {
@@ -310,6 +316,17 @@ const checkQuantitiesMatch = (totalBillQty, actualQty) => {
   return actual >= bill;
 };
 
+// Raw material names for which the Total Bags Qty field should be shown (case-insensitive)
+const PP_BAG_MATERIAL_NAMES = [
+  "pp bag (25 kgs)",
+  "pp bag (50 kgs)",
+  "pasheat-clc pp bags 25 kg",
+  "pp bag r - 25",
+  "pp bag b - 25",
+];
+const isPPBagMaterial = (materialName) =>
+  PP_BAG_MATERIAL_NAMES.includes(String(materialName || "").trim().toLowerCase());
+
 // ReceiptFormModal Component
 function ReceiptFormModal({ isOpen, onClose, liftData, children }) {
   if (!isOpen) {
@@ -375,6 +392,7 @@ export default function ReceiptCheck() {
     totalBillQuantity: "",
     actualQuantity: "",
     qtyDifference: "0.00",
+    totalBagsQty: "",
 
     physicalCondition: "Good",
     moisture: "",
@@ -565,6 +583,9 @@ export default function ReceiptCheck() {
             ).trim(),
             weightSlipQty_fromSheet: String(
               row["Weight Slip Qty"] || "",
+            ).trim(),
+            totalBagsQty_fromSheet: String(
+              row["Total Bags Qty"] || "",
             ).trim(),
             firmName: String(row["Firm Name"] || "").trim(),
             orderCancelQty:
@@ -832,6 +853,7 @@ export default function ReceiptCheck() {
       totalBillQuantity: initialTotal.toString(),
       actualQuantity: "",
       qtyDifference: (-initialTotal).toFixed(2),
+      totalBagsQty: lift.totalBagsQty_fromSheet || "",
 
       physicalCondition: lift.physicalCondition_fromSheet || "Good",
       moisture: lift.moisture_fromSheet || "",
@@ -854,6 +876,11 @@ export default function ReceiptCheck() {
       newErrors.totalBillQuantity = "Valid Billing Quantity is required.";
     if (!formData.actualQuantity || isNaN(parseFloat(formData.actualQuantity)))
       newErrors.actualQuantity = "Valid Actual Quantity is required.";
+    if (
+      isPPBagMaterial(selectedLift?.rawMaterialName) &&
+      (!formData.totalBagsQty || isNaN(parseFloat(formData.totalBagsQty)))
+    )
+      newErrors.totalBagsQty = "Valid Total Bags Qty is required.";
     if (!formData.physicalCondition)
       newErrors.physicalCondition = "Physical Condition selection is required.";
     if (!formData.moisture)
@@ -950,6 +977,9 @@ export default function ReceiptCheck() {
         "Date Of Receiving": formData.dateOfReceiving,
         "Total Bill Quantity": parseFloat(formData.totalBillQuantity) || null,
         "Actual Quantity": parseFloat(formData.actualQuantity) || null,
+        "Total Bags Qty": isPPBagMaterial(selectedLift.rawMaterialName)
+          ? parseFloat(formData.totalBagsQty) || null
+          : null,
         "Physical Condition": formData.physicalCondition,
         Moisture: formData.moisture || null,
         "Physical Image Of Product": physicalImageUrl || null,
@@ -1708,6 +1738,32 @@ export default function ReceiptCheck() {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b8e2f] focus:ring-[#6b8e2f] sm:text-sm"
               />
             </div>
+
+            {isPPBagMaterial(selectedLift?.rawMaterialName) && (
+              <div>
+                <Label
+                  htmlFor="totalBagsQty"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Total Bags Qty <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  type="number"
+                  step="1"
+                  min="0"
+                  id="totalBagsQty"
+                  name="totalBagsQty"
+                  value={formData.totalBagsQty}
+                  onChange={handleInputChange}
+                  className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${formErrors.totalBagsQty ? "border-red-500 ring-1 ring-red-500" : "border-gray-300 focus:border-[#6b8e2f] focus:ring-[#6b8e2f]"}`}
+                />
+                {formErrors.totalBagsQty && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {formErrors.totalBagsQty}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <Label
