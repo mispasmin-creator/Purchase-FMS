@@ -667,7 +667,8 @@ export default function DebitNote() {
           "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
           "Debit Note URL": publicUrl,
           "Actual": actualTimestamp,
-          "Purchase Return No.": editingItem.purchaseReturnNo || null
+          "Purchase Return No.": editingItem.purchaseReturnNo || null,
+          "Status": "Completed"
         };
         let query = supabase.from("Mismatch").update(updatePayload);
         if (editingItem.supabaseId) {
