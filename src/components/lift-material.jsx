@@ -1500,9 +1500,9 @@ export default function LiftMaterial() {
     try {
       const { data, error } = await supabase
         .from("LIFT-ACCOUNTS")
-        .select('"Lift No"')
-        .order('"Lift No"', { ascending: false })
-        .limit(10);
+        .select('"Lift No", id')
+        .order("id", { ascending: false })
+        .limit(100);
 
       if (error) throw error;
 
