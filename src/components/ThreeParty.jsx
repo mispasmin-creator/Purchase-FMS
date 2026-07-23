@@ -1538,7 +1538,7 @@ export default function ThreeParty() {
                         </div>
                         <div>
                           <Label className="block mb-2 text-xs font-medium text-gray-600">
-                            Chemical Analysis (%)
+                            Chemical Analysis (%) <span className="text-red-500">*</span>
                           </Label>
                           <p className="mb-2 text-[10px] text-gray-400">
                             Optional
