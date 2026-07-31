@@ -37,7 +37,6 @@ export function NotificationProvider({ children }) {
         management: 0,
         "unload-management": 0,
         "logistics-approval": 0,
-        "purchaser-coordinate": 0,
     });
     const [loadingNotifications, setLoadingNotifications] = useState(false);
 

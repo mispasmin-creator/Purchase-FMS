@@ -191,6 +191,8 @@ const LIFTS_COLUMNS_META = [
   { header: "Date Of Bill", dataKey: "dateOfBill", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+  { header: "From", dataKey: "from", toggleable: true },
+  { header: "To", dataKey: "to", toggleable: true },
   { header: "Bilty Number", dataKey: "biltyNo", toggleable: true },
   {
     header: "Bilty Image",
@@ -220,6 +222,8 @@ const createEmptyLiftForm = () => ({
   billNo: "",
   dateOfBill: "",
   Arealifting: "",
+  From: "",
+  To: "",
   liftingLeadTime: "",
   truckNo: "",
   driverNo: "",
@@ -801,6 +805,8 @@ export default function LiftMaterial() {
           billNo: String(row["Bill No."] || "").trim(),
           dateOfBill: String(row["Date Of Bill"] || "").trim(),
           areaName: String(row["Area lifting"] || "").trim(),
+          from: String(row["From"] || "").trim(),
+          to: String(row["To"] || "").trim(),
           liftingLeadTime: String(
             row["Lead Time To Reach Factory (days)"] || "",
           ).trim(),
@@ -1400,12 +1406,18 @@ export default function LiftMaterial() {
       }
     }
 
+    if (formData.Arealifting === "Direct Supply To Party") {
+      requiredFields.push("From", "To");
+    }
+
     requiredFields.forEach((field) => {
       let readableField = field
         .replace(/([A-Z])/g, " $1")
         .replace(/^./, (str) => str.toUpperCase());
       if (field === "Arealifting") readableField = "Area Lifting";
       if (field === "TransporterName") readableField = "Transporter Name";
+      if (field === "From") readableField = "From";
+      if (field === "To") readableField = "To";
 
       if (!formData[field] || String(formData[field]).trim() === "") {
         newErrors[field] = `${readableField} is required.`;
@@ -1630,6 +1642,14 @@ export default function LiftMaterial() {
           "Bill No.": formData.billNo,
           "Date Of Bill": formData.dateOfBill || null,
           "Area lifting": formData.Arealifting,
+          From:
+            formData.Arealifting === "Direct Supply To Party"
+              ? formData.From || null
+              : null,
+          To:
+            formData.Arealifting === "Direct Supply To Party"
+              ? formData.To || null
+              : null,
           "Lead Time To Reach Factory (days)":
             Number(formData.liftingLeadTime) || null,
           "Lifting Qty": item.quantityToLift || null,
@@ -2840,6 +2860,22 @@ export default function LiftMaterial() {
                       ],
                       isRequired: true,
                     },
+                    ...(formData.Arealifting === "Direct Supply To Party"
+                      ? [
+                          {
+                            label: "From",
+                            name: "From",
+                            type: "text",
+                            isRequired: true,
+                          },
+                          {
+                            label: "To",
+                            name: "To",
+                            type: "text",
+                            isRequired: true,
+                          },
+                        ]
+                      : []),
                     {
                       label: "Lead Time (Days)",
                       name: "liftingLeadTime",

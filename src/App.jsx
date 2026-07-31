@@ -30,7 +30,6 @@ import TolrancePage from "./components/Tolrance";
 import Mismatch from "./components/Mis-match";
 import DebitNote from "./components/Debit-note";
 import SaleOfRawMaterial from "./components/SaleOfRawMaterial";
-import PurchaserCoordinate from "./components/PurchaserCoordinate";
 import PurchaseReturnPage from "./components/PurchaseReturnPage";
 import ManageUsers from "./components/ManageUsers";
 import POHistory from "./components/POHistory";
@@ -91,7 +90,6 @@ import {
   AlertTriangle,
   ShoppingBag,
   CheckCircle2,
-  PhoneCall,
   Users,
   History,
   BarChart3,
@@ -351,17 +349,6 @@ function App() {
       showNotification: false,
       component: <PurchaseReturnPage />,
       hidden: false,
-    },
-    {
-      id: "purchaser-coordinate",
-      label: "Purchaser Coord.",
-      path: "/purchaser-coordinate",
-      icon: <PhoneCall size={20} />,
-      stepName: "mismatch", // Coordination is closely tied to mismatch resolution roles
-      showNotification: true,
-      countKey: "purchaser-coordinate",
-      countLabel: "Pending",
-      component: <PurchaserCoordinate />,
     },
     {
       id: "audit-data",

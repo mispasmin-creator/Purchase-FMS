@@ -29,7 +29,6 @@ const PATH_TO_PAGE_MAP = {
   "/lab-report": "Lab Report",
   "/bilty": "Bilty",
   "/mismatch": "Mismatch",
-  "/purchaser-coordinate": "Purchaser Coord.",
   "/debit-note": "Debit Note",
   "/accounts-audit": "Accounts Audit",
   "/fullkitting": "Fullkitting",
