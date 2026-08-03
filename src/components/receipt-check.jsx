@@ -809,19 +809,21 @@ export default function ReceiptCheck() {
       setFormData((prev) => {
         const updated = { ...prev, [name]: value };
         if (name === "actualQuantity" || name === "totalBillQuantity") {
-          const rawValue = parseFloat(value) || 0;
-          const sanitizedValue = name === "actualQuantity" ? Math.max(0, rawValue) : rawValue;
+          let valToUse = value;
+          if (name === "actualQuantity" && parseFloat(value) < 0) {
+            valToUse = "0";
+            updated.actualQuantity = valToUse;
+          }
           
           const billQty =
             parseFloat(
-              name === "totalBillQuantity" ? sanitizedValue : prev.totalBillQuantity,
+              name === "totalBillQuantity" ? value : prev.totalBillQuantity,
             ) || 0;
           const actualQty =
             parseFloat(
-              name === "actualQuantity" ? sanitizedValue : prev.actualQuantity,
+              name === "actualQuantity" ? valToUse : prev.actualQuantity,
             ) || 0;
           updated.qtyDifference = (actualQty - billQty).toFixed(2);
-          if (name === "actualQuantity") updated.actualQuantity = sanitizedValue.toString();
         }
         return updated;
       });
