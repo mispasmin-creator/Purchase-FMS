@@ -973,6 +973,26 @@ export default function ReceiptCheck() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.overallActualQuantity, includedSiblingLifts]);
 
+  // Keep the "Difference" display in sync with what will actually be
+  // submitted: sum of the (possibly individually-edited) per-product Truck
+  // Qty inputs minus their billed total. The old calculation only ran off
+  // the removed single "actualQuantity" input, so it never updated once
+  // Truck Qty moved to the per-product table.
+  useEffect(() => {
+    const totalBillQtyIncluded = includedSiblingLifts.reduce(
+      (sum, l) => sum + (parseFloat(l.liftingQty) || 0),
+      0,
+    );
+    const totalTruckQtyEntered = includedSiblingLifts.reduce(
+      (sum, l) => sum + (parseFloat(truckQtyByLift[l._dbId]) || 0),
+      0,
+    );
+    setFormData((prev) => ({
+      ...prev,
+      qtyDifference: (totalTruckQtyEntered - totalBillQtyIncluded).toFixed(2),
+    }));
+  }, [truckQtyByLift, includedSiblingLifts]);
+
   const validateForm = () => {
     const newErrors = {};
     if (!formData.dateOfReceiving)
