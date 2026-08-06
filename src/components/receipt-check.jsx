@@ -141,6 +141,12 @@ const AWAITING_RECEIPT_COLUMNS_META = [
   { header: "Driver No.", dataKey: "driverNo", toggleable: true },
   { header: "Area Lifting", dataKey: "areaLifting", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
+  {
+    header: "Truck Items",
+    dataKey: "siblingCount",
+    toggleable: true,
+    alwaysVisible: true,
+  },
   { header: "Cancel PO Qty", dataKey: "orderCancelQty", toggleable: true },
 ];
 
@@ -400,8 +406,23 @@ export default function ReceiptCheck() {
     weightSlipFile: null,
     physicalImageUrl: "",
     weightSlipImageUrl: "",
+    overallActualQuantity: "",
   });
   const [formErrors, setFormErrors] = useState({});
+  // Other pending line items sharing the same Bill No. + Truck No. as the
+  // lift currently open in the modal (a truck can carry multiple products,
+  // but the weighbridge only gives one combined weight for all of them).
+  const [siblingLifts, setSiblingLifts] = useState([]);
+  // Which of the auto-detected sibling products the user has confirmed
+  // actually belong to this one weighment slip (default: all checked, user
+  // can uncheck any that don't belong, e.g. a genuinely separate delivery).
+  const [includedSiblingIds, setIncludedSiblingIds] = useState({});
+  // Mandatory, individually-editable Truck Qty per product (keyed by
+  // lift._dbId) — pre-filled from the overall-weighment proportional split,
+  // but the user must confirm/edit each row before submitting. This is what
+  // actually gets saved to LIFT-ACCOUNTS."Truck Qty" (the column Accounts
+  // Audit reads as "Material Qty").
+  const [truckQtyByLift, setTruckQtyByLift] = useState({});
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -531,6 +552,12 @@ export default function ReceiptCheck() {
             _dbId: row.id, // Store the Supabase row ID for updates
             id: String(row["Lift No"] || "").trim(),
             liftNo: String(row["Lift No"] || "").trim(),
+            // Every product entered together in one Lift-page submission
+            // (i.e. physically the same truck load) shares this exact
+            // timestamp — a far more reliable "same batch" key than
+            // Bill No./Truck No. alone, which staff can accidentally repeat
+            // across genuinely different, unrelated deliveries.
+            liftTimestamp: row["Timestamp"] || "",
             indentNo:
               indentToPoMap[String(row["Indent no."] || "").trim()] ||
               String(row["Indent no."] || "").trim(),
@@ -615,6 +642,25 @@ export default function ReceiptCheck() {
             ),
           };
           return rowData;
+        });
+
+        // Count how many OTHER still-pending products share the same Bill
+        // No. + Truck No. + lift Timestamp (i.e. the same physical truck
+        // load / weighment slip), so the Awaiting Receipt table can flag
+        // which rows are part of a multi-product truck.
+        const pendingGroupCounts = {};
+        processedData.forEach((row) => {
+          if (row.filterColActual1) return; // already received
+          if (!row.billNo || !row.truckNo || !row.liftTimestamp) return;
+          const key = `${row.billNo}::${row.truckNo}::${row.liftTimestamp}`;
+          pendingGroupCounts[key] = (pendingGroupCounts[key] || 0) + 1;
+        });
+        processedData = processedData.map((row) => {
+          if (row.filterColActual1 || !row.billNo || !row.truckNo || !row.liftTimestamp) {
+            return { ...row, siblingCount: 1 };
+          }
+          const key = `${row.billNo}::${row.truckNo}::${row.liftTimestamp}`;
+          return { ...row, siblingCount: pendingGroupCounts[key] || 1 };
         });
 
         // Filter by user's firm name if applicable
@@ -844,8 +890,27 @@ export default function ReceiptCheck() {
     setSelectedLift(lift);
     setFormErrors({});
     const initialTotal = parseFloat(lift.liftingQty) || 0;
-    const initialActual =
-      parseFloat(lift.actualQuantity_fromSheet || lift.liftingQty) || 0;
+
+    // Find other products from the SAME Lift-page submission (same Bill
+    // No. + Truck No. + exact lift Timestamp) — this is the one weighbridge
+    // slip covers all of them together. Matching on the shared submission
+    // timestamp (not just Bill/Truck No. text) avoids wrongly grouping two
+    // different weighment slips, or two different days, that happen to
+    // reuse the same bill number or the same truck.
+    const siblings =
+      lift.billNo && lift.truckNo && lift.liftTimestamp
+        ? liftsAwaitingReceipt.filter(
+            (l) =>
+              l.billNo === lift.billNo &&
+              l.truckNo === lift.truckNo &&
+              l.liftTimestamp === lift.liftTimestamp,
+          )
+        : [lift];
+    setSiblingLifts(siblings);
+    setIncludedSiblingIds(
+      Object.fromEntries(siblings.map((l) => [l._dbId, true])),
+    );
+    setTruckQtyByLift({});
 
     setFormData({
       liftId: lift.id,
@@ -863,9 +928,50 @@ export default function ReceiptCheck() {
       weightSlipFile: null,
       physicalImageUrl: lift.physicalImageUrl_fromSheet || "",
       weightSlipImageUrl: lift.weightSlipImageUrl_fromSheet || "",
+      overallActualQuantity: "",
     });
     setIsModalOpen(true);
   };
+
+  // When "one weighment total" mode is on, split that total across sibling
+  // products proportionally to their billed (Lifting Qty) share — same
+  // allocation formula already used at the Lift stage for transport rate.
+  // Only siblings the user has left checked participate in the overall
+  // split — anyone unchecked (e.g. a genuinely different weighment/day) is
+  // left untouched and can be received on its own separately.
+  const includedSiblingLifts = useMemo(
+    () => siblingLifts.filter((l) => includedSiblingIds[l._dbId] !== false),
+    [siblingLifts, includedSiblingIds],
+  );
+
+  const siblingAllocationPreview = useMemo(() => {
+    const totalBillQtyIncluded = includedSiblingLifts.reduce(
+      (sum, l) => sum + (parseFloat(l.liftingQty) || 0),
+      0,
+    );
+    const overallQty = parseFloat(formData.overallActualQuantity) || 0;
+    return includedSiblingLifts.map((l) => {
+      const billQty = parseFloat(l.liftingQty) || 0;
+      const share = totalBillQtyIncluded > 0 ? billQty / totalBillQtyIncluded : 0;
+      const allocatedQty = Number((overallQty * share).toFixed(3));
+      return { lift: l, billQty, share, allocatedQty };
+    });
+  }, [includedSiblingLifts, formData.overallActualQuantity]);
+
+  // Pre-fill each row's mandatory Truck Qty input from the proportional
+  // split whenever the overall weighment total (or which rows are
+  // included) changes. The user can still edit any individual row
+  // afterwards — this only sets a starting value, not a locked one.
+  useEffect(() => {
+    setTruckQtyByLift((prev) => {
+      const next = { ...prev };
+      siblingAllocationPreview.forEach(({ lift, allocatedQty }) => {
+        next[lift._dbId] = String(allocatedQty);
+      });
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.overallActualQuantity, includedSiblingLifts]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -876,8 +982,22 @@ export default function ReceiptCheck() {
       isNaN(parseFloat(formData.totalBillQuantity))
     )
       newErrors.totalBillQuantity = "Valid Billing Quantity is required.";
-    if (!formData.actualQuantity || isNaN(parseFloat(formData.actualQuantity)))
-      newErrors.actualQuantity = "Valid Actual Quantity is required.";
+    if (
+      !formData.overallActualQuantity ||
+      isNaN(parseFloat(formData.overallActualQuantity))
+    )
+      newErrors.overallActualQuantity =
+        "Valid actual weighment quantity is required.";
+    if (includedSiblingLifts.length === 0)
+      newErrors.overallActualQuantity =
+        "At least one product must stay checked to record this receipt.";
+    const missingTruckQty = includedSiblingLifts.some((l) => {
+      const v = truckQtyByLift[l._dbId];
+      return v === undefined || v === "" || isNaN(parseFloat(v)) || parseFloat(v) < 0;
+    });
+    if (missingTruckQty)
+      newErrors.truckQtyByLift =
+        "Enter a valid Truck Qty for every included product.";
     if (
       isPPBagMaterial(selectedLift?.rawMaterialName) &&
       (!formData.totalBagsQty || isNaN(parseFloat(formData.totalBagsQty)))
@@ -912,6 +1032,136 @@ export default function ReceiptCheck() {
     }
   };
 
+  // Records the receipt for ONE lift row (LIFT-ACCOUNTS update + Mismatch
+  // insert/update if the shortage exceeds tolerance). Shared by both the
+  // single-product path and the "overall weighment" multi-product loop, so
+  // the tolerance/mismatch logic only lives in one place.
+  const submitReceiptForLift = async (lift, { totalBillQty, actualQty, truckQty, weightSlipQty, sharedFields }) => {
+    const timestamp = sharedFields.timestamp;
+    const qtyDiff = Number((actualQty - totalBillQty).toFixed(2));
+
+    const unloadApprovalTrigger = [
+      sharedFields.physicalCondition === "Bad" ? "Condition Bad" : "",
+      sharedFields.moisture === "Yes" ? "Moisture Present" : "",
+      qtyDiff < 0 ? "Quantity Shortage" : "",
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const updateData = {
+      "Actual 1": timestamp,
+      "Date Of Receiving": sharedFields.dateOfReceiving,
+      "Total Bill Quantity": totalBillQty || null,
+      "Actual Quantity": actualQty || null,
+      "Truck Qty": truckQty ?? null,
+      "Weight Slip Qty": weightSlipQty ?? null,
+      "Total Bags Qty": isPPBagMaterial(lift.rawMaterialName)
+        ? parseFloat(sharedFields.totalBagsQty) || null
+        : null,
+      "Physical Condition": sharedFields.physicalCondition,
+      Moisture: sharedFields.moisture || null,
+      "Physical Image Of Product": sharedFields.physicalImageUrl || null,
+      "Image Of Weight Slip": sharedFields.weightSlipImageUrl || null,
+      "Unload Approval Required": "No",
+      "Planned Unload Approval": lift.plannedUnloadApproval || null,
+      "Actual Unload Approval": lift.actualUnloadApproval || null,
+      "Unload Approval Status": "Approved",
+      "Unload Approval Trigger":
+        unloadApprovalTrigger || lift.unloadApprovalTrigger || null,
+      "Unload Approval Remarks": lift.unloadApprovalRemarks || null,
+      "Unload Approval By": lift.unloadApprovalBy || null,
+      "Planned 2": lift["Planned 2"] || timestamp,
+    };
+
+    const { error: updateError } = await supabase
+      .from("LIFT-ACCOUNTS")
+      .update(updateData)
+      .eq("id", lift._dbId);
+
+    if (updateError) {
+      console.error("LIFT-ACCOUNTS update failed:", updateError);
+      throw new Error(`Failed to update LIFT-ACCOUNTS: ${updateError.message}`);
+    }
+
+    // Only flag a Mismatch when the shortage exceeds tolerance (Vendor: 5%, Transporter: 10%).
+    const rateTypeStr = String(lift.typeOfRate || lift.type || "").trim().toUpperCase();
+    const liftTypeStr = String(lift.liftType || lift.type || "").trim().toUpperCase();
+    const isTransporter = rateTypeStr.includes("TO PAY") || liftTypeStr.includes("TRANSPORTER");
+
+    const isKG = totalBillQty > 500;
+    const multiplier = isKG ? 1000 : 1;
+    const tolerance = isTransporter ? -0.1 * multiplier : -0.05 * multiplier;
+
+    if (qtyDiff < tolerance) {
+      const isBlank = (value) =>
+        value === null || value === undefined || String(value).trim() === "";
+      const sourceMismatchFields = {
+        Type: lift.type || null,
+        "Bill No.": lift.billNo || null,
+        "Area Lifting": lift.areaLifting || null,
+        "Truck No.": lift.truckNo || null,
+        "Transporter Name": lift.transporterName || null,
+        Transporter: lift.transporterName || null,
+        "Bill Image": lift.billCopy || null,
+        "Bilty No.": lift.biltyNo || null,
+        "Type Of Rate": lift.typeOfRate || null,
+        Rate: lift.rate || null,
+        "Truck Qty": truckQty ?? lift.truckQty ?? null,
+        "Lifting Quantity": lift.liftingQty || null,
+        "Bilty Image": lift.biltyImage || null,
+        "Total Freight": lift.transporterRate || null,
+        Planned2: timestamp,
+      };
+      const getMissingSourceFields = (existing = {}) =>
+        Object.fromEntries(
+          Object.entries(sourceMismatchFields).filter(
+            ([key, value]) => !isBlank(value) && isBlank(existing[key]),
+          ),
+        );
+
+      const mismatchPayload = {
+        "Quantity Difference": qtyDiff,
+        "Diff Qty": qtyDiff,
+        "Qty Diff Status": "Mismatch",
+        Status: "Pending",
+      };
+
+      const { data: existingMismatch } = await supabase
+        .from("Mismatch")
+        .select("*")
+        .eq('"Lift ID"', lift.id)
+        .maybeSingle();
+
+      if (existingMismatch) {
+        const { error: mismatchUpdateError } = await supabase
+          .from("Mismatch")
+          .update({ ...mismatchPayload, ...getMissingSourceFields(existingMismatch) })
+          .eq("id", existingMismatch.id);
+        if (mismatchUpdateError) {
+          console.error("Failed to update Mismatch table:", mismatchUpdateError);
+        }
+      } else {
+        const { error: mismatchInsertError } = await supabase.from("Mismatch").insert([
+          {
+            ...mismatchPayload,
+            Timestamp: timestamp,
+            "Lift Number": lift.liftNo,
+            "Lift ID": lift.id,
+            "Indent Number": lift.originalIndentNo || lift.indentNo,
+            "Firm Name": lift.firmName,
+            "Party Name": lift.vendorName,
+            "Product Name": lift.rawMaterialName,
+            Qty: lift.qty,
+            ...sourceMismatchFields,
+          },
+        ]);
+        if (mismatchInsertError) {
+          console.error("Failed to insert into Mismatch table:", mismatchInsertError);
+        }
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm() || !selectedLift) {
@@ -941,175 +1191,48 @@ export default function ReceiptCheck() {
       }
 
       const now = new Date();
-      // Format as YYYY-MM-DD HH:mm:ss (IST)
       const day = String(now.getDate()).padStart(2, "0");
-      const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+      const month = String(now.getMonth() + 1).padStart(2, "0");
       const year = now.getFullYear();
       const hours = String(now.getHours()).padStart(2, "0");
       const minutes = String(now.getMinutes()).padStart(2, "0");
       const seconds = String(now.getSeconds()).padStart(2, "0");
-
       const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
-      // Calculate quantity difference first
-      const totalBillQty = parseFloat(formData.totalBillQuantity) || 0;
-      const actualQty = parseFloat(formData.actualQuantity) || 0;
-      const qtyDiff = Number((actualQty - totalBillQty).toFixed(2));
-
-      const unloadApprovalTrigger = [
-        formData.physicalCondition === "Bad" ? "Condition Bad" : "",
-        formData.moisture === "Yes" ? "Moisture Present" : "",
-        qtyDiff < 0 ? "Quantity Shortage" : "",
-      ]
-        .filter(Boolean)
-        .join(", ");
-
-      // Highest priority: If quantity shortage, always require unload approval regardless of other conditions
-      // Since unload approval page is removed, we set needsUnloadApproval to false
-      const needsUnloadApproval = false;
-
-      const isReSubmittingApproved =
-        selectedLift.unloadApprovalStatus === "Approved" &&
-        selectedLift.unloadApprovalRequired === "Yes";
-      const isFinalReceiptSubmission = true;
-
-      // Prepare update data for Supabase LIFT-ACCOUNTS
-      const updateData = {
-        "Actual 1": timestamp,
-        "Date Of Receiving": formData.dateOfReceiving,
-        "Total Bill Quantity": parseFloat(formData.totalBillQuantity) || null,
-        "Actual Quantity": parseFloat(formData.actualQuantity) || null,
-        "Total Bags Qty": isPPBagMaterial(selectedLift.rawMaterialName)
-          ? parseFloat(formData.totalBagsQty) || null
-          : null,
-        "Physical Condition": formData.physicalCondition,
-        Moisture: formData.moisture || null,
-        "Physical Image Of Product": physicalImageUrl || null,
-        "Image Of Weight Slip": weightSlipImageUrl || null,
-        "Unload Approval Required": "No",
-        "Planned Unload Approval": selectedLift.plannedUnloadApproval || null,
-        "Actual Unload Approval": selectedLift.actualUnloadApproval || null,
-        "Unload Approval Status": "Approved",
-        "Unload Approval Trigger":
-          unloadApprovalTrigger || selectedLift.unloadApprovalTrigger || null,
-        "Unload Approval Remarks": selectedLift.unloadApprovalRemarks || null,
-        "Unload Approval By": selectedLift.unloadApprovalBy || null,
-        "Planned 2": selectedLift["Planned 2"] || timestamp,
+      const sharedFields = {
+        timestamp,
+        dateOfReceiving: formData.dateOfReceiving,
+        totalBagsQty: formData.totalBagsQty,
+        physicalCondition: formData.physicalCondition,
+        moisture: formData.moisture,
+        physicalImageUrl,
+        weightSlipImageUrl,
       };
 
-      console.log(
-        "Updating LIFT-ACCOUNTS record:",
-        selectedLift._dbId,
-        updateData,
-      );
-
-      // Update the LIFT-ACCOUNTS record in Supabase
-      const { error: updateError } = await supabase
-        .from("LIFT-ACCOUNTS")
-        .update(updateData)
-        .eq("id", selectedLift._dbId);
-
-      if (updateError) {
-        console.error("LIFT-ACCOUNTS update failed:", updateError);
-        throw new Error(
-          `Failed to update LIFT-ACCOUNTS: ${updateError.message}`,
-        );
+      // Each row's mandatory, individually-confirmed Truck Qty (pre-filled
+      // from the proportional split, editable per product) is the
+      // authoritative received quantity — saved as both Actual Quantity and
+      // Truck Qty so Accounts Audit's "Material Qty" reflects the real
+      // weighment instead of the Lift-stage estimate.
+      const weightSlipQty = parseFloat(formData.overallActualQuantity) || null;
+      for (const { lift, billQty } of siblingAllocationPreview) {
+        const truckQty = parseFloat(truckQtyByLift[lift._dbId]) || 0;
+        await submitReceiptForLift(lift, {
+          totalBillQty: billQty,
+          actualQty: truckQty,
+          truckQty,
+          weightSlipQty,
+          sharedFields,
+        });
       }
-
-      // Calculate quantity difference and update Mismatch table only for shortages beyond tolerance (Vendor: 50KG, Transporter: 100KG)
-      const rateTypeStr = String(selectedLift.typeOfRate || selectedLift.type || "").trim().toUpperCase();
-      const liftTypeStr = String(selectedLift.liftType || selectedLift.type || "").trim().toUpperCase();
-      const isTransporter = rateTypeStr.includes("TO PAY") || liftTypeStr.includes("TRANSPORTER");
-      const isVendor = liftTypeStr.includes("VENDOR") || rateTypeStr.includes("PAID") || rateTypeStr.includes("BILLED") || rateTypeStr.includes("FOR");
-      
-      const baseBillQty = parseFloat(formData.totalBillQuantity) || 0;
-      const isKG = baseBillQty > 500;
-      const multiplier = isKG ? 1000 : 1;
-      const tolerance = isTransporter ? (-0.10 * multiplier) : (-0.05 * multiplier);
-
-      if (qtyDiff < tolerance) {
-        const qtyDiffStatus = "Mismatch";
-        const isBlank = (value) =>
-          value === null || value === undefined || String(value).trim() === "";
-        const sourceMismatchFields = {
-          Type: selectedLift.type || null,
-          "Bill No.": selectedLift.billNo || null,
-          "Area Lifting": selectedLift.areaLifting || null,
-          "Truck No.": selectedLift.truckNo || null,
-          "Transporter Name": selectedLift.transporterName || null,
-          Transporter: selectedLift.transporterName || null,
-          "Bill Image": selectedLift.billCopy || null,
-          "Bilty No.": selectedLift.biltyNo || null,
-          "Type Of Rate": selectedLift.typeOfRate || null,
-          Rate: selectedLift.rate || null,
-          "Truck Qty": selectedLift.truckQty || null,
-          "Bilty Image": selectedLift.biltyImage || null,
-          "Total Freight": selectedLift.transporterRate || null,
-          Planned2: timestamp,
-        };
-        const getMissingSourceFields = (existing = {}) =>
-          Object.fromEntries(
-            Object.entries(sourceMismatchFields).filter(
-              ([key, value]) => !isBlank(value) && isBlank(existing[key]),
-            ),
-          );
-
-        const mismatchPayload = {
-          "Quantity Difference": qtyDiff,
-          "Diff Qty": qtyDiff,
-          "Qty Diff Status": qtyDiffStatus,
-          "Status": "Pending",
-        };
-
-        // Check for existing mismatch record
-        const { data: existingMismatch, error: existingMismatchError } = await supabase
-          .from("Mismatch")
-          .select("*")
-          .eq('"Lift ID"', selectedLift.id)
-          .maybeSingle();
-
-        if (existingMismatch) {
-          // Update existing
-          const { error: mismatchUpdateError } = await supabase
-            .from("Mismatch")
-            .update({
-              ...mismatchPayload,
-              ...getMissingSourceFields(existingMismatch),
-            })
-            .eq("id", existingMismatch.id);
-
-          if (mismatchUpdateError) {
-            console.error("Failed to update Mismatch table with qty difference:", mismatchUpdateError);
-          }
-        } else {
-          // Create new record
-          const newMismatchRecord = {
-            ...mismatchPayload,
-            Timestamp: timestamp,
-            "Lift Number": selectedLift.liftNo,
-            "Lift ID": selectedLift.id,
-            "Indent Number": selectedLift.originalIndentNo || selectedLift.indentNo,
-            "Firm Name": selectedLift.firmName,
-            "Party Name": selectedLift.vendorName,
-            "Product Name": selectedLift.rawMaterialName,
-            "Qty": selectedLift.qty,
-            ...sourceMismatchFields,
-          };
-
-          const { error: mismatchInsertError } = await supabase
-            .from("Mismatch")
-            .insert([newMismatchRecord]);
-
-          if (mismatchInsertError) {
-            console.error("Failed to insert into Mismatch table with qty difference:", mismatchInsertError);
-          }
-        }
-      }
-
       toast.success("Success!", {
         id: "receipt-submit",
-        description: `Receipt for Lift ID ${selectedLift.id} recorded successfully.`,
+        description:
+          siblingAllocationPreview.length > 1
+            ? `Receipt recorded for ${siblingAllocationPreview.length} products on Truck ${selectedLift.truckNo}.`
+            : `Receipt for Lift ID ${selectedLift.id} recorded successfully.`,
       });
+
       setRefreshTrigger((prev) => prev + 1);
       handleModalClose();
     } catch (error) {
@@ -1141,8 +1264,11 @@ export default function ReceiptCheck() {
       weightSlipFile: null,
       physicalImageUrl: "",
       weightSlipImageUrl: "",
+      overallActualQuantity: "",
     });
     setSelectedLift(null);
+    setSiblingLifts([]);
+    setIncludedSiblingIds({});
   };
 
   const handleToggleColumn = (tab, dataKey, checked) => {
@@ -1180,6 +1306,17 @@ export default function ReceiptCheck() {
 
   const renderCell = (item, column) => {
     const value = item[column.dataKey];
+    if (column.dataKey === "siblingCount") {
+      return value > 1 ? (
+        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[10px]">
+          Multiple ({value})
+        </Badge>
+      ) : (
+        <Badge variant="secondary" className="text-[10px]">
+          Single
+        </Badge>
+      );
+    }
     if (column.isLink) {
       return value && String(value).startsWith("http") ? (
         <a
@@ -1682,6 +1819,17 @@ export default function ReceiptCheck() {
         liftData={selectedLift}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {siblingLifts.length > 1 && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-medium text-amber-800">
+                This truck ({selectedLift?.truckNo}) has {siblingLifts.length}{" "}
+                products on Bill {selectedLift?.billNo}. Enter the one total
+                weighment quantity below and it will be split across them
+                proportionally — uncheck any product in the table that
+                doesn't actually belong to this weighment slip.
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <Label
@@ -1722,23 +1870,100 @@ export default function ReceiptCheck() {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 focus:border-[#6b8e2f] focus:ring-[#6b8e2f] sm:text-sm cursor-not-allowed"
               />
             </div>
-            <div>
-              <Label
-                htmlFor="actualQuantity"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Truck Quantity (WeightSlip) <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                id="actualQuantity"
-                name="actualQuantity"
-                value={formData.actualQuantity}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b8e2f] focus:ring-[#6b8e2f] sm:text-sm"
-              />
+            <div className="md:col-span-2">
+                <Label
+                  htmlFor="overallActualQuantity"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Truck Quantity (WeightSlip) <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  id="overallActualQuantity"
+                  name="overallActualQuantity"
+                  value={formData.overallActualQuantity}
+                  onChange={handleInputChange}
+                  placeholder="Total weight from the weighment slip"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b8e2f] focus:ring-[#6b8e2f] sm:text-sm"
+                />
+                {formErrors.overallActualQuantity && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {formErrors.overallActualQuantity}
+                  </p>
+                )}
+                <div className="mt-3 overflow-hidden rounded-md border border-gray-200">
+                  <p className="bg-blue-50 px-3 py-1.5 text-[11px] text-blue-700">
+                    Uncheck any product below that is actually from a
+                    different weighment slip or a different day — it won't be
+                    included in this split and can be received on its own.
+                  </p>
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Include</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Product</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Date Of Bill</th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-600">Billed Qty</th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-600">
+                          Truck Qty <span className="text-red-500">*</span>
+                        </th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-600">Share</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {siblingLifts.map((lift) => {
+                        const checked = includedSiblingIds[lift._dbId] !== false;
+                        const preview = siblingAllocationPreview.find(
+                          (p) => p.lift._dbId === lift._dbId,
+                        );
+                        return (
+                          <tr key={lift._dbId} className={checked ? "" : "opacity-40"}>
+                            <td className="px-3 py-2">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) =>
+                                  setIncludedSiblingIds((prev) => ({
+                                    ...prev,
+                                    [lift._dbId]: Boolean(value),
+                                  }))
+                                }
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">{lift.rawMaterialName}</td>
+                            <td className="px-3 py-2 text-gray-500">{lift.dateOfBill || "-"}</td>
+                            <td className="px-3 py-2 text-right text-gray-700">{lift.liftingQty}</td>
+                            <td className="px-3 py-2 text-right">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                disabled={!checked}
+                                value={truckQtyByLift[lift._dbId] ?? ""}
+                                onChange={(e) =>
+                                  setTruckQtyByLift((prev) => ({
+                                    ...prev,
+                                    [lift._dbId]: e.target.value,
+                                  }))
+                                }
+                                className="h-7 w-24 ml-auto text-right text-xs"
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-500">
+                              {checked && preview ? `${(preview.share * 100).toFixed(1)}%` : "-"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {formErrors.truckQtyByLift && (
+                    <p className="px-3 py-1.5 text-xs text-red-500">
+                      {formErrors.truckQtyByLift}
+                    </p>
+                  )}
+                </div>
             </div>
 
             {isPPBagMaterial(selectedLift?.rawMaterialName) && (

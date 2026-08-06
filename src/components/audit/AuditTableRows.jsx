@@ -63,7 +63,7 @@ const StatusBadge = ({ value }) => (
   </span>
 );
 
-// Helper to compute and format Qty Difference Status dynamically (Truck Qty - Material Qty)
+// Helper to compute and format Qty Difference Status dynamically (Material Qty - Truck Qty)
 export const getQtyDifference = (row) => {
   const liftQty = parseFloat(row.liftingQty);
   const trkQty = parseFloat(row.truckQty);

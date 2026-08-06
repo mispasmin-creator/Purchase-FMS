@@ -91,7 +91,12 @@ const CallTrackerPage = () => {
   const [liftTypeMap, setLiftTypeMap] = useState({}); 
   const [liftBiltyNoMap, setLiftBiltyNoMap] = useState({}); 
   const [liftBiltyImageMap, setLiftBiltyImageMap] = useState({}); 
-  const [liftActualQtyMap, setLiftActualQtyMap] = useState({}); 
+  const [liftActualQtyMap, setLiftActualQtyMap] = useState({});
+  // Live "Lifting Qty" per Lift No — the billed quantity entered on the Lift
+  // page — used as the primary source for the "Material Qty" column so it
+  // always reflects the current LIFT-ACCOUNTS value, not the (possibly
+  // stale) snapshot stored on the Mismatch row.
+  const [liftLiftingQtyMap, setLiftLiftingQtyMap] = useState({});
   const [liftDateOfReceivingMap, setLiftDateOfReceivingMap] = useState({}); 
   const [liftTransporterRateMap, setLiftTransporterRateMap] = useState({}); 
   const [liftActual2Map, setLiftActual2Map] = useState({});
@@ -496,6 +501,7 @@ const CallTrackerPage = () => {
                 "Bilty No.": item.biltyNo || rawLift["Bilty No."] || "",
                 "Rate": parseNumeric(item.rate || rawLift["Rate"]),
                 "Truck Qty": parseNumeric(item.truckQty || rawLift["Truck Qty"]),
+                "Lifting Quantity": parseNumeric(item.liftingQty || rawLift["Lifting Qty"]),
                 "Bilty Image": item.biltyImage || rawLift["Bilty Image"] || "",
                 "Weight Slip": item.weightSlip || rawLift["Image Of Weight Slip"] || "",
                 "Total Freight": parseNumeric(item.totalFreight || rawLift["Total Freight"] || rawLift["Transporter Rate"]),
@@ -665,6 +671,7 @@ const CallTrackerPage = () => {
             "Bilty No.": newLiftRow.biltyNo || rawLift["Bilty No."] || "",
             "Rate": parseNumeric(newLiftRow.rate || rawLift["Rate"]),
             "Truck Qty": parseNumeric(newLiftRow.truckQty || rawLift["Truck Qty"]),
+            "Lifting Quantity": parseNumeric(newLiftRow.liftingQty || rawLift["Lifting Qty"]),
             "Bilty Image": newLiftRow.biltyImage || rawLift["Bilty Image"] || "",
             "Weight Slip": newLiftRow.weightSlip || rawLift["Image Of Weight Slip"] || "",
             "Total Freight": parseNumeric(newLiftRow.totalFreight || rawLift["Total Freight"] || rawLift["Transporter Rate"]),
@@ -1187,13 +1194,14 @@ const CallTrackerPage = () => {
       try {
         const { data } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Date Of Receiving", "Transporter Rate", "Actual 2", "Transporter Name", "Date Of Bill"')
+          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Lifting Qty", "Date Of Receiving", "Transporter Rate", "Actual 2", "Transporter Name", "Date Of Bill"')
           .order("id", { ascending: false });
         const weightSlipMap = {};
         const typeMap = {};
         const biltyNoMap = {};
         const biltyImageMap = {};
         const actualQtyMap = {};
+        const liftingQtyMap = {};
         const dateOfReceivingMap = {};
         const transporterRateMap = {};
         const actual2Map = {};
@@ -1207,6 +1215,7 @@ const CallTrackerPage = () => {
             biltyNoMap[key] = String(l["Bilty No."] || "").trim();
             biltyImageMap[key] = String(l["Bilty Image"] || "").trim();
             actualQtyMap[key] = String(l["Actual Quantity"] || "").trim();
+            liftingQtyMap[key] = String(l["Lifting Qty"] || "").trim();
             dateOfReceivingMap[key] = String(l["Date Of Receiving"] || "").trim();
             transporterRateMap[key] = String(l["Transporter Rate"] || "").trim();
             actual2Map[key] = String(l["Actual 2"] || "").trim();
@@ -1219,6 +1228,7 @@ const CallTrackerPage = () => {
         setLiftBiltyNoMap(biltyNoMap);
         setLiftBiltyImageMap(biltyImageMap);
         setLiftActualQtyMap(actualQtyMap);
+        setLiftLiftingQtyMap(liftingQtyMap);
         setLiftDateOfReceivingMap(dateOfReceivingMap);
         setLiftTransporterRateMap(transporterRateMap);
         setLiftActual2Map(actual2Map);
@@ -1327,7 +1337,7 @@ const CallTrackerPage = () => {
           return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
         })(),
         vendorName: row["Vendor Name"] || '',
-        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
@@ -1471,7 +1481,7 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
@@ -1561,7 +1571,7 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
@@ -1651,7 +1661,7 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
@@ -1741,7 +1751,7 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
@@ -1848,7 +1858,7 @@ const CallTrackerPage = () => {
           })(),
           vendorName: row["Vendor Name"] || '',
           driverNo: row["Driver No"] || row["Driver No."] || '',
-          liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+          liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
           dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
           actualQuantity: row["Actual Quantity"] || '',
           physicalCondition: row["Physical Condition"] || '',
@@ -1937,7 +1947,7 @@ const CallTrackerPage = () => {
           return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
         })(),
         vendorName: row["Vendor Name"] || '',
-        liftingQty: liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || '',
+        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || ''
       }));
 
@@ -2148,8 +2158,8 @@ const CallTrackerPage = () => {
     dateOfReceiving: 'Bill Receiving Date', partyName: 'Party Name', productName: 'Product Name',
     qty: 'PO Qty', areaLifting: 'Area Lifting', truckNo: 'Truck No.', transporterName: 'Transporter',
     transporterRate: 'Transporter Rate', billImage: 'Bill Image', biltyNo: 'Bilty No.',
-    typeOfRate: 'Type Of Rate', rate: 'Material Rate', truckQty: 'Material Qty',
-    liftingQty: 'Truck Qty', biltyImage: 'Bilty Image', qtyDifferenceStatus: 'Qty Diff Status',
+    typeOfRate: 'Type Of Rate', rate: 'Material Rate', truckQty: 'Truck Qty',
+    liftingQty: 'Material Qty', biltyImage: 'Bilty Image', qtyDifferenceStatus: 'Qty Diff Status',
     weightSlip: 'Weight Slip', debitAmount: 'Debit Amount', debitNoteUrl: 'Debit Image',
     totalFreight: 'Total Freight', auditStatus: 'Audit Status', rectifyStatus: 'Rectify Status',
     reAuditStatus: 'Re-Audit Status', tallyStatus: 'Tally Status', status: 'Status',
@@ -2214,7 +2224,7 @@ const CallTrackerPage = () => {
     return (
       <div className="min-h-[400px] bg-linear-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center rounded-xl border border-gray-200 shadow-sm m-4">
         <RefreshCw className="w-12 h-12 animate-spin text-green-500 mx-auto mb-4" />
-        <p className="text-xl text-gray-600">Loading call tracker data...</p>
+        <p className="text-xl text-gray-600">Loading Accounts Audit data...</p>
       </div>
     );
   }
@@ -2315,8 +2325,8 @@ const CallTrackerPage = () => {
                   { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditRow.biltyNo, type: "text" },
                   { label: "Type Of Rate", dbKey: "Type Of Transporting Rate", value: superAdminEditRow.typeOfRate, type: "text" },
                   { label: "Material Rate", dbKey: "Rate", value: superAdminEditRow.rate, type: "number" },
-                  { label: "Material Qty", dbKey: "Truck Qty", value: superAdminEditRow.truckQty, type: "number" },
-                  { label: "Truck Qty", dbKey: "Lifting Qty", value: superAdminEditRow.liftingQty, type: "number" },
+                  { label: "Truck Qty", dbKey: "Truck Qty", value: superAdminEditRow.truckQty, type: "number" },
+                  { label: "Material Qty", dbKey: "Lifting Qty", value: superAdminEditRow.liftingQty, type: "number" },
                   { label: "Bilty Image", dbKey: "Bilty Image", value: superAdminEditRow.biltyImage, type: "file", folder: "lift-bilty" },
                   { label: "Qty Diff Status", dbKey: "qtyDifferenceStatus", value: superAdminEditRow.qtyDifferenceStatus, type: "text", readOnly: true },
                   { label: "Weight Slip", dbKey: "Image Of Weight Slip", value: superAdminEditRow.weightSlip, type: "file", folder: "receipt-weight-slip" },
@@ -2361,9 +2371,9 @@ const CallTrackerPage = () => {
                   { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditRow.biltyNo, type: "text" },
                   { label: "Type Of Rate", dbKey: "Type Of Rate", value: superAdminEditRow.typeOfRate, type: "text" },
                   { label: "Material Rate", dbKey: "Rate", value: superAdminEditRow.rate, type: "number" },
-                  { label: "Material Qty", dbKey: "Truck Qty", value: superAdminEditRow.truckQty, type: "number" },
+                  { label: "Truck Qty", dbKey: "Truck Qty", value: superAdminEditRow.truckQty, type: "number" },
                   {
-                    label: "Truck Qty",
+                    label: "Material Qty",
                     dbKey: "Lifting Qty",
                     value: superAdminEditRow.liftingQty,
                     type: "number",
@@ -2404,7 +2414,7 @@ const CallTrackerPage = () => {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Call Tracker</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Accounts Audit</h1>
                 <p className="text-sm text-gray-600 mt-1">Track all stages of account processing</p>
               </div>
               <div className="flex items-center space-x-3">
@@ -2473,8 +2483,8 @@ const CallTrackerPage = () => {
                               biltyNo: 'Bilty No.',
                               typeOfRate: 'Type Of Rate',
                               rate: 'Material Rate',
-                              truckQty: 'Material Qty',
-                              liftingQty: 'Truck Qty',
+                              truckQty: 'Truck Qty',
+                              liftingQty: 'Material Qty',
                               biltyImage: 'Bilty Image',
                               qtyDifferenceStatus: 'Qty Diff Status',
                               weightSlip: 'Weight Slip',

@@ -696,6 +696,7 @@ export default function LabTesting() {
             typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
             rate: String(row["Rate"] || "").trim(),
             truckQty: String(row["Truck Qty"] || "").trim(),
+            liftingQty: String(row["Lifting Qty"] || "").trim(),
             biltyNo: String(row["Bilty No."] || "").trim(),
             biltyImage: String(row["Bilty Image"] || "").trim(),
             dateOfReceiving_formatted: formatTimestamp(
@@ -1301,6 +1302,7 @@ export default function LabTesting() {
         "Type Of Rate": selectedReceiptForModal.typeOfRate || null,
         Rate: selectedReceiptForModal.rate || null,
         "Truck Qty": selectedReceiptForModal.truckQty || null,
+        "Lifting Quantity": selectedReceiptForModal.liftingQty || null,
         "Bilty Image": selectedReceiptForModal.biltyImage || null,
         "Total Freight": selectedReceiptForModal.transporterRate || null,
         Planned2: timestamp,
