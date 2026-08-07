@@ -149,30 +149,49 @@ export default function ManagementApprovals() {
     setLoading(true);
     setError(null);
     try {
-      let query = supabase
-        .from("INDENT-PO")
-        .select("*", { count: "exact" })
-        .not("Planned8", "is", null)
-        .is("Actual8", null);
-      query = applyFirmFilter(query, user?.firmName, "Firm Name");
-      if (selectedFirm !== "all") query = query.eq('"Firm Name"', selectedFirm);
-      if (selectedProduct !== "all") query = query.eq('"Material"', selectedProduct);
-      const q = searchQuery.trim().replace(/[%,"]/g, "");
-      if (q) {
-        query = query.or(
-          [
-            `"Indent Id.".ilike.%${q}%`,
-            `"Firm Name".ilike.%${q}%`,
-            `"Material".ilike.%${q}%`,
-          ].join(","),
-        );
-      }
-      query = query.range(pendingPagination.from, pendingPagination.to);
+      const applyPendingFilters = (q) => {
+        let query = q.not("Planned8", "is", null).is("Actual8", null);
+        query = applyFirmFilter(query, user?.firmName, "Firm Name");
+        if (selectedFirm !== "all") query = query.eq('"Firm Name"', selectedFirm);
+        if (selectedProduct !== "all") query = query.eq('"Material"', selectedProduct);
+        const q2 = searchQuery.trim().replace(/[%,"]/g, "");
+        if (q2) {
+          query = query.or(
+            [
+              `"Indent Id.".ilike.%${q2}%`,
+              `"Firm Name".ilike.%${q2}%`,
+              `"Material".ilike.%${q2}%`,
+            ].join(","),
+          );
+        }
+        return query;
+      };
 
-      const { data, error: fetchError, count } = await query;
-      if (fetchError) throw fetchError;
+      // Rows only count as "pending" once at least one vendor has been
+      // technical-tagged (that filter can't be expressed as a plain SQL
+      // WHERE clause). A cheap, narrow-column, unpaginated query computes
+      // the true total so the tab badge/pagination count matches what's
+      // actually shown — otherwise a row with no tagged vendor (e.g. an
+      // indent that reached this stage without any vendor tagged) gets
+      // counted but never rendered.
+      const [pageResult, countResult] = await Promise.all([
+        applyPendingFilters(supabase.from("INDENT-PO").select("*")).range(
+          pendingPagination.from,
+          pendingPagination.to,
+        ),
+        applyPendingFilters(
+          supabase
+            .from("INDENT-PO")
+            .select(
+              '"Vendor Name 1", "Technical Tag 1", "Vendor Name 2", "Technical Tag 2", "Vendor Name 3", "Technical Tag 3"',
+            ),
+        ),
+      ]);
 
-      const pending = (data || [])
+      if (pageResult.error) throw pageResult.error;
+      if (countResult.error) throw countResult.error;
+
+      const pending = (pageResult.data || [])
         .map((row) => {
           const vendors = getVendorsFromRow(row)
             .filter((vendor) => vendor.technicalTag)
@@ -194,9 +213,13 @@ export default function ManagementApprovals() {
         })
         .filter((item) => item.vendors.length > 0);
 
+      const trueTotal = (countResult.data || []).filter(
+        (row) => getVendorsFromRow(row).filter((v) => v.technicalTag).length > 0,
+      ).length;
+
       setPendingData(pending);
-      pendingPagination.setTotalRows(count || 0);
-      updateCount("management", count || 0);
+      pendingPagination.setTotalRows(trueTotal);
+      updateCount("management", trueTotal);
     } catch (err) {
       console.error("Error fetching management approvals:", err);
       setError(err.message || "Failed to load management approvals");
