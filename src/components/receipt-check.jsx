@@ -385,6 +385,11 @@ export default function ReceiptCheck() {
     totalQuantity: "all",
     orderNumber: "all",
   });
+  // Awaiting Receipt is filtered by Date Of Bill (the only date that exists
+  // before a receipt is recorded); Processed Lifts is filtered by the
+  // actual Date Of Receiving — each tab uses whichever date is meaningful
+  // for it, but both share this one From/To control.
+  const [dateRangeFilter, setDateRangeFilter] = useState({ from: "", to: "" });
   const [activeTab, setActiveTab] = useState("awaitingReceipt");
   const [visibleAwaitingReceiptColumns, setVisibleAwaitingReceiptColumns] =
     useState({});
@@ -437,6 +442,45 @@ export default function ReceiptCheck() {
       totalQuantity: "all",
       orderNumber: "all",
     });
+    setDateRangeFilter({ from: "", to: "" });
+  };
+
+  const parseFilterDate = (value) => {
+    if (!value) return null;
+    const raw = String(value).trim();
+    if (!raw || raw === "N/A") return null;
+
+    const match = raw.match(
+      /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/,
+    );
+    if (match) {
+      const day = Number(match[1]);
+      const month = Number(match[2]) - 1;
+      const year = Number(match[3].length === 2 ? `20${match[3]}` : match[3]);
+      const parsed = new Date(year, month, day);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const isoDate = new Date(raw);
+    return isNaN(isoDate.getTime()) ? null : isoDate;
+  };
+
+  const isWithinDateRangeFilter = (value, range) => {
+    if (!range?.from && !range?.to) return true;
+    const date = parseFilterDate(value);
+    if (!date) return false;
+
+    if (range.from) {
+      const fromDate = new Date(range.from);
+      fromDate.setHours(0, 0, 0, 0);
+      if (date < fromDate) return false;
+    }
+    if (range.to) {
+      const toDate = new Date(range.to);
+      toDate.setHours(23, 59, 59, 999);
+      if (date > toDate) return false;
+    }
+    return true;
   };
 
   useEffect(() => {
@@ -739,6 +783,7 @@ export default function ReceiptCheck() {
           matches &&
           (lift.indentNo === filters.orderNumber ||
             lift.billNo === filters.orderNumber);
+      matches = matches && isWithinDateRangeFilter(lift.dateOfBill, dateRangeFilter);
 
       const searchLower = searchQuery.trim().toLowerCase();
       if (searchLower) {
@@ -758,7 +803,7 @@ export default function ReceiptCheck() {
 
       return matches;
     });
-  }, [allLiftsData, filters, searchQuery]);
+  }, [allLiftsData, filters, searchQuery, dateRangeFilter]);
 
   // Update Notification Context
   useEffect(() => {
@@ -804,6 +849,9 @@ export default function ReceiptCheck() {
             matches &&
             (lift.indentNo === filters.orderNumber ||
               lift.billNo === filters.orderNumber);
+        matches =
+          matches &&
+          isWithinDateRangeFilter(lift.dateOfReceiving_fromSheet, dateRangeFilter);
 
         const searchLower = searchQuery.trim().toLowerCase();
         if (searchLower) {
@@ -845,7 +893,7 @@ export default function ReceiptCheck() {
         };
         return parseDate(b) - parseDate(a);
       });
-  }, [allLiftsData, filters, searchQuery]);
+  }, [allLiftsData, filters, searchQuery, dateRangeFilter]);
 
   const handleInputChange = (e) => {
     const { name, value, type, files } = e.target;
@@ -1404,7 +1452,37 @@ export default function ReceiptCheck() {
                 {description}
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-gray-500">From</span>
+                <Input
+                  type="date"
+                  value={dateRangeFilter.from}
+                  onChange={(e) =>
+                    setDateRangeFilter((prev) => ({ ...prev, from: e.target.value }))
+                  }
+                  title={
+                    tabKey === "awaitingReceipt"
+                      ? "Filters by Date Of Bill"
+                      : "Filters by Date Of Receiving"
+                  }
+                  className="h-8 w-[140px] bg-white text-xs"
+                />
+                <span className="text-[11px] text-gray-500">To</span>
+                <Input
+                  type="date"
+                  value={dateRangeFilter.to}
+                  onChange={(e) =>
+                    setDateRangeFilter((prev) => ({ ...prev, to: e.target.value }))
+                  }
+                  title={
+                    tabKey === "awaitingReceipt"
+                      ? "Filters by Date Of Bill"
+                      : "Filters by Date Of Receiving"
+                  }
+                  className="h-8 w-[140px] bg-white text-xs"
+                />
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -1659,7 +1737,7 @@ export default function ReceiptCheck() {
               </TabsTrigger>
             </TabsList>
             <div className="p-4 mb-4 rounded-lg bg-green-50/50">
-              <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-gray-500" />
                   <Label className="text-sm font-medium">Filters</Label>
@@ -1682,97 +1760,123 @@ export default function ReceiptCheck() {
                   Clear All
                 </Button>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
-                <Select
-                  value={filters.vendorName}
-                  onValueChange={(value) =>
-                    handleFilterChange("vendorName", value)
-                  }
-                >
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Vendors" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Vendors</SelectItem>
-                    {uniqueFilterOptions.vendorName.map((vendor) => (
-                      <SelectItem key={vendor} value={vendor}>
-                        {vendor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={filters.materialName}
-                  onValueChange={(value) =>
-                    handleFilterChange("materialName", value)
-                  }
-                >
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Materials" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Materials</SelectItem>
-                    {uniqueFilterOptions.materialName.map((material) => (
-                      <SelectItem key={material} value={material}>
-                        {material}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={filters.liftType}
-                  onValueChange={(value) =>
-                    handleFilterChange("liftType", value)
-                  }
-                >
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {uniqueFilterOptions.liftType.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={filters.totalQuantity}
-                  onValueChange={(value) =>
-                    handleFilterChange("totalQuantity", value)
-                  }
-                >
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Quantities" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Quantities</SelectItem>
-                    {uniqueFilterOptions.totalQuantity.map((qty) => (
-                      <SelectItem key={qty} value={qty}>
-                        {qty}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={filters.orderNumber}
-                  onValueChange={(value) =>
-                    handleFilterChange("orderNumber", value)
-                  }
-                >
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue placeholder="All Orders" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Orders</SelectItem>
-                    {uniqueFilterOptions.orderNumber.map((order) => (
-                      <SelectItem key={order} value={order}>
-                        {order}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div>
+                  <Label className="block mb-1 text-[11px] font-medium text-gray-500">
+                    Vendor
+                  </Label>
+                  <Select
+                    value={filters.vendorName}
+                    onValueChange={(value) =>
+                      handleFilterChange("vendorName", value)
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-full bg-white">
+                      <SelectValue placeholder="All Vendors" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Vendors</SelectItem>
+                      {uniqueFilterOptions.vendorName.map((vendor) => (
+                        <SelectItem key={vendor} value={vendor}>
+                          {vendor}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="block mb-1 text-[11px] font-medium text-gray-500">
+                    Material
+                  </Label>
+                  <Select
+                    value={filters.materialName}
+                    onValueChange={(value) =>
+                      handleFilterChange("materialName", value)
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-full bg-white">
+                      <SelectValue placeholder="All Materials" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Materials</SelectItem>
+                      {uniqueFilterOptions.materialName.map((material) => (
+                        <SelectItem key={material} value={material}>
+                          {material}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="block mb-1 text-[11px] font-medium text-gray-500">
+                    Type
+                  </Label>
+                  <Select
+                    value={filters.liftType}
+                    onValueChange={(value) =>
+                      handleFilterChange("liftType", value)
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-full bg-white">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      {uniqueFilterOptions.liftType.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="block mb-1 text-[11px] font-medium text-gray-500">
+                    Quantity
+                  </Label>
+                  <Select
+                    value={filters.totalQuantity}
+                    onValueChange={(value) =>
+                      handleFilterChange("totalQuantity", value)
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-full bg-white">
+                      <SelectValue placeholder="All Quantities" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Quantities</SelectItem>
+                      {uniqueFilterOptions.totalQuantity.map((qty) => (
+                        <SelectItem key={qty} value={qty}>
+                          {qty}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="block mb-1 text-[11px] font-medium text-gray-500">
+                    Order No.
+                  </Label>
+                  <Select
+                    value={filters.orderNumber}
+                    onValueChange={(value) =>
+                      handleFilterChange("orderNumber", value)
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-full bg-white">
+                      <SelectValue placeholder="All Orders" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Orders</SelectItem>
+                      {uniqueFilterOptions.orderNumber.map((order) => (
+                        <SelectItem key={order} value={order}>
+                          {order}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
             <TabsContent
