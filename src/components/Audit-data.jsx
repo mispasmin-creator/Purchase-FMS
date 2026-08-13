@@ -475,12 +475,28 @@ const CallTrackerPage = () => {
     return Boolean(biltyNo && biltyImage);
   };
   const getLiftKey = (row) => String(row["Lift ID"] || row["Lift Number"] || row["Lift No"] || "").trim();
+  const getLiftProdKey = (row) => String(row["Product Name"] || row["Raw Material Name"] || "").trim().toLowerCase();
+  const getLiftTruckQty = (row) => {
+    const liftId = getLiftKey(row);
+    const prodName = getLiftProdKey(row);
+    const compositeKey = prodName ? `${liftId}_${prodName}` : liftId;
+    return liftActualQtyMap[compositeKey] || liftActualQtyMap[liftId] || row["Truck Qty"] || row["Actual Quantity"] || '';
+  };
+  const getLiftLiftingQty = (row) => {
+    const liftId = getLiftKey(row);
+    const prodName = getLiftProdKey(row);
+    const compositeKey = prodName ? `${liftId}_${prodName}` : liftId;
+    return liftLiftingQtyMap[compositeKey] || liftLiftingQtyMap[liftId] || row["Lifting Quantity"] || row["Lifting Qty"] || '';
+  };
   const getLiftTransporterRate = (row) => liftTransporterRateMap[getLiftKey(row)] || "";
   const getTotalFreightValue = (row) => row["Total Freight"] || getLiftTransporterRate(row) || "";
   const getQtyDifferenceStatus = (row) => {
-    const materialQty = parseFloat(row["Truck Qty"] || 0);
-    const truckQty = parseFloat(liftActualQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Qty"] || 0);
-    return (truckQty - materialQty).toFixed(3);
+    const lQty = parseFloat(getLiftLiftingQty(row) || 0);
+    const tQty = parseFloat(getLiftTruckQty(row) || 0);
+    if (!isNaN(lQty) && !isNaN(tQty)) {
+      return (lQty - tQty).toFixed(3);
+    }
+    return row["Qty Diff Status"] || row["Quantity Difference"] || '0.000';
   };
   const shouldShowInTallyEntry = (row) => (
     hasBiltyDetails(row) && !row.Actual4 && (row.Planned4 || (row.Actual2 && isAuditDone(row)) || (row.Actual5 && isReAuditDone(row)))
@@ -1281,7 +1297,7 @@ const CallTrackerPage = () => {
       try {
         const { data } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Lifting Qty", "Date Of Receiving", "Transporter Rate", "Actual 2", "Transporter Name", "Date Of Bill"')
+          .select('"Lift No", "Raw Material Name", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Truck Qty", "Lifting Qty", "Date Of Receiving", "Transporter Rate", "Actual 2", "Transporter Name", "Date Of Bill"')
           .order("id", { ascending: false });
         const weightSlipMap = {};
         const typeMap = {};
@@ -1296,13 +1312,26 @@ const CallTrackerPage = () => {
         const dateOfBillMap = {};
         (data || []).forEach(l => {
           const key = String(l["Lift No"] || "").trim();
+          const matKey = String(l["Raw Material Name"] || "").trim().toLowerCase();
+          const compositeKey = matKey ? `${key}_${matKey}` : key;
           if (key) {
             weightSlipMap[key] = String(l["Image Of Weight Slip"] || "").trim();
             typeMap[key] = String(l["Type"] || "").trim();
             biltyNoMap[key] = String(l["Bilty No."] || "").trim();
             biltyImageMap[key] = String(l["Bilty Image"] || "").trim();
-            actualQtyMap[key] = String(l["Actual Quantity"] || "").trim();
-            liftingQtyMap[key] = String(l["Lifting Qty"] || "").trim();
+
+            const actQty = String(l["Actual Quantity"] || l["Truck Qty"] || "").trim();
+            if (actQty) {
+              actualQtyMap[compositeKey] = actQty;
+              if (!actualQtyMap[key]) actualQtyMap[key] = actQty;
+            }
+
+            const liftQty = String(l["Lifting Qty"] || "").trim();
+            if (liftQty) {
+              liftingQtyMap[compositeKey] = liftQty;
+              if (!liftingQtyMap[key]) liftingQtyMap[key] = liftQty;
+            }
+
             dateOfReceivingMap[key] = String(l["Date Of Receiving"] || "").trim();
             transporterRateMap[key] = String(l["Transporter Rate"] || "").trim();
             actual2Map[key] = String(l["Actual 2"] || "").trim();
@@ -1389,7 +1418,7 @@ const CallTrackerPage = () => {
         biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
-        truckQty: row["Truck Qty"] || '',
+        truckQty: getLiftLiftingQty(row),
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
@@ -1424,7 +1453,7 @@ const CallTrackerPage = () => {
           return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
         })(),
         vendorName: row["Vendor Name"] || '',
-        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
+        liftingQty: getLiftTruckQty(row),
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         transporterRate: liftTransporterRateMap[String(row["Lift ID"] || "").trim()] || ''
       }));
@@ -1447,7 +1476,7 @@ const CallTrackerPage = () => {
         biltyNo: row["Bilty No."] || '',
         typeOfRate: row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
-        truckQty: row["Truck Qty"] || '',
+        truckQty: row["Lifting Qty"] || row["Truck Qty"] || '',
         biltyImage: row["Bilty Image"] || '',
         qtyDifferenceStatus: '0.000',
         differenceQty: '0.000',
@@ -1482,7 +1511,7 @@ const CallTrackerPage = () => {
           return poToRateMap[raw] || poToRateMap[normalized] || '';
         })(),
         vendorName: row["Vendor Name"] || '',
-        liftingQty: row["Actual Quantity"] || row["Qty"] || '',
+        liftingQty: row["Actual Quantity"] || row["Truck Qty"] || row["Qty"] || '',
         dateOfReceiving: row["Date Of Receiving"] || ''
       }));
 
@@ -1532,7 +1561,7 @@ const CallTrackerPage = () => {
         biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
-        truckQty: row["Truck Qty"] || '',
+        truckQty: getLiftLiftingQty(row),
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
@@ -1568,7 +1597,7 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
+        liftingQty: getLiftTruckQty(row),
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
@@ -1622,7 +1651,7 @@ const CallTrackerPage = () => {
         biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
-        truckQty: row["Truck Qty"] || '',
+        truckQty: getLiftLiftingQty(row),
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
@@ -1660,7 +1689,7 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
+        liftingQty: getLiftTruckQty(row),
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
@@ -1714,7 +1743,7 @@ const CallTrackerPage = () => {
         biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
-        truckQty: row["Truck Qty"] || '',
+        truckQty: getLiftLiftingQty(row),
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
@@ -1752,7 +1781,7 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
+        liftingQty: getLiftTruckQty(row),
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
@@ -1806,7 +1835,7 @@ const CallTrackerPage = () => {
         biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
-        truckQty: row["Truck Qty"] || '',
+        truckQty: getLiftLiftingQty(row),
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
@@ -1842,7 +1871,7 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
+        liftingQty: getLiftTruckQty(row),
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
@@ -1896,7 +1925,7 @@ const CallTrackerPage = () => {
         biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
-        truckQty: row["Truck Qty"] || '',
+        truckQty: getLiftLiftingQty(row),
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: getQtyDifferenceStatus(row),
         differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
@@ -1932,7 +1961,7 @@ const CallTrackerPage = () => {
         })(),
         vendorName: row["Vendor Name"] || '',
         driverNo: row["Driver No"] || row["Driver No."] || '',
-        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
+        liftingQty: getLiftTruckQty(row),
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
         actualQuantity: row["Actual Quantity"] || '',
         physicalCondition: row["Physical Condition"] || '',
@@ -2007,7 +2036,7 @@ const CallTrackerPage = () => {
           biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
           typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
           rate: row["Rate"] || '',
-          truckQty: row["Truck Qty"] || '',
+          truckQty: getLiftLiftingQty(row),
           biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
           qtyDifferenceStatus: getQtyDifferenceStatus(row),
           differenceQty: row["Diff Qty"] || row["Difference Qty"] || '',
@@ -2047,7 +2076,7 @@ const CallTrackerPage = () => {
           })(),
           vendorName: row["Vendor Name"] || '',
           driverNo: row["Driver No"] || row["Driver No."] || '',
-          liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
+          liftingQty: getLiftTruckQty(row),
           dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || '',
           actualQuantity: row["Actual Quantity"] || '',
           physicalCondition: row["Physical Condition"] || '',
@@ -2102,7 +2131,7 @@ const CallTrackerPage = () => {
         biltyNo: row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[String(row["Lift ID"] || "").trim()] || '',
         typeOfRate: row["Type Of Rate"] || row["Type Of Transporting Rate"] || '',
         rate: row["Rate"] || '',
-        truckQty: row["Truck Qty"] || '',
+        truckQty: getLiftLiftingQty(row),
         biltyImage: row["Bilty Image"] || liftBiltyImageMap[String(row["Lift ID"] || "").trim()] || '',
         qtyDifferenceStatus: getQtyDifferenceStatus(row),
         weightSlip: row["Weight Slip"] || liftWeightSlipMap[String(row["Lift ID"] || "").trim()] || '',
@@ -2138,7 +2167,7 @@ const CallTrackerPage = () => {
           return poToRateMap[raw] || poToRateMap[normalized] || row["PO Rate"] || row["Rate Of Material"] || '';
         })(),
         vendorName: row["Vendor Name"] || '',
-        liftingQty: liftLiftingQtyMap[String(row["Lift ID"] || "").trim()] || row["Lifting Quantity"] || '',
+        liftingQty: getLiftTruckQty(row),
         dateOfReceiving: liftDateOfReceivingMap[String(row["Lift ID"] || "").trim()] || row["Date Of Receiving"] || ''
       }));
 
