@@ -625,9 +625,12 @@ export default function ReceiptCheck() {
             biltyNo: String(row["Bilty No."] || "").trim(),
             biltyImage: String(row["Bilty Image"] || "").trim(),
             plannedDate_formatted: formatTimestamp(row["Planned 1"]),
-            // Filter columns - using Planned 1 and Actual 1
+            // Filter columns - using Planned 1, Actual 1, and CRM Date / Status
             filterColPlanned1: row["Planned 1"],
             filterColActual1: row["Actual 1"],
+            filterColCrmDate: row["CRM Date"],
+            filterColCrmStatus: row["CRM Status"],
+            filterColActual4: row["Actual 4"],
             filterColPlanned2: row["Planned 2"],
             filterColActual2: row["Actual 2"],
             "Planned 2": row["Planned 2"],
@@ -757,16 +760,27 @@ export default function ReceiptCheck() {
 
   const liftsAwaitingReceipt = useMemo(() => {
     return allLiftsData.filter((lift) => {
-      // Show when Planned 1 is not null AND (Actual 1 is null OR it's pending/approved unload approval)
+      // Show when Planned 1 is not null AND CRM is cleared (Actual 4 exists or historically processed)
+      // AND (Actual 1 is null OR it's pending/approved unload approval)
       const isPendingApproval = lift.unloadApprovalStatus === "Pending";
       const isApprovedButNotFinalized =
         lift.unloadApprovalStatus === "Approved" &&
         lift.unloadApprovalRequired === "Yes";
       const hasMovedToLab = Boolean(lift.filterColPlanned2 || lift.filterColActual2);
       const hasStaleMissingReceipt = !lift.filterColActual1 && lift.hasDownstreamCompletion;
+      // Only allow if CRM status is Approved (or legacy completed records) and NOT Rejected
+      const isCrmCleared =
+        lift.filterColCrmStatus !== "Rejected" &&
+        Boolean(
+          lift.filterColCrmStatus === "Approved" ||
+          lift.filterColActual1 ||
+          lift.hasDownstreamCompletion ||
+          (!lift.filterColCrmStatus && (lift.filterColCrmDate || lift.filterColActual4))
+        );
 
       let matches =
         lift.filterColPlanned1 &&
+        isCrmCleared &&
         !hasMovedToLab &&
         !hasStaleMissingReceipt &&
         (!lift.filterColActual1 ||
@@ -809,7 +823,15 @@ export default function ReceiptCheck() {
   useEffect(() => {
     // Calculate total pending for the firm/user regardless of local filters
     const totalPending = allLiftsData.filter((lift) => {
-      const isPending = lift.filterColPlanned1 && !lift.filterColActual1;
+      const isCrmCleared =
+        lift.filterColCrmStatus !== "Rejected" &&
+        Boolean(
+          lift.filterColCrmStatus === "Approved" ||
+          lift.filterColActual1 ||
+          lift.hasDownstreamCompletion ||
+          (!lift.filterColCrmStatus && (lift.filterColCrmDate || lift.filterColActual4))
+        );
+      const isPending = lift.filterColPlanned1 && isCrmCleared && !lift.filterColActual1;
       const isPendingApproval = lift.unloadApprovalStatus === "Pending";
       const isApprovedButNotFinalized =
         lift.unloadApprovalStatus === "Approved" &&
@@ -1116,6 +1138,12 @@ export default function ReceiptCheck() {
       .filter(Boolean)
       .join(", ");
 
+    // Direct-supply-to-party lifts skip Lab/Lab Report entirely: instead of
+    // routing to Lab via "Planned 2", send them straight to Bilty via
+    // "Planned 3" (mirrors the Actual 2 -> Planned 3 handoff Lab normally does).
+    const isDirectSupplyToParty =
+      String(lift.areaLifting || "").trim() === "Direct Supply To Party";
+
     const updateData = {
       "Actual 1": timestamp,
       "Date Of Receiving": sharedFields.dateOfReceiving,
@@ -1138,7 +1166,9 @@ export default function ReceiptCheck() {
         unloadApprovalTrigger || lift.unloadApprovalTrigger || null,
       "Unload Approval Remarks": lift.unloadApprovalRemarks || null,
       "Unload Approval By": lift.unloadApprovalBy || null,
-      "Planned 2": lift["Planned 2"] || timestamp,
+      ...(isDirectSupplyToParty
+        ? { "Planned 3": lift["Planned 3"] || timestamp }
+        : { "Planned 2": lift["Planned 2"] || timestamp }),
     };
 
     const { error: updateError } = await supabase

@@ -28,15 +28,16 @@ Once approved, the actual buying and transportation planning happens here.
 ### Phase 3: Material Receipt & Quality Control
 This phase tracks the physical movement and inspection of the goods.
 11. **Lift Material** (`lift-material.jsx`): The material is picked up from the vendor's location and begins its journey.
-12. **Receipt & Physical Check** (`receipt-check.jsx`): The material arrives at the factory. Staff perform a physical check of the quantity and visual quality.
-13. **Unload Approval** (`ManagementUnloadApproval.jsx`): If there are discrepancies during the physical check, management must explicitly approve unloading the truck.
-14. **Lab Testing** (`lab-testing.jsx`): A sample of the material is sent to the lab for detailed chemical or physical testing to ensure it meets quality standards.
-15. **Bilty** (`BiltyPage.jsx`): The transport receipt (Bilty) is processed and recorded in the system.
+12. **CRM Dispatch & Tracking** (`CrmPage.jsx`): The CRM team verifies the lifted consignment, tracking details, and authorizes movement to factory.
+13. **Receipt & Physical Check** (`receipt-check.jsx`): The material arrives at the factory. Staff perform a physical check of the quantity and visual quality.
+14. **Unload Approval** (`ManagementUnloadApproval.jsx`): If there are discrepancies during the physical check, management must explicitly approve unloading the truck.
+15. **Lab Testing** (`lab-testing.jsx`): A sample of the material is sent to the lab for detailed chemical or physical testing to ensure it meets quality standards.
+16. **Bilty** (`BiltyPage.jsx`): The transport receipt (Bilty) is processed and recorded in the system.
 
 ### Phase 4: Accounts & Finalization
 The final steps involve preparing the material for use and closing the books.
-16. **Fullkitting** (`FullkittingTransportingPage.jsx`): The approved material is properly allocated and prepared for production.
-17. **Accounts Audit** (`Audit-data.jsx`): The accounts team does a final review of all documents, prices, and quantities to ensure everything matches before final settlement.
+17. **Fullkitting** (`FullkittingTransportingPage.jsx`): The approved material is properly allocated and prepared for production.
+18. **Accounts Audit** (`Audit-data.jsx`): The accounts team does a final review of all documents, prices, and quantities to ensure everything matches before final settlement.
 
 ### Exception Handling
 Not everything goes perfectly. The system has built-in steps for handling problems:
@@ -68,18 +69,19 @@ graph TD
 
     %% Phase 3: Material Receipt & QC
     AdvPay --> Lift[11. Lift Material]
-    Lift --> Receipt[12. Receipt & Physical Check]
+    Lift --> CRM[12. CRM Dispatch & Tracking]
+    CRM --> Receipt[13. Receipt & Physical Check]
     
     Receipt --> Unload{Are there issues?}
-    Unload -- Yes --> UnloadApp[13. Management Unload Approval]
-    Unload -- No --> Lab[14. Lab Testing]
+    Unload -- Yes --> UnloadApp[14. Management Unload Approval]
+    Unload -- No --> Lab[15. Lab Testing]
     UnloadApp --> Lab
 
-    Lab --> Bilty[15. Process Bilty]
+    Lab --> Bilty[16. Process Bilty]
 
     %% Phase 4: Accounts & Finalization
-    Bilty --> Fullkit[16. Fullkitting]
-    Fullkit --> Audit[17. Accounts Audit]
+    Bilty --> Fullkit[17. Fullkitting]
+    Fullkit --> Audit[18. Accounts Audit]
     Audit --> End([End: Process Complete])
 
     %% Exception Handling (Dotted lines)

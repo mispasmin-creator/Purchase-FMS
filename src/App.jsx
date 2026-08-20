@@ -15,6 +15,7 @@ import StockApproval from "./components/StockApproval";
 import GeneratePO from "./components/generate-po";
 import TallyEntry from "./components/tally-entry";
 import LiftMaterial from "./components/lift-material";
+import CrmPage from "./components/CrmPage";
 import ReceiptCheck from "./components/receipt-check";
 import LabTesting from "./components/lab-testing";
 import FinalTallyEntry from "./components/final-tally-entry";
@@ -274,6 +275,17 @@ function App() {
       countKey: "lift-material",
       countLabel: "Pending",
       component: <LiftMaterial />,
+    },
+    {
+      id: "crm",
+      label: "CRM",
+      path: "/crm",
+      icon: <Users size={20} />,
+      stepName: "CRM",
+      showNotification: true,
+      countKey: "crm",
+      countLabel: "Pending",
+      component: <CrmPage />,
     },
     {
       id: "receipt-check",

@@ -22,6 +22,7 @@ export function NotificationProvider({ children }) {
         logistics: 0,
         "tally-entry": 0,
         "lift-material": 0,
+        crm: 0,
         "receipt-check": 0,
         "lab-testing": 0,
         mismatch: 0,

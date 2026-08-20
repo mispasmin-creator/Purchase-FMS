@@ -23,6 +23,7 @@ const PATH_TO_PAGE_MAP = {
   "/po-entry": "PO Entry",
   "/advance-payement": "Advance Payement",
   "/lift": "Lift",
+  "/crm": "CRM",
   "/receipt": "Receipt",
   "/management-unload": "Unload App.",
   "/lab": "Lab",
