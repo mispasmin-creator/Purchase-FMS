@@ -1501,8 +1501,7 @@ export default function LiftMaterial() {
       const { data, error } = await supabase
         .from("LIFT-ACCOUNTS")
         .select('"Lift No", id')
-        .order("id", { ascending: false })
-        .limit(100);
+        .order("id", { ascending: false });
 
       if (error) throw error;
 
@@ -1515,7 +1514,8 @@ export default function LiftMaterial() {
             typeof liftNo === "string" &&
             liftNo.startsWith("LF-")
           ) {
-            const numPart = parseInt(liftNo.substring(3), 10);
+            const cleanStr = liftNo.substring(3).split("-")[0];
+            const numPart = parseInt(cleanStr, 10);
             if (!isNaN(numPart) && numPart > maxIdNum) maxIdNum = numPart;
           }
         });
@@ -1542,7 +1542,8 @@ export default function LiftMaterial() {
             typeof lift.id === "string" &&
             lift.id.startsWith("LF-")
           ) {
-            const numPart = parseInt(lift.id.substring(3), 10);
+            const cleanStr = lift.id.substring(3).split("-")[0];
+            const numPart = parseInt(cleanStr, 10);
             if (!isNaN(numPart) && numPart > maxIdNum) maxIdNum = numPart;
           }
         });

@@ -118,6 +118,7 @@ export default function ManagementApprovals() {
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState("all");
+  const [selectedHistoryFirm, setSelectedHistoryFirm] = useState("all");
 
   const { user } = useAuth();
   const { updateCount } = useNotification();
@@ -221,6 +222,11 @@ export default function ManagementApprovals() {
     return ["all", ...Array.from(firms).sort()];
   }, [pendingData]);
 
+  const historyFirmOptions = useMemo(() => {
+    const firms = new Set(historyData.map((item) => item.firmName));
+    return ["all", ...Array.from(firms).sort()];
+  }, [historyData]);
+
   const productOptions = useMemo(() => {
     let filtered = pendingData;
     if (selectedFirm !== "all") {
@@ -270,17 +276,25 @@ export default function ManagementApprovals() {
 
   useEffect(() => {
     const query = historySearchQuery.trim().toLowerCase();
-    setFilteredHistoryData(
-      historyData.filter(
+    let filtered = [...historyData];
+
+    if (selectedHistoryFirm !== "all") {
+      filtered = filtered.filter((item) => item.firmName === selectedHistoryFirm);
+    }
+
+    if (query) {
+      filtered = filtered.filter(
         (item) =>
           item.indentId.toLowerCase().includes(query) ||
           item.firmName.toLowerCase().includes(query) ||
           item.product.toLowerCase().includes(query) ||
           item.approvedVendorName.toLowerCase().includes(query) ||
           item.approvedTag.toLowerCase().includes(query),
-      ),
-    );
-  }, [historyData, historySearchQuery]);
+      );
+    }
+
+    setFilteredHistoryData(filtered);
+  }, [historyData, historySearchQuery, selectedHistoryFirm]);
 
   const selectedVendor = useMemo(
     () =>
@@ -546,14 +560,46 @@ export default function ManagementApprovals() {
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
-            <div className="relative">
-              <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
-              <Input
-                className="pl-9"
-                placeholder="Search approved history..."
-                value={historySearchQuery}
-                onChange={(e) => setHistorySearchQuery(e.target.value)}
-              />
+            <div className="flex flex-col md:flex-row gap-4 mb-2">
+              <div className="relative flex-1">
+                <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search approved history..."
+                  value={historySearchQuery}
+                  onChange={(e) => setHistorySearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select value={selectedHistoryFirm} onValueChange={setSelectedHistoryFirm}>
+                  <SelectTrigger className="w-[180px] bg-white">
+                    <SelectValue placeholder="All Firms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {historyFirmOptions.map((firm) => (
+                      <SelectItem key={firm} value={firm}>
+                        {firm === "all" ? "All Firms" : firm}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {(selectedHistoryFirm !== "all" || historySearchQuery) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSelectedHistoryFirm("all");
+                      setHistorySearchQuery("");
+                    }}
+                    className="text-gray-400 hover:text-red-500 h-9 w-9"
+                    title="Clear filters"
+                  >
+                    <XCircle className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             {loading ? (
