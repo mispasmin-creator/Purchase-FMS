@@ -768,15 +768,18 @@ export default function ReceiptCheck() {
         lift.unloadApprovalRequired === "Yes";
       const hasMovedToLab = Boolean(lift.filterColPlanned2 || lift.filterColActual2);
       const hasStaleMissingReceipt = !lift.filterColActual1 && lift.hasDownstreamCompletion;
-      // Only allow if CRM status is Approved (or legacy completed records) and NOT Rejected
+      // Factory lifts skip CRM entirely and go straight to Receipt.
+      // Only Direct Supply To Party lifts need CRM status Approved
+      // (or legacy completed records) and NOT Rejected.
       const isCrmCleared =
-        lift.filterColCrmStatus !== "Rejected" &&
-        Boolean(
-          lift.filterColCrmStatus === "Approved" ||
-          lift.filterColActual1 ||
-          lift.hasDownstreamCompletion ||
-          (!lift.filterColCrmStatus && (lift.filterColCrmDate || lift.filterColActual4))
-        );
+        lift.areaLifting === "Factory" ||
+        (lift.filterColCrmStatus !== "Rejected" &&
+          Boolean(
+            lift.filterColCrmStatus === "Approved" ||
+            lift.filterColActual1 ||
+            lift.hasDownstreamCompletion ||
+            (!lift.filterColCrmStatus && (lift.filterColCrmDate || lift.filterColActual4))
+          ));
 
       let matches =
         lift.filterColPlanned1 &&

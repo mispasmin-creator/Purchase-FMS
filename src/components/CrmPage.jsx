@@ -221,10 +221,16 @@ export default function CrmPage() {
         };
       });
 
+      // CRM only handles Direct Supply To Party lifts — Factory lifts skip
+      // CRM entirely and go straight from Lift to Receipt.
+      const directSupplyOnly = processed.filter(
+        (lift) => lift.areaLifting === "Direct Supply To Party",
+      );
+
       // Filter by Firm Access
-      let firmFiltered = processed;
+      let firmFiltered = directSupplyOnly;
       if (user?.firmName) {
-        firmFiltered = processed.filter(
+        firmFiltered = directSupplyOnly.filter(
           (lift) => lift && canViewFirm(user.firmName, lift.firmName),
         );
       }
