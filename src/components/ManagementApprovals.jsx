@@ -33,7 +33,9 @@ import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { useRealtime } from "../hooks/useRealtime";
-import { canViewFirm } from "../utils/firmFilter";
+import { applyFirmFilter } from "../utils/firmFilter";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 
 import {
   Dialog,
@@ -105,8 +107,6 @@ const getTagTone = (tag) => {
 export default function ManagementApprovals() {
   const [pendingData, setPendingData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
-  const [filteredPendingData, setFilteredPendingData] = useState([]);
-  const [filteredHistoryData, setFilteredHistoryData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshData, setRefreshData] = useState(false);
@@ -118,35 +118,84 @@ export default function ManagementApprovals() {
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState("all");
+<<<<<<< HEAD
   const [selectedHistoryFirm, setSelectedHistoryFirm] = useState("all");
+=======
+  const [filterOptionsRaw, setFilterOptionsRaw] = useState([]);
+
+  const pendingPagination = usePagination(100);
+  const historyPagination = usePagination(100);
+>>>>>>> 6db88b11b126ef1057eecae38106f58dd0ce3693
 
   const { user } = useAuth();
   const { updateCount } = useNotification();
 
-  const fetchData = useCallback(async () => {
+  const filteredPendingData = pendingData;
+  const filteredHistoryData = historyData;
+
+  // Narrow-column full fetch used only to build the Firm/Product dropdown
+  // option lists (independent of whichever page of pending/history is loaded).
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      let query = supabase
+        .from("INDENT-PO")
+        .select('"Firm Name", "Material", "Planned8", "Actual8"');
+      query = applyFirmFilter(query, user?.firmName, "Firm Name");
+      const { data, error: err } = await query;
+      if (err) throw err;
+      setFilterOptionsRaw(data || []);
+    } catch (err) {
+      console.error("Error fetching filter options:", err);
+    }
+  }, [user]);
+
+  const fetchPendingData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from("INDENT-PO")
-        .select("*");
+      const applyPendingFilters = (q) => {
+        let query = q.not("Planned8", "is", null).is("Actual8", null);
+        query = applyFirmFilter(query, user?.firmName, "Firm Name");
+        if (selectedFirm !== "all") query = query.eq('"Firm Name"', selectedFirm);
+        if (selectedProduct !== "all") query = query.eq('"Material"', selectedProduct);
+        const q2 = searchQuery.trim().replace(/[%,"]/g, "");
+        if (q2) {
+          query = query.or(
+            [
+              `"Indent Id.".ilike.%${q2}%`,
+              `"Firm Name".ilike.%${q2}%`,
+              `"Material".ilike.%${q2}%`,
+            ].join(","),
+          );
+        }
+        return query;
+      };
 
-      if (fetchError) throw fetchError;
+      // Rows only count as "pending" once at least one vendor has been
+      // technical-tagged (that filter can't be expressed as a plain SQL
+      // WHERE clause). A cheap, narrow-column, unpaginated query computes
+      // the true total so the tab badge/pagination count matches what's
+      // actually shown — otherwise a row with no tagged vendor (e.g. an
+      // indent that reached this stage without any vendor tagged) gets
+      // counted but never rendered.
+      const [pageResult, countResult] = await Promise.all([
+        applyPendingFilters(supabase.from("INDENT-PO").select("*")).range(
+          pendingPagination.from,
+          pendingPagination.to,
+        ),
+        applyPendingFilters(
+          supabase
+            .from("INDENT-PO")
+            .select(
+              '"Vendor Name 1", "Technical Tag 1", "Vendor Name 2", "Technical Tag 2", "Vendor Name 3", "Technical Tag 3"',
+            ),
+        ),
+      ]);
 
-      let filteredData = data;
-      if (user?.firmName) {
-        filteredData = data.filter((row) =>
-          canViewFirm(user.firmName, row["Firm Name"]),
-        );
-      }
+      if (pageResult.error) throw pageResult.error;
+      if (countResult.error) throw countResult.error;
 
-      const pending = filteredData
-        .filter(
-          (row) =>
-            row["Planned8"] !== null &&
-            row["Planned8"] !== "" &&
-            (!row["Actual8"] || row["Actual8"] === ""),
-        )
+      const pending = (pageResult.data || [])
         .map((row) => {
           const vendors = getVendorsFromRow(row)
             .filter((vendor) => vendor.technicalTag)
@@ -168,35 +217,13 @@ export default function ManagementApprovals() {
         })
         .filter((item) => item.vendors.length > 0);
 
-      const history = filteredData
-        .filter((row) => row["Actual8"] !== null && row["Actual8"] !== "")
-        .map((row) => {
-          const vendors = getVendorsFromRow(row);
-          const approvedVendor = vendors.find(
-            (vendor) => vendor.name === (row["Approved Vendor Name"] || ""),
-          );
-
-          return {
-            id: row.id,
-            indentId: row["Indent Id."] || "",
-            firmName: row["Firm Name"] || "",
-            indenter: row["Generated By"] || "",
-            department: row["Type Of Indent"] || "",
-            product: row["Material"] || "",
-            actual8: row["Actual8"] || "",
-            approvedVendorName: row["Approved Vendor Name"] || "",
-            approvedRate: row["Approved Rate"] || "0",
-            approvedTag: approvedVendor?.technicalTag || "",
-            indentQty: row["Quantity"] || row["Total Quantity"] || "",
-          };
-        })
-        .sort((a, b) => new Date(b.actual8) - new Date(a.actual8));
+      const trueTotal = (countResult.data || []).filter(
+        (row) => getVendorsFromRow(row).filter((v) => v.technicalTag).length > 0,
+      ).length;
 
       setPendingData(pending);
-      setFilteredPendingData(pending);
-      setHistoryData(history);
-      setFilteredHistoryData(history);
-      updateCount("management", pending.length);
+      pendingPagination.setTotalRows(trueTotal);
+      updateCount("management", trueTotal);
     } catch (err) {
       console.error("Error fetching management approvals:", err);
       setError(err.message || "Failed to load management approvals");
@@ -206,21 +233,92 @@ export default function ManagementApprovals() {
     } finally {
       setLoading(false);
     }
-  }, [updateCount, user]);
+  }, [
+    updateCount,
+    user,
+    selectedFirm,
+    selectedProduct,
+    searchQuery,
+    pendingPagination.page,
+    pendingPagination.pageSize,
+  ]);
+
+  const fetchHistoryData = useCallback(async () => {
+    try {
+      let query = supabase
+        .from("INDENT-PO")
+        .select("*", { count: "exact" })
+        .not("Actual8", "is", null)
+        .order("Actual8", { ascending: false });
+      query = applyFirmFilter(query, user?.firmName, "Firm Name");
+      const q = historySearchQuery.trim().replace(/[%,"]/g, "");
+      if (q) {
+        query = query.or(
+          [
+            `"Indent Id.".ilike.%${q}%`,
+            `"Firm Name".ilike.%${q}%`,
+            `"Material".ilike.%${q}%`,
+            `"Approved Vendor Name".ilike.%${q}%`,
+          ].join(","),
+        );
+      }
+      query = query.range(historyPagination.from, historyPagination.to);
+
+      const { data, error: fetchError, count } = await query;
+      if (fetchError) throw fetchError;
+
+      const history = (data || []).map((row) => {
+        const vendors = getVendorsFromRow(row);
+        const approvedVendor = vendors.find(
+          (vendor) => vendor.name === (row["Approved Vendor Name"] || ""),
+        );
+
+        return {
+          id: row.id,
+          indentId: row["Indent Id."] || "",
+          firmName: row["Firm Name"] || "",
+          indenter: row["Generated By"] || "",
+          department: row["Type Of Indent"] || "",
+          product: row["Material"] || "",
+          actual8: row["Actual8"] || "",
+          approvedVendorName: row["Approved Vendor Name"] || "",
+          approvedRate: row["Approved Rate"] || "0",
+          approvedTag: approvedVendor?.technicalTag || "",
+          indentQty: row["Quantity"] || row["Total Quantity"] || "",
+        };
+      });
+
+      setHistoryData(history);
+      historyPagination.setTotalRows(count || 0);
+    } catch (err) {
+      console.error("Error fetching management approval history:", err);
+    }
+  }, [
+    user,
+    historySearchQuery,
+    historyPagination.page,
+    historyPagination.pageSize,
+  ]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshData]);
+    fetchPendingData();
+    fetchHistoryData();
+    fetchFilterOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshData]);
 
-  // Realtime: Listen for changes in INDENT-PO and refresh
+  // Realtime: Listen for changes in INDENT-PO and refresh (both fetches are
+  // now bounded by pagination, so this no longer re-downloads the full table).
   useRealtime("INDENT-PO", () => {
     setRefreshData((prev) => !prev);
   });
 
   const firmOptions = useMemo(() => {
-    const firms = new Set(pendingData.map((item) => item.firmName));
+    const firms = new Set(
+      filterOptionsRaw.map((row) => String(row["Firm Name"] || "").trim()).filter(Boolean),
+    );
     return ["all", ...Array.from(firms).sort()];
-  }, [pendingData]);
+  }, [filterOptionsRaw]);
 
   const historyFirmOptions = useMemo(() => {
     const firms = new Set(historyData.map((item) => item.firmName));
@@ -228,26 +326,28 @@ export default function ManagementApprovals() {
   }, [historyData]);
 
   const productOptions = useMemo(() => {
-    let filtered = pendingData;
+    let filtered = filterOptionsRaw;
     if (selectedFirm !== "all") {
-      filtered = filtered.filter((item) => item.firmName === selectedFirm);
+      filtered = filtered.filter(
+        (row) => String(row["Firm Name"] || "").trim() === selectedFirm,
+      );
     }
-    const products = new Set(filtered.map((item) => item.product));
+    const products = new Set(
+      filtered.map((row) => String(row["Material"] || "").trim()).filter(Boolean),
+    );
     return ["all", ...Array.from(products).sort()];
-  }, [pendingData, selectedFirm]);
+  }, [filterOptionsRaw, selectedFirm]);
 
   // Reset product when firm changes if the current product is not in the new options
   useEffect(() => {
-    if (selectedFirm !== "all" && selectedProduct !== "all") {
-      const isStillAvailable = pendingData.some(
-        (item) => item.firmName === selectedFirm && item.product === selectedProduct
-      );
-      if (!isStillAvailable) setSelectedProduct("all");
+    if (selectedProduct !== "all" && !productOptions.includes(selectedProduct)) {
+      setSelectedProduct("all");
     }
-  }, [selectedFirm, pendingData]);
+  }, [productOptions, selectedProduct]);
 
-
+  // Filter changes (firm/product/search) reset to page 1 and refetch.
   useEffect(() => {
+<<<<<<< HEAD
     const query = searchQuery.trim().toLowerCase();
     let filtered = [...pendingData];
 
@@ -295,6 +395,46 @@ export default function ManagementApprovals() {
 
     setFilteredHistoryData(filtered);
   }, [historyData, historySearchQuery, selectedHistoryFirm]);
+=======
+    const handle = setTimeout(
+      () => {
+        if (pendingPagination.page !== 1) {
+          pendingPagination.setPage(1);
+        } else {
+          fetchPendingData();
+        }
+      },
+      searchQuery ? 400 : 0,
+    );
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFirm, selectedProduct, searchQuery]);
+
+  useEffect(() => {
+    fetchPendingData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPagination.page, pendingPagination.pageSize]);
+
+  useEffect(() => {
+    const handle = setTimeout(
+      () => {
+        if (historyPagination.page !== 1) {
+          historyPagination.setPage(1);
+        } else {
+          fetchHistoryData();
+        }
+      },
+      historySearchQuery ? 400 : 0,
+    );
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historySearchQuery]);
+
+  useEffect(() => {
+    fetchHistoryData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyPagination.page, historyPagination.pageSize]);
+>>>>>>> 6db88b11b126ef1057eecae38106f58dd0ce3693
 
   const selectedVendor = useMemo(
     () =>
@@ -400,10 +540,10 @@ export default function ManagementApprovals() {
         <Tabs defaultValue="pending">
           <TabsList className="mb-4">
             <TabsTrigger value="pending" className="gap-2">
-              Pending <Badge variant="secondary">{pendingData.length}</Badge>
+              Pending <Badge variant="secondary">{pendingPagination.totalRows}</Badge>
             </TabsTrigger>
             <TabsTrigger value="history" className="gap-2">
-              History <Badge variant="secondary">{historyData.length}</Badge>
+              History <Badge variant="secondary">{historyPagination.totalRows}</Badge>
             </TabsTrigger>
           </TabsList>
 
@@ -557,6 +697,13 @@ export default function ManagementApprovals() {
                   </table>
               </div>
             )}
+            <PaginationControls
+              page={pendingPagination.page}
+              pageSize={pendingPagination.pageSize}
+              totalRows={pendingPagination.totalRows}
+              onPageChange={pendingPagination.setPage}
+              onPageSizeChange={pendingPagination.setPageSize}
+            />
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
@@ -655,6 +802,13 @@ export default function ManagementApprovals() {
                 </table>
               </div>
             )}
+            <PaginationControls
+              page={historyPagination.page}
+              pageSize={historyPagination.pageSize}
+              totalRows={historyPagination.totalRows}
+              onPageChange={historyPagination.setPage}
+              onPageSizeChange={historyPagination.setPageSize}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -57,9 +57,11 @@ import SuperAdminEditModal from "./SuperAdminEditModal";
 import { useNotification } from "../context/NotificationContext";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 import { fetchMasterDataForSelects } from "../utils/masterDataUtils";
 import { uploadFileToStorage } from "../utils/storageUtils";
-import { canViewFirm } from "../utils/firmFilter";
+import { canViewFirm, applyFirmFilter } from "../utils/firmFilter";
 
 function formatTimestamp(timestampStr) {
   if (!timestampStr || typeof timestampStr !== "string") {
@@ -191,6 +193,8 @@ const LIFTS_COLUMNS_META = [
   { header: "Date Of Bill", dataKey: "dateOfBill", toggleable: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
+  { header: "From", dataKey: "from", toggleable: true },
+  { header: "To", dataKey: "to", toggleable: true },
   { header: "Bilty Number", dataKey: "biltyNo", toggleable: true },
   {
     header: "Bilty Image",
@@ -220,6 +224,8 @@ const createEmptyLiftForm = () => ({
   billNo: "",
   dateOfBill: "",
   Arealifting: "",
+  From: "",
+  To: "",
   liftingLeadTime: "",
   truckNo: "",
   driverNo: "",
@@ -266,6 +272,81 @@ const formatMoney = (value) =>
 const makeLiftItemKey = (poNumber, material, uniqueId = "") => {
   const baseKey = `${String(poNumber || "").trim()}::${String(material || "").trim().toLowerCase()}`;
   return uniqueId ? `${baseKey}::${uniqueId}` : baseKey;
+};
+
+// Shapes a raw LIFT-ACCOUNTS row into the display object used by both the
+// paginated table (fetchMaterialLifts) and the CSV export (which fetches its
+// own unpaginated, date-scoped result set).
+const mapLiftRow = (row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberMap) => {
+  let createdAt = "";
+  if (row["Timestamp"]) {
+    try {
+      const d = new Date(row["Timestamp"]);
+      if (!isNaN(d.getTime())) {
+        createdAt = d
+          .toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          })
+          .replace(",", "");
+      }
+    } catch (e) {
+      createdAt = String(row["Timestamp"] || "");
+    }
+  }
+
+  let perMTTransportationRate = "-";
+  const currentRateType = String(row["Type Of Transporting Rate"] || "").trim().toLowerCase();
+  if (currentRateType === "per mt" || currentRateType === "fixed") {
+    const tRate = parseFloat(String(row["Transporter Rate"] || "").trim());
+    const bQty = parseFloat(String(row["Lifting Qty"] || "").trim());
+    if (!isNaN(tRate) && !isNaN(bQty) && bQty !== 0) {
+      perMTTransportationRate = (tRate / bQty).toFixed(2);
+    }
+  }
+
+  const indentKey = String(row["Indent no."] || "").trim();
+  const resolvedPo = indentToPoMap[indentKey] || indentKey;
+
+  return {
+    perMTTransportationRate,
+    _dbId: row.id,
+    id: String(row["Lift No"] || "").trim(),
+    indentNo: resolvedPo,
+    riNo: indentKey,
+    vendorName: String(row["Vendor Name"] || "").trim(),
+    quantity: String(row["Qty"] || "").trim(),
+    material: String(row["Raw Material Name"] || "").trim(),
+    billNo: String(row["Bill No."] || "").trim(),
+    dateOfBill: String(row["Date Of Bill"] || "").trim(),
+    areaName: String(row["Area lifting"] || "").trim(),
+    from: String(row["From"] || "").trim(),
+    to: String(row["To"] || "").trim(),
+    liftingLeadTime: String(row["Lead Time To Reach Factory (days)"] || "").trim(),
+    liftingQty: String(row["Lifting Qty"] || "").trim(),
+    liftType: String(row["Type"] || "").trim(),
+    transporterName: String(row["Transporter Name"] || "").trim(),
+    truckNo: String(row["Truck No."] || "").trim(),
+    driverNo: String(row["Driver No."] || "").trim(),
+    biltyNo: String(row["Bilty No."] || "").trim(),
+    biltyImageUrl: String(row["Bilty Image"] || "").trim(),
+    rateType: String(row["Type Of Transporting Rate"] || "").trim(),
+    rate: String(row["Rate"] || "").trim(),
+    billImageUrl: String(row["Bill Image"] || "").trim(),
+    additionalTruckQty: String(row["Truck Qty"] || "").trim(),
+    createdAtRaw: row["Timestamp"] || "",
+    createdAt: createdAt,
+    firmName: String(row["Firm Name"] || "").trim(),
+    transportRate: String(row["Transporter Rate"] || "").trim(),
+    orderCancelQty: cancelQtyMap[resolvedPo] || "0",
+    cancelReason: cancelReasonMap[resolvedPo] || "",
+    doNumber: doNumberMap[resolvedPo] || "",
+  };
 };
 
 const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
@@ -374,6 +455,8 @@ export default function LiftMaterial() {
     orderNumber: "all",
     transporterName: "all",
   });
+  const liftsPagination = usePagination(100);
+  const [liftFilterOptionsRaw, setLiftFilterOptionsRaw] = useState([]);
   const [exportDateRanges, setExportDateRanges] = useState({
     pending: { from: "", to: "" },
     history: { from: "", to: "" },
@@ -706,19 +789,73 @@ export default function LiftMaterial() {
     }
   }, [SHEET_ID, INDENT_PO_SHEET, user]);
 
+  // Cheap narrow-column fetch used only to populate filter-dropdown option
+  // lists with values from the WHOLE table, independent of which page of
+  // LIFT-ACCOUNTS is currently loaded (keeps dropdowns complete even though
+  // the main row fetch below is paginated).
+  const fetchLiftFilterOptions = useCallback(async () => {
+    try {
+      let query = supabase
+        .from("LIFT-ACCOUNTS")
+        .select(
+          '"Firm Name", "Vendor Name", "Raw Material Name", "Type", "Transporter Name", "Indent no.", "Bill No.", "Lifting Qty", "Truck Qty"',
+        );
+      query = applyFirmFilter(query, user?.firmName, "Firm Name");
+      const { data, error: err } = await query;
+      if (err) throw err;
+      setLiftFilterOptionsRaw(data || []);
+    } catch (err) {
+      console.error("[fetchLiftFilterOptions] failed:", err);
+    }
+  }, [user]);
+
   const fetchMaterialLifts = useCallback(async () => {
     setLoadingLifts(true);
     setError(null);
     try {
-      // Fetch LIFT-ACCOUNTS and INDENT-PO Order Cancel Qty in parallel
+      let liftQuery = supabase
+        .from("LIFT-ACCOUNTS")
+        .select("*", { count: "exact" })
+        .order("Timestamp", { ascending: false });
+
+      liftQuery = applyFirmFilter(liftQuery, user?.firmName, "Firm Name");
+
+      if (filters.firmName !== "all") liftQuery = liftQuery.eq('"Firm Name"', filters.firmName);
+      if (filters.vendorName !== "all") liftQuery = liftQuery.eq('"Vendor Name"', filters.vendorName);
+      if (filters.materialName !== "all") liftQuery = liftQuery.eq('"Raw Material Name"', filters.materialName);
+      if (filters.liftType !== "all") liftQuery = liftQuery.eq('"Type"', filters.liftType);
+      if (filters.transporterName !== "all") liftQuery = liftQuery.eq('"Transporter Name"', filters.transporterName);
+      if (filters.totalQuantity !== "all") {
+        const q = filters.totalQuantity.replace(/"/g, "");
+        liftQuery = liftQuery.or(`"Lifting Qty".eq.${q},"Truck Qty".eq.${q}`);
+      }
+      if (filters.orderNumber !== "all") {
+        const q = filters.orderNumber.replace(/"/g, "");
+        liftQuery = liftQuery.or(`"Indent no.".eq.${q},"Bill No.".eq.${q}`);
+      }
+      const searchTrimmed = searchQuery.trim().replace(/[%,"]/g, "");
+      if (searchTrimmed) {
+        liftQuery = liftQuery.or(
+          [
+            `"Lift No".ilike.%${searchTrimmed}%`,
+            `"Indent no.".ilike.%${searchTrimmed}%`,
+            `"Vendor Name".ilike.%${searchTrimmed}%`,
+            `"Raw Material Name".ilike.%${searchTrimmed}%`,
+            `"Truck No.".ilike.%${searchTrimmed}%`,
+            `"Transporter Name".ilike.%${searchTrimmed}%`,
+            `"Bill No.".ilike.%${searchTrimmed}%`,
+            `"Bilty No.".ilike.%${searchTrimmed}%`,
+          ].join(","),
+        );
+      }
+      liftQuery = liftQuery.range(liftsPagination.from, liftsPagination.to);
+
+      // Fetch LIFT-ACCOUNTS (current page only) and INDENT-PO Order Cancel Qty in parallel
       const [
-        { data, error: fetchError },
+        { data, error: fetchError, count },
         { data: poData, error: poFetchError },
       ] = await Promise.all([
-        supabase
-          .from("LIFT-ACCOUNTS")
-          .select("*")
-          .order("Timestamp", { ascending: false }),
+        liftQuery,
         supabase
           .from("INDENT-PO")
           .select(
@@ -728,6 +865,8 @@ export default function LiftMaterial() {
 
       if (fetchError) throw fetchError;
       if (poFetchError) throw poFetchError;
+
+      liftsPagination.setTotalRows(count || 0);
 
       // Build maps: poNumber -> Cancel Data
       const cancelQtyMap = {};
@@ -753,96 +892,9 @@ export default function LiftMaterial() {
         return acc;
       }, {});
 
-      let formattedData = (data || []).map((row) => {
-        // Format timestamp for display
-        let createdAt = "";
-        if (row["Timestamp"]) {
-          try {
-            const d = new Date(row["Timestamp"]);
-            if (!isNaN(d.getTime())) {
-              createdAt = d
-                .toLocaleString("en-GB", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  hour12: false,
-                })
-                .replace(",", "");
-            }
-          } catch (e) {
-            createdAt = String(row["Timestamp"] || "");
-          }
-        }
-
-        let perMTTransportationRate = "-";
-        const currentRateType = String(row["Type Of Transporting Rate"] || "").trim().toLowerCase();
-        if (currentRateType === "per mt" || currentRateType === "fixed") {
-          const tRate = parseFloat(String(row["Transporter Rate"] || "").trim());
-          const bQty = parseFloat(String(row["Lifting Qty"] || "").trim());
-          if (!isNaN(tRate) && !isNaN(bQty) && bQty !== 0) {
-            perMTTransportationRate = (tRate / bQty).toFixed(2);
-          }
-        }
-
-        return {
-          perMTTransportationRate,
-          _dbId: row.id,
-          id: String(row["Lift No"] || "").trim(),
-          indentNo:
-            indentToPoMap[String(row["Indent no."] || "").trim()] ||
-            String(row["Indent no."] || "").trim(),
-          riNo: String(row["Indent no."] || "").trim(),
-          vendorName: String(row["Vendor Name"] || "").trim(),
-          quantity: String(row["Qty"] || "").trim(),
-          material: String(row["Raw Material Name"] || "").trim(),
-          billNo: String(row["Bill No."] || "").trim(),
-          dateOfBill: String(row["Date Of Bill"] || "").trim(),
-          areaName: String(row["Area lifting"] || "").trim(),
-          liftingLeadTime: String(
-            row["Lead Time To Reach Factory (days)"] || "",
-          ).trim(),
-          liftingQty: String(row["Lifting Qty"] || "").trim(),
-          liftType: String(row["Type"] || "").trim(),
-          transporterName: String(row["Transporter Name"] || "").trim(),
-          truckNo: String(row["Truck No."] || "").trim(),
-          driverNo: String(row["Driver No."] || "").trim(),
-          biltyNo: String(row["Bilty No."] || "").trim(),
-          biltyImageUrl: String(row["Bilty Image"] || "").trim(),
-          rateType: String(row["Type Of Transporting Rate"] || "").trim(),
-          rate: String(row["Rate"] || "").trim(),
-          billImageUrl: String(row["Bill Image"] || "").trim(),
-          additionalTruckQty: String(row["Truck Qty"] || "").trim(),
-          createdAtRaw: row["Timestamp"] || "",
-          createdAt: createdAt,
-          firmName: String(row["Firm Name"] || "").trim(),
-          transportRate: String(row["Transporter Rate"] || "").trim(),
-          orderCancelQty:
-            cancelQtyMap[
-              indentToPoMap[String(row["Indent no."] || "").trim()] ||
-                String(row["Indent no."] || "").trim()
-            ] || "0",
-          cancelReason:
-            cancelReasonMap[
-              indentToPoMap[String(row["Indent no."] || "").trim()] ||
-                String(row["Indent no."] || "").trim()
-            ] || "",
-          doNumber:
-            doNumberMap[
-              indentToPoMap[String(row["Indent no."] || "").trim()] ||
-                String(row["Indent no."] || "").trim()
-            ] || "",
-        };
-      });
-
-      // Filter by user's firm name if applicable
-      if (user?.firmName) {
-        formattedData = formattedData.filter((lift) =>
-          canViewFirm(user.firmName, lift.firmName),
-        );
-      }
+      let formattedData = (data || []).map((row) =>
+        mapLiftRow(row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberMap),
+      );
 
       setMaterialLifts(formattedData);
     } catch (err) {
@@ -855,13 +907,37 @@ export default function LiftMaterial() {
     } finally {
       setLoadingLifts(false);
     }
-  }, [user]);
+  }, [user, filters, searchQuery, liftsPagination.page, liftsPagination.pageSize]);
 
   useEffect(() => {
     fetchPurchaseOrders();
-    fetchMaterialLifts();
     fetchMasterData();
-  }, [fetchPurchaseOrders, fetchMaterialLifts, fetchMasterData]);
+    fetchLiftFilterOptions();
+  }, [fetchPurchaseOrders, fetchMasterData, fetchLiftFilterOptions]);
+
+  // Filter/search changes should reset to page 1. If we're already on page 1
+  // that reset is a no-op, so fetch directly ourselves; otherwise the
+  // page-change effect below fires the fetch.
+  useEffect(() => {
+    const handle = setTimeout(
+      () => {
+        if (liftsPagination.page !== 1) {
+          liftsPagination.setPage(1);
+        } else {
+          fetchMaterialLifts();
+        }
+      },
+      searchQuery ? 400 : 0,
+    );
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, searchQuery]);
+
+  // Page/page-size navigation always triggers an immediate fetch.
+  useEffect(() => {
+    fetchMaterialLifts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liftsPagination.page, liftsPagination.pageSize]);
 
   const handleCancelPendingPO = (po) => {
     setCancelPendingPO({
@@ -991,16 +1067,25 @@ export default function LiftMaterial() {
       if (po.transporterName) transporters.add(po.transporterName);
     });
 
-    materialLifts.forEach((lift) => {
-      if (lift.firmName) firms.add(lift.firmName);
-      if (lift.vendorName) vendors.add(lift.vendorName);
-      if (lift.material) materials.add(lift.material);
-      if (lift.liftType) types.add(lift.liftType);
-      if (lift.liftingQty) quantities.add(lift.liftingQty);
-      if (lift.additionalTruckQty) quantities.add(lift.additionalTruckQty);
-      if (lift.indentNo) orders.add(lift.indentNo);
-      if (lift.billNo) orders.add(lift.billNo);
-      if (lift.transporterName) transporters.add(lift.transporterName);
+    // Sourced from a full (narrow-column) fetch, not the paginated
+    // materialLifts page, so dropdown options stay complete across all pages.
+    liftFilterOptionsRaw.forEach((row) => {
+      const firmName = String(row["Firm Name"] || "").trim();
+      const vendorName = String(row["Vendor Name"] || "").trim();
+      const material = String(row["Raw Material Name"] || "").trim();
+      const liftType = String(row["Type"] || "").trim();
+      const transporterName = String(row["Transporter Name"] || "").trim();
+      const indentNo = String(row["Indent no."] || "").trim();
+      const billNo = String(row["Bill No."] || "").trim();
+      if (firmName) firms.add(firmName);
+      if (vendorName) vendors.add(vendorName);
+      if (material) materials.add(material);
+      if (liftType) types.add(liftType);
+      if (row["Lifting Qty"]) quantities.add(String(row["Lifting Qty"]));
+      if (row["Truck Qty"]) quantities.add(String(row["Truck Qty"]));
+      if (indentNo) orders.add(indentNo);
+      if (billNo) orders.add(billNo);
+      if (transporterName) transporters.add(transporterName);
     });
 
     return {
@@ -1014,7 +1099,7 @@ export default function LiftMaterial() {
       orderNumber: [...orders].sort(),
       transporterName: [...transporters].sort(),
     };
-  }, [purchaseOrders, materialLifts]);
+  }, [purchaseOrders, liftFilterOptionsRaw]);
 
   const parseExportDate = (value) => {
     if (!value) return null;
@@ -1115,66 +1200,11 @@ export default function LiftMaterial() {
     return filtered;
   }, [purchaseOrders, filters, exportDateRanges.pending, searchQuery]);
 
-  const filteredMaterialLifts = useMemo(() => {
-    let filtered = materialLifts;
-    if (filters.firmName !== "all") {
-      filtered = filtered.filter((lift) => lift.firmName === filters.firmName);
-    }
-    if (filters.vendorName !== "all") {
-      filtered = filtered.filter(
-        (lift) => lift.vendorName === filters.vendorName,
-      );
-    }
-    if (filters.materialName !== "all") {
-      filtered = filtered.filter(
-        (lift) => lift.material === filters.materialName,
-      );
-    }
-    if (filters.liftType !== "all") {
-      filtered = filtered.filter((lift) => lift.liftType === filters.liftType);
-    }
-    if (filters.totalQuantity !== "all") {
-      filtered = filtered.filter(
-        (lift) =>
-          lift.liftingQty === filters.totalQuantity ||
-          lift.additionalTruckQty === filters.totalQuantity,
-      );
-    }
-    if (filters.orderNumber !== "all") {
-      filtered = filtered.filter(
-        (lift) =>
-          lift.indentNo === filters.orderNumber ||
-          lift.billNo === filters.orderNumber,
-      );
-    }
-    if (filters.transporterName !== "all") {
-      filtered = filtered.filter(
-        (lift) => lift.transporterName === filters.transporterName,
-      );
-    }
-    const searchLower = searchQuery.trim().toLowerCase();
-    if (searchLower) {
-      filtered = filtered.filter((lift) => {
-        return (
-          String(lift.id || "").toLowerCase().includes(searchLower) ||
-          String(lift.indentNo || "").toLowerCase().includes(searchLower) ||
-          String(lift.riNo || "").toLowerCase().includes(searchLower) ||
-          String(lift.firmName || "").toLowerCase().includes(searchLower) ||
-          String(lift.vendorName || "").toLowerCase().includes(searchLower) ||
-          String(lift.material || "").toLowerCase().includes(searchLower) ||
-          String(lift.truckNo || "").toLowerCase().includes(searchLower) ||
-          String(lift.transporterName || "").toLowerCase().includes(searchLower) ||
-          String(lift.billNo || "").toLowerCase().includes(searchLower) ||
-          String(lift.biltyNo || "").toLowerCase().includes(searchLower) ||
-          String(lift.doNumber || "").toLowerCase().includes(searchLower)
-        );
-      });
-    }
-    filtered = filtered.filter((lift) =>
-      isWithinExportDateRange(lift.createdAtRaw || lift.createdAt, exportDateRanges.history),
-    );
-    return filtered;
-  }, [materialLifts, filters, exportDateRanges.history, searchQuery]);
+  // Filtering/search/date-range is now applied server-side in
+  // fetchMaterialLifts (see filters/searchQuery/exportDateRanges.history
+  // deps there), so `materialLifts` already reflects the current page of
+  // the filtered result set — no client-side re-filtering needed here.
+  const filteredMaterialLifts = materialLifts;
 
   const selectedLiftSummary = useMemo(() => {
     const activeItems = selectedLiftItems.filter(
@@ -1373,9 +1403,6 @@ export default function LiftMaterial() {
   const validateForm = () => {
     const newErrors = {};
     const isCommon = formData.Type === "Common";
-    const activeLiftItems = selectedLiftItems.filter(
-      (item) => String(item.quantityToLift).trim() !== "",
-    );
 
     let requiredFields = [
       "billNo",
@@ -1400,12 +1427,18 @@ export default function LiftMaterial() {
       }
     }
 
+    if (formData.Arealifting === "Direct Supply To Party") {
+      requiredFields.push("From", "To");
+    }
+
     requiredFields.forEach((field) => {
       let readableField = field
         .replace(/([A-Z])/g, " $1")
         .replace(/^./, (str) => str.toUpperCase());
       if (field === "Arealifting") readableField = "Area Lifting";
       if (field === "TransporterName") readableField = "Transporter Name";
+      if (field === "From") readableField = "From";
+      if (field === "To") readableField = "To";
 
       if (!formData[field] || String(formData[field]).trim() === "") {
         newErrors[field] = `${readableField} is required.`;
@@ -1461,14 +1494,16 @@ export default function LiftMaterial() {
 
     if (!selectedLiftItems.length) {
       newErrors.liftItems = "Add at least one product to record a lift.";
-    } else if (!activeLiftItems.length) {
-      newErrors.liftItems =
-        "Enter a lifting quantity for at least one product.";
     } else {
+      // Billing quantity is mandatory for every selected product — a
+      // product left blank here means it silently never gets a LIFT-ACCOUNTS
+      // row (and so never gets an Audit "Material Qty"). Remove it from the
+      // list instead of leaving it blank.
       selectedLiftItems.forEach((item) => {
-        const quantity = toNumber(item.quantityToLift);
-        if (String(item.quantityToLift).trim() === "") return;
-        if (quantity <= 0) {
+        const trimmed = String(item.quantityToLift).trim();
+        if (trimmed === "") {
+          newErrors[`liftItem-${item.key}`] = "Billing quantity is required.";
+        } else if (toNumber(item.quantityToLift) <= 0) {
           newErrors[`liftItem-${item.key}`] =
             "Quantity must be greater than 0.";
         }
@@ -1631,6 +1666,14 @@ export default function LiftMaterial() {
           "Bill No.": formData.billNo,
           "Date Of Bill": formData.dateOfBill || null,
           "Area lifting": formData.Arealifting,
+          From:
+            formData.Arealifting === "Direct Supply To Party"
+              ? formData.From || null
+              : null,
+          To:
+            formData.Arealifting === "Direct Supply To Party"
+              ? formData.To || null
+              : null,
           "Lead Time To Reach Factory (days)":
             Number(formData.liftingLeadTime) || null,
           "Lifting Qty": item.quantityToLift || null,
@@ -1697,6 +1740,7 @@ export default function LiftMaterial() {
           "Type Of Rate": liftAccountData["Type Of Transporting Rate"],
           Rate: liftAccountData["Rate"],
           "Truck Qty": liftAccountData["Truck Qty"],
+          "Lifting Quantity": liftAccountData["Lifting Qty"],
           "Bill Image": liftAccountData["Bill Image"],
           "Bilty No.": liftAccountData["Bilty No."],
           "Bilty Image": liftAccountData["Bilty Image"],
@@ -1860,16 +1904,9 @@ export default function LiftMaterial() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportSection = (section) => {
+  const handleExportSection = async (section) => {
     const isPending = section === "pending";
     const range = exportDateRanges[section];
-    const rows = isPending
-      ? filteredPurchaseOrders.filter((po) =>
-          isWithinExportDateRange(po.plannedRaw || po.planned, range),
-        )
-      : filteredMaterialLifts.filter((lift) =>
-          isWithinExportDateRange(lift.createdAtRaw || lift.createdAt, range),
-        );
     const columns = (isPending ? PO_COLUMNS_META : LIFTS_COLUMNS_META).filter(
       (column) =>
         column.dataKey !== "actionColumn" &&
@@ -1881,6 +1918,101 @@ export default function LiftMaterial() {
     const from = range.from || "all";
     const to = range.to || "all";
     const filename = `${isPending ? "lift-pending" : "lift-history"}_${from}_to_${to}.csv`;
+
+    let rows;
+    if (isPending) {
+      // Available POs are already fully loaded (unpaginated, since pending
+      // qty is computed across all lifts) — filter client-side as before.
+      rows = filteredPurchaseOrders.filter((po) =>
+        isWithinExportDateRange(po.plannedRaw || po.planned, range),
+      );
+    } else {
+      // Material Lifts is paginated on-screen, so the export needs its own
+      // full (unpaginated) fetch of everything matching the current
+      // filters/search plus the chosen export date range.
+      try {
+        let exportQuery = supabase
+          .from("LIFT-ACCOUNTS")
+          .select("*")
+          .order("Timestamp", { ascending: false });
+        exportQuery = applyFirmFilter(exportQuery, user?.firmName, "Firm Name");
+        if (filters.firmName !== "all") exportQuery = exportQuery.eq('"Firm Name"', filters.firmName);
+        if (filters.vendorName !== "all") exportQuery = exportQuery.eq('"Vendor Name"', filters.vendorName);
+        if (filters.materialName !== "all") exportQuery = exportQuery.eq('"Raw Material Name"', filters.materialName);
+        if (filters.liftType !== "all") exportQuery = exportQuery.eq('"Type"', filters.liftType);
+        if (filters.transporterName !== "all") exportQuery = exportQuery.eq('"Transporter Name"', filters.transporterName);
+        if (filters.totalQuantity !== "all") {
+          const q = filters.totalQuantity.replace(/"/g, "");
+          exportQuery = exportQuery.or(`"Lifting Qty".eq.${q},"Truck Qty".eq.${q}`);
+        }
+        if (filters.orderNumber !== "all") {
+          const q = filters.orderNumber.replace(/"/g, "");
+          exportQuery = exportQuery.or(`"Indent no.".eq.${q},"Bill No.".eq.${q}`);
+        }
+        const searchTrimmed = searchQuery.trim().replace(/[%,"]/g, "");
+        if (searchTrimmed) {
+          exportQuery = exportQuery.or(
+            [
+              `"Lift No".ilike.%${searchTrimmed}%`,
+              `"Indent no.".ilike.%${searchTrimmed}%`,
+              `"Vendor Name".ilike.%${searchTrimmed}%`,
+              `"Raw Material Name".ilike.%${searchTrimmed}%`,
+              `"Truck No.".ilike.%${searchTrimmed}%`,
+              `"Transporter Name".ilike.%${searchTrimmed}%`,
+              `"Bill No.".ilike.%${searchTrimmed}%`,
+              `"Bilty No.".ilike.%${searchTrimmed}%`,
+            ].join(","),
+          );
+        }
+        if (range.from) {
+          const fromDate = new Date(range.from);
+          fromDate.setHours(0, 0, 0, 0);
+          exportQuery = exportQuery.gte("Timestamp", fromDate.toISOString());
+        }
+        if (range.to) {
+          const toDate = new Date(range.to);
+          toDate.setHours(23, 59, 59, 999);
+          exportQuery = exportQuery.lte("Timestamp", toDate.toISOString());
+        }
+
+        const [{ data, error: fetchError }, { data: poData, error: poFetchError }] =
+          await Promise.all([
+            exportQuery,
+            supabase
+              .from("INDENT-PO")
+              .select(
+                'id, "Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty", po_number, "Delivery Order No."',
+              ),
+          ]);
+        if (fetchError) throw fetchError;
+        if (poFetchError) throw poFetchError;
+
+        const cancelQtyMap = {};
+        const cancelReasonMap = {};
+        const doNumberMap = {};
+        (poData || []).forEach((row) => {
+          const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
+          if (poNumber) {
+            cancelQtyMap[poNumber] = String(row["Order Cancel Qty"] || "").trim();
+            cancelReasonMap[poNumber] = String(row["Reason Of Cancel Qty"] || "").trim();
+            doNumberMap[poNumber] = String(row["Delivery Order No."] || "").trim();
+          }
+        });
+        const indentToPoMap = (poData || []).reduce((acc, row) => {
+          const indent = String(row["Indent Id."] || "").trim();
+          const poNumber = String(row.po_number || indent).trim();
+          if (indent) acc[indent] = poNumber;
+          return acc;
+        }, {});
+
+        rows = (data || []).map((row) =>
+          mapLiftRow(row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberMap),
+        );
+      } catch (err) {
+        toast.error(`Failed to prepare export: ${err.message}`);
+        return;
+      }
+    }
 
     if (rows.length === 0) {
       toast.warning("No data found for selected date range.");
@@ -1962,7 +2094,7 @@ export default function LiftMaterial() {
                   variant="secondary"
                   className="ml-1.5 px-1.5 py-0.5 text-xs"
                 >
-                  {filteredMaterialLifts.length}
+                  {liftsPagination.totalRows}
                 </Badge>
               </TabsTrigger>
             </TabsList>
@@ -2370,7 +2502,7 @@ export default function LiftMaterial() {
                     <div className="min-w-0">
                       <CardTitle className="flex items-center text-sm font-semibold text-foreground">
                         <History className="h-4 w-4 text-[#7da23a] mr-2" /> All
-                        Material Lifts ({filteredMaterialLifts.length})
+                        Material Lifts ({liftsPagination.totalRows})
                       </CardTitle>
                       <CardDescription className="text-xs text-muted-foreground mt-0.5">
                         Sorted from latest to oldest recorded lift.
@@ -2595,6 +2727,13 @@ export default function LiftMaterial() {
                       </table>
                     </div>
                   )}
+                  <PaginationControls
+                    page={liftsPagination.page}
+                    pageSize={liftsPagination.pageSize}
+                    totalRows={liftsPagination.totalRows}
+                    onPageChange={liftsPagination.setPage}
+                    onPageSizeChange={liftsPagination.setPageSize}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -2731,7 +2870,7 @@ export default function LiftMaterial() {
                           <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lifted</th>
                           <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Pending</th>
                           <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Rate</th>
-                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift Qty</th>
+                          <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift Qty <span className="text-red-500">*</span></th>
                           <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-right bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Amount</th>
                           <th className="px-3 py-2 text-xs font-bold text-slate-700 uppercase text-center bg-slate-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Remove</th>
                         </tr>
@@ -2781,7 +2920,7 @@ export default function LiftMaterial() {
                                     e.target.value,
                                   )
                                 }
-                                className="h-8 ml-auto text-right w-28 text-xs"
+                                className={`h-8 ml-auto text-right w-28 text-xs ${formErrors[`liftItem-${item.key}`] ? "border-red-500" : ""}`}
                               />
                               {formErrors[`liftItem-${item.key}`] && (
                                 <p className="mt-1 text-xs text-red-600">
@@ -2841,6 +2980,22 @@ export default function LiftMaterial() {
                       ],
                       isRequired: true,
                     },
+                    ...(formData.Arealifting === "Direct Supply To Party"
+                      ? [
+                          {
+                            label: "From",
+                            name: "From",
+                            type: "text",
+                            isRequired: true,
+                          },
+                          {
+                            label: "To",
+                            name: "To",
+                            type: "text",
+                            isRequired: true,
+                          },
+                        ]
+                      : []),
                     {
                       label: "Lead Time (Days)",
                       name: "liftingLeadTime",

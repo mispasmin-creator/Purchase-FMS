@@ -696,6 +696,7 @@ export default function LabTesting() {
             typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
             rate: String(row["Rate"] || "").trim(),
             truckQty: String(row["Truck Qty"] || "").trim(),
+            liftingQty: String(row["Lifting Qty"] || "").trim(),
             biltyNo: String(row["Bilty No."] || "").trim(),
             biltyImage: String(row["Bilty Image"] || "").trim(),
             dateOfReceiving_formatted: formatTimestamp(
@@ -1301,6 +1302,7 @@ export default function LabTesting() {
         "Type Of Rate": selectedReceiptForModal.typeOfRate || null,
         Rate: selectedReceiptForModal.rate || null,
         "Truck Qty": selectedReceiptForModal.truckQty || null,
+        "Lifting Quantity": selectedReceiptForModal.liftingQty || null,
         "Bilty Image": selectedReceiptForModal.biltyImage || null,
         "Total Freight": selectedReceiptForModal.transporterRate || null,
         Planned2: timestamp,
@@ -1940,421 +1942,376 @@ export default function LabTesting() {
         />
       )}
       <Dialog open={isModalOpen} onOpenChange={handleModalClose}>
-        <DialogContent className="sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="pb-4 mb-4 border-b">
-            <DialogTitle className="flex items-center gap-2 text-lg md:text-xl text-foreground">
-              <Beaker className="h-6 w-6 text-[#7da23a]" />
+        <DialogContent className="sm:max-w-3xl lg:max-w-4xl xl:max-w-5xl p-0 overflow-hidden bg-slate-50/50 shadow-2xl border-0 rounded-xl">
+          <DialogHeader className="px-6 py-5 bg-white border-b shadow-sm z-10 relative">
+            <DialogTitle className="flex items-center gap-3 text-xl text-slate-800">
+              <div className="p-2.5 bg-[#7da23a]/10 rounded-lg shadow-sm">
+                <Beaker className="h-5 w-5 text-[#7da23a]" />
+              </div>
               Record Lab Test for Lift ID:{" "}
-              <span className="ml-1 font-bold text-primary">
+              <span className="font-bold text-[#7da23a] ml-1">
                 {selectedReceiptForModal?.liftNo}
               </span>
             </DialogTitle>
-            <DialogDescription className="mt-1 text-xs text-muted-foreground">
-              PO: {selectedReceiptForModal?.indentNo || "N/A"} | Party:{" "}
-              {selectedReceiptForModal?.vendorName || "N/A"} | Material:{" "}
-              {selectedReceiptForModal?.rawMaterialName || "N/A"}
+            <DialogDescription className="mt-3 text-sm text-slate-600 font-medium flex flex-wrap items-center gap-2">
+              <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md shadow-sm">PO: {selectedReceiptForModal?.indentNo || "N/A"}</span>
+              <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md shadow-sm">Party: {selectedReceiptForModal?.vendorName || "N/A"}</span>
+              <span className="bg-[#7da23a]/5 border border-[#7da23a]/20 text-[#6b8e2f] px-2.5 py-1 rounded-md shadow-sm">Material: {selectedReceiptForModal?.rawMaterialName || "N/A"}</span>
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitLabTest} className="px-1 py-2 space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-4">
-              <div>
-                <Label className="text-xs text-foreground" htmlFor="alStatus">
-                  AL: Status <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  name="alStatus"
-                  value={formData.alStatus || undefined}
-                  onValueChange={handleSelectChange("alStatus")}
-                >
-                  <SelectTrigger
-                    className={`w-full h-9 mt-1 rounded-md text-xs ${!formData.alStatus ? "text-muted-foreground" : ""} ${formErrors.alStatus ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                  >
-                    <SelectValue placeholder="Select Accepted / Rejected" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Accepted">Accepted</SelectItem>
-                    <SelectItem value="Rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-                {formErrors.alStatus && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.alStatus}
-                  </p>
-                )}
+          <form onSubmit={handleSubmitLabTest} className="flex flex-col h-full max-h-[80vh]">
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+              
+              {/* Primary Details Section */}
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                <h4 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                  <ShieldCheck className="w-4 h-4 text-[#7da23a]" />
+                  Status & Date
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-700" htmlFor="alStatus">
+                      AL: Status <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      name="alStatus"
+                      value={formData.alStatus || undefined}
+                      onValueChange={handleSelectChange("alStatus")}
+                    >
+                      <SelectTrigger
+                        className={`w-full h-10 mt-1.5 rounded-md text-sm transition-all ${!formData.alStatus ? "text-slate-500" : "text-slate-900"} ${formErrors.alStatus ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      >
+                        <SelectValue placeholder="Select Accepted / Rejected" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Accepted">Accepted</SelectItem>
+                        <SelectItem value="Rejected">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {formErrors.alStatus && (
+                      <p className="mt-1.5 text-xs text-red-500 font-medium">
+                        {formErrors.alStatus}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-700" htmlFor="amDateOfTest">
+                      Date Of Test <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      type="date"
+                      id="amDateOfTest"
+                      name="amDateOfTest"
+                      value={formData.amDateOfTest}
+                      onChange={handleInputChange}
+                      className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.amDateOfTest ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                    />
+                    {formErrors.amDateOfTest && (
+                      <p className="mt-1.5 text-xs text-red-500 font-medium">
+                        {formErrors.amDateOfTest}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label
-                  className="text-xs text-foreground"
-                  htmlFor="amDateOfTest"
-                >
-                  Date Of Test <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="date"
-                  id="amDateOfTest"
-                  name="amDateOfTest"
-                  value={formData.amDateOfTest}
-                  onChange={handleInputChange}
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.amDateOfTest ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.amDateOfTest && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.amDateOfTest}
-                  </p>
-                )}
-              </div>
 
-              {formData.alStatus !== "Rejected" ? (
-                <>
-                  {/* Moisture % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="anMoisturePercent"
-                    >
-                      Moisture % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="anMoisturePercent"
-                      name="anMoisturePercent"
-                      value={formData.anMoisturePercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.anMoisturePercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.anMoisturePercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.anMoisturePercent}
-                      </p>
-                    )}
+              {formData.alStatus !== "Rejected" && (
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    <Beaker className="w-4 h-4 text-[#7da23a]" />
+                    Chemical Properties Analysis
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {/* Moisture % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="anMoisturePercent">
+                        Moisture % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="anMoisturePercent"
+                        name="anMoisturePercent"
+                        value={formData.anMoisturePercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 5.2"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.anMoisturePercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.anMoisturePercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.anMoisturePercent}</p>
+                      )}
+                    </div>
+
+                    {/* BD % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="aoBdPercent">
+                        BD % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="aoBdPercent"
+                        name="aoBdPercent"
+                        value={formData.aoBdPercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 1.4"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.aoBdPercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.aoBdPercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.aoBdPercent}</p>
+                      )}
+                    </div>
+
+                    {/* AP % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="apApPercent">
+                        AP % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="apApPercent"
+                        name="apApPercent"
+                        value={formData.apApPercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 22.5"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.apApPercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.apApPercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.apApPercent}</p>
+                      )}
+                    </div>
+
+                    {/* Alumina % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="aqAluminaPercent">
+                        Alumina % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="aqAluminaPercent"
+                        name="aqAluminaPercent"
+                        value={formData.aqAluminaPercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 45.3"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.aqAluminaPercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.aqAluminaPercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.aqAluminaPercent}</p>
+                      )}
+                    </div>
+
+                    {/* Iron % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="arIronPercent">
+                        Iron % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="arIronPercent"
+                        name="arIronPercent"
+                        value={formData.arIronPercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 1.2"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.arIronPercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.arIronPercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.arIronPercent}</p>
+                      )}
+                    </div>
+
+                    {/* Sieve Analysis Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="asSieveAnalysis">
+                        Sieve Analysis <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="asSieveAnalysis"
+                        name="asSieveAnalysis"
+                        value={formData.asSieveAnalysis}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 98.5"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.asSieveAnalysis ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.asSieveAnalysis && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.asSieveAnalysis}</p>
+                      )}
+                    </div>
+
+                    {/* LOI % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="atLoiPercent">
+                        LOI % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="atLoiPercent"
+                        name="atLoiPercent"
+                        value={formData.atLoiPercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 12.4"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.atLoiPercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.atLoiPercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.atLoiPercent}</p>
+                      )}
+                    </div>
+
+                    {/* SiO2 % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="auSio2Percent">
+                        SiO2 % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="auSio2Percent"
+                        name="auSio2Percent"
+                        value={formData.auSio2Percent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 40.1"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.auSio2Percent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.auSio2Percent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.auSio2Percent}</p>
+                      )}
+                    </div>
+
+                    {/* CaO % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="avCaoPercent">
+                        CaO % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="avCaoPercent"
+                        name="avCaoPercent"
+                        value={formData.avCaoPercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 0.5"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.avCaoPercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.avCaoPercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.avCaoPercent}</p>
+                      )}
+                    </div>
+
+                    {/* MgO % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="awMgoPercent">
+                        MgO % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="awMgoPercent"
+                        name="awMgoPercent"
+                        value={formData.awMgoPercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 0.3"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.awMgoPercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.awMgoPercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.awMgoPercent}</p>
+                      )}
+                    </div>
+
+                    {/* TiO2 % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="axTio2Percent">
+                        TiO2 % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="axTio2Percent"
+                        name="axTio2Percent"
+                        value={formData.axTio2Percent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 1.5"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.axTio2Percent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.axTio2Percent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.axTio2Percent}</p>
+                      )}
+                    </div>
+
+                    {/* K2O+Na2O % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="ayKna2oPercent">
+                        K2O+Na2O % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="ayKna2oPercent"
+                        name="ayKna2oPercent"
+                        value={formData.ayKna2oPercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 0.8"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.ayKna2oPercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.ayKna2oPercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.ayKna2oPercent}</p>
+                      )}
+                    </div>
+
+                    {/* Free Iron % Field */}
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-700" htmlFor="azFreeIronPercent">
+                        Free Iron % <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        id="azFreeIronPercent"
+                        name="azFreeIronPercent"
+                        value={formData.azFreeIronPercent}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 0.1"
+                        className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.azFreeIronPercent ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                      />
+                      {formErrors.azFreeIronPercent && (
+                        <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.azFreeIronPercent}</p>
+                      )}
+                    </div>
                   </div>
+                </div>
+              )}
 
-                  {/* BD % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="aoBdPercent"
-                    >
-                      BD % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="aoBdPercent"
-                      name="aoBdPercent"
-                      value={formData.aoBdPercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.aoBdPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.aoBdPercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.aoBdPercent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* AP % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="apApPercent"
-                    >
-                      AP % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="apApPercent"
-                      name="apApPercent"
-                      value={formData.apApPercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.apApPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.apApPercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.apApPercent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Alumina % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="aqAluminaPercent"
-                    >
-                      Alumina % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="aqAluminaPercent"
-                      name="aqAluminaPercent"
-                      value={formData.aqAluminaPercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.aqAluminaPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.aqAluminaPercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.aqAluminaPercent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Iron % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="arIronPercent"
-                    >
-                      Iron % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="arIronPercent"
-                      name="arIronPercent"
-                      value={formData.arIronPercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.arIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.arIronPercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.arIronPercent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Sieve Analysis Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="asSieveAnalysis"
-                    >
-                      Sieve Analysis <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="asSieveAnalysis"
-                      name="asSieveAnalysis"
-                      value={formData.asSieveAnalysis}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.asSieveAnalysis ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.asSieveAnalysis && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.asSieveAnalysis}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* LOI % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="atLoiPercent"
-                    >
-                      LOI % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="atLoiPercent"
-                      name="atLoiPercent"
-                      value={formData.atLoiPercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.atLoiPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.atLoiPercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.atLoiPercent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* SiO2 % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="auSio2Percent"
-                    >
-                      SiO2 % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="auSio2Percent"
-                      name="auSio2Percent"
-                      value={formData.auSio2Percent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.auSio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.auSio2Percent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.auSio2Percent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* CaO % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="avCaoPercent"
-                    >
-                      CaO % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="avCaoPercent"
-                      name="avCaoPercent"
-                      value={formData.avCaoPercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.avCaoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.avCaoPercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.avCaoPercent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* MgO % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="awMgoPercent"
-                    >
-                      MgO % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="awMgoPercent"
-                      name="awMgoPercent"
-                      value={formData.awMgoPercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.awMgoPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.awMgoPercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.awMgoPercent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* TiO2 % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="axTio2Percent"
-                    >
-                      TiO2 % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="axTio2Percent"
-                      name="axTio2Percent"
-                      value={formData.axTio2Percent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.axTio2Percent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.axTio2Percent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.axTio2Percent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* K2O+Na2O % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="ayKna2oPercent"
-                    >
-                      K2O+Na2O % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="ayKna2oPercent"
-                      name="ayKna2oPercent"
-                      value={formData.ayKna2oPercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.ayKna2oPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.ayKna2oPercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.ayKna2oPercent}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Free Iron % Field */}
-                  <div>
-                    <Label
-                      className="text-xs text-foreground"
-                      htmlFor="azFreeIronPercent"
-                    >
-                      Free Iron % <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      id="azFreeIronPercent"
-                      name="azFreeIronPercent"
-                      value={formData.azFreeIronPercent}
-                      onChange={handleInputChange}
-                      placeholder=""
-                      className={`h-9 mt-1 rounded-md text-xs ${formErrors.azFreeIronPercent ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                    />
-                    {formErrors.azFreeIronPercent && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {formErrors.azFreeIronPercent}
-                      </p>
-                    )}
-                  </div>
-                </>
-              ) : null}
-
-              {/* Reason Field */}
-              <div className="sm:col-span-2 md:col-span-3 lg:col-span-4">
-                <Label className="text-xs text-foreground" htmlFor="baReason">
-                  Reason {formData.alStatus === "Rejected" && <span className="text-destructive">*</span>}
-                </Label>
-                <Input
-                  type="text"
-                  id="baReason"
-                  name="baReason"
-                  value={formData.baReason}
-                  onChange={handleInputChange}
-                  placeholder="Enter reason if any..."
-                  className={`h-9 mt-1 rounded-md text-xs ${formErrors.baReason ? "border-destructive" : "border-gray-300 focus:ring-[#6b8e2f] focus:border-[#6b8e2f]"}`}
-                />
-                {formErrors.baReason && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {formErrors.baReason}
-                  </p>
-                )}
+              {/* Additional Notes Section */}
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                <h4 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                  <Info className="w-4 h-4 text-[#7da23a]" />
+                  Additional Notes
+                </h4>
+                <div className="w-full">
+                  <Label className="text-xs font-semibold text-slate-700" htmlFor="baReason">
+                    Reason {formData.alStatus === "Rejected" && <span className="text-red-500">*</span>}
+                  </Label>
+                  <Input
+                    type="text"
+                    id="baReason"
+                    name="baReason"
+                    value={formData.baReason}
+                    onChange={handleInputChange}
+                    placeholder="Enter reason or additional comments if any..."
+                    className={`h-10 mt-1.5 rounded-md text-sm transition-all ${formErrors.baReason ? "border-red-400 focus:ring-red-400 bg-red-50/50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 focus:bg-white focus:ring-[#7da23a] focus:border-[#7da23a]"}`}
+                  />
+                  {formErrors.baReason && (
+                    <p className="mt-1.5 text-xs text-red-500 font-medium">{formErrors.baReason}</p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <DialogFooter className="flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-end">
+            <div className="px-6 py-4 bg-white border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 z-10 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleModalClose}
+                className="rounded-lg shadow-sm font-medium border-slate-300 hover:bg-slate-50 hover:text-slate-900"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmitting || !selectedReceiptForModal}
-                className={`bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] text-white font-semibold shadow-md hover:opacity-90 transition-opacity flex items-center justify-center min-w-[100px] ${isSubmitting || !selectedReceiptForModal ? "opacity-70 cursor-not-allowed" : ""}`}
+                className={`rounded-lg bg-gradient-to-r from-[#7da23a] to-[#6b8e2f] hover:from-[#6b8e2f] hover:to-[#5a7a25] text-white font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center min-w-[140px] ${isSubmitting || !selectedReceiptForModal ? "opacity-70 cursor-not-allowed" : ""}`}
               >
                 {isSubmitting ? (
                   <>
@@ -2365,7 +2322,7 @@ export default function LabTesting() {
                   "Record Lab Test"
                 )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

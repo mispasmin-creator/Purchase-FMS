@@ -63,7 +63,7 @@ const StatusBadge = ({ value }) => (
   </span>
 );
 
-// Helper to compute and format Qty Difference Status dynamically (Truck Qty - Material Qty)
+// Helper to compute and format Qty Difference Status dynamically (Material Qty - Truck Qty)
 export const getQtyDifference = (row) => {
   const liftQty = parseFloat(row.liftingQty);
   const trkQty = parseFloat(row.truckQty);
@@ -205,6 +205,11 @@ export const StandardRow = ({
           {row.tallyRemarks || '-'}
         </td>
       )}
+      {visibleColumns.reCheckingRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.reCheckingRemarks}>
+          {row.reCheckingRemarks || '-'}
+        </td>
+      )}
       {visibleColumns.billRemarks && (
         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.billRemarks}>
           {row.billRemarks || '-'}
@@ -263,6 +268,7 @@ export const StandardRow = ({
       {visibleColumns.rectifyStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.rectifyStatus} /></td>}
       {visibleColumns.reAuditStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.reAuditStatus} /></td>}
       {visibleColumns.tallyStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.tallyStatus} /></td>}
+      {visibleColumns.reCheckingStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.reCheckingStatus} /></td>}
       {visibleColumns.status && (
         <td className="px-4 py-3 whitespace-nowrap">
           <StatusBadge value={row.status} />
@@ -328,6 +334,9 @@ export const ParentRow = ({
 
   const tallyRemarksList = [...new Set(group.items.map(i => i.tallyRemarks).filter(Boolean))];
   const displayTallyRemarks = tallyRemarksList.length === 1 ? tallyRemarksList[0] : (tallyRemarksList.length > 1 ? 'Multiple' : '-');
+
+  const reCheckingRemarksList = [...new Set(group.items.map(i => i.reCheckingRemarks).filter(Boolean))];
+  const displayReCheckingRemarks = reCheckingRemarksList.length === 1 ? reCheckingRemarksList[0] : (reCheckingRemarksList.length > 1 ? 'Multiple' : '-');
 
   const billRemarksList = [...new Set(group.items.map(i => i.billRemarks).filter(Boolean))];
   const displayBillRemarks = billRemarksList.length === 1 ? billRemarksList[0] : (billRemarksList.length > 1 ? 'Multiple' : '-');
@@ -403,6 +412,8 @@ export const ParentRow = ({
   const displayReAuditStatus = reAuditStatuses.length === 1 ? reAuditStatuses[0] : (reAuditStatuses.length > 1 ? 'Multiple' : '-');
   const tallyStatuses = [...new Set(group.items.map(i => i.tallyStatus).filter(Boolean))];
   const displayTallyStatus = tallyStatuses.length === 1 ? tallyStatuses[0] : (tallyStatuses.length > 1 ? 'Multiple' : '-');
+  const reCheckingStatuses = [...new Set(group.items.map(i => i.reCheckingStatus).filter(Boolean))];
+  const displayReCheckingStatus = reCheckingStatuses.length === 1 ? reCheckingStatuses[0] : (reCheckingStatuses.length > 1 ? 'Multiple' : '-');
 
   return (
     <tr 
@@ -522,6 +533,11 @@ export const ParentRow = ({
           {renderCellVal(displayTallyRemarks)}
         </td>
       )}
+      {visibleColumns.reCheckingRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate" title={displayReCheckingRemarks === 'Multiple' ? 'Multiple remarks' : displayReCheckingRemarks}>
+          {renderCellVal(displayReCheckingRemarks)}
+        </td>
+      )}
       {visibleColumns.billRemarks && (
         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate" title={displayBillRemarks === 'Multiple' ? 'Multiple remarks' : displayBillRemarks}>
           {renderCellVal(displayBillRemarks)}
@@ -548,6 +564,7 @@ export const ParentRow = ({
       {visibleColumns.rectifyStatus && <td className="px-4 py-3 whitespace-nowrap">{displayRectifyStatus === 'Multiple' ? renderCellVal(displayRectifyStatus) : <StatusBadge value={displayRectifyStatus} />}</td>}
       {visibleColumns.reAuditStatus && <td className="px-4 py-3 whitespace-nowrap">{displayReAuditStatus === 'Multiple' ? renderCellVal(displayReAuditStatus) : <StatusBadge value={displayReAuditStatus} />}</td>}
       {visibleColumns.tallyStatus && <td className="px-4 py-3 whitespace-nowrap">{displayTallyStatus === 'Multiple' ? renderCellVal(displayTallyStatus) : <StatusBadge value={displayTallyStatus} />}</td>}
+      {visibleColumns.reCheckingStatus && <td className="px-4 py-3 whitespace-nowrap">{displayReCheckingStatus === 'Multiple' ? renderCellVal(displayReCheckingStatus) : <StatusBadge value={displayReCheckingStatus} />}</td>}
       {visibleColumns.status && (
         <td className="px-4 py-3 whitespace-nowrap">
           {displayStatus === 'Multiple' ? (
@@ -659,6 +676,11 @@ export const SubRow = ({
           {row.tallyRemarks || '-'}
         </td>
       )}
+      {visibleColumns.reCheckingRemarks && (
+        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.reCheckingRemarks}>
+          {row.reCheckingRemarks || '-'}
+        </td>
+      )}
       {visibleColumns.billRemarks && (
         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 max-w-xs truncate" title={row.billRemarks}>
           {row.billRemarks || '-'}
@@ -717,6 +739,7 @@ export const SubRow = ({
       {visibleColumns.rectifyStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.rectifyStatus} /></td>}
       {visibleColumns.reAuditStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.reAuditStatus} /></td>}
       {visibleColumns.tallyStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.tallyStatus} /></td>}
+      {visibleColumns.reCheckingStatus && <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.reCheckingStatus} /></td>}
       {visibleColumns.status && (
         <td className="px-4 py-3 whitespace-nowrap">
           <StatusBadge value={row.status} />

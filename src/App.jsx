@@ -15,6 +15,7 @@ import StockApproval from "./components/StockApproval";
 import GeneratePO from "./components/generate-po";
 import TallyEntry from "./components/tally-entry";
 import LiftMaterial from "./components/lift-material";
+import CrmPage from "./components/CrmPage";
 import ReceiptCheck from "./components/receipt-check";
 import LabTesting from "./components/lab-testing";
 import FinalTallyEntry from "./components/final-tally-entry";
@@ -30,7 +31,6 @@ import TolrancePage from "./components/Tolrance";
 import Mismatch from "./components/Mis-match";
 import DebitNote from "./components/Debit-note";
 import SaleOfRawMaterial from "./components/SaleOfRawMaterial";
-import PurchaserCoordinate from "./components/PurchaserCoordinate";
 import PurchaseReturnPage from "./components/PurchaseReturnPage";
 import ManageUsers from "./components/ManageUsers";
 import POHistory from "./components/POHistory";
@@ -91,7 +91,6 @@ import {
   AlertTriangle,
   ShoppingBag,
   CheckCircle2,
-  PhoneCall,
   Users,
   History,
   BarChart3,
@@ -278,6 +277,17 @@ function App() {
       component: <LiftMaterial />,
     },
     {
+      id: "crm",
+      label: "CRM",
+      path: "/crm",
+      icon: <Users size={20} />,
+      stepName: "CRM",
+      showNotification: true,
+      countKey: "crm",
+      countLabel: "Pending",
+      component: <CrmPage />,
+    },
+    {
       id: "receipt-check",
       label: "Receipt",
       path: "/receipt",
@@ -351,17 +361,6 @@ function App() {
       showNotification: false,
       component: <PurchaseReturnPage />,
       hidden: false,
-    },
-    {
-      id: "purchaser-coordinate",
-      label: "Purchaser Coord.",
-      path: "/purchaser-coordinate",
-      icon: <PhoneCall size={20} />,
-      stepName: "mismatch", // Coordination is closely tied to mismatch resolution roles
-      showNotification: true,
-      countKey: "purchaser-coordinate",
-      countLabel: "Pending",
-      component: <PurchaserCoordinate />,
     },
     {
       id: "audit-data",

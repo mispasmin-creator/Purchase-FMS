@@ -454,6 +454,15 @@ export default function ThreeParty() {
       return;
     }
 
+    // Validate mandatory Al2O3 and Fe2O3 for selected vendors
+    const missingSpecs = vendorForms.some(
+      (v) => v.name && (!v.alumina || !v.iron)
+    );
+    if (missingSpecs) {
+      toast.error("Al₂O₃ and Fe₂O₃ are mandatory for all selected vendors");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const formatVendor = (v) => {
@@ -1538,23 +1547,20 @@ export default function ThreeParty() {
                         </div>
                         <div>
                           <Label className="block mb-2 text-xs font-medium text-gray-600">
-                            Chemical Analysis (%) <span className="text-red-500">*</span>
+                            Chemical Analysis (%)
                           </Label>
-                          <p className="mb-2 text-[10px] text-gray-400">
-                            Optional
-                          </p>
                           <div className="grid grid-cols-3 gap-2">
                             {[
-                              ["alumina", "Al₂O₃"],
-                              ["iron", "Fe₂O₃"],
-                              ["sio2", "SiO₂"],
-                              ["cao", "CaO"],
-                              ["ap", "AP"],
-                              ["bd", "BD"],
-                            ].map(([field, label]) => (
+                              ["alumina", "Al₂O₃", true],
+                              ["iron", "Fe₂O₃", true],
+                              ["sio2", "SiO₂", false],
+                              ["cao", "CaO", false],
+                              ["ap", "AP", false],
+                              ["bd", "BD", false],
+                            ].map(([field, label, isMandatory]) => (
                               <div key={field}>
                                 <Label className="block mb-1 text-[9px] text-gray-500">
-                                  {label}
+                                  {label} {isMandatory && <span className="text-red-500">*</span>}
                                 </Label>
                                 <Input
                                   type="text"

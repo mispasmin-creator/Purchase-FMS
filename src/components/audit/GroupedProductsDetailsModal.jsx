@@ -50,8 +50,8 @@ const GroupedProductsDetailsModal = ({ viewGroupItems, setViewGroupItems }) => {
                   <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Bilty No</th>
                   <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Type Of Rate</th>
                   <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Material Rate</th>
-                  <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Material Qty</th>
                   <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Truck Qty</th>
+                  <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Material Qty</th>
                   <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Bilty Image</th>
                   <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Qty Diff Status</th>
                   <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Weight Slip</th>

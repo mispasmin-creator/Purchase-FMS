@@ -829,12 +829,12 @@ export default function MismatchAnalysis() {
       const [res1, res2] = await Promise.all([
         supabase
           .from("INDENT-PO")
-          .select('"Indent Id.", po_number, "Firm Name", "Vendor name", Vendor, Material, Quantity, Rate, "Pending PO Qty", "Approved Qty", "Approval Status", "Order Cancel Qty", "Reason Of Cancel Qty", Status, "Alumina %", "Iron %", Timestamp')
+          .select('"Indent Id.", po_number, "Firm Name", "Vendor name", Vendor, Material, Quantity, Rate, "Pending PO Qty", "Approved Qty", "Approval Status", "Order Cancel Qty", "Reason Of Cancel Qty", Status, "Alumina %", "Iron %", "Alumina 1", "Iron 1", "Alumina 2", "Iron 2", "Alumina 3", "Iron 3", Timestamp')
           .in("po_number", indentIds),
         supabase
           .from("INDENT-PO")
-          .select('"Indent Id.", po_number, "Firm Name", "Vendor name", Vendor, Material, Quantity, Rate, "Pending PO Qty", "Approved Qty", "Approval Status", "Order Cancel Qty", "Reason Of Cancel Qty", Status, "Alumina %", "Iron %", Timestamp')
-          .in("Indent Id.", indentIds)
+          .select('"Indent Id.", po_number, "Firm Name", "Vendor name", Vendor, Material, Quantity, Rate, "Pending PO Qty", "Approved Qty", "Approval Status", "Order Cancel Qty", "Reason Of Cancel Qty", Status, "Alumina %", "Iron %", "Alumina 1", "Iron 1", "Alumina 2", "Iron 2", "Alumina 3", "Iron 3", Timestamp')
+          .in('"Indent Id."', indentIds)
       ]);
 
       const rawData = [...(res1.data || []), ...(res2.data || [])];
@@ -873,6 +873,13 @@ export default function MismatchAnalysis() {
           }
         }
 
+        // Fallback: if final "Alumina %"/"Iron %" isn't filled yet, use whichever
+        // vendor slot on the Three Party page (for this same RI/PO row) has a value.
+        const threePartyAlumina =
+          row["Alumina 1"] || row["Alumina 2"] || row["Alumina 3"] || "";
+        const threePartyIron =
+          row["Iron 1"] || row["Iron 2"] || row["Iron 3"] || "";
+
         return {
           indentNo: String(row["po_number"] || row["Indent Id."] || "").trim(),
           indentId: String(row["Indent Id."] || "").trim(),
@@ -889,8 +896,8 @@ export default function MismatchAnalysis() {
           orderCancelQty: String(row["Order Cancel Qty"] || "").trim(),
           reasonOfCancelQty: String(row["Reason Of Cancel Qty"] || "").trim(),
           poStatus: String(row["Status"] || "").trim(),
-          poAlumina: String(row["Alumina %"] || "").trim(),
-          poIron: String(row["Iron %"] || "").trim(),
+          poAlumina: String(row["Alumina %"] || threePartyAlumina || "").trim(),
+          poIron: String(row["Iron %"] || threePartyIron || "").trim(),
           poTimestamp: poTimestamp,
         };
       });
@@ -1059,10 +1066,20 @@ export default function MismatchAnalysis() {
           candidateNumericKeys.some((key) => poNumericKeys.includes(key));
       });
 
-      const po =
+      const matchedPo =
         poCandidates.find((p) =>
           String(p.rawMaterialName || p.materialName || "").trim().toLowerCase() === mismatchMaterial
         ) || poCandidates[0] || {};
+
+      // Alumina %/Iron % are entered once per RI (Indent), not per product line.
+      // If the matched product row doesn't have it, borrow it from a sibling
+      // product row under the same RI/PO so both products show the same value.
+      const poWithAlumina = poCandidates.find((p) => p.poAlumina || p.poIron);
+      const po = {
+        ...matchedPo,
+        poAlumina: matchedPo.poAlumina || poWithAlumina?.poAlumina || "",
+        poIron: matchedPo.poIron || poWithAlumina?.poIron || "",
+      };
 
       // Match TL row by Product Name (from Mismatch table) or Raw Material Name (from LIFT-ACCOUNTS)
       const productNameForTL = String(

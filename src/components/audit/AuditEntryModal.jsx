@@ -10,6 +10,7 @@ const AuditEntryModal = ({
   editingGroupItems,
   auditMismatchData,
   tallyEntryMismatchData,
+  reCheckingMismatchData,
   billEntryMismatchData,
   rectifyMismatchData,
   reAuditMismatchData,
@@ -38,6 +39,9 @@ const AuditEntryModal = ({
     row = auditMismatchData.find(r => r.id === editingRow);
     if (!row) {
       row = tallyEntryMismatchData.find(r => r.id === editingRow);
+    }
+    if (!row) {
+      row = reCheckingMismatchData.find(r => r.id === editingRow);
     }
     if (!row) {
       row = billEntryMismatchData.find(r => r.id === editingRow);
@@ -132,8 +136,8 @@ const AuditEntryModal = ({
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Bilty No</th>
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Type Of Rate</th>
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Material Rate</th>
-                    <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Material Qty</th>
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Truck Qty</th>
+                    <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Material Qty</th>
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Bilty Image</th>
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Qty Diff Status</th>
                     <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Weight Slip</th>
@@ -145,6 +149,7 @@ const AuditEntryModal = ({
                     {visibleColumns.rectifyRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Rectify Remarks</th>}
                     {visibleColumns.reauditRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Re-Audit Remarks</th>}
                     {visibleColumns.tallyRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Tally Remarks</th>}
+                    {visibleColumns.reCheckingRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Re-Checking Remarks</th>}
                     {visibleColumns.billRemarks && <th className="px-3 py-2.5 font-bold text-gray-700 uppercase whitespace-nowrap">Bill Remarks</th>}
                   </tr>
                 </thead>
@@ -206,6 +211,7 @@ const AuditEntryModal = ({
                       {visibleColumns.rectifyRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.rectifyRemarks}>{item.rectifyRemarks || '-'}</td>}
                       {visibleColumns.reauditRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.reauditRemarks}>{item.reauditRemarks || '-'}</td>}
                       {visibleColumns.tallyRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.tallyRemarks}>{item.tallyRemarks || '-'}</td>}
+                      {visibleColumns.reCheckingRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.reCheckingRemarks}>{item.reCheckingRemarks || '-'}</td>}
                       {visibleColumns.billRemarks && <td className="px-3 py-2 text-gray-600 max-w-xs break-words" title={item.billRemarks}>{item.billRemarks || '-'}</td>}
                     </tr>
                   ))}
@@ -314,7 +320,7 @@ const AuditEntryModal = ({
             </button>
             <button
               onClick={submitFormData}
-              disabled={submitting || (!isGroupEdit && ['RECTIFY', 'TALLY_ENTRY', 'REAUDIT', 'RE_AUDIT', 'BILL_ENTRY'].includes(row.currentStage) && formData.status !== 'Done') || (isReAuditStage && isMakingDebitNote && !isDebitNoteCreated)}
+              disabled={submitting || (!isGroupEdit && ['RECTIFY', 'TALLY_ENTRY', 'RE_CHECKING', 'REAUDIT', 'RE_AUDIT', 'BILL_ENTRY'].includes(row.currentStage) && formData.status !== 'Done') || (isReAuditStage && isMakingDebitNote && !isDebitNoteCreated)}
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
             >
               {submitting ? (
