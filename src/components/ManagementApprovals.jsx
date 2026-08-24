@@ -463,6 +463,38 @@ export default function ManagementApprovals() {
     }
   };
 
+  const onCancelIndent = async () => {
+    if (!selectedIndent) return;
+
+    setIsSubmitting(true);
+    try {
+      const { error: updateError } = await supabase
+        .from("INDENT-PO")
+        .update({
+          "Approved Date": new Date().toISOString(),
+          Actual8: new Date().toISOString(),
+          "Approved Vendor Name": "Cancelled",
+          "Have To Make PO": "No",
+        })
+        .eq("id", selectedIndent.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(`Indent ${selectedIndent.indentId} cancelled`);
+      setOpenDialog(false);
+      setSelectedIndent(null);
+      setSelectedVendorSlot("");
+      setRefreshData((prev) => !prev);
+    } catch (error) {
+      console.error("Error cancelling indent:", error);
+      toast.error("Cancellation failed", {
+        description: error.message,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-full mx-auto bg-white border border-gray-200 rounded-lg shadow-md">
       <CardHeader className="p-4 border-b border-gray-200">
@@ -923,7 +955,15 @@ export default function ManagementApprovals() {
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpenDialog(false)}>
-                  Cancel
+                  Close
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                  onClick={onCancelIndent}
+                  disabled={isSubmitting}
+                >
+                  Cancel Indent
                 </Button>
                 <Button
                   variant="destructive"
