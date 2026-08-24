@@ -118,14 +118,11 @@ export default function ManagementApprovals() {
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState("all");
-<<<<<<< HEAD
   const [selectedHistoryFirm, setSelectedHistoryFirm] = useState("all");
-=======
   const [filterOptionsRaw, setFilterOptionsRaw] = useState([]);
 
   const pendingPagination = usePagination(100);
   const historyPagination = usePagination(100);
->>>>>>> 6db88b11b126ef1057eecae38106f58dd0ce3693
 
   const { user } = useAuth();
   const { updateCount } = useNotification();
@@ -251,6 +248,9 @@ export default function ManagementApprovals() {
         .not("Actual8", "is", null)
         .order("Actual8", { ascending: false });
       query = applyFirmFilter(query, user?.firmName, "Firm Name");
+      if (selectedHistoryFirm !== "all") {
+        query = query.eq('"Firm Name"', selectedHistoryFirm);
+      }
       const q = historySearchQuery.trim().replace(/[%,"]/g, "");
       if (q) {
         query = query.or(
@@ -296,6 +296,7 @@ export default function ManagementApprovals() {
   }, [
     user,
     historySearchQuery,
+    selectedHistoryFirm,
     historyPagination.page,
     historyPagination.pageSize,
   ]);
@@ -347,55 +348,6 @@ export default function ManagementApprovals() {
 
   // Filter changes (firm/product/search) reset to page 1 and refetch.
   useEffect(() => {
-<<<<<<< HEAD
-    const query = searchQuery.trim().toLowerCase();
-    let filtered = [...pendingData];
-
-    if (selectedFirm !== "all") {
-      filtered = filtered.filter((item) => item.firmName === selectedFirm);
-    }
-
-    if (selectedProduct !== "all") {
-      filtered = filtered.filter((item) => item.product === selectedProduct);
-    }
-
-    if (query) {
-      filtered = filtered.filter((item) => {
-        const indentMatch = item.indentId.toLowerCase().includes(query);
-        const firmMatch = item.firmName.toLowerCase().includes(query);
-        const productMatch = item.product.toLowerCase().includes(query);
-        const vendorMatch = item.vendors.some((vendor) =>
-          vendor.name.toLowerCase().includes(query),
-        );
-        return indentMatch || firmMatch || productMatch || vendorMatch;
-      });
-    }
-
-    setFilteredPendingData(filtered);
-  }, [pendingData, searchQuery, selectedFirm, selectedProduct]);
-
-  useEffect(() => {
-    const query = historySearchQuery.trim().toLowerCase();
-    let filtered = [...historyData];
-
-    if (selectedHistoryFirm !== "all") {
-      filtered = filtered.filter((item) => item.firmName === selectedHistoryFirm);
-    }
-
-    if (query) {
-      filtered = filtered.filter(
-        (item) =>
-          item.indentId.toLowerCase().includes(query) ||
-          item.firmName.toLowerCase().includes(query) ||
-          item.product.toLowerCase().includes(query) ||
-          item.approvedVendorName.toLowerCase().includes(query) ||
-          item.approvedTag.toLowerCase().includes(query),
-      );
-    }
-
-    setFilteredHistoryData(filtered);
-  }, [historyData, historySearchQuery, selectedHistoryFirm]);
-=======
     const handle = setTimeout(
       () => {
         if (pendingPagination.page !== 1) {
@@ -428,13 +380,12 @@ export default function ManagementApprovals() {
     );
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historySearchQuery]);
+  }, [historySearchQuery, selectedHistoryFirm]);
 
   useEffect(() => {
     fetchHistoryData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyPagination.page, historyPagination.pageSize]);
->>>>>>> 6db88b11b126ef1057eecae38106f58dd0ce3693
 
   const selectedVendor = useMemo(
     () =>

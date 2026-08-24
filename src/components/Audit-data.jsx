@@ -1370,7 +1370,6 @@ const CallTrackerPage = () => {
           .from("Mismatch")
           .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
           .is("Actual2", null)
-          .is("Actual", null)
           .order("Timestamp", { ascending: false }),
         supabase
           .from("Mismatch")
@@ -1539,7 +1538,6 @@ const CallTrackerPage = () => {
         .from("Mismatch")
         .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .is("Actual4", null)
-        .is("Actual", null)
         .order("Timestamp", { ascending: false });
 
       if (error) throw error;
@@ -1629,7 +1627,6 @@ const CallTrackerPage = () => {
         .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Status8, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, Remarks8, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Actual8, Planned2, Planned3, Planned4, Planned5, Planned6, Planned8')
         .not("Planned8", "is", null)
         .is("Actual8", null)
-        .is("Actual", null)
         .order("Timestamp", { ascending: false });
 
       if (error) throw error;
@@ -1721,7 +1718,6 @@ const CallTrackerPage = () => {
         .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Status8, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, Remarks8, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Actual8, Planned2, Planned3, Planned4, Planned5, Planned6, Planned8')
         .not("Planned6", "is", null)
         .is("Actual6", null)
-        .is("Actual", null)
         .order("Timestamp", { ascending: false });
 
       if (error) throw error;
@@ -1903,7 +1899,6 @@ const CallTrackerPage = () => {
         .select('id, Timestamp, "Lift ID", Type, "Bill No.", "Party Name", "Product Name", Qty, "Area Lifting", "Truck No.", "Transporter Name", "Bill Image", "Bilty No.", Rate, "Truck Qty", "Bilty Image", "Weight Slip", "Total Freight", "Debit Amount", "Debit Note URL", Status, Status2, Status3, Status4, Status5, Status6, Remarks, Remarks2, Remarks3, Remarks4, Remarks5, Remarks6, "Indent Number", "Firm Name", "Lifting Quantity", Actual2, Actual3, Actual4, Actual5, Actual6, Planned2, Planned3, Planned4, Planned5, Planned6')
         .not("Planned5", "is", null)
         .is("Actual5", null)
-        .is("Actual", null)
         .order("Timestamp", { ascending: false });
 
       if (error) throw error;
