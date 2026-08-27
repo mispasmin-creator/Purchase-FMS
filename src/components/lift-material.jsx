@@ -2775,6 +2775,7 @@ export default function LiftMaterial() {
             { label: "Transporter Rate", dbKey: "Transporter Rate", value: superAdminEditItem.transportRate, type: "number" },
             { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditItem.transporterName, type: "text" },
             { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditItem.biltyNo, type: "text" },
+            { label: "Bilty Image", dbKey: "Bilty Image", value: superAdminEditItem.biltyImageUrl, type: "file", folder: "lift-bilty" },
             { label: "Bill Image", dbKey: "Bill Image", value: superAdminEditItem.billImageUrl, type: "file", folder: "bill-images" },
           ]}
           onClose={() => setSuperAdminEditItem(null)}
