@@ -98,6 +98,22 @@ import {
 
 import { Toaster } from "@/components/ui/sonner";
 
+// Data-viewing controls (tabs, pagination, filters, dialog/menu open-close) that
+// View Only mode must not block — only actual mutating actions should be blocked.
+const VIEW_ONLY_SAFE_SELECTOR = [
+  '[data-slot="tabs-trigger"]',
+  '[role="tab"]',
+  '[data-slot="pagination-controls"]',
+  '[data-slot="select-trigger"]',
+  '[data-slot="dialog-trigger"]',
+  '[data-slot="dialog-close"]',
+  '[data-slot="dropdown-menu-trigger"]',
+  '[data-slot="dropdown-menu-sub-trigger"]',
+  '[data-slot="popover-trigger"]',
+  '[data-slot="sheet-trigger"]',
+  '[data-slot="sheet-close"]',
+].join(", ");
+
 function App() {
   const { user, isAuthenticated, allowedSteps, isReadOnly } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -693,11 +709,13 @@ function App() {
             const target = e.target.closest(
               "button, input[type='submit'], input[type='button'], [type='submit'], a[href='#']"
             );
-            // Allow navigation links (sidebar/dashboard) but block action buttons
+            // Allow navigation links (sidebar/dashboard) and data-viewing controls
+            // (tabs, pagination, filters, dialog/menu open-close) — only block action buttons
             if (target) {
               const isNavLink = target.closest("nav");
               const isDashboardNav = target.getAttribute("href") || target.closest("a[href]");
-              if (!isNavLink && !isDashboardNav) {
+              const isViewOnlySafe = target.closest(VIEW_ONLY_SAFE_SELECTOR);
+              if (!isNavLink && !isDashboardNav && !isViewOnlySafe) {
                 e.stopPropagation();
                 e.preventDefault();
                 toast.warning("View Only Mode", {
@@ -720,7 +738,7 @@ function App() {
           {isReadOnly && (
             <div className="sticky top-0 z-50 flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 shadow-md">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              View Only Mode — Aap sirf dekh sakte hain, koi changes nahi kar sakte.
+              View Only Mode
             </div>
           )}
           <Routes>

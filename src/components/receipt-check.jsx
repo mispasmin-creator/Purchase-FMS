@@ -384,6 +384,7 @@ export default function ReceiptCheck() {
     liftType: "all",
     totalQuantity: "all",
     orderNumber: "all",
+    areaLifting: "all",
   });
   // Awaiting Receipt is filtered by Date Of Bill (the only date that exists
   // before a receipt is recorded); Processed Lifts is filtered by the
@@ -441,6 +442,7 @@ export default function ReceiptCheck() {
       liftType: "all",
       totalQuantity: "all",
       orderNumber: "all",
+      areaLifting: "all",
     });
     setDateRangeFilter({ from: "", to: "" });
   };
@@ -734,6 +736,7 @@ export default function ReceiptCheck() {
     const types = new Set();
     const quantities = new Set();
     const orders = new Set();
+    const areas = new Set();
     allLiftsData.forEach((lift) => {
       if (lift.vendorName) vendors.add(lift.vendorName);
       if (lift.rawMaterialName) materials.add(lift.rawMaterialName);
@@ -746,6 +749,7 @@ export default function ReceiptCheck() {
         quantities.add(lift.actualQuantity_fromSheet);
       if (lift.indentNo) orders.add(lift.indentNo);
       if (lift.billNo) orders.add(lift.billNo);
+      if (lift.areaLifting) areas.add(lift.areaLifting);
     });
     return {
       vendorName: [...vendors].sort(),
@@ -755,6 +759,7 @@ export default function ReceiptCheck() {
         (a, b) => parseFloat(a) - parseFloat(b),
       ),
       orderNumber: [...orders].sort(),
+      areaLifting: [...areas].sort(),
     };
   }, [allLiftsData]);
 
@@ -800,6 +805,8 @@ export default function ReceiptCheck() {
           matches &&
           (lift.indentNo === filters.orderNumber ||
             lift.billNo === filters.orderNumber);
+      if (filters.areaLifting !== "all")
+        matches = matches && lift.areaLifting === filters.areaLifting;
       matches = matches && isWithinDateRangeFilter(lift.dateOfBill, dateRangeFilter);
 
       const searchLower = searchQuery.trim().toLowerCase();
@@ -874,6 +881,8 @@ export default function ReceiptCheck() {
             matches &&
             (lift.indentNo === filters.orderNumber ||
               lift.billNo === filters.orderNumber);
+        if (filters.areaLifting !== "all")
+          matches = matches && lift.areaLifting === filters.areaLifting;
         matches =
           matches &&
           isWithinDateRangeFilter(lift.dateOfReceiving_fromSheet, dateRangeFilter);
@@ -1905,6 +1914,29 @@ export default function ReceiptCheck() {
                       {uniqueFilterOptions.orderNumber.map((order) => (
                         <SelectItem key={order} value={order}>
                           {order}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="block mb-1 text-[11px] font-medium text-gray-500">
+                    Area Lifting
+                  </Label>
+                  <Select
+                    value={filters.areaLifting}
+                    onValueChange={(value) =>
+                      handleFilterChange("areaLifting", value)
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-full bg-white">
+                      <SelectValue placeholder="All Areas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Areas</SelectItem>
+                      {uniqueFilterOptions.areaLifting.map((area) => (
+                        <SelectItem key={area} value={area}>
+                          {area}
                         </SelectItem>
                       ))}
                     </SelectContent>
