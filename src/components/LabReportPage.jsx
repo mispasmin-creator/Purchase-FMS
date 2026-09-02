@@ -298,7 +298,8 @@ export default function LabReportPage() {
       r.poNumber.toLowerCase().includes(s) ||
       r.billNo.toLowerCase().includes(s) ||
       r.partyName.toLowerCase().includes(s) ||
-      r.productName.toLowerCase().includes(s)
+      r.productName.toLowerCase().includes(s) ||
+      (r.firmName && r.firmName.toLowerCase().includes(s))
     );
   });
 

@@ -417,12 +417,14 @@ export default function LabTesting() {
 
   // Filter State
   const [filters, setFilters] = useState({
+    firmName: "all",
     vendorName: "all",
     materialName: "all",
     liftType: "all",
     totalQuantity: "all",
     orderNumber: "all",
   });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const initialFormData = {
     liftIdToUpdate: "",
@@ -456,12 +458,14 @@ export default function LabTesting() {
 
   const clearAllFilters = () => {
     setFilters({
+      firmName: "all",
       vendorName: "all",
       materialName: "all",
       liftType: "all",
       totalQuantity: "all",
       orderNumber: "all",
     });
+    setSearchQuery("");
   };
 
   // Function to get expected values
@@ -831,6 +835,7 @@ export default function LabTesting() {
   }, [indentData]);
 
   const uniqueFilterOptions = useMemo(() => {
+    const firms = new Set();
     const vendors = new Set();
     const materials = new Set();
     const types = new Set();
@@ -838,6 +843,7 @@ export default function LabTesting() {
     const orders = new Set();
 
     allLiftsData.forEach((lift) => {
+      if (lift.firmName) firms.add(lift.firmName);
       if (lift.vendorName) vendors.add(lift.vendorName);
       if (lift.rawMaterialName) materials.add(lift.rawMaterialName);
       if (lift.type) types.add(lift.type);
@@ -852,6 +858,7 @@ export default function LabTesting() {
     });
 
     return {
+      firmName: [...firms].sort(),
       vendorName: [...vendors].sort(),
       materialName: [...materials].sort(),
       liftType: [...types].sort(),
@@ -883,6 +890,11 @@ export default function LabTesting() {
       );
     });
     console.log("Receipts awaiting lab test before filters:", filtered.length);
+    if (filters.firmName !== "all") {
+      filtered = filtered.filter(
+        (lift) => lift.firmName === filters.firmName,
+      );
+    }
     if (filters.vendorName !== "all") {
       filtered = filtered.filter(
         (lift) => lift.vendorName === filters.vendorName,
@@ -911,9 +923,26 @@ export default function LabTesting() {
           lift.billNo === filters.orderNumber,
       );
     }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((lift) => {
+        return (
+          (lift.liftNo && lift.liftNo.toLowerCase().includes(q)) ||
+          (lift.indentNo && lift.indentNo.toLowerCase().includes(q)) ||
+          (lift.poNumber && lift.poNumber.toLowerCase().includes(q)) ||
+          (lift.vendorName && lift.vendorName.toLowerCase().includes(q)) ||
+          (lift.rawMaterialName && lift.rawMaterialName.toLowerCase().includes(q)) ||
+          (lift.billNo && lift.billNo.toLowerCase().includes(q)) ||
+          (lift.truckNo && lift.truckNo.toLowerCase().includes(q)) ||
+          (lift.firmName && lift.firmName.toLowerCase().includes(q)) ||
+          (lift.type && lift.type.toLowerCase().includes(q)) ||
+          (lift.transporterName && lift.transporterName.toLowerCase().includes(q))
+        );
+      });
+    }
 
     return filtered;
-  }, [allLiftsData, filters]);
+  }, [allLiftsData, filters, searchQuery]);
   console.log(
     "Receipts awaiting lab test after filters:",
     receiptsAwaitingLabTest,
@@ -924,6 +953,11 @@ export default function LabTesting() {
         lift.ajTimestamp_val && String(lift.ajTimestamp_val).trim() !== "",
     );
 
+    if (filters.firmName !== "all") {
+      filtered = filtered.filter(
+        (lift) => lift.firmName === filters.firmName,
+      );
+    }
     if (filters.vendorName !== "all") {
       filtered = filtered.filter(
         (lift) => lift.vendorName === filters.vendorName,
@@ -951,6 +985,24 @@ export default function LabTesting() {
           lift.indentNo === filters.orderNumber ||
           lift.billNo === filters.orderNumber,
       );
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((lift) => {
+        return (
+          (lift.liftNo && lift.liftNo.toLowerCase().includes(q)) ||
+          (lift.indentNo && lift.indentNo.toLowerCase().includes(q)) ||
+          (lift.poNumber && lift.poNumber.toLowerCase().includes(q)) ||
+          (lift.vendorName && lift.vendorName.toLowerCase().includes(q)) ||
+          (lift.rawMaterialName && lift.rawMaterialName.toLowerCase().includes(q)) ||
+          (lift.billNo && lift.billNo.toLowerCase().includes(q)) ||
+          (lift.truckNo && lift.truckNo.toLowerCase().includes(q)) ||
+          (lift.firmName && lift.firmName.toLowerCase().includes(q)) ||
+          (lift.type && lift.type.toLowerCase().includes(q)) ||
+          (lift.alStatus_val && lift.alStatus_val.toLowerCase().includes(q)) ||
+          (lift.transporterName && lift.transporterName.toLowerCase().includes(q))
+        );
+      });
     }
 
     return filtered.sort((a, b) => {
@@ -983,7 +1035,7 @@ export default function LabTesting() {
       const dateB = parseDate(b.ajTimestamp_formatted_val || b.ajTimestamp_val);
       return dateB - dateA;
     });
-  }, [allLiftsData, filters]);
+  }, [allLiftsData, filters, searchQuery]);
 
   // Form and Submission Logic
   const handleInputChange = (e) => {
@@ -1792,21 +1844,45 @@ export default function LabTesting() {
 
             {/* Filter Section - START */}
             <div className="p-4 mb-6 border border-green-200 rounded-lg bg-green-50/50">
-              <div className="flex items-center gap-2 mb-4">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <Label className="text-sm font-medium text-gray-700">
-                  Filters
-                </Label>
+              <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <Label className="text-sm font-medium text-gray-700">
+                    Filters
+                  </Label>
+                </div>
+                <div className="sm:ml-4 w-full sm:w-72">
+                  <Input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-8 text-xs bg-white border-gray-300 focus:border-[#7da23a] focus:ring-[#7da23a]"
+                  />
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={clearAllFilters}
-                  className="ml-auto bg-white hover:bg-gray-50"
+                  className="sm:ml-auto bg-white hover:bg-gray-50 h-8 text-xs"
                 >
                   Clear All
                 </Button>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
+                {/* Firm Name Filter */}
+                <div>
+                  <Label className="block mb-1 text-xs">Firm Name</Label>
+                  <SearchableSelect
+                    value={filters.firmName}
+                    onValueChange={(value) =>
+                      handleFilterChange("firmName", value)
+                    }
+                    options={uniqueFilterOptions.firmName}
+                    placeholder="Firms"
+                  />
+                </div>
+
                 {/* Vendor Name Filter */}
                 <div>
                   <Label className="block mb-1 text-xs">Vendor Name</Label>
