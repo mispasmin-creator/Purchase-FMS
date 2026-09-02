@@ -1174,8 +1174,8 @@ export default function MismatchAnalysis() {
         hasLab ? "Lab" : ""
       ].filter(Boolean).join(", ");
 
-      const billQtyVal = parseFloat(lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Qty"]);
-      const actQtyVal = parseFloat(lift.actualQuantity || mismatchItem["Actual Quantity"]);
+      const billQtyVal = parseFloat(lift.liftingQty || mismatchItem["Lifting Quantity"] || mismatchItem["Lifting Qty"]);
+      const actQtyVal = parseFloat(lift.actualQuantity || lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Actual Quantity"]);
       const diffBillRecVal = (!isNaN(billQtyVal) && !isNaN(actQtyVal))
         ? parseFloat((billQtyVal - actQtyVal).toFixed(3))
         : "N/A";
@@ -1231,8 +1231,10 @@ export default function MismatchAnalysis() {
         poRate: po.poRate || mismatchItem["PO Rate"] || mismatchItem["PO Rate (Original)"],
         liftingQty: lift.liftingQty || lift.quantity || mismatchItem["Billing Quantity"],
         poQuantity: po.poQuantity || po.quantity || mismatchItem["Quantity (PO)"],
-        billQuantity: lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Qty"] || "N/A",
-        actualQuantity: lift.actualQuantity || mismatchItem["Actual Quantity"] || "N/A",
+        // Bill Qty / Receive Qty now sourced exactly like Accounts Audit's
+        // Truck Qty (getLiftLiftingQty) / Material Qty (getLiftTruckQty).
+        billQuantity: lift.liftingQty || mismatchItem["Lifting Quantity"] || mismatchItem["Lifting Qty"] || "N/A",
+        actualQuantity: lift.actualQuantity || lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Actual Quantity"] || "N/A",
         diffBillRec: diffBillRecVal,
         billNo: lift.billNo || mismatchItem["Bill No."] || mismatchItem["Bill No"] || "",
         dateOfBill: lift.dateOfBill || "",
