@@ -879,6 +879,11 @@ export default function LabTesting() {
       const unloadStatus = lift.unloadApprovalStatus.toLowerCase();
       const isUnloadApproved =
         unloadStatus === "approved" || unloadStatus === "completed";
+      // Direct Supply To Party lifts skip Lab entirely (they go straight to
+      // Bilty via "Planned 3") — exclude them even if "Planned 2" ends up
+      // set by something outside this flow.
+      const isDirectSupplyToParty =
+        String(lift.areaLifting || "").trim() === "Direct Supply To Party";
       return (
         aiValue !== null &&
         aiValue !== undefined &&
@@ -886,7 +891,8 @@ export default function LabTesting() {
         (ajValue === null ||
           ajValue === undefined ||
           String(ajValue).trim() === "") &&
-        (!needsUnloadApproval || isUnloadApproved)
+        (!needsUnloadApproval || isUnloadApproved) &&
+        !isDirectSupplyToParty
       );
     });
     console.log("Receipts awaiting lab test before filters:", filtered.length);
