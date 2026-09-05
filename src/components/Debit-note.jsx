@@ -191,7 +191,10 @@ export default function DebitNote() {
     }
 
     try {
-      const d = new Date(timestampStr);
+      const normalized = String(timestampStr).includes(" ") && !String(timestampStr).includes("T")
+        ? String(timestampStr).replace(" ", "T")
+        : timestampStr;
+      const d = new Date(normalized);
       if (!isNaN(d.getTime())) {
         return d.toLocaleString("en-GB", {
           day: "2-digit",
@@ -212,7 +215,7 @@ export default function DebitNote() {
 
   // Check if timestamp is valid (not N/A and not null)
   const isValidTimestamp = (timestamp) => {
-    return timestamp && timestamp !== null && timestamp !== "N/A" && String(timestamp).trim() !== "";
+    return Boolean(timestamp && timestamp !== null && timestamp !== "N/A" && timestamp !== "null" && String(timestamp).trim() !== "");
   };
 
   // Categorize data into pending and history
@@ -313,10 +316,11 @@ export default function DebitNote() {
           }
       });
 
-      const formattedData = sourceRows.map((row, index) => {
+      const formattedData = sourceRows.map((row) => {
         const liftId = String(row["Lift ID"] || "").trim();
+        const isCompleted = row["Status"] === "Completed" || Boolean(row["Actual"]);
         return {
-          id: `MISMATCH-${index}`,
+          id: `MISMATCH-${row.id}`,
           supabaseId: row.id,
           timestamp: formatTimestamp(row["Timestamp"]),
           _rawTimestamp: row["Timestamp"],
@@ -327,12 +331,14 @@ export default function DebitNote() {
           productName: String(row["Product Name"] || "").trim(),
           transporterName: String(row["Transporter Name"] || "").trim(),
           vehicleNo: vehicleNoMap[String(row.id)] || row["Truck No."] || "",
-          status: directDebitMismatchIds.has(String(row.id || "").trim())
-            ? "Credit Notes"
-            : String(row["Status"] || "").trim(),
+          status: isCompleted
+            ? "Completed"
+            : directDebitMismatchIds.has(String(row.id || "").trim())
+              ? "Credit Notes"
+              : String(row["Status"] || "").trim(),
           debitAmount: row["Debit Amount"] !== null ? row["Debit Amount"] : "",
           debitNoteUrl: row["Debit Note URL"] || "",
-          remarks: String(row["Remarks"] || "").trim(),
+          remarks: String(row["Remarks"] || row["Remark"] || "").trim(),
           planned: row["Planned"] ? formatTimestamp(row["Planned"]) : null,
           actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
           // Store raw values for updates
@@ -362,9 +368,9 @@ export default function DebitNote() {
           .filter(Boolean)
       );
 
-      // Only include Mismatch rows for lifts that have NO Purchase Return records, unless sent from Re-Audit
+      // Only include Mismatch rows for lifts that have NO Purchase Return records, unless sent from Re-Audit or coordinated as Make Debit Note
       const mismatchOnlyRows = formattedData.filter(
-        (item) => !item.liftId || !prLiftNos.has(item.liftId) || (item.isReAuditItem ? item.isFromReAudit : item.actionType === "Make Debit Note")
+        (item) => !item.liftId || !prLiftNos.has(item.liftId) || (item.actionType === "Make Debit Note" || item.isFromReAudit)
       );
 
       const mismatchOnlyIds = new Set(mismatchOnlyRows.map(item => String(item.supabaseId)));
@@ -372,8 +378,10 @@ export default function DebitNote() {
       const formattedPurchaseReturns = (manualReturnsData || [])
         .filter(row => {
           const mId = String(row.mismatch_id || "").trim();
-          // Exclude Purchase Return rows that are already covered by a Debit Note Mismatch
-          return !mId || !mismatchOnlyIds.has(mId);
+          const hasActual = isValidTimestamp(row["Actual"]);
+          if (hasActual) return false;
+          if (mId && (existingMismatchIds.has(mId) || mismatchOnlyIds.has(mId))) return false;
+          return true;
         })
         .map((row) => {
           const liftId = String(row["Lift No"] || "").trim();
@@ -391,11 +399,11 @@ export default function DebitNote() {
             transporterName: String(row["Transport"] || "").trim(),
             vehicleNo: row["Vehicle No"] || "",
             status: "Credit Notes",
-            debitAmount: "",
-            debitNoteUrl: "",
+            debitAmount: row["Amount"] || "",
+            debitNoteUrl: row["Credit Note URL"] || "",
             remarks: String(row["Return Reason"] || "").trim(),
             planned: null,
-            actual: null,
+            actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
             // Qty = Return This Time (from Finalized return tab of Purchase Return page)
             qty: row["Return This Time"] || "",
             returnThisTime: row["Return This Time"] || null,
@@ -411,7 +419,7 @@ export default function DebitNote() {
             // Credit Note image URL
             creditNoteUrl: row["Credit Note URL"] || "",
             _rawPlanned: null,
-            _rawActual: null,
+            _rawActual: row["Actual"] || null,
           };
       });
 
@@ -643,11 +651,13 @@ export default function DebitNote() {
           Status: "Completed",
           coordination_status: "COORDINATED",
           "Action Type": "Make Debit Note",
+          "Remarks": remarks.trim(),
           "Remark": remarks.trim(),
           "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
           "Debit Note URL": publicUrl,
           "Actual": actualTimestamp,
-          "Purchase Return No.": editingItem.purchaseReturnNo || null
+          "Purchase Return No.": editingItem.purchaseReturnNo || null,
+          "debit_note_created": true
         };
 
         const { data: mismatchData, error: mismatchError } = await supabase
@@ -658,10 +668,15 @@ export default function DebitNote() {
 
         if (mismatchError) throw mismatchError;
 
-        // Link mismatch_id to the manual return
+        // Link mismatch_id to the manual return and update Actual, Amount, Credit Note URL
         const { error: prUpdateError } = await supabase
           .from("Purchase Returns")
-          .update({ mismatch_id: mismatchData.id })
+          .update({
+            mismatch_id: String(mismatchData.id),
+            "Actual": actualTimestamp,
+            "Amount": debitAmount ? parseFloat(debitAmount) : null,
+            "Credit Note URL": publicUrl || editingItem.creditNoteUrl || null
+          })
           .eq("ID", editingItem.supabaseId);
 
         if (prUpdateError) throw prUpdateError;
@@ -669,12 +684,14 @@ export default function DebitNote() {
       } else {
         // Update in Supabase - match by ID if available, or fallback to Lift ID & Indent Number
         const updatePayload = {
+          "Remarks": remarks.trim(),
           "Remark": remarks.trim(),
           "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
           "Debit Note URL": publicUrl,
           "Actual": actualTimestamp,
           "Purchase Return No.": editingItem.purchaseReturnNo || null,
-          "Status": "Completed"
+          "Status": "Completed",
+          "debit_note_created": true
         };
         let query = supabase.from("Mismatch").update(updatePayload);
         if (editingItem.supabaseId) {
@@ -685,6 +702,28 @@ export default function DebitNote() {
         const { data: updateData, error: updateError } = await query.select();
 
         if (updateError) throw updateError;
+
+        // Also sync Purchase Returns table if this Mismatch item has a linked Purchase Return
+        if (editingItem.purchaseReturnNo) {
+          await supabase
+            .from("Purchase Returns")
+            .update({
+              "Actual": actualTimestamp,
+              "Amount": debitAmount ? parseFloat(debitAmount) : null,
+              "Credit Note URL": publicUrl || editingItem.creditNoteUrl || null
+            })
+            .eq("Purchase Return No.", editingItem.purchaseReturnNo);
+        }
+        if (editingItem.supabaseId) {
+          await supabase
+            .from("Purchase Returns")
+            .update({
+              "Actual": actualTimestamp,
+              "Amount": debitAmount ? parseFloat(debitAmount) : null,
+              "Credit Note URL": publicUrl || editingItem.creditNoteUrl || null
+            })
+            .eq("mismatch_id", String(editingItem.supabaseId));
+        }
       }
 
       // Update local state
@@ -692,6 +731,7 @@ export default function DebitNote() {
         item.id === editingRow
           ? {
             ...item,
+            status: "Completed",
             remarks: remarks.trim(),
             debitAmount: debitAmount ? parseFloat(debitAmount) : "",
             debitNoteUrl: publicUrl,
@@ -708,6 +748,7 @@ export default function DebitNote() {
       await fetchMismatchData();
 
       if (location.state?.fromReAudit || editingItem.isFromReAudit) {
+        window.history.replaceState({}, document.title);
         toast.success("Returning to Re-Audit page...");
         setTimeout(() => {
           navigate('/accounts-audit', { state: { returnToTab: 'REAUDIT', openRowId: editingItem.supabaseId || editingItem.id } });
