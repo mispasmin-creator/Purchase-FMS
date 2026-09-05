@@ -225,8 +225,14 @@ export default function DebitNote() {
       const hasActual = isValidTimestamp(item.actual);
       const statusLower = (item.status || "").toLowerCase();
 
-      // Pending: Planned exists OR Status is Credit Notes OR sent from Re-Audit (and actual is not set, and not a return)
-      const isEligibleDebitNote = item.isReAuditItem ? item.isFromReAudit : (hasPlanned || statusLower.includes('credit') || item.actionType === "Make Debit Note");
+      // Pending: Planned exists OR Status is Credit Notes OR sent from Re-Audit (and actual is not set, and not a return).
+      // A row can pick up Planned5 (Re-Audit stage) from the audit pipeline
+      // independently of how its debit note was coordinated — e.g. a plain
+      // Mismatch-page "Make Debit Note" action on a row that also happens to
+      // be sitting in Re-Audit. Checking isReAuditItem as an exclusive gate
+      // hid those rows from both Pending and History; OR-ing isFromReAudit
+      // in instead keeps every previously-working path eligible too.
+      const isEligibleDebitNote = hasPlanned || statusLower.includes('credit') || item.actionType === "Make Debit Note" || item.isFromReAudit;
       if (isEligibleDebitNote && !hasActual && !statusLower.includes('return')) {
         pending.push(item);
       } else if (hasActual) {
