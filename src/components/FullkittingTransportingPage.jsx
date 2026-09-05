@@ -287,9 +287,15 @@ export default function FullkittingTransportingPage() {
                     biltyImage: fkData["Bilty Image"] || String(row["Bilty Image"] || "").trim(),
                     transporterBillImage: fkData["Transporter Bill Image"] || null,
                     fullkittingRemarks: fkData["Fullkitting Remarks"] || "",
-                    typeOfRate: String(row["Type Of Transporting Rate"] || "").trim(),
+                    typeOfRate: String(row["Type Of Transporting Rate"] || mismatch?.["Type Of Rate"] || fkData["Rate Type"] || "").trim(),
                     transportingRate: String(row["Transporting Per MT Rate"] || row["Transporting Rate"] || "").trim(),
-                    transportRate: fkData["Amount"] !== undefined && fkData["Amount"] !== null ? fkData["Amount"] : "",
+                    transportRate: (fkData["Amount"] !== undefined && fkData["Amount"] !== null && fkData["Amount"] !== "")
+                        ? fkData["Amount"]
+                        : (row["Transporter Rate"] !== undefined && row["Transporter Rate"] !== null && row["Transporter Rate"] !== "")
+                            ? row["Transporter Rate"]
+                            : (mismatch?.["Total Freight"] !== undefined && mismatch?.["Total Freight"] !== null && mismatch?.["Total Freight"] !== "")
+                                ? mismatch["Total Freight"]
+                                : "",
                     rate: Number(row["Rate"]) || 0,
                     truckNo: fkData["Vehicle Number"] || String(row["Truck No."] || "").trim(),
                     hasBilty: biltyNo ? "Yes" : "No",
@@ -423,7 +429,7 @@ export default function FullkittingTransportingPage() {
             materialLoadDetails: item?.productName || "",
             biltyNumber: item?.biltyNo || "",
             rateType: item?.typeOfRate || "",
-            amount: item?.transportRate ? String(item.transportRate) : "",
+            amount: (item?.transportRate !== undefined && item?.transportRate !== null && item?.transportRate !== "") ? String(item.transportRate) : "",
             biltyImage: item?.biltyImage || null,
             transporterBillImage: null,
             fullkittingRemarks: "",
@@ -880,7 +886,8 @@ export default function FullkittingTransportingPage() {
                         { label: "Truck No.", dbKey: "Truck No.", value: superAdminEditKitItem.truckNo, type: "text" },
                         { label: "Transporter Name", dbKey: "Transporter Name", value: superAdminEditKitItem.transporterName, type: "text" },
                         { label: "Type Of Transporting Rate", dbKey: "Type Of Transporting Rate", value: superAdminEditKitItem.typeOfRate, type: "text" },
-                        { label: "Transporting Rate", dbKey: "Transporter Rate", value: superAdminEditKitItem.transportingRate, type: "number" },
+                        { label: "Transporting Per MT Rate", dbKey: "Transporting Rate", value: superAdminEditKitItem.transportingRate, type: "number" },
+                        { label: "Transportation Total Amount", dbKey: "Transporter Rate", value: superAdminEditKitItem.transportRate, type: "number" },
                         { label: "Qty", dbKey: "Qty", value: superAdminEditKitItem.qty, type: "number" },
                         { label: "Bill Image URL", dbKey: "Bill Image", value: superAdminEditKitItem.billImage, type: "text" },
                         { label: "Bilty No.", dbKey: "Bilty No.", value: superAdminEditKitItem.biltyNo, type: "text" },
