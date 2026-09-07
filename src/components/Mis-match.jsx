@@ -16,8 +16,6 @@ import {
   FileText,
   AlertCircle,
   RefreshCw,
-  Save,
-  X,
   History,
   CheckCircle2,
   ShieldCheck,
@@ -170,15 +168,10 @@ export default function MismatchAnalysis() {
   const [loadingMismatch, setLoadingMismatch] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("pending");
-  const [editingRow, setEditingRow] = useState(null);
-  const [editingRowData, setEditingRowData] = useState(null); // Store full row data
-  const [submitting, setSubmitting] = useState(false);
   const [visibleUnifiedColumns, setVisibleUnifiedColumns] = useState({});
   const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({});
   const [mismatchSheetData, setMismatchSheetData] = useState([]);
-  const [formData, setFormData] = useState({});
-  const [submittedRows, setSubmittedRows] = useState(new Set());
-  const [actionType, setActionType] = useState("");
+  const [submittedRows] = useState(new Set());
 
   const [filters, setFilters] = useState({
     vendorName: "all",
@@ -231,23 +224,6 @@ export default function MismatchAnalysis() {
     setVisibleHistoryColumns(initializeVisibility(HISTORY_COLUMNS_META));
   }, []);
 
-  // Initialize form data
-  const initializeFormData = (rowId, rowData) => {
-    setFormData({
-      remarks: "",
-      debitAmount: "",
-    });
-    setActionType("");
-  };
-
-  // Handle form changes
-  const handleFormChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
   // Handle purchase return form changes
   const handlePurchaseReturnChange = (field, value) => {
     setPurchaseReturnForm((prev) => ({
@@ -279,13 +255,6 @@ export default function MismatchAnalysis() {
     });
   };
 
-  const handleCorrectData = (item, mismatchType) => {
-    setEditingRow(item.liftNo || item.liftIdDisplay || item.id);
-    setEditingRowData(item);
-    initializeFormData(item.id || item.liftNo, item);
-  };
-
-
   const handleReportIssue = (item, mismatchType) => {
     toast.success("Issue Reported", {
       description: `Mismatch issue has been reported to the quality team. Reference: ${item.id || item.liftNo}`,
@@ -316,115 +285,6 @@ export default function MismatchAnalysis() {
       description: `${mismatchType} data exported successfully for ${item.id || item.liftNo}`,
       duration: 3000,
     });
-  };
-
-  // Submit form data to Supabase Mismatch table (Update existing record)
-  const submitFormData = async () => {
-    if (!editingRow || !editingRowData) return;
-
-    // Validate action type is selected
-    if (!actionType) {
-      toast.error("Please select an Action Type.");
-      return;
-    }
-
-    // If material return is needed, send it to Purchase Return first.
-    if (actionType === "Return Material and Make Debit Note") {
-      setSubmitting(true);
-      try {
-        // ONLY update Mismatch status - the separate page will handle the record creation
-        const { error: updateError } = await supabase
-          .from("Mismatch")
-          .update({
-            Status: "Purchase Return",
-            coordination_status: "COORDINATED",
-            "Action Type": actionType,
-            Remarks: formData.remarks || "",
-          })
-          .eq("Lift Number", editingRowData.liftNo);
-
-        if (updateError) throw updateError;
-
-        setSubmittedRows(
-          (prev) => new Set([...prev, `mismatch_${editingRowData.liftNo}`]),
-        );
-        setEditingRow(null);
-        setEditingRowData(null);
-        setFormData({});
-        setActionType("");
-        toast.success(
-          `✅ SUCCESS: Mismatch record marked for Purchase Return.`,
-        );
-
-        setTimeout(() => {
-          fetchMismatchSheetData();
-          fetchLiftAccountsData();
-        }, 500);
-      } catch (error) {
-        console.error("Submission error:", error);
-        toast.error(`❌ SUBMISSION FAILED: ${error.message}`);
-      } finally {
-        setSubmitting(false);
-      }
-      return;
-    }
-
-    // Validate debit note fields
-    if (!formData.debitAmount) {
-      toast.error("Please enter a Debit Amount.");
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const recordId = editingRowData.id;
-      if (!recordId) throw new Error("Missing Record ID for update");
-
-      const currentDate = new Date();
-
-      const updates = {
-        Status: "Credit Notes",
-        coordination_status: "COORDINATED",
-        "Action Type": actionType,
-        Remarks: formData.remarks || "",
-        "Debit Amount": parseFloat(formData.debitAmount) || null,
-      };
-
-      // Update the existing record(s) in Mismatch table for this Lift
-      const { error: updateError } = await supabase
-        .from("Mismatch")
-        .update(updates)
-        .eq("Lift Number", editingRowData.liftNo);
-
-      if (updateError) throw updateError;
-
-      setSubmittedRows(
-        (prev) => new Set([...prev, `mismatch_${editingRowData.liftNo}`]),
-      );
-      setEditingRow(null);
-      setEditingRowData(null);
-      setFormData({});
-      setActionType("");
-
-      const actualDateTime = currentDate
-        .toLocaleString("en-GB", { hour12: false })
-        .replace(",", "");
-      toast.success(
-        `✅ SUCCESS: Mismatch data corrected and resolved for: ${editingRow}\nUpdated at: ${actualDateTime}`,
-      );
-
-      // Refresh data
-      setTimeout(() => {
-        fetchMismatchSheetData();
-        fetchLiftAccountsData();
-      }, 500);
-    } catch (error) {
-      console.error("Submission error:", error);
-      toast.error(`❌ SUBMISSION FAILED: ${error.message}`);
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const handleAcknowledgeMismatch = async (item) => {
@@ -462,187 +322,6 @@ export default function MismatchAnalysis() {
     }
   };
 
-  // Modal render
-  const renderModal = () => {
-    if (!editingRow) return null;
-
-    const isDebitNote = actionType === "Make Debit Note";
-    const isPurchaseReturn = actionType === "Return Material and Make Debit Note";
-
-    return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">
-                Submit Mismatch Correction
-              </h3>
-              <button
-                onClick={() => {
-                  setEditingRow(null);
-                  setActionType("");
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Mismatch Details */}
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-gray-700 mb-2">
-                Mismatch Details
-              </h4>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-gray-500">Lift ID:</span>{" "}
-                    <span className="font-medium">{editingRow}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Firm:</span>{" "}
-                    <span className="font-medium">{editingRowData?.firmName}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Party:</span>{" "}
-                    <span className="font-medium">{editingRowData?.vendorName}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Material:</span>{" "}
-                    <span className="font-medium">{editingRowData?.material}</span>
-                  </div>
-                </div>
-
-                <div className="border-t pt-2 mt-2">
-                  <p className="text-xs font-bold text-red-600 mb-2">DETECTED MISMATCHES:</p>
-                  <div className="space-y-1">
-                    {editingRowData?.mismatchTypes?.map(type => (
-                      <div key={type} className="flex items-center gap-2 text-xs bg-red-50 text-red-700 p-1 rounded px-2">
-                        <AlertCircle className="w-3 h-3" />
-                        <span className="font-semibold uppercase">{type}</span>
-                        <span className="text-gray-400">|</span>
-                        <span>{getMismatchSummary(type, editingRowData)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Type Dropdown */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Action Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={actionType}
-                  onChange={(e) => setActionType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] bg-white text-sm"
-                >
-                  <option value="">-- Select Action Type --</option>
-                  <option value="Make Debit Note">Make Debit Note</option>
-                  <option value="Return Material and Make Debit Note">
-                    Return Material and Make Debit Note
-                  </option>
-                </select>
-              </div>
-
-              {/* Purchase Return Info Banner */}
-              {isPurchaseReturn && (
-                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-orange-800">
-                        Return Material First
-                      </p>
-                      <p className="text-xs text-orange-600 mt-1">
-                        Click confirm to send this mismatch to Purchase Return.
-                        After return finalization, it will move to the Debit Note
-                        page.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Debit Note Fields - shown for both Purchaser and Transporter */}
-              {isDebitNote && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Debit Amount <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.debitAmount || ""}
-                      onChange={(e) =>
-                        handleFormChange("debitAmount", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      placeholder="Enter debit amount (e.g. 5000)"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Reason / Remarks
-                    </label>
-                    <textarea
-                      value={formData.remarks || ""}
-                      onChange={(e) =>
-                        handleFormChange("remarks", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b8e2f] focus:border-[#6b8e2f] text-sm resize-none"
-                      placeholder="Enter correction details and notes..."
-                      rows={3}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
-              <button
-                onClick={() => {
-                  setEditingRow(null);
-                  setActionType("");
-                }}
-                disabled={submitting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 transition-colors duration-200"
-              >
-                Cancel
-              </button>
-              {actionType && (
-                <button
-                  onClick={submitFormData}
-                  disabled={submitting}
-                  className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md ${
-                    isPurchaseReturn
-                      ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus:ring-blue-500"
-                      : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-[#6b8e2f]"
-                  }`}
-                >
-                  {submitting ? (
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
-                  {submitting
-                    ? "Submitting..."
-                    : isPurchaseReturn
-                      ? "Confirm Return Material"
-                      : "Submit Debit Note"}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // Optimized Fetch LIFT-ACCOUNTS data for Mismatches
   const fetchLiftAccountsForMismatches = useCallback(async (mismatches) => {
@@ -1005,17 +684,6 @@ export default function MismatchAnalysis() {
       supabase.removeChannel(channel);
     };
   }, [fetchLiftAccountsData]);
-
-  // Helper for mismatch details in modal
-  const getMismatchSummary = (type, item) => {
-    const format = (val) => val !== undefined && val !== null ? val : "N/A";
-    switch(type) {
-      case 'rate': return `PO Rate: ₹${format(item.poRate)} vs Lift Rate: ₹${format(item.materialRate)} (Diff: ₹${format(item.rateDifference)})`;
-      case 'quantity': return `PO Qty: ${format(item.poQuantity)} vs Lift Qty: ${format(item.liftingQty)} (Diff: ${format(item.qtyDifference || item.differenceQty)})`;
-      case 'lab': return `Lab values out of tolerance: Alumina (${format(item.aluminaDiff)}%), Iron (${format(item.ironDiff)}%), AP (${format(item.apDiff)}%), BD (${format(item.bdDiff)}%)`;
-      default: return "";
-    }
-  };
 
   // Calculate mismatch data (Hybrid: Differences from DB, Details from Source Tables)
   const getHybridRow = useCallback(
@@ -1433,8 +1101,6 @@ export default function MismatchAnalysis() {
     const value = item[column.dataKey];
 
     if (column.dataKey === "actions") {
-      const mismatchType = "unified";
-
       if (activeTab === "history") {
         return (
           <div className="flex items-center gap-2">
@@ -1469,13 +1135,6 @@ export default function MismatchAnalysis() {
 
       return (
         <div className="flex gap-2 whitespace-nowrap items-center">
-          <button
-            onClick={() => handleCorrectData(item, mismatchType)}
-            className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-linear-to-r from-green-500 to-green-600 rounded-md hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-[#6b8e2f] focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            <Edit className="w-3 h-3 mr-1" />
-            Management Approval
-          </button>
           <Button
             variant="ghost"
             size="sm"
@@ -1844,7 +1503,6 @@ export default function MismatchAnalysis() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
-      {renderModal()}
       {superAdminEditItem && (
         <SuperAdminEditModal
           title={`Edit Mismatch — ${superAdminEditItem.liftIdDisplay || superAdminEditItem.liftNo}`}

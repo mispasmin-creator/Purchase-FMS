@@ -121,19 +121,6 @@ export const StandardRow = ({
       ) : visibleColumns.actions && (
         <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap bg-[#fbfefd] group-hover:bg-[#f2faf5] border-r border-emerald-100/50 transition-colors duration-150">
           <div className="flex items-center gap-1.5">
-            {['RE_AUDIT', 'REAUDIT'].includes(row.currentStage) && !Boolean(row.debit_note_created || row.debitAmount || row.debitNoteUrl) && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window._isMakingDebitNote = true;
-                  setEditingRow(row.id);
-                  initializeFormData(row.currentStage);
-                }}
-                className="inline-flex items-center px-2.5 py-1.5 bg-linear-to-r from-orange-500 to-amber-600 text-white text-xs font-bold rounded-lg hover:from-orange-600 hover:to-amber-700 transition-all duration-200 shadow-sm hover:shadow whitespace-nowrap cursor-pointer"
-              >
-                Make Debit Note
-              </button>
-            )}
             {['RE_AUDIT', 'REAUDIT'].includes(row.currentStage) && Boolean(row.debit_note_created || row.debitAmount || row.debitNoteUrl) && (
               <span className="inline-flex items-center px-2.5 py-1 bg-green-100 text-green-800 border border-green-300 rounded-lg text-xs font-bold whitespace-nowrap shadow-2xs">
                 ✅ Debit Note Created
@@ -447,19 +434,6 @@ export const ParentRow = ({
       ) : visibleColumns.actions && (
         <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap bg-[#fbfefd] group-hover:bg-[#f2faf5] border-r border-emerald-100/50 border-l-4 border-l-[#7da23a] transition-colors duration-150">
           <div className="flex items-center gap-2">
-            {['RE_AUDIT', 'REAUDIT'].includes(itemStage) && !Boolean(firstItem.debit_note_created || firstItem.debitAmount || firstItem.debitNoteUrl) && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditingGroupItems(group.items);
-                  setEditingRow("group_edit");
-                  initializeFormData(itemStage);
-                }}
-                className="inline-flex items-center px-2.5 py-1.5 bg-linear-to-r from-orange-500 to-amber-600 text-white text-xs font-bold rounded-lg hover:from-orange-600 hover:to-amber-700 transition-all duration-200 shadow-sm hover:shadow whitespace-nowrap cursor-pointer"
-              >
-                Make Debit Note
-              </button>
-            )}
             {['RE_AUDIT', 'REAUDIT'].includes(itemStage) && Boolean(firstItem.debit_note_created || firstItem.debitAmount || firstItem.debitNoteUrl) && (
               <span className="inline-flex items-center px-2.5 py-1 bg-green-100 text-green-800 border border-green-300 rounded-lg text-xs font-bold whitespace-nowrap shadow-2xs">
                 ✅ Debit Note Created

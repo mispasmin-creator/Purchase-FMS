@@ -76,7 +76,6 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Vehicle No", dataKey: "vehicleNo", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
-  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
   { header: "Debit Amount", dataKey: "debitAmount", toggleable: true },
   { header: "Debit Image", dataKey: "debitNoteUrl", toggleable: true },
   { header: "Remarks", dataKey: "remarks", toggleable: true },
@@ -308,17 +307,26 @@ export default function DebitNote() {
       // Map to our data structure
       const returnQtyMap = {};
       const vehicleNoMap = {};
+      // Purchase Return No., Product Rate, Bill No, Transporter Name and Credit
+      // Note live on the "Purchase Returns" row (from the PR Approval flow),
+      // not on the Mismatch row itself — keep the latest one per mismatch.
+      const purchaseReturnDetailsMap = {};
       (manualReturnsData || []).forEach(row => {
           const mId = String(row.mismatch_id || "").trim();
           if (mId) {
              returnQtyMap[mId] = row["Return This Time"] || "";
              vehicleNoMap[mId] = row["Vehicle No"] || "";
+             const existing = purchaseReturnDetailsMap[mId];
+             if (!existing || (row.ID || 0) > (existing.ID || 0)) {
+                 purchaseReturnDetailsMap[mId] = row;
+             }
           }
       });
 
       const formattedData = sourceRows.map((row) => {
         const liftId = String(row["Lift ID"] || "").trim();
         const isCompleted = row["Status"] === "Completed" || Boolean(row["Actual"]);
+        const prDetails = purchaseReturnDetailsMap[String(row.id)];
         return {
           id: `MISMATCH-${row.id}`,
           supabaseId: row.id,
@@ -329,7 +337,7 @@ export default function DebitNote() {
           firmName: normalizeFirmName(row["Firm Name"]) || "",
           partyName: String(row["Party Name"] || "").trim(),
           productName: String(row["Product Name"] || "").trim(),
-          transporterName: String(row["Transporter Name"] || "").trim(),
+          transporterName: String(prDetails?.["Transport"] || row["Transporter Name"] || "").trim(),
           vehicleNo: vehicleNoMap[String(row.id)] || row["Truck No."] || "",
           status: isCompleted
             ? "Completed"
@@ -347,17 +355,18 @@ export default function DebitNote() {
           actionType: row["Action Type"] || "",
           isReAuditItem: Boolean(row["Planned5"]),
           isFromReAudit: row["Action Type"] === "Make Debit Note (Re-Audit)",
-          qtyDifferenceStatus: row["Qty Diff Status"] || row["Diff Qty"] || row["Difference Qty"] || "",
           // Qty from Mismatch table (PO Qty) — shown for Re-Audit rows, or mapped from Purchase Returns if applicable
           qty: returnQtyMap[String(row.id)] || row["Qty"] || row["Quantity"] || row["Lifting Quantity"] || "",
-          // Product Rate from Mismatch table
-          productRate: row["Rate"] || "",
-          // Bill No from Mismatch table
-          billNo: row["Bill No."] || row["Bill No"] || "",
+          // Product Rate — from the linked Purchase Return row when one exists, else the Mismatch table's own value (legacy, non-Purchase-Return debit notes)
+          productRate: prDetails?.["Product Rate"] || row["Rate"] || "",
+          // Bill No — from the linked Purchase Return row when one exists, else the Mismatch table's own value
+          billNo: prDetails?.["Bill No"] || row["Bill No."] || row["Bill No"] || "",
+          // Credit Note image URL from the linked Purchase Return row
+          creditNoteUrl: prDetails?.["Credit Note URL"] || "",
           // Bill Image from Mismatch table
           billImage: row["Bill Image"] || "",
-          // Purchase Return No. from Mismatch table
-          purchaseReturnNo: String(row["Purchase Return No."] || "").trim(),
+          // Purchase Return No. — from the linked Purchase Return row when one exists, else the Mismatch table's own value
+          purchaseReturnNo: String(prDetails?.["Purchase Return No."] || row["Purchase Return No."] || "").trim(),
         };
       });
 

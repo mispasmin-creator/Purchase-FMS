@@ -9,8 +9,10 @@ import {
     Eye,
     Edit,
     ShieldCheck,
+    Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
     Card,
     CardContent,
@@ -190,7 +192,7 @@ export default function PurchaseReturnPage() {
             const liftNos = Array.from(
                 new Set(
                     fetchedMismatches
-                        .map(m => m["Lift Number"] || m["Lift ID"])
+                        .map(m => String(m["Lift Number"] || m["Lift ID"] || "").trim())
                         .filter(Boolean)
                 )
             );
@@ -199,7 +201,7 @@ export default function PurchaseReturnPage() {
             if (liftNos.length > 0) {
                 const { data: liftData, error: liftError } = await supabase
                     .from("LIFT-ACCOUNTS")
-                    .select('"Lift No", "Actual Quantity"')
+                    .select('"Lift No", "Actual Quantity", "Truck Qty", "Qty", "Lifting Qty"')
                     .in("Lift No", liftNos);
                 if (!liftError && liftData) {
                     liftAccounts = liftData;
@@ -210,7 +212,11 @@ export default function PurchaseReturnPage() {
             liftAccounts.forEach(la => {
                 const lNo = String(la["Lift No"] || "").trim();
                 if (lNo) {
-                    liftQtyMap[lNo] = parseFloat(la["Actual Quantity"]) || 0;
+                    liftQtyMap[lNo] = parseFloat(la["Actual Quantity"]) ||
+                        parseFloat(la["Truck Qty"]) ||
+                        parseFloat(la["Qty"]) ||
+                        parseFloat(la["Lifting Qty"]) ||
+                        0;
                 }
             });
 
@@ -219,11 +225,11 @@ export default function PurchaseReturnPage() {
                 const mId = String(m.id || "").trim();
                 const liftNo = String(m["Lift Number"] || m["Lift ID"] || "").trim();
                 
-                // Prioritize received quantity from LIFT-ACCOUNTS (Actual Quantity) if available, fallback to mismatch fields
+                // Prioritize received quantity from LIFT-ACCOUNTS (Actual Quantity/Truck Qty/Qty) if available, fallback to mismatch fields
                 const receivedQty = liftQtyMap[liftNo];
                 const totalQty = (receivedQty !== undefined && receivedQty > 0)
                     ? receivedQty
-                    : (parseFloat(m["Qty"]) || parseFloat(m["Quantity"]) || parseFloat(m["Lifting Quantity"]) || 0);
+                    : (parseFloat(m["Qty"]) || parseFloat(m["Truck Qty"]) || parseFloat(m["Quantity"]) || parseFloat(m["Lifting Quantity"]) || 0);
 
                 // Merge both lookup sources — take max returned qty (most accurate)
                 const returnedByMismatchId = returnedQtyMap[mId] || 0;
@@ -338,24 +344,88 @@ export default function PurchaseReturnPage() {
     // ── Open form for creating from mismatch ──────────────────────────────
     const handleCreateFromMismatch = async (mismatch) => {
         const prNo = await generatePRNumber();
+        const liftNo = String(mismatch["Lift Number"] || mismatch["Lift ID"] || "").trim();
+        const mId = String(mismatch.id || "").trim();
+
+        // 1. Fetch fresh lift data from availableLifts or LIFT-ACCOUNTS if liftNo is present
+        let liftData = availableLifts.find(l => String(l["Lift No"] || "").trim() === liftNo);
+        if (!liftData && liftNo) {
+            try {
+                const { data } = await supabase
+                    .from("LIFT-ACCOUNTS")
+                    .select("*")
+                    .eq("Lift No", liftNo)
+                    .maybeSingle();
+                if (data) liftData = data;
+            } catch (e) {
+                console.error("Error fetching lift data for mismatch:", e);
+            }
+        }
+
+        // 2. Resolve total product quantity properly
+        const productTotalQty = parseFloat(liftData?.["Actual Quantity"]) ||
+            parseFloat(liftData?.["Truck Qty"]) ||
+            parseFloat(liftData?.["Qty"]) ||
+            parseFloat(liftData?.["Lifting Qty"]) ||
+            parseFloat(mismatch.totalQty) ||
+            parseFloat(mismatch["Qty"]) ||
+            parseFloat(mismatch["Truck Qty"]) ||
+            parseFloat(mismatch["Quantity"]) ||
+            parseFloat(mismatch["Lifting Quantity"]) ||
+            0;
+
+        // 3. Calculate previously returned qty for this mismatch/lift
+        let returnedQtyBefore = mismatch.returnedQty || 0;
+        if (liftNo || mId) {
+            try {
+                let query = supabase
+                    .from("Purchase Returns")
+                    .select('ID, mismatch_id, "Qty", "Return This Time"')
+                    .not("ID", "is", null);
+                if (liftNo && mId) {
+                    query = query.or(`"Lift No".eq.${liftNo},mismatch_id.eq.${mId}`);
+                } else if (liftNo) {
+                    query = query.eq("Lift No", liftNo);
+                } else if (mId) {
+                    query = query.eq("mismatch_id", mId);
+                }
+                const { data: previousReturns } = await query;
+                if (previousReturns && previousReturns.length > 0) {
+                    returnedQtyBefore = previousReturns.reduce(
+                        (sum, item) =>
+                            sum +
+                            (parseFloat(item["Return This Time"]) ||
+                                parseFloat(item["Qty"]) ||
+                                0),
+                        0
+                    );
+                }
+            } catch (e) {
+                console.error("Error fetching previous returns for mismatch:", e);
+            }
+        }
+
         setForm({
             ...EMPTY_FORM,
             purchaseReturnNo: prNo,
-            poNo: mismatch["Indent Number"] || "",
+            poNo: mismatch["Indent Number"] || liftData?.["Indent no."] || liftData?.["Indent Number"] || "",
             actionType: mismatch["Action Type"] || "Purchase Return",
-            partyName: mismatch["Party Name"] || "",
-            productName: mismatch["Product Name"] || "",
+            partyName: mismatch["Party Name"] || liftData?.["Vendor Name"] || liftData?.["Party Name"] || "",
+            productName: mismatch["Product Name"] || liftData?.["Raw Material Name"] || liftData?.["Product Name"] || "",
             qty: "",
             totalReturnQty: mismatch.totalReturnQty
                 ? String(mismatch.totalReturnQty)
                 : "",
             returnThisTime: "",
-            returnedQtyBefore: mismatch.returnedQty || 0,
-            maxReturnQty: mismatch.totalQty || 0,
+            returnedQtyBefore,
+            maxReturnQty: productTotalQty,
             hasFixedTotalReturnQty: Boolean(mismatch.totalReturnQty),
             returnReason: mismatch["Remarks"] || "",
-            liftNo: mismatch["Lift Number"] || "",
-            firmName: mismatch["Firm Name"] || "",
+            liftNo: liftNo,
+            firmName: normalizeFirmName(mismatch["Firm Name"]) || normalizeFirmName(liftData?.["Firm Name"]) || "",
+            billNo: liftData?.["Bill No."] || mismatch["Bill No."] || "",
+            billCopy: liftData?.["Bill Image"] || liftData?.["Bill Copy"] || mismatch["Bill Image"] || "",
+            productRate: liftData?.["Rate"] || liftData?.["Product Rate"] || mismatch["Rate"] || "",
             mismatch_id: mismatch.id,
             id: null,
         });
@@ -391,13 +461,21 @@ export default function PurchaseReturnPage() {
         if (liftNo) {
             const { data: liftData } = await supabase
                 .from("LIFT-ACCOUNTS")
-                .select('"Actual Quantity"')
+                .select('"Actual Quantity", "Truck Qty", "Qty", "Lifting Qty"')
                 .eq("Lift No", liftNo)
                 .maybeSingle();
 
             // Always use full received qty from LIFT-ACCOUNTS as the total baseline
-            maxReturnQty = parseFloat(liftData?.["Actual Quantity"]) || 0;
+            maxReturnQty = parseFloat(liftData?.["Actual Quantity"]) ||
+                parseFloat(liftData?.["Truck Qty"]) ||
+                parseFloat(liftData?.["Qty"]) ||
+                parseFloat(liftData?.["Lifting Qty"]) ||
+                0;
         }
+
+        const resolvedMaxReturnQty = rec["Total Qty"] !== undefined && rec["Total Qty"] !== null && parseFloat(rec["Total Qty"]) > 0
+            ? parseFloat(rec["Total Qty"])
+            : maxReturnQty;
 
         setForm({
             purchaseReturnNo: rec["Purchase Return No."],
@@ -409,7 +487,7 @@ export default function PurchaseReturnPage() {
             totalReturnQty: rec["Total Return Qty"] ?? rec["Qty"] ?? "",
             returnThisTime: rec["Return This Time"] ?? rec["Qty"] ?? "",
             returnedQtyBefore,
-            maxReturnQty: rec["Total Qty"] !== undefined && rec["Total Qty"] !== null ? parseFloat(rec["Total Qty"]) : maxReturnQty,
+            maxReturnQty: resolvedMaxReturnQty,
             hasFixedTotalReturnQty: Boolean(rec["Total Return Qty"]),
             returnReason: rec["Return Reason"],
             transport: rec["Transport"],
@@ -439,27 +517,97 @@ export default function PurchaseReturnPage() {
         }));
     };
 
-    // ── When Po No. changes (optional additional logic) ────────────────────
+    // ── When Po No. changes (auto-fetch from LIFT-ACCOUNTS / Mismatch / INDENT-PO) ──
     const handlePoNoBlur = async (poNo) => {
-        if (!poNo) return;
+        const cleanPoNo = String(poNo || "").trim();
+        if (!cleanPoNo) return;
         try {
-            const { data, error } = await supabase
-                .from("LIFT-ACCOUNTS")
-                .select("*")
-                .eq("Indent Number", poNo)
-                .maybeSingle();
-
-            if (data && !error) {
-                setForm(prev => ({
-                    ...prev,
-                    billNo: data["Bill No."] || prev.billNo,
-                    billCopy: data["Bill Copy"] || prev.billCopy,
-                    partyName: data["Party Name"] || prev.partyName,
-                    productName: data["Product Name"] || prev.productName,
-                }));
+            // 1. Check availableLifts or LIFT-ACCOUNTS by "Indent no."
+            let liftData = availableLifts.find(l => 
+                String(l["Indent no."] || l["Indent Number"] || "").trim().toLowerCase() === cleanPoNo.toLowerCase()
+            );
+            if (!liftData) {
+                const { data } = await supabase
+                    .from("LIFT-ACCOUNTS")
+                    .select("*")
+                    .ilike("Indent no.", cleanPoNo)
+                    .limit(1)
+                    .maybeSingle();
+                if (data) liftData = data;
             }
+
+            // 2. Check Mismatch table if liftData not found
+            let mismatchData = null;
+            if (!liftData) {
+                const { data: mData } = await supabase
+                    .from("Mismatch")
+                    .select("*")
+                    .ilike("Indent Number", cleanPoNo)
+                    .limit(1)
+                    .maybeSingle();
+                if (mData) mismatchData = mData;
+            }
+
+            // 3. Check INDENT-PO table if still not found
+            let indentData = null;
+            if (!liftData && !mismatchData) {
+                const { data: iData } = await supabase
+                    .from("INDENT-PO")
+                    .select("*")
+                    .or(`"Indent Id.".ilike.${cleanPoNo},po_number.ilike.${cleanPoNo}`)
+                    .limit(1)
+                    .maybeSingle();
+                if (iData) indentData = iData;
+            }
+
+            const targetLiftNo = liftData?.["Lift No"] || mismatchData?.["Lift Number"] || mismatchData?.["Lift ID"] || "";
+
+            let previouslyReturnedQty = 0;
+            if (targetLiftNo) {
+                const { data: previousReturns } = await supabase
+                    .from("Purchase Returns")
+                    .select('ID, mismatch_id, "Qty", "Return This Time"')
+                    .eq("Lift No", targetLiftNo)
+                    .not("ID", "is", null);
+
+                previouslyReturnedQty = (previousReturns || [])
+                    .filter((item) => String(item.ID) !== String(form.id || ""))
+                    .reduce(
+                        (sum, item) =>
+                            sum +
+                            (parseFloat(item["Return This Time"]) ||
+                                parseFloat(item["Qty"]) ||
+                                0),
+                        0
+                    );
+            }
+
+            const productQty = parseFloat(liftData?.["Actual Quantity"]) ||
+                parseFloat(liftData?.["Truck Qty"]) ||
+                parseFloat(liftData?.["Qty"]) ||
+                parseFloat(liftData?.["Lifting Qty"]) ||
+                parseFloat(mismatchData?.["Qty"]) ||
+                parseFloat(mismatchData?.["Truck Qty"]) ||
+                parseFloat(mismatchData?.["Lifting Quantity"]) ||
+                parseFloat(indentData?.["Total Quantity"]) ||
+                parseFloat(indentData?.["Quantity"]) ||
+                parseFloat(indentData?.["Approved Qty"]) ||
+                0;
+
+            setForm(prev => ({
+                ...prev,
+                liftNo: targetLiftNo || prev.liftNo,
+                partyName: liftData?.["Vendor Name"] || liftData?.["Party Name"] || mismatchData?.["Party Name"] || indentData?.["Vendor"] || indentData?.["Vendor name"] || prev.partyName,
+                productName: liftData?.["Raw Material Name"] || liftData?.["Product Name"] || mismatchData?.["Product Name"] || indentData?.["Material"] || prev.productName,
+                billNo: liftData?.["Bill No."] || mismatchData?.["Bill No."] || prev.billNo,
+                billCopy: liftData?.["Bill Image"] || liftData?.["Bill Copy"] || mismatchData?.["Bill Image"] || prev.billCopy,
+                productRate: liftData?.["Rate"] || liftData?.["Product Rate"] || mismatchData?.["Rate"] || indentData?.["Rate"] || prev.productRate,
+                firmName: normalizeFirmName(liftData?.["Firm Name"]) || normalizeFirmName(mismatchData?.["Firm Name"]) || normalizeFirmName(indentData?.["Firm Name"]) || prev.firmName,
+                maxReturnQty: productQty > 0 ? productQty : prev.maxReturnQty,
+                returnedQtyBefore: targetLiftNo ? previouslyReturnedQty : prev.returnedQtyBefore,
+            }));
         } catch (err) {
-            console.error("Auto-fetch error:", err);
+            console.error("Auto-fetch error on PO blur:", err);
         }
     };
 
@@ -502,6 +650,14 @@ export default function PurchaseReturnPage() {
                     0
                 );
 
+            const productQty = parseFloat(liftData["Actual Quantity"]) ||
+                parseFloat(liftData["Truck Qty"]) ||
+                parseFloat(liftData["Qty"]) ||
+                parseFloat(liftData["Lifting Qty"]) ||
+                parseFloat(liftData["Total Bill Quantity"]) ||
+                parseFloat(liftData["Weight Slip Qty"]) ||
+                0;
+
             setForm((prev) => ({
                 ...prev,
                 liftNo,
@@ -524,12 +680,8 @@ export default function PurchaseReturnPage() {
                     prev.billCopy,
                 productRate: liftData["Rate"] || liftData["Product Rate"] || liftData["Rate (INR)"] || prev.productRate,
                 firmName: normalizeFirmName(liftData["Firm Name"]) || prev.firmName,
-                maxReturnQty: Math.max(
-                    0,
-                    (parseFloat(liftData["Actual Quantity"]) || 0) -
-                    previouslyReturnedQty
-                ),
-                returnedQtyBefore: 0,
+                maxReturnQty: productQty,
+                returnedQtyBefore: previouslyReturnedQty,
             }));
         } catch (err) {
             console.error("Lift auto-fetch error:", err);
@@ -537,75 +689,85 @@ export default function PurchaseReturnPage() {
         }
     };
 
+    // Shared progress calc: how much has been returned so far for a mismatch
+    // vs. how much is actually owed, reused by both the auto Mismatch-status
+    // update below and the manual "Submit for Approval" action.
+    const getReturnProgress = async (mismatchId) => {
+        const { data: mismatch, error: mismatchFetchError } = await supabase
+            .from("Mismatch")
+            .select("*")
+            .eq("id", mismatchId)
+            .single();
+
+        if (mismatchFetchError || !mismatch) throw mismatchFetchError || new Error("Mismatch not found");
+
+        const { data: allReturns, error: returnsFetchError } = await supabase
+            .from("Purchase Returns")
+            .select('"Qty", "Total Return Qty", "Return This Time"')
+            .eq("mismatch_id", mismatchId);
+
+        if (returnsFetchError) throw returnsFetchError;
+
+        // Fetch LIFT-ACCOUNTS to get actual received quantity as base
+        let totalQty = 0;
+        const liftNo = String(mismatch["Lift Number"] || mismatch["Lift ID"] || "").trim();
+        if (liftNo) {
+            const { data: liftData, error: liftError } = await supabase
+                .from("LIFT-ACCOUNTS")
+                .select('"Actual Quantity", "Truck Qty", "Qty", "Lifting Qty"')
+                .eq("Lift No", liftNo)
+                .maybeSingle();
+
+            if (!liftError && liftData) {
+                totalQty = parseFloat(liftData["Actual Quantity"]) ||
+                    parseFloat(liftData["Truck Qty"]) ||
+                    parseFloat(liftData["Qty"]) ||
+                    parseFloat(liftData["Lifting Qty"]) ||
+                    0;
+            }
+        }
+
+        if (!totalQty) {
+            totalQty = parseFloat(mismatch["Qty"]) || parseFloat(mismatch["Truck Qty"]) || parseFloat(mismatch["Quantity"]) || parseFloat(mismatch["Lifting Quantity"]) || 0;
+        }
+
+        const totalReturned = (allReturns || []).reduce(
+            (sum, r) =>
+                sum +
+                (parseFloat(r["Return This Time"]) || parseFloat(r.Qty) || 0),
+            0
+        );
+        const configuredTotalReturnQty = (allReturns || []).reduce(
+            (maxQty, r) =>
+                Math.max(maxQty, parseFloat(r["Total Return Qty"]) || 0),
+            0
+        );
+        const returnTargetQty = configuredTotalReturnQty || totalQty;
+
+        return { totalReturned, returnTargetQty, isFullyReturned: totalReturned >= returnTargetQty };
+    };
+
     const updateMismatchStatus = async (mismatchId, actionType) => {
         if (!mismatchId) return;
         try {
-            const { data: mismatch, error: mismatchFetchError } = await supabase
-                .from("Mismatch")
-                .select("*")
-                .eq("id", mismatchId)
-                .single();
+            const { isFullyReturned } = await getReturnProgress(mismatchId);
 
-            if (mismatchFetchError || !mismatch) throw mismatchFetchError || new Error("Mismatch not found");
-
-            const { data: allReturns, error: returnsFetchError } = await supabase
-                .from("Purchase Returns")
-                .select('"Qty", "Total Return Qty", "Return This Time"')
-                .eq("mismatch_id", mismatchId);
-
-            if (returnsFetchError) throw returnsFetchError;
-
-            // Fetch LIFT-ACCOUNTS to get actual received quantity as base
-            let totalQty = 0;
-            const liftNo = String(mismatch["Lift Number"] || mismatch["Lift ID"] || "").trim();
-            if (liftNo) {
-                const { data: liftData, error: liftError } = await supabase
-                    .from("LIFT-ACCOUNTS")
-                    .select('"Actual Quantity"')
-                    .eq("Lift No", liftNo)
-                    .maybeSingle();
-                
-                if (!liftError && liftData && liftData["Actual Quantity"]) {
-                    totalQty = parseFloat(liftData["Actual Quantity"]) || 0;
-                }
-            }
-
-            if (!totalQty) {
-                totalQty = parseFloat(mismatch["Qty"]) || parseFloat(mismatch["Quantity"]) || parseFloat(mismatch["Lifting Quantity"]) || 0;
-            }
-
-            const totalReturned = (allReturns || []).reduce(
-                (sum, r) =>
-                    sum +
-                    (parseFloat(r["Return This Time"]) || parseFloat(r.Qty) || 0),
-                0
-            );
-            const configuredTotalReturnQty = (allReturns || []).reduce(
-                (maxQty, r) =>
-                    Math.max(maxQty, parseFloat(r["Total Return Qty"]) || 0),
-                0
-            );
-            const returnTargetQty = configuredTotalReturnQty || totalQty;
-
-            if (totalReturned >= returnTargetQty) {
+            if (isFullyReturned) {
                 const shouldMakeDebitAfterReturn =
                     actionType === "Return Material and Make Debit Note";
 
-                const mismatchUpdate = shouldMakeDebitAfterReturn
-                    ? {
-                        Status: "Credit Notes",
-                        coordination_status: "COORDINATED",
-                        "Action Type": "Make Debit Note",
-                    }
-                    : {
-                        Status: "Resolved - Return",
-                        "Action Type": actionType,
-                    };
-
-                await supabase
-                    .from("Mismatch")
-                    .update(mismatchUpdate)
-                    .eq("id", mismatchId);
+                // Fully returned material stays a normal Finalized Return here.
+                // It only moves toward Debit Note once the user explicitly sends
+                // it to PR Approval from the Finalized Returns list.
+                if (!shouldMakeDebitAfterReturn) {
+                    await supabase
+                        .from("Mismatch")
+                        .update({
+                            Status: "Resolved - Return",
+                            "Action Type": actionType,
+                        })
+                        .eq("id", mismatchId);
+                }
             } else {
                 const mismatchUpdate = {
                     Status: "Purchase Return",
@@ -619,6 +781,28 @@ export default function PurchaseReturnPage() {
             }
         } catch (err) {
             console.error("Error updating mismatch status:", err);
+        }
+    };
+
+    // Manual fallback for records submitted before this was automatic, or for
+    // resending a Rejected record — sends it to PR Approval regardless of
+    // whether the return is fully complete or only a partial installment.
+    const handleSubmitForApproval = async (rec) => {
+        try {
+            const { error } = await supabase
+                .from("Purchase Returns")
+                .update({
+                    "PR Approval Status": "Pending",
+                    "PR Planned": new Date().toISOString(),
+                })
+                .eq("ID", rec.id);
+            if (error) throw error;
+
+            toast.success("✅ Sent to PR Approval.");
+            fetchRecords();
+        } catch (err) {
+            console.error("Error sending to PR Approval:", err);
+            toast.error(`❌ Failed to send for approval: ${err.message}`);
         }
     };
 
@@ -683,6 +867,7 @@ export default function PurchaseReturnPage() {
                     "Party Name": form.partyName || null,
                     "Product Name": form.productName || null,
                     Qty: form.maxReturnQty ? parseFloat(form.maxReturnQty) : null,
+                    "Bill Image": form.billCopy || null,
                     Status: "Purchase Return", // Starts as pending return
                     coordination_status: "COORDINATED",
                     "Action Type": "Return Material and Make Debit Note",
@@ -730,6 +915,11 @@ export default function PurchaseReturnPage() {
                 "Total Qty": form.maxReturnQty ? parseFloat(form.maxReturnQty) : null,
                 "Credit Note URL": creditNoteUrl || null,
                 "Bill Image": form.billCopy || null,
+                // Every submission — whether it fully completes the return or is
+                // only a partial installment — goes straight to PR Approval so it
+                // can be processed (and, once approved, move on to Debit Note).
+                "PR Approval Status": "Pending",
+                "PR Planned": istTimestamp,
             };
 
             if (form.id) {
@@ -777,6 +967,160 @@ export default function PurchaseReturnPage() {
             return val;
         }
     };
+
+    // Newly submitted returns stay here until the user explicitly sends them
+    // to PR Approval; only records that have gone through that step count as
+    // "finalized" (Pending/Approved/Rejected).
+    const pendingReturnRecords = records.filter((rec) => !rec["PR Approval Status"]);
+    const finalizedReturnRecords = records.filter((rec) => Boolean(rec["PR Approval Status"]));
+
+    // Single unified Pending view: mismatches still needing a Purchase Return
+    // created, plus Purchase Return records not yet sent to PR Approval.
+    // Mismatch-sourced rows will simply stop appearing once Mismatch no
+    // longer feeds Purchase Return — no separate tab needed for them.
+    const unifiedPendingRows = [
+        ...pendingMismatches.map((m) => ({ key: `mismatch-${m.id}`, source: "mismatch", data: m })),
+        ...pendingReturnRecords.map((r) => ({ key: `return-${r.id}`, source: "return", data: r })),
+    ];
+
+    const renderReturnsTable = (rows, { title, loadingLabel, emptyLabel }) => (
+        <Card className="shadow-sm border border-border overflow-hidden flex flex-col">
+            <CardHeader className="pb-3 border-b border-gray-100 bg-gray-50/30">
+                <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[#7da23a]" />
+                    {title}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 flex-1 flex flex-col">
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                        <Loader2 className="w-10 h-10 animate-spin mb-4" />
+                        <span>{loadingLabel}</span>
+                    </div>
+                ) : (
+                    <div className="overflow-auto max-h-[calc(100vh-250px)] relative custom-scrollbar">
+                        <table className="w-full text-sm border-collapse">
+                            <thead className="sticky top-0 z-30">
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Actions</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm w-[60px]">#</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR No.</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift No</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No.</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Rate</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill No</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Image</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Qty</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Return Qty</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Return This Time</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Credit Note</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR Approval</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                                {rows.map((rec, idx) => (
+                                    <tr key={rec.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-green-50/50 transition-colors border-b border-gray-100`}>
+                                        <td className="px-4 py-3 whitespace-nowrap text-left">
+                                            <div className="flex items-center justify-start gap-1">
+                                                <Button variant="ghost" size="xs" className="h-7 w-7 p-0 text-[#7da23a] hover:bg-[#7da23a]/10" onClick={() => setViewRecord(rec)}>
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                </Button>
+                                                <Button variant="ghost" size="xs" className="h-7 w-7 p-0 text-primary hover:bg-primary/10" onClick={() => handleEditRecord(rec)}>
+                                                    <Edit className="w-3.5 h-3.5" />
+                                                </Button>
+                                                {isSuperAdmin && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="xs"
+                                                        className="h-7 w-7 p-0 text-purple-600 hover:bg-purple-100/50 border border-purple-200"
+                                                        onClick={() => setSuperAdminEditItem(rec)}
+                                                        title="Super Admin Edit"
+                                                    >
+                                                        <ShieldCheck className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap font-bold text-[#6b8e2f]">{rec["Purchase Return No."]}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700 text-xs">{rec["Lift No"] || "—"}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{rec["Po No."] || "—"}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{rec["Party Name"]}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Product Name"]}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-indigo-700">{rec["Product Rate"] ? `₹${rec["Product Rate"]}` : "—"}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Bill No"] || "—"}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            {rec["Bill Image"] || rec["Bill Copy"] ? (
+                                                <a href={rec["Bill Image"] || rec["Bill Copy"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                    View Bill
+                                                </a>
+                                            ) : <span className="text-gray-400 text-xs">—</span>}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{rec["Total Qty"] ?? rec["Qty"]}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">{rec["Total Return Qty"] ?? "—"}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-[#6b8e2f]">{rec["Return This Time"] ?? "—"}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            {rec["Credit Note URL"] ? (
+                                                <a href={rec["Credit Note URL"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-xs font-semibold hover:bg-green-100 transition-colors">
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                    View
+                                                </a>
+                                            ) : <span className="text-gray-400 text-xs">—</span>}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            {rec["PR Approval Status"] === "Approved" ? (
+                                                <Badge className="bg-emerald-100 text-emerald-700 font-normal text-[10px] px-2 py-0.5">Approved</Badge>
+                                            ) : rec["PR Approval Status"] === "Pending" ? (
+                                                <Badge className="bg-amber-100 text-amber-700 font-normal text-[10px] px-2 py-0.5">Pending Approval</Badge>
+                                            ) : rec["PR Approval Status"] === "Rejected" ? (
+                                                <div className="flex items-center gap-1.5">
+                                                    <Badge className="bg-red-100 text-red-700 font-normal text-[10px] px-2 py-0.5">Rejected</Badge>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="xs"
+                                                        className="h-6 px-2 text-blue-600 hover:bg-blue-100/50 text-[10px]"
+                                                        onClick={() => handleSubmitForApproval(rec)}
+                                                        title="Resend for PR Approval"
+                                                    >
+                                                        <Send className="w-3 h-3 mr-1" /> Resend
+                                                    </Button>
+                                                </div>
+                                            ) : rec.mismatch_id ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="xs"
+                                                    className="h-7 px-2 text-blue-600 hover:bg-blue-100/50 border border-blue-200 text-[10px]"
+                                                    onClick={() => handleSubmitForApproval(rec)}
+                                                    title="Submit for PR Approval"
+                                                >
+                                                    <Send className="w-3 h-3 mr-1" /> Submit
+                                                </Button>
+                                            ) : (
+                                                <span className="text-gray-400 text-xs">—</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {rows.length === 0 && (
+                                    <tr>
+                                        <td colSpan={11} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                            <div className="flex flex-col items-center justify-center">
+                                                <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
+                                                <p className="text-sm font-medium">{emptyLabel}</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -868,26 +1212,34 @@ export default function PurchaseReturnPage() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                 <TabsList className="bg-white border rounded-lg p-1">
                     <TabsTrigger value="pending" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700 h-9 px-4">
-                        Pending Mismatches ({pendingMismatches.length})
+                        Pending ({unifiedPendingRows.length})
                     </TabsTrigger>
                     <TabsTrigger value="finalized" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 h-9 px-4">
-                        Finalized Returns ({records.length})
+                        Finalized Returns ({finalizedReturnRecords.length})
                     </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="finalized">
+                    {renderReturnsTable(finalizedReturnRecords, {
+                        title: "Finalized Return Records",
+                        loadingLabel: "Loading finalized returns...",
+                        emptyLabel: "No finalized returns found.",
+                    })}
+                </TabsContent>
+
+                <TabsContent value="pending">
                     <Card className="shadow-sm border border-border overflow-hidden flex flex-col">
-                        <CardHeader className="pb-3 border-b border-gray-100 bg-gray-50/30">
+                        <CardHeader className="pb-3 border-b border-orange-100 bg-orange-50/20">
                             <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-[#7da23a]" />
-                                Finalized Return Records
+                                <RotateCcw className="w-4 h-4 text-orange-500" />
+                                Pending Purchase Returns
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0 flex-1 flex flex-col">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                                     <Loader2 className="w-10 h-10 animate-spin mb-4" />
-                                    <span>Loading finalized returns...</span>
+                                    <span>Loading pending returns...</span>
                                 </div>
                             ) : (
                                 <div className="overflow-auto max-h-[calc(100vh-250px)] relative custom-scrollbar">
@@ -901,74 +1253,160 @@ export default function PurchaseReturnPage() {
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No.</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
-                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Rate</th>
-                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill No</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Image</th>
-                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Qty</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Return Qty</th>
-                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Return This Time</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Returned</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Pending Qty</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Credit Note</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR Approval</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-100">
-                                            {records.map((rec, idx) => (
-                                                <tr key={rec.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-green-50/50 transition-colors border-b border-gray-100`}>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-left">
-                                                        <div className="flex items-center justify-start gap-1">
-                                                            <Button variant="ghost" size="xs" className="h-7 w-7 p-0 text-[#7da23a] hover:bg-[#7da23a]/10" onClick={() => setViewRecord(rec)}>
-                                                                <Eye className="w-3.5 h-3.5" />
-                                                            </Button>
-                                                            <Button variant="ghost" size="xs" className="h-7 w-7 p-0 text-primary hover:bg-primary/10" onClick={() => handleEditRecord(rec)}>
-                                                                <Edit className="w-3.5 h-3.5" />
-                                                            </Button>
-                                                            {isSuperAdmin && (
+                                            {unifiedPendingRows.map((row, idx) => {
+                                                if (row.source === "mismatch") {
+                                                    const m = row.data;
+                                                    return (
+                                                        <tr key={row.key} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-orange-50/10'} hover:bg-orange-50/20 transition-colors border-b border-gray-100`}>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-left font-medium">
+                                                                <div className="flex items-center justify-start gap-1">
+                                                                    <Button
+                                                                        size="xs"
+                                                                        className="bg-[#6b8e2f] hover:bg-[#5a7a27] text-white shadow-sm h-7 text-[10px] font-bold uppercase tracking-wider px-3"
+                                                                        onClick={() => handleCreateFromMismatch(m)}
+                                                                    >
+                                                                        <Plus className="w-3 h-3 mr-1" />
+                                                                        Create PR
+                                                                    </Button>
+                                                                    {isSuperAdmin && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="xs"
+                                                                            className="h-7 w-7 p-0 text-purple-600 hover:bg-purple-100/50 border border-purple-200"
+                                                                            onClick={() => setSuperAdminEditMismatch(m)}
+                                                                            title="Super Admin Edit Mismatch"
+                                                                        >
+                                                                            <ShieldCheck className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700">{m["Lift Number"]}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{m["Indent Number"] || "—"}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{m["Party Name"]}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{m["Product Name"]}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                                {m["Bill Image"] ? (
+                                                                    <a href={m["Bill Image"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                                        View Bill
+                                                                    </a>
+                                                                ) : <span className="text-gray-400 text-xs">—</span>}
+                                                            </td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-800">{m.returnTargetQty > 0 ? m.returnTargetQty : "—"}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-green-700">{m.returnedQty > 0 ? m.returnedQty.toFixed(2) : "0"}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                                                                    m.pendingQty > 0.001 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
+                                                                }`}>
+                                                                    {m.pendingQty > 0.001 ? m.pendingQty.toFixed(2) : "—"}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                const rec = row.data;
+                                                return (
+                                                    <tr key={row.key} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-green-50/50 transition-colors border-b border-gray-100`}>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-left">
+                                                            <div className="flex items-center justify-start gap-1">
+                                                                <Button
+                                                                    size="xs"
+                                                                    className="bg-[#6b8e2f] hover:bg-[#5a7a27] text-white shadow-sm h-7 text-[10px] font-bold uppercase tracking-wider px-3"
+                                                                    onClick={() => handleEditRecord(rec)}
+                                                                >
+                                                                    <Edit className="w-3 h-3 mr-1" />
+                                                                    Edit
+                                                                </Button>
+                                                                {isSuperAdmin && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="xs"
+                                                                        className="h-7 w-7 p-0 text-purple-600 hover:bg-purple-100/50 border border-purple-200"
+                                                                        onClick={() => setSuperAdminEditItem(rec)}
+                                                                        title="Super Admin Edit"
+                                                                    >
+                                                                        <ShieldCheck className="w-3.5 h-3.5" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap font-bold text-[#6b8e2f]">{rec["Purchase Return No."]}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700 text-xs">{rec["Lift No"] || "—"}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{rec["Po No."] || "—"}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{rec["Party Name"]}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Product Name"]}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            {rec["Bill Image"] || rec["Bill Copy"] ? (
+                                                                <a href={rec["Bill Image"] || rec["Bill Copy"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                                    View Bill
+                                                                </a>
+                                                            ) : <span className="text-gray-400 text-xs">—</span>}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{rec["Total Return Qty"] ?? rec["Qty"]}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-[#6b8e2f]">{rec["Return This Time"] ?? "—"}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            {rec["Credit Note URL"] ? (
+                                                                <a href={rec["Credit Note URL"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-xs font-semibold hover:bg-green-100 transition-colors">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                                    View
+                                                                </a>
+                                                            ) : <span className="text-gray-400 text-xs">—</span>}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            {rec["PR Approval Status"] === "Rejected" ? (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <Badge className="bg-red-100 text-red-700 font-normal text-[10px] px-2 py-0.5">Rejected</Badge>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="xs"
+                                                                        className="h-6 px-2 text-blue-600 hover:bg-blue-100/50 text-[10px]"
+                                                                        onClick={() => handleSubmitForApproval(rec)}
+                                                                        title="Resend for PR Approval"
+                                                                    >
+                                                                        <Send className="w-3 h-3 mr-1" /> Resend
+                                                                    </Button>
+                                                                </div>
+                                                            ) : rec.mismatch_id ? (
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="xs"
-                                                                    className="h-7 w-7 p-0 text-purple-600 hover:bg-purple-100/50 border border-purple-200"
-                                                                    onClick={() => setSuperAdminEditItem(rec)}
-                                                                    title="Super Admin Edit"
+                                                                    className="h-7 px-2 text-blue-600 hover:bg-blue-100/50 border border-blue-200 text-[10px]"
+                                                                    onClick={() => handleSubmitForApproval(rec)}
+                                                                    title="Submit for PR Approval"
                                                                 >
-                                                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                                                    <Send className="w-3 h-3 mr-1" /> Submit
                                                                 </Button>
+                                                            ) : (
+                                                                <span className="text-gray-400 text-xs">—</span>
                                                             )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-[#6b8e2f]">{rec["Purchase Return No."]}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700 text-xs">{rec["Lift No"] || "—"}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{rec["Po No."] || "—"}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{rec["Party Name"]}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Product Name"]}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-indigo-700">{rec["Product Rate"] ? `₹${rec["Product Rate"]}` : "—"}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Bill No"] || "—"}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                        {rec["Bill Image"] || rec["Bill Copy"] ? (
-                                                            <a href={rec["Bill Image"] || rec["Bill Copy"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
-                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                                                View Bill
-                                                            </a>
-                                                        ) : <span className="text-gray-400 text-xs">—</span>}
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{rec["Total Qty"] ?? rec["Qty"]}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">{rec["Total Return Qty"] ?? "—"}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-[#6b8e2f]">{rec["Return This Time"] ?? "—"}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                        {rec["Credit Note URL"] ? (
-                                                            <a href={rec["Credit Note URL"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-xs font-semibold hover:bg-green-100 transition-colors">
-                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                                                View
-                                                            </a>
-                                                        ) : <span className="text-gray-400 text-xs">—</span>}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {records.length === 0 && (
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {unifiedPendingRows.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={10} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                                    <td colSpan={12} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
                                                         <div className="flex flex-col items-center justify-center">
                                                             <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
-                                                            <p className="text-sm font-medium">No finalized returns found.</p>
+                                                            <p className="text-sm font-medium">No pending purchase returns found.</p>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -977,98 +1415,6 @@ export default function PurchaseReturnPage() {
                                     </table>
                                 </div>
                             )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="pending">
-                    <Card className="shadow-sm border border-border overflow-hidden flex flex-col">
-                        <CardHeader className="pb-3 border-b border-orange-100 bg-orange-50/20">
-                            <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                                <RotateCcw className="w-4 h-4 text-orange-500" />
-                                Pending Mismatches Needs Return
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0 flex-1 flex flex-col">
-                            <div className="overflow-auto max-h-[calc(100vh-250px)] relative custom-scrollbar">
-                                <table className="w-full text-sm border-collapse">
-                                    <thead className="sticky top-0 z-30">
-                                        <tr className="bg-gray-50 border-b border-gray-200">
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Actions</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm w-[60px]">#</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift No</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Image</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Return Qty</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Returned</th>
-                                            <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Pending Qty</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-100">
-                                        {pendingMismatches.map((m, idx) => (
-                                            <tr key={m.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-orange-50/10'} hover:bg-orange-50/20 transition-colors border-b border-gray-100`}>
-                                                <td className="px-4 py-3 whitespace-nowrap text-left font-medium">
-                                                    <div className="flex items-center justify-start gap-1">
-                                                        <Button 
-                                                            size="xs" 
-                                                            className="bg-orange-600 hover:bg-orange-700 text-white shadow-sm h-7 text-[10px] font-bold uppercase tracking-wider px-3"
-                                                            onClick={() => handleCreateFromMismatch(m)}
-                                                        >
-                                                            <Plus className="w-3 h-3 mr-1" />
-                                                            Create PR
-                                                        </Button>
-                                                        {isSuperAdmin && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="xs"
-                                                                className="h-7 w-7 p-0 text-purple-600 hover:bg-purple-100/50 border border-purple-200"
-                                                                onClick={() => setSuperAdminEditMismatch(m)}
-                                                                title="Super Admin Edit Mismatch"
-                                                            >
-                                                                <ShieldCheck className="w-3.5 h-3.5" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700">{m["Lift Number"]}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{m["Indent Number"] || "—"}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    {m["Bill Image"] ? (
-                                                        <a href={m["Bill Image"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
-                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                                            View Bill
-                                                        </a>
-                                                    ) : <span className="text-gray-400 text-xs">—</span>}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{m["Party Name"]}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{m["Product Name"]}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-800">{m.returnTargetQty > 0 ? m.returnTargetQty : "—"}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-green-700">{m.returnedQty > 0 ? m.returnedQty.toFixed(2) : "0"}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                                                        m.pendingQty > 0.001 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
-                                                    }`}>
-                                                        {m.pendingQty > 0.001 ? m.pendingQty.toFixed(2) : "—"}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {pendingMismatches.length === 0 && (
-                                            <tr>
-                                                <td colSpan={9} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
-                                                    <div className="flex flex-col items-center justify-center">
-                                                        <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
-                                                        <p className="text-sm font-medium">No pending mismatches found.</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -1180,10 +1526,10 @@ export default function PurchaseReturnPage() {
                                         <input
                                             type="number"
                                             value={form.maxReturnQty || ""}
-                                            readOnly={Boolean(form.mismatch_id)}
+                                            readOnly={Boolean(form.mismatch_id) && Boolean(form.maxReturnQty > 0)}
                                             onChange={(e) => handleChange("maxReturnQty", e.target.value)}
                                             className={`w-full px-4 py-3 rounded-xl border text-sm outline-none ${
-                                                Boolean(form.mismatch_id)
+                                                Boolean(form.mismatch_id) && Boolean(form.maxReturnQty > 0)
                                                     ? "bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed"
                                                     : "border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
                                             }`}
@@ -1240,7 +1586,13 @@ export default function PurchaseReturnPage() {
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Return Reason</label>
-                                        <input type="text" value={form.returnReason} onChange={(e) => handleChange("returnReason", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all" placeholder="Reason for return" />
+                                        <select type="text" value={form.returnReason} onChange={(e) => handleChange("returnReason", e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all" placeholder="Reason for return" >
+                                            <option value="" disabled selected>Reason for return</option>
+                                            <option value="damaged">Damaged</option>
+                                            <option value="wrong_item">Material Shortage</option>
+                                            <option value="wrong_qty">Actual Material Return</option>
+                                            <option value="other">Other</option>
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Bill Number</label>
