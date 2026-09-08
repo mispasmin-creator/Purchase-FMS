@@ -58,6 +58,18 @@ const normalizeFirmName = (val) => {
   return str;
 };
 
+// Classify the Mismatch record as Rate / Qty / Lab (or a combination), read
+// straight off its own stored difference columns.
+const classifyMismatchType = (m) => {
+  if (!m) return "";
+  const hasRate = Math.abs(parseFloat(m["Rate Difference"] || 0)) > 0.001;
+  const hasQty = m["Qty Diff Status"] === "Mismatch" || Math.abs(parseFloat(m["Quantity Difference"] || m["Diff Qty"] || 0)) > 0.001;
+  const hasLab = ["Alumina Difference", "Iron Difference", "AP Difference", "BD Difference"].some(
+    (key) => Math.abs(parseFloat(m[key] || 0)) > 0.001
+  );
+  return [hasRate && "Rate", hasQty && "Qty", hasLab && "Lab"].filter(Boolean).join(", ");
+};
+
 // Column configuration
 const DEBIT_NOTE_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
@@ -68,16 +80,20 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "partyName", toggleable: true },
   { header: "Product Name", dataKey: "productName", toggleable: true },
-  { header: "Qty", dataKey: "qty", toggleable: true },
+  { header: "Qty", dataKey: "totalQty", toggleable: true },
+  { header: "Return Qty", dataKey: "qty", toggleable: true },
   { header: "Product Rate", dataKey: "productRate", toggleable: true },
   { header: "Bill No", dataKey: "billNo", toggleable: true },
   { header: "Bill Image", dataKey: "billImage", toggleable: true },
   { header: "Credit Note", dataKey: "creditNoteUrl", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Vehicle No", dataKey: "vehicleNo", toggleable: true },
+  { header: "Mismatch Type", dataKey: "mismatchType", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
   { header: "Debit Amount", dataKey: "debitAmount", toggleable: true },
   { header: "Debit Image", dataKey: "debitNoteUrl", toggleable: true },
+  { header: "Purchase Return Remark", dataKey: "returnReason", toggleable: true },
+  { header: "PR Remark", dataKey: "prRemark", toggleable: true },
   { header: "Remarks", dataKey: "remarks", toggleable: true },
 ];
 
@@ -355,8 +371,12 @@ export default function DebitNote() {
           actionType: row["Action Type"] || "",
           isReAuditItem: Boolean(row["Planned5"]),
           isFromReAudit: row["Action Type"] === "Make Debit Note (Re-Audit)",
-          // Qty from Mismatch table (PO Qty) — shown for Re-Audit rows, or mapped from Purchase Returns if applicable
+          // Mismatch Type — Rate / Qty / Lab, read from this Mismatch row's own stored difference columns
+          mismatchType: classifyMismatchType(row),
+          // Return Qty — the quantity actually returned (Return This Time) from Mismatch table, or mapped from Purchase Returns if applicable
           qty: returnQtyMap[String(row.id)] || row["Qty"] || row["Quantity"] || row["Lifting Quantity"] || "",
+          // Qty — the actual/total received quantity from the linked Purchase Return row's "Total Qty"
+          totalQty: prDetails?.["Total Qty"] || "",
           // Product Rate — from the linked Purchase Return row when one exists, else the Mismatch table's own value (legacy, non-Purchase-Return debit notes)
           productRate: prDetails?.["Product Rate"] || row["Rate"] || "",
           // Bill No — from the linked Purchase Return row when one exists, else the Mismatch table's own value
@@ -367,6 +387,10 @@ export default function DebitNote() {
           billImage: row["Bill Image"] || "",
           // Purchase Return No. — from the linked Purchase Return row when one exists, else the Mismatch table's own value
           purchaseReturnNo: String(prDetails?.["Purchase Return No."] || row["Purchase Return No."] || "").trim(),
+          // Purchase Return Remark — the reason entered when submitting the Purchase Return
+          returnReason: prDetails?.["Return Reason"] || "",
+          // PR Remark — the remark entered while approving/rejecting in PR Approval
+          prRemark: prDetails?.["PR Approval Remarks"] || "",
         };
       });
 
@@ -413,10 +437,16 @@ export default function DebitNote() {
             remarks: String(row["Return Reason"] || "").trim(),
             planned: null,
             actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
-            // Qty = Return This Time (from Finalized return tab of Purchase Return page)
+            // Return Qty = Return This Time (from Finalized return tab of Purchase Return page)
             qty: row["Return This Time"] || "",
             returnThisTime: row["Return This Time"] || null,
             totalReturnQty: row["Total Return Qty"] || null,
+            // Qty — the actual/total received quantity from the Purchase Return row
+            totalQty: row["Total Qty"] || "",
+            // Purchase Return Remark — the reason entered when submitting the Purchase Return
+            returnReason: String(row["Return Reason"] || "").trim(),
+            // PR Remark — the remark entered while approving/rejecting in PR Approval
+            prRemark: row["PR Approval Remarks"] || "",
             // Product Rate from Purchase Return row
             productRate: row["Product Rate"] || "",
             // Bill No from Purchase Return row
@@ -1350,13 +1380,34 @@ export default function DebitNote() {
 
               {/* History Tab */}
               <TabsContent value="history" className="space-y-4">
+                <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Filter className="h-4 w-4 text-gray-500" />
+                    <Label className="text-sm font-medium">Filters</Label>
+                    <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+                      Clear All
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div>
+                      <Label className="text-xs mb-1 block">Firm Name</Label>
+                      <SearchableSelect
+                        value={filters.firmName}
+                        onValueChange={(value) => handleFilterChange("firmName", value)}
+                        options={["all", ...uniqueFilterOptions.firmName]}
+                        placeholder="Firms"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                </div>
                 <Card className="shadow-sm border border-border">
                   <CardHeader className="py-3 px-4 bg-gray-50">
                     <div className="flex justify-between items-center">
                       <div>
                         <CardTitle className="flex items-center text-sm font-semibold text-foreground">
                           <History className="h-4 w-4 text-[#7da23a] mr-2" />
-                          History Entries ({history.length})
+                          History Entries ({filteredData.length})
                         </CardTitle>
                         <CardDescription className="text-xs text-muted-foreground mt-0.5">
                           Entries with both planned and actual timestamps. These have been processed.
@@ -1380,7 +1431,7 @@ export default function DebitNote() {
                         <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
                         <p className="text-muted-foreground">Loading history data...</p>
                       </div>
-                    ) : error && history.length === 0 ? (
+                    ) : error && filteredData.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center">
                         <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
                         <p className="font-medium text-destructive">Error Loading Data</p>
@@ -1389,7 +1440,7 @@ export default function DebitNote() {
                           Retry Loading
                         </Button>
                       </div>
-                    ) : history.length === 0 ? (
+                    ) : filteredData.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center">
                         <History className="h-12 w-12 text-green-500 mb-3" />
                         <p className="font-medium text-foreground">No History Entries</p>
@@ -1413,7 +1464,7 @@ export default function DebitNote() {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-100">
-                            {history.map((item) => (
+                            {filteredData.map((item) => (
                               <tr
                                 key={item.id}
                                 className="hover:bg-green-50/50 transition-colors border-b border-gray-100"

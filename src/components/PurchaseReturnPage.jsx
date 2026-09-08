@@ -91,6 +91,9 @@ export default function PurchaseReturnPage() {
     const [creditNoteImageFile, setCreditNoteImageFile] = useState(null);
     const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
     const [superAdminEditMismatch, setSuperAdminEditMismatch] = useState(null);
+    const [firmFilter, setFirmFilter] = useState("all");
+    const [mismatchDiffMap, setMismatchDiffMap] = useState({});
+    const [dropdownPendingLiftNos, setDropdownPendingLiftNos] = useState(new Set());
 
     // ── Fetch all records ──────────────────────────────────────────────────
     const fetchRecords = useCallback(async () => {
@@ -109,6 +112,7 @@ export default function PurchaseReturnPage() {
                 { data: mismatchData, error: mismatchError },
                 { data: coordinatedReturnData, error: coordinatedReturnError },
                 { data: liftAccountsData, error: liftAccountsError },
+                { data: openMismatchData, error: openMismatchError },
             ] = await Promise.all([
                 supabase
                     .from("Mismatch")
@@ -124,11 +128,18 @@ export default function PurchaseReturnPage() {
                     .from("LIFT-ACCOUNTS")
                     .select("*")
                     .order("Timestamp", { ascending: false }),
+                // Every mismatch still open on the Mismatch page (same exclusion
+                // list it uses for its own "Pending" tab) — used only to scope
+                // the Lift No dropdown in the manual Purchase Return popup.
+                supabase
+                    .from("Mismatch")
+                    .select('"Lift Number", "Lift ID", "Firm Name", "Status", "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference"'),
             ]);
 
             if (mismatchError) throw mismatchError;
             if (coordinatedReturnError) throw coordinatedReturnError;
             if (liftAccountsError) throw liftAccountsError;
+            if (openMismatchError) throw openMismatchError;
 
             let fetchedReturns = returnData || [];
             let fetchedMismatches = mismatchData || [];
@@ -297,9 +308,47 @@ export default function PurchaseReturnPage() {
                 id: r.ID !== undefined ? r.ID : r.id
             }));
 
+            // Fetch the Mismatch Type (Rate/Qty/Lab) for every linked mismatch so
+            // it can be shown alongside each Purchase Return record.
+            const returnMismatchIds = Array.from(
+                new Set(mappedReturns.map((r) => String(r.mismatch_id || "").trim()).filter(Boolean))
+            );
+            let mismatchDiffMap = {};
+            if (returnMismatchIds.length > 0) {
+                const { data: diffRows } = await supabase
+                    .from("Mismatch")
+                    .select('id, "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference"')
+                    .in("id", returnMismatchIds);
+                (diffRows || []).forEach((row) => {
+                    mismatchDiffMap[String(row.id)] = row;
+                });
+            }
+
+            // Mirrors Mis-match.jsx's own "Pending" exclusion list exactly, including
+            // its handling of a null/unset Status (still counted as open there),
+            // plus its requirement that a real Rate/Qty/Lab difference exists.
+            let openMismatches = (openMismatchData || []).filter(
+                (m) =>
+                    m["Status"] !== "Credit Notes" &&
+                    m["Status"] !== "Others" &&
+                    m["Status"] !== "Purchase Return" &&
+                    m["Status"] !== "Acknowledge" &&
+                    m["Status"] !== "Completed" &&
+                    m["Status"] !== "Resolved - Return" &&
+                    Boolean(classifyMismatchType(m))
+            );
+            if (user?.firmName) {
+                openMismatches = openMismatches.filter((m) => canViewFirm(user.firmName, m["Firm Name"]));
+            }
+            const openLiftNos = new Set(
+                openMismatches.map((m) => String(m["Lift Number"] || m["Lift ID"] || "").trim()).filter(Boolean)
+            );
+
             setRecords(mappedReturns);
             setPendingMismatches(fetchedMismatches);
             setAvailableLifts(fetchedLifts);
+            setMismatchDiffMap(mismatchDiffMap);
+            setDropdownPendingLiftNos(openLiftNos);
         } catch (err) {
             console.error("Failed to fetch records:", err);
             toast.error("Failed to load records.");
@@ -968,18 +1017,44 @@ export default function PurchaseReturnPage() {
         }
     };
 
+    // Classify the underlying Mismatch record as Rate / Qty / Lab (or a
+    // combination), read straight off its own stored difference columns.
+    const classifyMismatchType = (m) => {
+        if (!m) return "";
+        const hasRate = Math.abs(parseFloat(m["Rate Difference"] || 0)) > 0.001;
+        const hasQty = m["Qty Diff Status"] === "Mismatch" || Math.abs(parseFloat(m["Quantity Difference"] || m["Diff Qty"] || 0)) > 0.001;
+        const hasLab = ["Alumina Difference", "Iron Difference", "AP Difference", "BD Difference"].some(
+            (key) => Math.abs(parseFloat(m[key] || 0)) > 0.001
+        );
+        return [hasRate && "Rate", hasQty && "Qty", hasLab && "Lab"].filter(Boolean).join(", ");
+    };
+
+    // Firm Name filter — applied across both the Pending and Finalized views.
+    const firmOptions = Array.from(
+        new Set([
+            ...records.map((r) => r["Firm Name"]).filter(Boolean),
+            ...pendingMismatches.map((m) => m["Firm Name"]).filter(Boolean),
+        ])
+    ).sort();
+    const firmFilteredRecords = firmFilter === "all"
+        ? records
+        : records.filter((r) => r["Firm Name"] === firmFilter);
+    const firmFilteredMismatches = firmFilter === "all"
+        ? pendingMismatches
+        : pendingMismatches.filter((m) => m["Firm Name"] === firmFilter);
+
     // Newly submitted returns stay here until the user explicitly sends them
     // to PR Approval; only records that have gone through that step count as
     // "finalized" (Pending/Approved/Rejected).
-    const pendingReturnRecords = records.filter((rec) => !rec["PR Approval Status"]);
-    const finalizedReturnRecords = records.filter((rec) => Boolean(rec["PR Approval Status"]));
+    const pendingReturnRecords = firmFilteredRecords.filter((rec) => !rec["PR Approval Status"]);
+    const finalizedReturnRecords = firmFilteredRecords.filter((rec) => Boolean(rec["PR Approval Status"]));
 
     // Single unified Pending view: mismatches still needing a Purchase Return
     // created, plus Purchase Return records not yet sent to PR Approval.
     // Mismatch-sourced rows will simply stop appearing once Mismatch no
     // longer feeds Purchase Return — no separate tab needed for them.
     const unifiedPendingRows = [
-        ...pendingMismatches.map((m) => ({ key: `mismatch-${m.id}`, source: "mismatch", data: m })),
+        ...firmFilteredMismatches.map((m) => ({ key: `mismatch-${m.id}`, source: "mismatch", data: m })),
         ...pendingReturnRecords.map((r) => ({ key: `return-${r.id}`, source: "return", data: r })),
     ];
 
@@ -1006,6 +1081,7 @@ export default function PurchaseReturnPage() {
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm w-[60px]">#</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR No.</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift No</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Firm Name</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No.</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
@@ -1016,6 +1092,7 @@ export default function PurchaseReturnPage() {
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Return Qty</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Return This Time</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Credit Note</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Mismatch Type</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR Approval</th>
                                 </tr>
                             </thead>
@@ -1046,6 +1123,7 @@ export default function PurchaseReturnPage() {
                                         <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
                                         <td className="px-4 py-3 whitespace-nowrap font-bold text-[#6b8e2f]">{rec["Purchase Return No."]}</td>
                                         <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700 text-xs">{rec["Lift No"] || "—"}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">{rec["Firm Name"] || "—"}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{rec["Po No."] || "—"}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{rec["Party Name"]}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Product Name"]}</td>
@@ -1069,6 +1147,9 @@ export default function PurchaseReturnPage() {
                                                     View
                                                 </a>
                                             ) : <span className="text-gray-400 text-xs">—</span>}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">
+                                            {classifyMismatchType(mismatchDiffMap[String(rec.mismatch_id)]) || "—"}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap">
                                             {rec["PR Approval Status"] === "Approved" ? (
@@ -1106,7 +1187,7 @@ export default function PurchaseReturnPage() {
                                 ))}
                                 {rows.length === 0 && (
                                     <tr>
-                                        <td colSpan={11} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                        <td colSpan={17} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
                                             <div className="flex flex-col items-center justify-center">
                                                 <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
                                                 <p className="text-sm font-medium">{emptyLabel}</p>
@@ -1198,6 +1279,16 @@ export default function PurchaseReturnPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    <select
+                        value={firmFilter}
+                        onChange={(e) => setFirmFilter(e.target.value)}
+                        className="h-10 px-3 border border-gray-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none"
+                    >
+                        <option value="all">All Firms</option>
+                        {firmOptions.map((firm) => (
+                            <option key={firm} value={firm}>{firm}</option>
+                        ))}
+                    </select>
                     <Button onClick={fetchRecords} variant="outline" size="sm" className="h-10" disabled={loading}>
                         <Loader2 className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                         Refresh
@@ -1250,6 +1341,7 @@ export default function PurchaseReturnPage() {
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm w-[60px]">#</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR No.</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Lift No</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Firm Name</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PO No.</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
@@ -1258,6 +1350,7 @@ export default function PurchaseReturnPage() {
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Returned</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Pending Qty</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Credit Note</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Mismatch Type</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR Approval</th>
                                             </tr>
                                         </thead>
@@ -1293,6 +1386,7 @@ export default function PurchaseReturnPage() {
                                                             <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
                                                             <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700">{m["Lift Number"]}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">{m["Firm Name"] || "—"}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{m["Indent Number"] || "—"}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{m["Party Name"]}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{m["Product Name"]}</td>
@@ -1314,6 +1408,7 @@ export default function PurchaseReturnPage() {
                                                                 </span>
                                                             </td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">{classifyMismatchType(m) || "—"}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
                                                         </tr>
                                                     );
@@ -1348,6 +1443,7 @@ export default function PurchaseReturnPage() {
                                                         <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-mono text-xs">{idx + 1}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap font-bold text-[#6b8e2f]">{rec["Purchase Return No."]}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap font-bold text-orange-700 text-xs">{rec["Lift No"] || "—"}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">{rec["Firm Name"] || "—"}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-primary">{rec["Po No."] || "—"}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 italic font-medium">{rec["Party Name"]}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">{rec["Product Name"]}</td>
@@ -1369,6 +1465,9 @@ export default function PurchaseReturnPage() {
                                                                     View
                                                                 </a>
                                                             ) : <span className="text-gray-400 text-xs">—</span>}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">
+                                                            {classifyMismatchType(mismatchDiffMap[String(rec.mismatch_id)]) || "—"}
                                                         </td>
                                                         <td className="px-4 py-3 whitespace-nowrap">
                                                             {rec["PR Approval Status"] === "Rejected" ? (
@@ -1403,7 +1502,7 @@ export default function PurchaseReturnPage() {
                                             })}
                                             {unifiedPendingRows.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={12} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                                    <td colSpan={15} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
                                                         <div className="flex flex-col items-center justify-center">
                                                             <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
                                                             <p className="text-sm font-medium">No pending purchase returns found.</p>
@@ -1487,14 +1586,18 @@ export default function PurchaseReturnPage() {
                                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 bg-white"
                                             >
                                                 <option value="">Select Lift No.</option>
-                                                {Array.from(new Set(availableLifts.map(l => String(l["Lift No"] || "").trim()).filter(Boolean))).map(liftNum => {
-                                                    const lift = availableLifts.find(l => String(l["Lift No"] || "").trim() === liftNum);
-                                                    return (
-                                                        <option key={liftNum} value={liftNum}>
-                                                            {liftNum} {lift ? `(${lift["Vendor Name"] || lift["Party Name"] || "No Vendor"})` : ""}
-                                                        </option>
-                                                    );
-                                                })}
+                                                {(() => {
+                                                    return Array.from(new Set(availableLifts.map(l => String(l["Lift No"] || "").trim()).filter(Boolean)))
+                                                        .filter(liftNum => dropdownPendingLiftNos.has(liftNum))
+                                                        .map(liftNum => {
+                                                            const lift = availableLifts.find(l => String(l["Lift No"] || "").trim() === liftNum);
+                                                            return (
+                                                                <option key={liftNum} value={liftNum}>
+                                                                    {liftNum} {lift ? `(${lift["Vendor Name"] || lift["Party Name"] || "No Vendor"})` : ""}
+                                                                </option>
+                                                            );
+                                                        });
+                                                })()}
                                             </select>
                                         )}
                                     </div>

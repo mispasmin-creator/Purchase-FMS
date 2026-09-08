@@ -51,6 +51,18 @@ const statusTone = (status) => {
   return "bg-amber-100 text-amber-700";
 };
 
+// Classify the underlying Mismatch record as Rate / Qty / Lab (or a
+// combination), read straight off its own stored difference columns.
+const classifyMismatchType = (m) => {
+  if (!m) return "";
+  const hasRate = Math.abs(parseFloat(m["Rate Difference"] || 0)) > 0.001;
+  const hasQty = m["Qty Diff Status"] === "Mismatch" || Math.abs(parseFloat(m["Quantity Difference"] || m["Diff Qty"] || 0)) > 0.001;
+  const hasLab = ["Alumina Difference", "Iron Difference", "AP Difference", "BD Difference"].some(
+    (key) => Math.abs(parseFloat(m[key] || 0)) > 0.001
+  );
+  return [hasRate && "Rate", hasQty && "Qty", hasLab && "Lab"].filter(Boolean).join(", ");
+};
+
 export default function PurchaseReturnApproval() {
   const { user } = useAuth();
   const { updateCount } = useNotification();
@@ -63,6 +75,7 @@ export default function PurchaseReturnApproval() {
   const [selectedRow, setSelectedRow] = useState(null);
   const [decisionNotes, setDecisionNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [firmFilter, setFirmFilter] = useState("all");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -95,6 +108,19 @@ export default function PurchaseReturnApproval() {
         decidedOn: row["PR Actual"] || "",
       }));
 
+      // Classify each linked Mismatch record as Rate / Qty / Lab, read
+      // straight off its own stored difference columns.
+      const mismatchIds = Array.from(new Set(rows.map((r) => r.mismatchId).filter(Boolean)));
+      if (mismatchIds.length > 0) {
+        const { data: diffRows } = await supabase
+          .from("Mismatch")
+          .select('id, "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference"')
+          .in("id", mismatchIds);
+        const diffMap = {};
+        (diffRows || []).forEach((row) => { diffMap[String(row.id)] = row; });
+        rows = rows.map((r) => ({ ...r, mismatchType: classifyMismatchType(diffMap[String(r.mismatchId)]) }));
+      }
+
       rows = rows.filter((row) => canViewFirm(user?.firmName, row.firmName));
 
       const pending = rows.filter((row) => row.approvalStatus === "Pending");
@@ -120,29 +146,37 @@ export default function PurchaseReturnApproval() {
     fetchData();
   }, [fetchData]);
 
+  const firmOptions = useMemo(() => {
+    return Array.from(
+      new Set([...pendingData, ...historyData].map((item) => item.firmName).filter(Boolean)),
+    ).sort();
+  }, [pendingData, historyData]);
+
   const filteredPending = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return pendingData.filter(
       (item) =>
-        item.liftNo.toLowerCase().includes(query) ||
+        (firmFilter === "all" || item.firmName === firmFilter) &&
+        (item.liftNo.toLowerCase().includes(query) ||
         item.poNo.toLowerCase().includes(query) ||
         item.partyName.toLowerCase().includes(query) ||
         item.productName.toLowerCase().includes(query) ||
-        item.purchaseReturnNo.toLowerCase().includes(query),
+        item.purchaseReturnNo.toLowerCase().includes(query)),
     );
-  }, [pendingData, searchQuery]);
+  }, [pendingData, searchQuery, firmFilter]);
 
   const filteredHistory = useMemo(() => {
     const query = historySearchQuery.trim().toLowerCase();
     return historyData.filter(
       (item) =>
-        item.liftNo.toLowerCase().includes(query) ||
+        (firmFilter === "all" || item.firmName === firmFilter) &&
+        (item.liftNo.toLowerCase().includes(query) ||
         item.poNo.toLowerCase().includes(query) ||
         item.partyName.toLowerCase().includes(query) ||
         item.productName.toLowerCase().includes(query) ||
-        item.approvalStatus.toLowerCase().includes(query),
+        item.approvalStatus.toLowerCase().includes(query)),
     );
-  }, [historyData, historySearchQuery]);
+  }, [historyData, historySearchQuery, firmFilter]);
 
   const submitDecision = async (decision) => {
     if (!selectedRow) return;
@@ -229,11 +263,13 @@ export default function PurchaseReturnApproval() {
             <tr className="bg-gray-50 border-b border-gray-200">
               {!isHistory && <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Action</th>}
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Lift No</th>
+              <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Firm Name</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">PR No.</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Party</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Product</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Return Qty</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Credit Note</th>
+              <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Mismatch Type</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Status</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">{isHistory ? "Decided On" : "Submitted On"}</th>
             </tr>
@@ -255,6 +291,7 @@ export default function PurchaseReturnApproval() {
                   </td>
                 )}
                 <td className="px-4 py-3 font-medium text-primary text-xs">{item.liftNo || "-"}</td>
+                <td className="px-4 py-3 text-gray-700 text-xs font-semibold">{item.firmName || "-"}</td>
                 <td className="px-4 py-3 text-gray-700 text-xs">{item.purchaseReturnNo || "-"}</td>
                 <td className="px-4 py-3 text-gray-700 text-xs">{item.partyName || "-"}</td>
                 <td className="px-4 py-3 text-gray-700 text-xs">{item.productName || "-"}</td>
@@ -266,6 +303,7 @@ export default function PurchaseReturnApproval() {
                     </a>
                   ) : <span className="text-gray-400 text-xs">-</span>}
                 </td>
+                <td className="px-4 py-3 text-gray-700 text-xs font-semibold">{item.mismatchType || "-"}</td>
                 <td className="px-4 py-3">
                   <Badge className={`${statusTone(item.approvalStatus)} font-normal text-[10px] px-2 py-0.5`}>
                     {item.approvalStatus || "-"}
@@ -306,27 +344,51 @@ export default function PurchaseReturnApproval() {
           </TabsList>
 
           <TabsContent value="pending" className="space-y-4">
-            <div className="relative">
-              <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
-              <Input
-                className="pl-9"
-                placeholder="Search lift, PO, party, product..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search lift, PO, party, product..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <select
+                value={firmFilter}
+                onChange={(e) => setFirmFilter(e.target.value)}
+                className="h-9 px-3 border border-gray-200 rounded-md text-sm bg-white sm:w-56"
+              >
+                <option value="all">All Firms</option>
+                {firmOptions.map((firm) => (
+                  <option key={firm} value={firm}>{firm}</option>
+                ))}
+              </select>
             </div>
             {renderTable(filteredPending)}
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
-            <div className="relative">
-              <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
-              <Input
-                className="pl-9"
-                placeholder="Search history..."
-                value={historySearchQuery}
-                onChange={(e) => setHistorySearchQuery(e.target.value)}
-              />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search history..."
+                  value={historySearchQuery}
+                  onChange={(e) => setHistorySearchQuery(e.target.value)}
+                />
+              </div>
+              <select
+                value={firmFilter}
+                onChange={(e) => setFirmFilter(e.target.value)}
+                className="h-9 px-3 border border-gray-200 rounded-md text-sm bg-white sm:w-56"
+              >
+                <option value="all">All Firms</option>
+                {firmOptions.map((firm) => (
+                  <option key={firm} value={firm}>{firm}</option>
+                ))}
+              </select>
             </div>
             {renderTable(filteredHistory, true)}
           </TabsContent>
