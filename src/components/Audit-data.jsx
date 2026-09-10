@@ -1391,7 +1391,7 @@ const CallTrackerPage = () => {
           .select('"Bilty Number"'),
         supabase
           .from("LIFT-ACCOUNTS")
-          .select('id, "Timestamp", "Lift No", "Type", "Bill No.", "Date Of Bill", "Vendor Name", "Raw Material Name", "Qty", "Area lifting", "Truck No.", "Transporter Name", "Transporter Rate", "Bill Image", "Bilty No.", "Type Of Transporting Rate", "Rate", "Truck Qty", "Bilty Image", "Image Of Weight Slip", "Status", "Indent no.", "Firm Name", "Actual Quantity", "Date Of Receiving", "Actual 1"')
+          .select('id, "Timestamp", "Lift No", "Type", "Bill No.", "Date Of Bill", "Vendor Name", "Raw Material Name", "Qty", "Area lifting", "Truck No.", "Transporter Name", "Transporter Rate", "Bill Image", "Bilty No.", "Type Of Transporting Rate", "Rate", "Truck Qty", "Lifting Qty", "Bilty Image", "Image Of Weight Slip", "Status", "Indent no.", "Firm Name", "Actual Quantity", "Date Of Receiving", "Actual 1"')
           .not("Actual 1", "is", null)
       ]);
 

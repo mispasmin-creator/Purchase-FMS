@@ -170,7 +170,7 @@ const PROCESSED_RECEIPTS_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "PO Qty", dataKey: "qty", toggleable: true },
-  { header: "ACTUAL Qty", dataKey: "actualQuantity_fromSheet", toggleable: true },
+  { header: "Material Qty", dataKey: "actualQuantity_fromSheet", toggleable: true },
   { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
   {
@@ -1099,7 +1099,7 @@ export default function ReceiptCheck() {
     });
     if (missingTruckQty)
       newErrors.truckQtyByLift =
-        "Enter a valid Truck Qty for every included product.";
+        "Enter a valid Material Qty for every included product.";
     if (
       isPPBagMaterial(selectedLift?.rawMaterialName) &&
       (!formData.totalBagsQty || isNaN(parseFloat(formData.totalBagsQty)))
@@ -2096,7 +2096,7 @@ export default function ReceiptCheck() {
                         <th className="px-3 py-2 text-left font-semibold text-gray-600">Date Of Bill</th>
                         <th className="px-3 py-2 text-right font-semibold text-gray-600">Billed Qty</th>
                         <th className="px-3 py-2 text-right font-semibold text-gray-600">
-                          Truck Qty <span className="text-red-500">*</span>
+                          Material Qty <span className="text-red-500">*</span>
                         </th>
                         <th className="px-3 py-2 text-right font-semibold text-gray-600">Share</th>
                       </tr>

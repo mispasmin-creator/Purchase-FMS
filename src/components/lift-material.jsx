@@ -176,7 +176,7 @@ const LIFTS_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "material", toggleable: true },
   { header: "PO Qty", dataKey: "quantity", toggleable: true },
-  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
+  { header: "Lift Qty", dataKey: "liftingQty", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
   {
     header: "Per MT Transportation Rate",
