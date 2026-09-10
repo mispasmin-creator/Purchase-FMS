@@ -85,6 +85,7 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Product Rate", dataKey: "productRate", toggleable: true },
   { header: "Bill No", dataKey: "billNo", toggleable: true },
   { header: "Bill Image", dataKey: "billImage", toggleable: true },
+  { header: "Weight Slip", dataKey: "weightSlip", toggleable: true },
   { header: "Credit Note", dataKey: "creditNoteUrl", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Vehicle No", dataKey: "vehicleNo", toggleable: true },
@@ -385,6 +386,8 @@ export default function DebitNote() {
           creditNoteUrl: prDetails?.["Credit Note URL"] || "",
           // Bill Image from Mismatch table
           billImage: row["Bill Image"] || "",
+          // Weight Slip image from the linked Purchase Return row
+          weightSlip: prDetails?.["Weighslip of Material"] || "",
           // Purchase Return No. — from the linked Purchase Return row when one exists, else the Mismatch table's own value
           purchaseReturnNo: String(prDetails?.["Purchase Return No."] || row["Purchase Return No."] || "").trim(),
           // Purchase Return Remark — the reason entered when submitting the Purchase Return
@@ -453,6 +456,8 @@ export default function DebitNote() {
             billNo: row["Bill No"] || "",
             // Bill Image from Purchase Return row
             billImage: row["Bill Image"] || row["Bill Copy"] || "",
+            // Weight Slip image from Purchase Return row
+            weightSlip: row["Weighslip of Material"] || "",
             // Purchase Return No from Purchase Return row
             purchaseReturnNo: String(row["Purchase Return No."] || "").trim(),
             // Credit Note image URL
@@ -876,6 +881,25 @@ export default function DebitNote() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
           </svg>
           View Bill
+        </a>
+      ) : (
+        <span className="text-gray-400 text-xs">-</span>
+      );
+    }
+
+    if (column.dataKey === "weightSlip") {
+      return item.weightSlip ? (
+        <a
+          href={String(item.weightSlip).startsWith("http") ? item.weightSlip : `https://${item.weightSlip}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          View
         </a>
       ) : (
         <span className="text-gray-400 text-xs">-</span>

@@ -69,6 +69,7 @@ const EMPTY_FORM = {
     orgBillNo: "",
     billNo: "",
     billCopy: "",
+    weightSlip: "",
     creditNoteUrl: "",
     liftNo: "",
     firmName: "",
@@ -474,6 +475,7 @@ export default function PurchaseReturnPage() {
             firmName: normalizeFirmName(mismatch["Firm Name"]) || normalizeFirmName(liftData?.["Firm Name"]) || "",
             billNo: liftData?.["Bill No."] || mismatch["Bill No."] || "",
             billCopy: liftData?.["Bill Image"] || liftData?.["Bill Copy"] || mismatch["Bill Image"] || "",
+            weightSlip: liftData?.["Image Of Weight Slip"] || "",
             productRate: liftData?.["Rate"] || liftData?.["Product Rate"] || mismatch["Rate"] || "",
             mismatch_id: mismatch.id,
             id: null,
@@ -549,6 +551,7 @@ export default function PurchaseReturnPage() {
             orgBillNo: rec["Org. Bill No"],
             billNo: rec["Bill No"] || rec["Bill No."],
             billCopy: rec["Bill Copy"] || rec["Bill Image"],
+            weightSlip: rec["Weighslip of Material"] || "",
             creditNoteUrl: rec["Credit Note URL"] || "",
             liftNo: rec["Lift No"],
             firmName: rec["Firm Name"],
@@ -650,6 +653,7 @@ export default function PurchaseReturnPage() {
                 productName: liftData?.["Raw Material Name"] || liftData?.["Product Name"] || mismatchData?.["Product Name"] || indentData?.["Material"] || prev.productName,
                 billNo: liftData?.["Bill No."] || mismatchData?.["Bill No."] || prev.billNo,
                 billCopy: liftData?.["Bill Image"] || liftData?.["Bill Copy"] || mismatchData?.["Bill Image"] || prev.billCopy,
+                weightSlip: liftData?.["Image Of Weight Slip"] || prev.weightSlip,
                 productRate: liftData?.["Rate"] || liftData?.["Product Rate"] || mismatchData?.["Rate"] || indentData?.["Rate"] || prev.productRate,
                 firmName: normalizeFirmName(liftData?.["Firm Name"]) || normalizeFirmName(mismatchData?.["Firm Name"]) || normalizeFirmName(indentData?.["Firm Name"]) || prev.firmName,
                 maxReturnQty: productQty > 0 ? productQty : prev.maxReturnQty,
@@ -727,6 +731,7 @@ export default function PurchaseReturnPage() {
                     liftData["Bill Image"] ||
                     liftData["Bill Copy"] ||
                     prev.billCopy,
+                weightSlip: liftData["Image Of Weight Slip"] || prev.weightSlip,
                 productRate: liftData["Rate"] || liftData["Product Rate"] || liftData["Rate (INR)"] || prev.productRate,
                 firmName: normalizeFirmName(liftData["Firm Name"]) || prev.firmName,
                 maxReturnQty: productQty,
@@ -964,6 +969,7 @@ export default function PurchaseReturnPage() {
                 "Total Qty": form.maxReturnQty ? parseFloat(form.maxReturnQty) : null,
                 "Credit Note URL": creditNoteUrl || null,
                 "Bill Image": form.billCopy || null,
+                "Weighslip of Material": form.weightSlip || null,
                 // Every submission — whether it fully completes the return or is
                 // only a partial installment — goes straight to PR Approval so it
                 // can be processed (and, once approved, move on to Debit Note).
@@ -1088,6 +1094,7 @@ export default function PurchaseReturnPage() {
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Rate</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill No</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Image</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Weight Slip</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Qty</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Return Qty</th>
                                     <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Return This Time</th>
@@ -1134,6 +1141,14 @@ export default function PurchaseReturnPage() {
                                                 <a href={rec["Bill Image"] || rec["Bill Copy"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
                                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                                     View Bill
+                                                </a>
+                                            ) : <span className="text-gray-400 text-xs">—</span>}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            {rec["Weighslip of Material"] ? (
+                                                <a href={rec["Weighslip of Material"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                    View
                                                 </a>
                                             ) : <span className="text-gray-400 text-xs">—</span>}
                                         </td>
@@ -1187,7 +1202,7 @@ export default function PurchaseReturnPage() {
                                 ))}
                                 {rows.length === 0 && (
                                     <tr>
-                                        <td colSpan={17} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                        <td colSpan={18} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
                                             <div className="flex flex-col items-center justify-center">
                                                 <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
                                                 <p className="text-sm font-medium">{emptyLabel}</p>
@@ -1346,6 +1361,7 @@ export default function PurchaseReturnPage() {
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Party Name</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Product Name</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Bill Image</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Weight Slip</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Total Return Qty</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Returned</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Pending Qty</th>
@@ -1395,6 +1411,14 @@ export default function PurchaseReturnPage() {
                                                                     <a href={m["Bill Image"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
                                                                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                                                         View Bill
+                                                                    </a>
+                                                                ) : <span className="text-gray-400 text-xs">—</span>}
+                                                            </td>
+                                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                                {m["Weight Slip"] ? (
+                                                                    <a href={m["Weight Slip"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                                        View
                                                                     </a>
                                                                 ) : <span className="text-gray-400 text-xs">—</span>}
                                                             </td>
@@ -1455,6 +1479,14 @@ export default function PurchaseReturnPage() {
                                                                 </a>
                                                             ) : <span className="text-gray-400 text-xs">—</span>}
                                                         </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            {rec["Weighslip of Material"] ? (
+                                                                <a href={rec["Weighslip of Material"]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                                    View
+                                                                </a>
+                                                            ) : <span className="text-gray-400 text-xs">—</span>}
+                                                        </td>
                                                         <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{rec["Total Return Qty"] ?? rec["Qty"]}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-[#6b8e2f]">{rec["Return This Time"] ?? "—"}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
@@ -1502,7 +1534,7 @@ export default function PurchaseReturnPage() {
                                             })}
                                             {unifiedPendingRows.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={15} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                                    <td colSpan={16} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
                                                         <div className="flex flex-col items-center justify-center">
                                                             <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
                                                             <p className="text-sm font-medium">No pending purchase returns found.</p>
@@ -1720,6 +1752,22 @@ export default function PurchaseReturnPage() {
                                         ) : (
                                             <div className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-400 italic h-[46px] flex items-center">
                                                 No Bill Image available
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Weight Slip</label>
+                                        {form.weightSlip ? (
+                                            <div className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm flex items-center justify-between h-[46px]">
+                                                <span className="text-gray-500 truncate max-w-[150px] font-medium">{form.weightSlip.split('/').pop()}</span>
+                                                <a href={form.weightSlip} target="_blank" rel="noopener noreferrer" className="text-green-700 hover:text-green-800 font-bold underline flex items-center text-xs">
+                                                    <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                    View Image
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            <div className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-400 italic h-[46px] flex items-center">
+                                                No Weight Slip available
                                             </div>
                                         )}
                                     </div>

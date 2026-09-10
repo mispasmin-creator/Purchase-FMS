@@ -102,6 +102,7 @@ export default function PurchaseReturnApproval() {
         billNo: String(row["Bill No"] || "").trim(),
         returnReason: String(row["Return Reason"] || "").trim(),
         creditNoteUrl: row["Credit Note URL"] || "",
+        weightSlip: row["Weighslip of Material"] || "",
         approvalStatus: String(row["PR Approval Status"] || "").trim(),
         approvalRemarks: String(row["PR Approval Remarks"] || "").trim(),
         submittedOn: row["PR Planned"] || "",
@@ -269,6 +270,7 @@ export default function PurchaseReturnApproval() {
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Product</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Return Qty</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Credit Note</th>
+              <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Weight Slip</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Mismatch Type</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">Status</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm">{isHistory ? "Decided On" : "Submitted On"}</th>
@@ -299,6 +301,13 @@ export default function PurchaseReturnApproval() {
                 <td className="px-4 py-3">
                   {item.creditNoteUrl ? (
                     <a href={item.creditNoteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium">
+                      View <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : <span className="text-gray-400 text-xs">-</span>}
+                </td>
+                <td className="px-4 py-3">
+                  {item.weightSlip ? (
+                    <a href={item.weightSlip} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium">
                       View <ExternalLink className="w-3 h-3" />
                     </a>
                   ) : <span className="text-gray-400 text-xs">-</span>}
