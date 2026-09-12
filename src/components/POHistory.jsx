@@ -27,6 +27,8 @@ import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { canViewFirm } from "../utils/firmFilter";
 import { toast } from "sonner";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 
 const formatDate = (dateString) => {
   if (!dateString) return "-";
@@ -57,7 +59,7 @@ export default function POHistory() {
     try {
       const { data, error } = await supabase
         .from("INDENT-PO")
-        .select("*")
+        .select('"po_number","Vendor name","Vendor Name 1","Firm Name","id","Actual2","Total Amount","PO Copy","ActualLogistics","Actual3","Material"')
         .not("Actual2", "is", null)
         .order("Actual2", { ascending: false });
 
@@ -127,6 +129,25 @@ export default function POHistory() {
       return searchMatch && dateMatch;
     });
   }, [poList, searchQuery, dateFilter]);
+
+  const pagination = usePagination(100);
+
+  useEffect(() => {
+    pagination.setTotalRows(filteredPOs.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredPOs.length]);
+
+  // Search/date filter changed — go back to page 1 instead of possibly
+  // landing past the end of the (now different) filtered set.
+  useEffect(() => {
+    pagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, dateFilter]);
+
+  const pagedPOs = useMemo(
+    () => filteredPOs.slice(pagination.from, pagination.to + 1),
+    [filteredPOs, pagination.from, pagination.to],
+  );
 
   const openEditModal = (po) => {
     setEditingPO(po);
@@ -327,7 +348,7 @@ export default function POHistory() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {filteredPOs.map((po) => (
+                {pagedPOs.map((po) => (
                   <tr key={po.id} className="hover:bg-slate-50 transition-colors border-b border-gray-100">
                     <td className="px-4 py-3 font-medium text-blue-600">{po.poId}</td>
                     <td className="px-4 py-3 text-gray-600">{formatDate(po.date)}</td>
@@ -398,6 +419,13 @@ export default function POHistory() {
             </table>
           </div>
         )}
+        <PaginationControls
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          totalRows={pagination.totalRows}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
       </CardContent>
     </Card>
   );

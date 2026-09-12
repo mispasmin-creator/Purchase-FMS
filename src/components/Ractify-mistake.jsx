@@ -131,7 +131,7 @@ const RectifyMistakeBiltyPage = () => {
 
       const { data, error } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('"id","Timestamp","Lift ID","Type","Bill No.","Party Name","Product Name","Qty","Area Lifting","Truck No.","Transporter Name","Bill Image","Bilty No.","Type Of Rate","Rate","Truck Qty","Bilty Image","Qty Diff Status","Diff Qty","Weight Slip","Total Freight","Status3","Remarks3","Firm Name"')
         .not("Planned3", "is", null) // Rectify Planned
         .is("Actual3", null) // Rectify Actual is null
         .order("Timestamp", { ascending: false });

@@ -64,6 +64,8 @@ import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { uploadFileToStorage } from "../utils/storageUtils";
 import { canViewFirm } from "../utils/firmFilter";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 
 // Constants for Google Sheets and Apps Script
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
@@ -929,6 +931,27 @@ export default function ReceiptCheck() {
       });
   }, [allLiftsData, filters, searchQuery, dateRangeFilter]);
 
+  const awaitingPagination = usePagination(100);
+  const processedPagination = usePagination(100);
+
+  useEffect(() => {
+    awaitingPagination.setTotalRows(liftsAwaitingReceipt.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liftsAwaitingReceipt.length]);
+
+  useEffect(() => {
+    processedPagination.setTotalRows(derivedMaterialReceipts.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [derivedMaterialReceipts.length]);
+
+  // Filters/search/date-range changed — go back to page 1 instead of
+  // possibly landing past the end of the (now different) filtered set.
+  useEffect(() => {
+    awaitingPagination.resetPage();
+    processedPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, searchQuery, dateRangeFilter]);
+
   const handleInputChange = (e) => {
     const { name, value, type, files } = e.target;
     if (type === "file") {
@@ -1238,7 +1261,7 @@ export default function ReceiptCheck() {
 
       const { data: existingMismatch } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('"id","Type","Bill No.","Area Lifting","Truck No.","Transporter Name","Transporter","Bill Image","Bilty No.","Type Of Rate","Rate","Truck Qty","Lifting Quantity","Bilty Image","Total Freight","Planned2"')
         .eq('"Lift ID"', lift.id)
         .maybeSingle();
 
@@ -1471,12 +1494,17 @@ export default function ReceiptCheck() {
     data,
     columnsMeta,
     visibilityState,
+    pagination,
   ) => {
     const visibleCols = columnsMeta.filter(
       (col) => visibilityState[col.dataKey],
     );
     const isLoading = loadingData && data.length === 0;
     const hasError = errorData && data.length === 0 && activeTab === tabKey;
+    // The header count, CSV export, and empty-state check below all use the
+    // full filtered `data` (unchanged) — only the rendered rows are paged,
+    // so pagination never changes what "Export CSV" or the count show.
+    const pagedData = data.slice(pagination.from, pagination.to + 1);
     return (
       <Card className="flex-col flex-1 border shadow-sm border-border">
         <CardHeader className="px-4 py-3 bg-muted/30">
@@ -1664,7 +1692,7 @@ export default function ReceiptCheck() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {data.map((item) => (
+                  {pagedData.map((item) => (
                     <tr
                       key={item._id}
                       className={`hover:bg-green-50/50 transition-colors border-b border-gray-100 ${
@@ -1723,6 +1751,13 @@ export default function ReceiptCheck() {
               </table>
             </div>
           )}
+          <PaginationControls
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalRows={pagination.totalRows}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
         </CardContent>
       </Card>
     );
@@ -1955,6 +1990,7 @@ export default function ReceiptCheck() {
                 liftsAwaitingReceipt,
                 AWAITING_RECEIPT_COLUMNS_META,
                 visibleAwaitingReceiptColumns,
+                awaitingPagination,
               )}
             </TabsContent>
             <TabsContent
@@ -1968,6 +2004,7 @@ export default function ReceiptCheck() {
                 derivedMaterialReceipts,
                 PROCESSED_RECEIPTS_COLUMNS_META,
                 visibleProcessedReceiptsColumns,
+                processedPagination,
               )}
             </TabsContent>
           </Tabs>

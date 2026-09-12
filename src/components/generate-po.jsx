@@ -225,7 +225,7 @@ export default function CreatePO() {
       try {
         const { data, error } = await supabase
           .from("INDENT-PO")
-          .select("*")
+          .select('"Indent Id.","Firm Name","Vendor","Material","Approved Qty","Approved Rate","Rate","Quotation Number 1","Quotation Date 1","Actual2","Planned2","PO Notes","Notes","Alumina %","Iron %","AP Percent Age %","BD Percent Age %","Fineness","Packaging","PO Copy","Advance To Be Paid","To Be Paid Amount","When To Be Paid Amount","Transport Type","Lead Time To Lift (days)","po_number","UOM","id"')
           .not("Planned2", "is", null);
         if (error) throw error;
         const mapped = (data || []).map(mapRow);

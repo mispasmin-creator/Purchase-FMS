@@ -584,7 +584,7 @@ export default function LiftMaterial() {
         { data, error: fetchError },
         { data: liftData, error: liftFetchError },
       ] = await Promise.all([
-        supabase.from("INDENT-PO").select("*").not("Planned4", "is", null),
+        supabase.from("INDENT-PO").select('"id","Indent Id.","po_number","Status","Planned4","Material","Quantity","Total Quantity","Rate","Order Cancel Qty","Pending PO Qty","Firm Name","Vendor name","Vendor","Alumina %","Iron %","Transport Type","Transporter Name","transpoter_rate_type","Transporter Rate","PO Notes","Reason Of Cancel Qty","Delivery Order No."').not("Planned4", "is", null),
         supabase
           .from("LIFT-ACCOUNTS")
           .select('"Indent no.", "Lifting Qty", "Raw Material Name"'),
@@ -815,7 +815,7 @@ export default function LiftMaterial() {
     try {
       let liftQuery = supabase
         .from("LIFT-ACCOUNTS")
-        .select("*", { count: "exact" })
+        .select('"id","Timestamp","Type Of Transporting Rate","Transporter Rate","Lifting Qty","Indent no.","Lift No","Vendor Name","Qty","Raw Material Name","Bill No.","Date Of Bill","Area lifting","From","To","Lead Time To Reach Factory (days)","Type","Transporter Name","Truck No.","Driver No.","Bilty No.","Bilty Image","Rate","Bill Image","Truck Qty","Firm Name"', { count: "exact" })
         .order("Timestamp", { ascending: false });
 
       liftQuery = applyFirmFilter(liftQuery, user?.firmName, "Firm Name");

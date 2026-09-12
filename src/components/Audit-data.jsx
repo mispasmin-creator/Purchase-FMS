@@ -2202,7 +2202,24 @@ const CallTrackerPage = () => {
     fetchReAuditDataFromSupabase();
     fetchAllDataFromSupabase();
     fetchHistoryDataFromSupabase();
-  }, [submittedRows, user, liftWeightSlipMap, liftTransporterRateMap, loadingLiftMeta]);
+  }, [user, liftWeightSlipMap, liftTransporterRateMap, loadingLiftMeta]);
+
+  // Every action (approve/reject/edit) adds a key to submittedRows so the row
+  // hides immediately. Re-running the block above on that change would
+  // re-fetch all 8 near-full-table datasets from Supabase for a single row's
+  // action — instead, just drop the matching row from whichever stage array
+  // is already in memory. submittedRows only ever grows, so filtering the
+  // current state further is always safe and gives the identical result the
+  // full refetch used to produce, with no network cost.
+  useEffect(() => {
+    setAuditMismatchData(prev => prev.filter(item => !submittedRows.has(`AUDIT_${item.id}`)));
+    setTallyEntryMismatchData(prev => prev.filter(item => !submittedRows.has(`TALLY_ENTRY_${item.id}`)));
+    setReCheckingMismatchData(prev => prev.filter(item => !submittedRows.has(`RE_CHECKING_${item.id}`)));
+    setBillEntryMismatchData(prev => prev.filter(item => !submittedRows.has(`BILL_ENTRY_${item.id}`)));
+    setRectifyMismatchData(prev => prev.filter(item => !submittedRows.has(`RECTIFY_${item.id}`)));
+    setReAuditMismatchData(prev => prev.filter(item => !submittedRows.has(`RE_AUDIT_${item.id}`)));
+    setAllMismatchData(prev => prev.filter(item => !submittedRows.has(`ALL_${item.id}`)));
+  }, [submittedRows]);
 
   useEffect(() => {
     if (location.state?.returnToTab === 'REAUDIT' && !loadingReAudit && reAuditMismatchData.length > 0) {

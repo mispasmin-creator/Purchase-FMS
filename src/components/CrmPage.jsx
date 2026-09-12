@@ -156,7 +156,7 @@ export default function CrmPage() {
         await Promise.all([
           supabase
             .from("LIFT-ACCOUNTS")
-            .select("*")
+            .select('"Indent no.","CRM Date","Actual 1","Actual 4","CRM Status","Delay 4","CRM Remarks","CRM By","id","Lift No","Timestamp","Firm Name","Vendor Name","Raw Material Name","Qty","Lifting Qty","Rate","Bill No.","Date Of Bill","Truck No.","Driver No.","Transporter Name","Bilty No.","Bill Image","Bilty Image","Area lifting","Lead Time To Reach Factory (days)","Planned 4","Planned 1"')
             .order("id", { ascending: false }),
           supabase
             .from("INDENT-PO")

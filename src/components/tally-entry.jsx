@@ -28,6 +28,8 @@ import { AuthContext } from "../context/AuthContext";
 import { Input } from "@/components/ui/input";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 
 
 // Helper Functions
@@ -208,7 +210,7 @@ export default function TallyEntry() {
     try {
       const { data, error: fetchError } = await supabase
         .from("INDENT-PO")
-        .select("*")
+        .select('"po_number","Indent Id.","id","Timestamp","Firm Name","Delivery Order No.","Vendor name","Vendor","Material","Total Quantity","Approved Qty","Priority","Transport Type","Planned3","Actual3","ActualLogistics"')
         .not("Planned3", "is", null);
 
       if (fetchError) throw fetchError;
@@ -317,6 +319,87 @@ export default function TallyEntry() {
       completedEntries: applyFilters(completed),
     };
   }, [sheetData, applyFilters]);
+
+  const pendingPagination = usePagination(100);
+  const historyPagination = usePagination(100);
+
+  useEffect(() => {
+    pendingPagination.setTotalRows(pendingEntries.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingEntries.length]);
+
+  useEffect(() => {
+    historyPagination.setTotalRows(completedEntries.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedEntries.length]);
+
+  // Filters changed — the filtered set shrank/grew, so go back to page 1
+  // instead of possibly landing past the end.
+  useEffect(() => {
+    pendingPagination.resetPage();
+    historyPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
+  const pagedPendingEntries = useMemo(
+    () => pendingEntries.slice(pendingPagination.from, pendingPagination.to + 1),
+    [pendingEntries, pendingPagination.from, pendingPagination.to],
+  );
+  const pagedCompletedEntries = useMemo(
+    () => completedEntries.slice(historyPagination.from, historyPagination.to + 1),
+    [completedEntries, historyPagination.from, historyPagination.to],
+  );
+
+  // Detail-only fields (PO Copy, Notes, Total/Advance Amount, Alumina/Iron %)
+  // are only fetched, full-width, for the grouped POs actually on the
+  // currently-viewed page — not for all ~950 matching rows every load.
+  const [detailsByGroup, setDetailsByGroup] = useState({});
+  useEffect(() => {
+    const visibleEntries = activeTab === "history" ? pagedCompletedEntries : pagedPendingEntries;
+    const idsToFetch = visibleEntries
+      .flatMap((entry) => entry.dbRowIds || [])
+      .filter((id) => id != null);
+    if (idsToFetch.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error: detailError } = await supabase
+          .from("INDENT-PO")
+          .select('"po_number","Indent Id.","id","To Be Paid Amount","PO Copy","PO Notes","Total Amount","Alumina %","Iron %"')
+          .in("id", idsToFetch);
+        if (detailError) throw detailError;
+        if (cancelled) return;
+
+        const nextDetails = {};
+        (data || []).forEach((row) => {
+          const poNumber = String(row.po_number || row["Indent Id."] || "");
+          const groupKey = cleanIndentId(poNumber);
+          if (!groupKey || nextDetails[groupKey]) return;
+          nextDetails[groupKey] = {
+            advanceAmount: String(row["To Be Paid Amount"] || ""),
+            poCopyLink: String(row["PO Copy"] || ""),
+            notes: String(row["PO Notes"] || ""),
+            totalAmount: String(row["Total Amount"] || ""),
+            alumina: String(row["Alumina %"] || ""),
+            iron: String(row["Iron %"] || ""),
+          };
+        });
+        setDetailsByGroup((prev) => ({ ...prev, ...nextDetails }));
+      } catch (err) {
+        console.error("Error fetching PO detail fields:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, pagedPendingEntries, pagedCompletedEntries]);
+
+  const withDetails = (entry) => ({
+    ...entry,
+    ...(detailsByGroup[cleanIndentId(entry.poNumber)] || {}),
+  });
 
   const getUniqueValues = (field) => {
     const allEntries = sheetData.filter((row) => row.deliveryOrderNo && row.deliveryOrderNo.trim() !== "");
@@ -701,10 +784,24 @@ export default function TallyEntry() {
               </div>
             </div>
             <TabsContent value="approve" className="flex-1 mt-0">
-              {renderTable("approve", pendingEntries, approveColumns, visibleApproveCols, setVisibleApproveCols)}
+              {renderTable("approve", pagedPendingEntries.map(withDetails), approveColumns, visibleApproveCols, setVisibleApproveCols)}
+              <PaginationControls
+                page={pendingPagination.page}
+                pageSize={pendingPagination.pageSize}
+                totalRows={pendingPagination.totalRows}
+                onPageChange={pendingPagination.setPage}
+                onPageSizeChange={pendingPagination.setPageSize}
+              />
             </TabsContent>
             <TabsContent value="history" className="flex-1 mt-0">
-              {renderTable("history", completedEntries, historyColumns, visibleHistoryCols, setVisibleHistoryCols)}
+              {renderTable("history", pagedCompletedEntries.map(withDetails), historyColumns, visibleHistoryCols, setVisibleHistoryCols)}
+              <PaginationControls
+                page={historyPagination.page}
+                pageSize={historyPagination.pageSize}
+                totalRows={historyPagination.totalRows}
+                onPageChange={historyPagination.setPage}
+                onPageSizeChange={historyPagination.setPageSize}
+              />
             </TabsContent>
 
             {/* Sticky Submit Bar */}

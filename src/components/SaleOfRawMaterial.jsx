@@ -67,7 +67,7 @@ const PurchaseItemsTab = () => {
     try {
       const { data, error } = await supabase
         .from('fullkittin')
-        .select('*')
+        .select('"Bilty Number","Vehicle Number","Material Load Details","Transporter Name","From","To","Amount","Status","Bilty Image"')
         .order('id', { ascending: false });
 
       if (error) throw error;

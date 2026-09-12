@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { supabase } from "../supabase";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 import { AuthContext } from "../context/AuthContext";
 import { RefreshCw, Filter, X, Download, Settings, Check, FileDown, TrendingUp, Truck, AlertTriangle, Info, Edit2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -129,11 +131,11 @@ export default function LabReportPage() {
       const [{ data: liftData, error: liftErr }, { data: poData, error: poErr }] = await Promise.all([
         supabase
           .from("LIFT-ACCOUNTS")
-          .select("*")
+          .select('"id","Indent no.","Vendor Name","Lift No","Bill No.","Date Of Bill","Raw Material Name","Qty","Truck Qty","Truck No.","Status","Date Of Test","Moisture Percent Age %","BD Percent Age %","AP Percent Age %","Alumina Percent Age %","Iron Percent Age %","Sieve Analysis","LOI %","SIO2 %","CaO %","MgO %","TiO2 %","K2O + Na2O %","Free Iron %","Firm Name","Timestamp"')
           .order("Timestamp", { ascending: false }),
         supabase
           .from("INDENT-PO")
-          .select("*"),
+          .select('"Indent Id.","po_number","Vendor name","Vendor","Alumina %","Iron %","AP Percent Age %","BD Percent Age %","CaO %","Firm Name"'),
       ]);
 
       if (liftErr) throw liftErr;
@@ -305,6 +307,22 @@ export default function LabReportPage() {
 
   const tested = filtered.filter((r) => r.dateOfTest && String(r.dateOfTest).trim() !== "").length;
   const notTested = filtered.length - tested;
+
+  const labPagination = usePagination(100);
+
+  useEffect(() => {
+    labPagination.setTotalRows(filtered.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered.length]);
+
+  // Filters/search changed — go back to page 1 instead of possibly landing
+  // past the end of the (now different) filtered set.
+  useEffect(() => {
+    labPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, firmFilter, fromDate, toDate, testStatusFilter]);
+
+  const pagedFiltered = filtered.slice(labPagination.from, labPagination.to + 1);
 
   const exportPdf = () => {
     try {
@@ -494,8 +512,8 @@ export default function LabReportPage() {
     setRateLoading(true);
     try {
       const [{ data: liftData, error: liftErr }, { data: poData, error: poErr }] = await Promise.all([
-        supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
-        supabase.from("INDENT-PO").select("*"),
+        supabase.from("LIFT-ACCOUNTS").select('"id","Indent no.","Raw Material Name","Vendor Name","Lift No","Bill No.","Date Of Bill","Type Of Transporting Rate","Transporter Rate","Transporting Rate","Lifting Qty","Qty","Rate","Status","Alumina Percent Age %","Iron Percent Age %","Firm Name","Timestamp","Bill Image","Bilty No.","Bilty Image","Truck No.","Transporter Name","Truck Qty"').order("Timestamp", { ascending: false }),
+        supabase.from("INDENT-PO").select('"Indent Id.","po_number","Vendor name","Vendor","Material","PO Items","Rate","PO Copy"'),
       ]);
       if (liftErr) throw liftErr;
       if (poErr) throw poErr;
@@ -659,11 +677,11 @@ export default function LabReportPage() {
     try {
       const { data, error } = await supabase
         .from("INDENT-PO")
-        .select("*")
+        .select('"id","Indent Id.","po_number","PO Copy","Timestamp","Firm Name","Have To Make PO","Vendor","Vendor name","Material","Quantity","Rate"')
         .order("Timestamp", { ascending: false });
 
       if (error) throw error;
-      
+
       const mappedData = (data || []).map(row => ({
         _rawId: row.id,
         indentNo: String(row["Indent Id."] || "").trim(),
@@ -730,6 +748,34 @@ export default function LabReportPage() {
       (r.firmName || "").toLowerCase().includes(s)
     );
   });
+
+  const ratePagination = usePagination(100);
+  const indentPagination = usePagination(100);
+
+  useEffect(() => {
+    ratePagination.setTotalRows(filteredRateRows.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredRateRows.length]);
+
+  useEffect(() => {
+    indentPagination.setTotalRows(filteredIndentRows.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredIndentRows.length]);
+
+  // Filters/search changed — go back to page 1 instead of possibly landing
+  // past the end of the (now different) filtered set.
+  useEffect(() => {
+    ratePagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rateSearch, rateFirmFilter]);
+
+  useEffect(() => {
+    indentPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indentSearch, indentFirmFilter]);
+
+  const pagedRateRows = filteredRateRows.slice(ratePagination.from, ratePagination.to + 1);
+  const pagedIndentRows = filteredIndentRows.slice(indentPagination.from, indentPagination.to + 1);
   // ── End Rate Report State ──────────────────────────────────────────────────
 
   const exportRateExcel = () => {
@@ -1220,7 +1266,7 @@ export default function LabReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row, i) => {
+                  {pagedFiltered.map((row, i) => {
                     const isTested = row.dateOfTest && String(row.dateOfTest).trim() !== "";
                     const rowBg = i % 2 === 0 ? "bg-white" : "bg-gray-50";
                     return (
@@ -1339,6 +1385,13 @@ export default function LabReportPage() {
               </table>
             )}
           </div>
+          <PaginationControls
+            page={labPagination.page}
+            pageSize={labPagination.pageSize}
+            totalRows={labPagination.totalRows}
+            onPageChange={labPagination.setPage}
+            onPageSizeChange={labPagination.setPageSize}
+          />
         </>
       )}
 
@@ -1446,7 +1499,7 @@ export default function LabReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRateRows.map((row, i) => {
+                  {pagedRateRows.map((row, i) => {
                     const rowBg = i % 2 === 0 ? "bg-white" : "bg-gray-50";
                     const poR = parseFloat(row.poRate);
                     const liftR = parseFloat(row.liftBillRate);
@@ -1576,6 +1629,13 @@ export default function LabReportPage() {
               </table>
             )}
           </div>
+          <PaginationControls
+            page={ratePagination.page}
+            pageSize={ratePagination.pageSize}
+            totalRows={ratePagination.totalRows}
+            onPageChange={ratePagination.setPage}
+            onPageSizeChange={ratePagination.setPageSize}
+          />
           {/* Legend */}
           <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-500">
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 inline-block border border-red-300" /> Lifting Rate &gt; PO Rate (over budget)</span>
@@ -1661,7 +1721,7 @@ export default function LabReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredIndentRows.map((row, i) => (
+                  {pagedIndentRows.map((row, i) => (
                     <tr key={i} className={`${i % 2 === 0 ? "bg-white" : "bg-blue-50/20"} hover:bg-blue-50/40`}>
                       <TD className="text-[10px] text-gray-500 font-medium">{row.timestamp ? fmtDate(row.timestamp) : "-"}</TD>
                       <TD className="font-medium text-blue-700">{row.indentNo || "-"}</TD>
@@ -1709,6 +1769,13 @@ export default function LabReportPage() {
               </table>
             )}
           </div>
+          <PaginationControls
+            page={indentPagination.page}
+            pageSize={indentPagination.pageSize}
+            totalRows={indentPagination.totalRows}
+            onPageChange={indentPagination.setPage}
+            onPageSizeChange={indentPagination.setPageSize}
+          />
         </>
       )}
 

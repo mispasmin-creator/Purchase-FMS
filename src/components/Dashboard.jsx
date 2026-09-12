@@ -296,15 +296,15 @@ export default function Dashboard() {
       const [indentPoRes, liftAccountsRes, mismatchRes, fullkittingRes, tlRes] = await Promise.all([
         supabase
           .from("INDENT-PO")
-          .select("*")
+          .select('"Indent Id.","Timestamp","po_number","Firm Name","Vendor","Vendor name","Material","Quantity","Total Quantity","Pending PO Qty","Notes","Planned1","Actual1","Planned5","Actual5","Planned6","Actual6","Planned3","Planned4","PlannedLogistics","ActualLogistics","Planned9","Planned7","Actual7","Planned8","Actual8","Actual2","Actual3","Actual4","Status","Transport Type"')
           .order("Timestamp", { ascending: false }),
         supabase
           .from("LIFT-ACCOUNTS")
-          .select("*")
+          .select('"Timestamp","Actual 1","Lift No","Indent no.","Bilty No.","Bilty Image","Bill No.","Lifting Qty","Truck Qty","Actual Quantity","Firm Name","Vendor Name","Raw Material Name","Transporter Name","Actual 2","Actual 3","Actual 4","Planned 1","Planned 2","Planned 3","Type","Unload Approval Required","Unload Approval Status","Status","Physical Condition","Moisture","Alumina Percent Age %","Iron Percent Age %","AP Percent Age %","BD Percent Age %"')
           .order("Timestamp", { ascending: false }),
-        supabase.from("Mismatch").select("*").order("id", { ascending: false }),
-        supabase.from("fullkittin").select("*"),
-        supabase.from("TL").select("*"),
+        supabase.from("Mismatch").select('"id","Timestamp","Lift Number","Lift ID","Bilty No.","Bilty Image","Bill No.","Party Name","Product Name","Actual2","Actual3","Actual4","Actual5","Actual6","Planned2","Planned3","Planned4","Planned5","Planned6","Planned7","Actual7","Status","Status2","Status5","Quantity Difference","Diff Qty","Qty Diff Status","Rate Difference","Alumina Difference","Iron Difference","AP Difference","BD Difference","Firm Name"').order("id", { ascending: false }),
+        supabase.from("fullkittin").select('"Lift No","Bilty Number"'),
+        supabase.from("TL").select('"NAME","TL Alumina","TL Iron","AP%","BD%"'),
       ]);
 
       if (indentPoRes.error) throw indentPoRes.error;
@@ -1334,7 +1334,7 @@ export default function Dashboard() {
               Loading Dashboard
             </h3>
             <p className="text-gray-600">
-              Fetching your data from Google Sheets...
+              Fetching your data...
             </p>
           </div>
         </div>

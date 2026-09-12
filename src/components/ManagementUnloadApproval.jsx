@@ -78,7 +78,7 @@ export default function ManagementUnloadApproval() {
     try {
       const { data, error: fetchError } = await supabase
         .from("LIFT-ACCOUNTS")
-        .select("*")
+        .select('"id","Lift No","Indent no.","Vendor Name","Raw Material Name","Firm Name","Physical Condition","Moisture","Actual 1","Planned Unload Approval","Actual Unload Approval","Unload Approval Required","Unload Approval Status","Unload Approval Trigger","Unload Approval Remarks","Unload Approval By"')
         .order("Timestamp", { ascending: false });
       if (fetchError) throw fetchError;
 

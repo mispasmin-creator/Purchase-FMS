@@ -202,7 +202,7 @@ export default function OriginalBillsFiledPage() {
     try {
       const { data, error: fetchError } = await supabase
         .from("INDENT-PO")
-        .select("*")
+        .select('"po_number","Indent Id.","Material","Total Quantity","Approved Qty","id","Timestamp","Firm Name","Delivery Order No.","Vendor name","Vendor","To Be Paid Amount","Total Amount","Priority","PO Copy","PO Notes","Planned5","Actual5","Status5","Payment Link"')
         .not("Planned5", "is", null);
 
       if (fetchError) throw fetchError;

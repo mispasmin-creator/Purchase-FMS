@@ -130,7 +130,7 @@ const AgainAuditingPage = () => {
       // Fetch ReAudit data (Planned5 not null, Actual5 is null)
       const { data, error } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('"id","Timestamp","Lift ID","Type","Bill No.","Party Name","Product Name","Qty","Area Lifting","Truck No.","Transporter Name","Bill Image","Bilty No.","Type Of Rate","Rate","Truck Qty","Bilty Image","Qty Diff Status","Diff Qty","Weight Slip","Total Freight","Status5","Remarks5","Firm Name"')
         .not("Planned5", "is", null)
         .is("Actual5", null)
         .order("Timestamp", { ascending: false });

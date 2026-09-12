@@ -69,6 +69,8 @@ import { AuthContext } from "../context/AuthContext";
 import SuperAdminEditModal from "./SuperAdminEditModal";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 
 // --- Constants for Google Sheets and Apps Script ---
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
@@ -604,7 +606,7 @@ export default function LabTesting() {
         // Fetch from Supabase LIFT-ACCOUNTS table
         const { data, error: fetchError } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select("*")
+          .select('"id","Lift No","Indent no.","Vendor Name","Raw Material Name","Type","Qty","Total Bill Quantity","Actual Quantity","Bill No.","Date Of Bill","Truck No.","Area lifting","Bill Image","Transporter Name","Transporter Rate","Type Of Transporting Rate","Rate","Truck Qty","Lifting Qty","Bilty No.","Bilty Image","Date Of Receiving","Firm Name","Physical Condition","Moisture","Unload Approval Required","Unload Approval Status","Planned 2","Actual 2","Status","Date Of Test","Moisture Percent Age %","BD Percent Age %","AP Percent Age %","Alumina Percent Age %","Iron Percent Age %","Sieve Analysis","LOI %","SIO2 %","CaO %","MgO %","TiO2 %","K2O + Na2O %","Free Iron %","Reason"')
           .order("Timestamp", { ascending: false });
 
         if (fetchError) throw fetchError;
@@ -1043,6 +1045,27 @@ export default function LabTesting() {
     });
   }, [allLiftsData, filters, searchQuery]);
 
+  const eligiblePagination = usePagination(100);
+  const recordedPagination = usePagination(100);
+
+  useEffect(() => {
+    eligiblePagination.setTotalRows(receiptsAwaitingLabTest.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiptsAwaitingLabTest.length]);
+
+  useEffect(() => {
+    recordedPagination.setTotalRows(recordedLabTests.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordedLabTests.length]);
+
+  // Filters/search changed — go back to page 1 instead of possibly landing
+  // past the end of the (now different) filtered set.
+  useEffect(() => {
+    eligiblePagination.resetPage();
+    recordedPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, searchQuery]);
+
   // Form and Submission Logic
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -1318,7 +1341,7 @@ export default function LabTesting() {
       // Fetch existing mismatch record
       const { data: existingMismatch, error: existingMismatchError } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('"id","Type","Bill No.","Area Lifting","Truck No.","Transporter Name","Transporter","Bill Image","Bilty No.","Type Of Rate","Rate","Truck Qty","Lifting Quantity","Bilty Image","Total Freight","Planned2"')
         .eq("Lift Number", selectedReceiptForModal.liftNo)
         .maybeSingle();
 
@@ -1555,12 +1578,16 @@ export default function LabTesting() {
     data,
     columnsMeta,
     visibilityState,
+    pagination,
   ) => {
     const visibleCols = columnsMeta.filter(
       (col) => visibilityState[col.dataKey],
     );
     const isLoading = loadingData && data.length === 0;
     const hasError = errorData && data.length === 0 && activeTab === tabKey;
+    // The header count, CSV export, and empty-state check all use the full
+    // filtered `data` (unchanged) — only the rendered rows are paged.
+    const pagedData = data.slice(pagination.from, pagination.to + 1);
 
     return (
       <Card className="flex flex-col flex-1 border shadow-sm border-border">
@@ -1738,7 +1765,7 @@ export default function LabTesting() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {data.map((item) => (
+                  {pagedData.map((item) => (
                     <tr key={item._id} className="hover:bg-green-50/50 transition-colors border-b border-gray-100">
                       {visibleCols.map((column) => (
                         <td
@@ -1786,6 +1813,13 @@ export default function LabTesting() {
               </table>
             </div>
           )}
+          <PaginationControls
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalRows={pagination.totalRows}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
         </CardContent>
       </Card>
     );
@@ -1968,6 +2002,7 @@ export default function LabTesting() {
                 receiptsAwaitingLabTest,
                 ELIGIBLE_TESTS_COLUMNS_META,
                 visibleEligibleTestColumns,
+                eligiblePagination,
               )}
             </TabsContent>
             <TabsContent
@@ -1981,6 +2016,7 @@ export default function LabTesting() {
                 recordedLabTests,
                 RECORDED_TESTS_COLUMNS_META,
                 visibleRecordedTestColumns,
+                recordedPagination,
               )}
             </TabsContent>
           </Tabs>

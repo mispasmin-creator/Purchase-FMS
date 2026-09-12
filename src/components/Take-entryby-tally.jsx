@@ -132,7 +132,7 @@ const TakeEntryTallyPage = () => {
       // Fetch Tally Entry data (Planned4 not null, Actual4 is null)
       const { data, error } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('"id","Timestamp","Lift ID","Type","Bill No.","Party Name","Product Name","Qty","Area Lifting","Truck No.","Transporter Name","Bill Image","Bilty No.","Type Of Rate","Rate","Truck Qty","Bilty Image","Qty Diff Status","Diff Qty","Weight Slip","Total Freight","Status4","Remarks4","Firm Name"')
         .not("Planned4", "is", null)
         .is("Actual4", null)
         .order("Timestamp", { ascending: false });

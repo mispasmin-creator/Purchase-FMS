@@ -43,6 +43,8 @@ import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { fetchMasterData } from "../utils/masterDataUtils";
 import { canViewFirm } from "../utils/firmFilter";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 import {
   Select,
   SelectContent,
@@ -165,7 +167,7 @@ export default function ArrangeLogistics() {
       setLoading(true);
       setError(null);
       try {
-        const { data, error: fetchError } = await supabase.from("INDENT-PO").select("*");
+        const { data, error: fetchError } = await supabase.from("INDENT-PO").select('"id","Firm Name","Transport Type","po_number","Indent Id.","Material","Vendor name","Vendor","Total Quantity","Approved Qty","Total Amount","PlannedLogistics","ActualLogistics","Actual2","LogisticsOptions","Planned9","SelectedTransporter","SelectedTransporterIndex"');
         if (fetchError) throw fetchError;
 
         let filteredData = data || [];
@@ -287,6 +289,40 @@ export default function ArrangeLogistics() {
     }
     setFilteredHistoryData(filtered);
   }, [historyData, historySearchQuery, selectedHistoryDate]);
+
+  const pendingPagination = usePagination(100);
+  const historyPagination = usePagination(100);
+
+  useEffect(() => {
+    pendingPagination.setTotalRows(filteredPendingData.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredPendingData.length]);
+
+  useEffect(() => {
+    historyPagination.setTotalRows(filteredHistoryData.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredHistoryData.length]);
+
+  // Search/date filters changed — go back to page 1 instead of possibly
+  // landing past the end.
+  useEffect(() => {
+    pendingPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, selectedDate]);
+
+  useEffect(() => {
+    historyPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historySearchQuery, selectedHistoryDate]);
+
+  const pagedPendingData = useMemo(
+    () => filteredPendingData.slice(pendingPagination.from, pendingPagination.to + 1),
+    [filteredPendingData, pendingPagination.from, pendingPagination.to],
+  );
+  const pagedHistoryData = useMemo(
+    () => filteredHistoryData.slice(historyPagination.from, historyPagination.to + 1),
+    [filteredHistoryData, historyPagination.from, historyPagination.to],
+  );
 
   const updateTransporterForm = (index, field, value) => {
     if (field === "cost") value = value === "" ? "" : value.replace(/[^0-9.]/g, "");
@@ -519,7 +555,7 @@ export default function ArrangeLogistics() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
-                          {filteredPendingData.map((item) => (
+                          {pagedPendingData.map((item) => (
                             <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
@@ -546,6 +582,13 @@ export default function ArrangeLogistics() {
                   </CardContent>
                 </Card>
               )}
+              <PaginationControls
+                page={pendingPagination.page}
+                pageSize={pendingPagination.pageSize}
+                totalRows={pendingPagination.totalRows}
+                onPageChange={pendingPagination.setPage}
+                onPageSizeChange={pendingPagination.setPageSize}
+              />
             </TabsContent>
 
             <TabsContent value="history" className="flex-1 mt-0">
@@ -587,7 +630,7 @@ export default function ArrangeLogistics() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
-                          {filteredHistoryData.map((item) => (
+                          {pagedHistoryData.map((item) => (
                             <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
@@ -621,6 +664,13 @@ export default function ArrangeLogistics() {
                   </CardContent>
                 </Card>
               )}
+              <PaginationControls
+                page={historyPagination.page}
+                pageSize={historyPagination.pageSize}
+                totalRows={historyPagination.totalRows}
+                onPageChange={historyPagination.setPage}
+                onPageSizeChange={historyPagination.setPageSize}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>
