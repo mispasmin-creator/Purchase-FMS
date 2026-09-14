@@ -73,6 +73,7 @@ const classifyMismatchType = (m) => {
 // Column configuration
 const DEBIT_NOTE_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+  { header: "Debit Note No.", dataKey: "debitNoteNo", toggleable: true, alwaysVisible: true },
   { header: "Timestamp", dataKey: "timestamp", toggleable: true, alwaysVisible: true },
   { header: "Lift ID", dataKey: "liftId", toggleable: true, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true, alwaysVisible: true },
@@ -347,6 +348,7 @@ export default function DebitNote() {
         return {
           id: `MISMATCH-${row.id}`,
           supabaseId: row.id,
+          debitNoteNo: `DN-${row.id}`,
           timestamp: formatTimestamp(row["Timestamp"]),
           _rawTimestamp: row["Timestamp"],
           liftId,
@@ -424,6 +426,7 @@ export default function DebitNote() {
           return {
             id: `MANUAL-${row.ID}`,
             supabaseId: row.ID,
+            debitNoteNo: `DN-${row.ID}`,
             isManualReturn: true,
             timestamp: formatTimestamp(row["Time Stamp"]),
             _rawTimestamp: row["Time Stamp"],
@@ -500,6 +503,7 @@ export default function DebitNote() {
         targetItem = {
           id: `REAUDIT-${reauditRow.supabaseId || Date.now()}`,
           supabaseId: reauditRow.supabaseId,
+          debitNoteNo: `DN-${reauditRow.supabaseId || Date.now()}`,
           timestamp: reauditRow.timestamp || "",
           liftId: reauditRow.liftNumber || reauditRow.liftId || "",
           indentNo: reauditRow.indentNumber || reauditRow.indentNo || "",
