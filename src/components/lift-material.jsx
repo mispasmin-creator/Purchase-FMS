@@ -1284,15 +1284,13 @@ export default function LiftMaterial() {
         if (item.key !== itemKey) return item;
 
         if (value === "") {
-          return { ...item, rate: "" };
+          return { ...item, rate: "", totalAmount: 0 };
         }
-
-        const nextRate = toNumber(value);
 
         return {
           ...item,
-          rate: nextRate,
-          totalAmount: roundQuantity(toNumber(item.quantityToLift) * nextRate),
+          rate: value,
+          totalAmount: roundQuantity(toNumber(item.quantityToLift) * toNumber(value)),
         };
       }),
     );
@@ -1602,6 +1600,7 @@ export default function LiftMaterial() {
       const itemsToSubmit = selectedLiftSummary.activeItems.map((item) => ({
         ...item,
         quantityToLift: toNumber(item.quantityToLift),
+        rate: toNumber(item.rate),
       }));
       const liftIds = await generateLiftIds(itemsToSubmit.length);
       const now = new Date();
