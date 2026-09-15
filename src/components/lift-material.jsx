@@ -2895,7 +2895,7 @@ export default function LiftMaterial() {
                               <Input
                                 type="number"
                                 min="0"
-                                step="0.01"
+                                step="0.001"
                                 value={item.rate}
                                 onChange={(e) =>
                                   handleLiftItemRateChange(
