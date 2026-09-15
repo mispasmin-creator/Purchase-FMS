@@ -1266,15 +1266,13 @@ export default function LiftMaterial() {
         if (item.key !== itemKey) return item;
 
         if (value === "") {
-          return { ...item, quantityToLift: "" };
+          return { ...item, quantityToLift: "", totalAmount: 0 };
         }
-
-        const nextQuantity = roundQuantity(value);
 
         return {
           ...item,
-          quantityToLift: nextQuantity,
-          totalAmount: roundQuantity(nextQuantity * item.rate),
+          quantityToLift: value,
+          totalAmount: roundQuantity(toNumber(value) * item.rate),
         };
       }),
     );
