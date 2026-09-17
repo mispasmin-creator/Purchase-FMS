@@ -1380,22 +1380,19 @@ export default function Dashboard() {
                     <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg sm:rounded-xl backdrop-blur-sm shrink-0">
                       <LayoutDashboard className="h-5 w-5 sm:h-8 sm:w-8" />
                     </div>
-                    <span className="leading-tight">Dashboard Overview</span>
+                    <span className="leading-tight">Dashboard</span>
                   </CardTitle>
-                  <CardDescription className="text-green-50 text-xs sm:text-base leading-snug">
-                    Snapshot insights into your purchase operations
-                    {user?.firmName && (
-                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                        <Badge className="bg-white/20 text-white border-0 text-[10px] sm:text-xs">
-                          {user.firmName === "all"
-                            ? "All Firms"
-                            : Array.isArray(user.firmName)
-                              ? user.firmName.join(", ")
-                              : user.firmName}
-                        </Badge>
-                      </div>
-                    )}
-                  </CardDescription>
+                  {user?.firmName && (
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                      <Badge className="bg-white/20 text-white border-0 text-[10px] sm:text-xs">
+                        {user.firmName === "all"
+                          ? "All Firms"
+                          : Array.isArray(user.firmName)
+                            ? user.firmName.join(", ")
+                            : user.firmName}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-3">
                   <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">

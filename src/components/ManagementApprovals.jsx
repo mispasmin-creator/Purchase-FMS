@@ -500,11 +500,8 @@ export default function ManagementApprovals() {
       <CardHeader className="p-4 border-b border-gray-200">
         <CardTitle className="flex items-center gap-2 text-lg text-gray-800">
           <CheckCircle2 className="h-5 w-5 text-[#7da23a]" />
-          Management Final Approval
+          Mgmt App.
         </CardTitle>
-        <CardDescription className="text-sm text-gray-500">
-          Review the factory technical tags and approve one final vendor.
-        </CardDescription>
         {user?.firmName && (
           <p className="border-t border-gray-100 mt-2 pt-2 text-[#7da23a] text-xs font-medium">
             Showing data for: {" "}

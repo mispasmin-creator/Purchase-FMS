@@ -597,11 +597,8 @@ export default function FactoryApprovals() {
           </div>
           <div>
             <CardTitle className="text-xl font-bold text-gray-900">
-              Factory Technical Categorisation
+              Factory App.
             </CardTitle>
-            <CardDescription className="text-sm text-gray-600 mt-1">
-              Intelligently assign vendors to T1, T2, and T3 technical buckets
-            </CardDescription>
           </div>
         </div>
       </CardHeader>

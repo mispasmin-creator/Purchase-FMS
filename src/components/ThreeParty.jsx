@@ -710,11 +710,8 @@ export default function ThreeParty() {
           <div className="p-2 bg-green-100 rounded-lg">
             <Users className="h-5 w-5 text-[#7da23a]" />
           </div>
-          Factory Rate Approval
+          Three Party
         </CardTitle>
-        <CardDescription className="mt-1 text-sm text-gray-500">
-          Compare vendors and submit for factory approval
-        </CardDescription>
         {user?.firmName && (
           <Badge
             variant="outline"

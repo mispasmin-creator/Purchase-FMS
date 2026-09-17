@@ -290,11 +290,8 @@ export default function LogisticsApproval() {
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
             <CheckCircle2 className="h-6 w-6 text-[#7da23a]" />
-            Logistics Approval
+            Logistics App.
           </CardTitle>
-          <CardDescription className="text-gray-500 mt-1 text-sm">
-            Review and approve proposed transporter arrangements.
-          </CardDescription>
         </CardHeader>
         <CardContent className="p-4 flex-1 flex flex-col">
           <Tabs

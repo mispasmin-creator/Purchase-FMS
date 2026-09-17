@@ -573,11 +573,8 @@ export default function TatReportPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-800 flex items-center gap-2">
             <Clock className="w-6 h-6 text-[#7da23a]" />
-            TAT & Delay Analysis Dashboard
+            TAT & Delay Report
           </h1>
-          <p className="text-sm text-gray-500">
-            Monitor Turn Around Time (TAT) step-by-step using exact sidebar names.
-          </p>
         </div>
         <div className="flex gap-2 self-start sm:self-center">
           <Button 

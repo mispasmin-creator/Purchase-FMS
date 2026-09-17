@@ -360,11 +360,8 @@ export default function IndentForm() {
         <CardHeader className="p-6 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700">
             <FileText className="w-6 h-6 text-primary" />
-            Step 1: Generate Entry
+            Indent
           </CardTitle>
-          <CardDescription className="text-gray-600">
-            Fill out the form to generate a new entry with an RI Number
-          </CardDescription>
           {user?.firmName && (
             <p className="mt-1 text-sm text-primary">
               Authorized firms:{" "}

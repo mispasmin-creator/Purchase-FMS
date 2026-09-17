@@ -937,14 +937,13 @@ export default function FullkittingTransportingPage() {
                 <CardHeader className="p-4 border-b border-gray-200">
                     <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
                         <PackageSearch className="h-5 w-5 text-[#7da23a]" />
-                        Full Kitting & Transporting
+                        Fullkitting
                     </CardTitle>
-                    <CardDescription className="text-gray-500 text-sm">
-                        View the status of transport kitting entries.
-                        {!hasAllFirmAccess && user?.firmName && (
-                            <span className="ml-2 text-[#7da23a] font-medium">• Filtered by: {user.firmName}</span>
-                        )}
-                    </CardDescription>
+                    {!hasAllFirmAccess && user?.firmName && (
+                        <CardDescription className="text-gray-500 text-sm">
+                            <span className="text-[#7da23a] font-medium">Filtered by: {user.firmName}</span>
+                        </CardDescription>
+                    )}
                 </CardHeader>
                 <CardContent className="p-4">
                     {/* Filters Section */}

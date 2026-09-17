@@ -1216,16 +1216,15 @@ export default function DebitNote() {
         <Card className="shadow-md border-none">
           <CardHeader className="p-4 border-b border-gray-200">
             <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-              <FileText className="h-5 w-5 text-[#7da23a]" /> Debit Note Management
+              <FileText className="h-5 w-5 text-[#7da23a]" /> Debit Note
             </CardTitle>
-            <CardDescription className="text-gray-500 text-sm">
-              Manage and update remarks for mismatch entries. Add remarks to track debit note status.
-              {user?.firmName && (
-                <span className="ml-2 text-[#7da23a] font-medium">
-                  • Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+            {user?.firmName && (
+              <CardDescription className="text-gray-500 text-sm">
+                <span className="text-[#7da23a] font-medium">
+                  Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
                 </span>
-              )}
-            </CardDescription>
+              </CardDescription>
+            )}
           </CardHeader>
 
           <CardContent className="p-4">

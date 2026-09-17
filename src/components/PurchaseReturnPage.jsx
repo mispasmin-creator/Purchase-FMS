@@ -1290,7 +1290,6 @@ export default function PurchaseReturnPage() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Purchase Return</h1>
-                        <p className="text-sm text-gray-500 font-medium">Manage and track material returns and credit notes</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">

@@ -798,11 +798,8 @@ export default function BiltyPage() {
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
             <Receipt className="h-5 w-5 text-[#7da23a]" />
-            Bilty Page
+            Bilty
           </CardTitle>
-          <CardDescription className="text-gray-500 text-sm">
-            Manage bilty details for material lifts.
-          </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">

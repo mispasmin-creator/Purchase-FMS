@@ -670,11 +670,8 @@ export default function StockApproval() {
       <CardHeader className="p-4 border-b border-gray-200">
         <CardTitle className="flex items-center gap-2 text-gray-800 text-lg">
           <Shield className="h-5 w-5 text-[#7da23a]" />
-          Stock Approval Management
+          HOD Approval
         </CardTitle>
-        <CardDescription className="text-gray-500 text-sm">
-          Review and manage raw material indent approvals.
-        </CardDescription>
         {user?.firmName && (
           <p className="text-[#7da23a] text-xs mt-1">
             Showing data for:{" "}

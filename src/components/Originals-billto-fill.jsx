@@ -602,16 +602,15 @@ export default function OriginalBillsFiledPage() {
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
             <Calculator className="h-6 w-6 text-[#7da23a]" />
-            Advance Payment Management
+            Advance Payement
           </CardTitle>
-          <CardDescription className="text-gray-500 mt-1 text-sm">
-            Manage advance payments for purchase orders (Stage 5).
-            {user?.firmName && (
-              <span className="ml-2 text-[#7da23a] font-medium">
-                • Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+          {user?.firmName && (
+            <CardDescription className="text-gray-500 mt-1 text-sm">
+              <span className="text-[#7da23a] font-medium">
+                Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
               </span>
-            )}
-          </CardDescription>
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent className="p-4 flex-1 flex flex-col">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">

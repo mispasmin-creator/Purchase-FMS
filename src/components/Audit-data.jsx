@@ -2688,7 +2688,6 @@ const CallTrackerPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Accounts Audit</h1>
-                <p className="text-sm text-gray-600 mt-1">Track all stages of account processing</p>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="relative w-64 hidden sm:block">

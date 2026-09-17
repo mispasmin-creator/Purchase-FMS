@@ -1566,17 +1566,14 @@ export default function MismatchAnalysis() {
           <CardHeader className="p-4 border-b border-gray-200">
             <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
               <TrendingDown className="h-5 w-5 text-red-600" /> Mismatch
-              Analysis Dashboard
             </CardTitle>
-            <CardDescription className="text-gray-500 text-sm">
-              Identify and analyze rate, quantity, and material property
-              mismatches across sheets.
-              {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-                <span className="ml-2 text-red-600 font-medium">
-                  • Filtered by: {user.firmName}
+            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
+              <CardDescription className="text-gray-500 text-sm">
+                <span className="text-red-600 font-medium">
+                  Filtered by: {user.firmName}
                 </span>
-              )}
-            </CardDescription>
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent className="p-4">
             <Tabs

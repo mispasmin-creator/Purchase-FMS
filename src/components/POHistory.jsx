@@ -278,7 +278,6 @@ export default function POHistory() {
             </div>
             <div>
               <CardTitle className="text-xl font-bold text-gray-800">PO History</CardTitle>
-              <CardDescription>View and track all generated Purchase Orders</CardDescription>
             </div>
           </div>
           {isSuperAdmin && (

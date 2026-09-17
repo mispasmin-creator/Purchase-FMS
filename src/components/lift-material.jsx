@@ -2037,17 +2037,15 @@ export default function LiftMaterial() {
       <Card className="border-none shadow-md">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-lg text-gray-700">
-            <Truck className="h-5 w-5 text-[#7da23a]" /> Step 5: Lift The
-            Material
+            <Truck className="h-5 w-5 text-[#7da23a]" /> Lift
           </CardTitle>
-          <CardDescription className="text-sm text-gray-500">
-            Record material lifting details for purchase orders.
-            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">
-                • Filtered by: {user.firmName}
+          {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
+            <CardDescription className="text-sm text-gray-500">
+              <span className="text-[#7da23a] font-medium">
+                Filtered by: {user.firmName}
               </span>
-            )}
-          </CardDescription>
+            </CardDescription>
+          )}
           {masterDataLoading && (
             <div className="flex items-center gap-2 text-sm text-[#7da23a]">
               <Loader2 className="w-4 h-4 animate-spin" />

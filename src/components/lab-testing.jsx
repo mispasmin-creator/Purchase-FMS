@@ -1831,22 +1831,20 @@ export default function LabTesting() {
         <CardHeader className="rounded-t-lg bg-gradient-to-r from-green-50 to-emerald-50">
           <CardTitle className="flex items-center gap-2 text-gray-700">
             <Beaker className="h-6 w-6 text-[#7da23a]" />
-            Step 7: Lab Testing - Is The Quality Good?
+            Lab
           </CardTitle>
-          <CardDescription className="text-gray-600">
-            Record lab test results for received materials by updating
-            LIFT-ACCOUNTS.
-            {user?.firmName && (
-              <span className="ml-2 text-[#7da23a] font-medium">
-                • Filtered by:{" "}
+          {user?.firmName && (
+            <CardDescription className="text-gray-600">
+              <span className="text-[#7da23a] font-medium">
+                Filtered by:{" "}
                 {user.firmName === "all"
                   ? "All"
                   : Array.isArray(user.firmName)
                     ? user.firmName.join(", ")
                     : user.firmName}
               </span>
-            )}
-          </CardDescription>
+            </CardDescription>
+          )}
         </CardHeader>
 
         <CardContent className="p-4 sm:p-6 lg:p-8">

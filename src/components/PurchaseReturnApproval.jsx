@@ -334,11 +334,8 @@ export default function PurchaseReturnApproval() {
       <CardHeader className="p-4 border-b border-gray-200">
         <CardTitle className="flex items-center gap-2 text-lg text-gray-800">
           <CheckCircle2 className="h-5 w-5 text-[#7da23a]" />
-          Purchase Return Approval
+          PR Approval
         </CardTitle>
-        <CardDescription className="text-sm text-gray-500">
-          Review fully returned Purchase Return entries before they move to the Debit Note stage.
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="p-4">

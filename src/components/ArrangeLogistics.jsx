@@ -486,9 +486,6 @@ export default function ArrangeLogistics() {
             <Truck className="h-6 w-6 text-[#7da23a]" />
             Arrange Logistics
           </CardTitle>
-          <CardDescription className="text-gray-500 mt-1 text-sm">
-            Capture transporter options after PO creation and before Tally entry.
-          </CardDescription>
         </CardHeader>
         <CardContent className="p-4 flex-1 flex flex-col">
           <Tabs defaultValue="pending" className="flex-1 flex flex-col">

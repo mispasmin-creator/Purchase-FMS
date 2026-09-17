@@ -710,12 +710,8 @@ export default function CreatePO() {
           <FilePlus2 size={50} className="text-primary" />
           <div>
             <h1 className="text-2xl font-bold text-primary">
-              Create or Revise PO
+              Make PO
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Create purchase order for approved indents using the current PO
-              flow
-            </p>
           </div>
         </div>
         <Button

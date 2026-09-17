@@ -541,11 +541,8 @@ export default function CrmPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              CRM Dispatch & Tracking
+              CRM
             </h1>
-            <p className="text-sm text-gray-500">
-              Verify lifted materials, track transit status, and authorize receipt at factory.
-            </p>
           </div>
         </div>
 
