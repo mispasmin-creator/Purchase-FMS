@@ -129,7 +129,6 @@ const AccountsAudit = () => {
         truckNo: row.truckNo || "",
         rate: row.rate || "",
         truckQty: row.truckQty || "",
-        biltyNo: row.biltyNo || "",
         diffQty: row.diffQty || "",
         totalFreight: row.totalFreight || "",
         rateDifference: row.rateDifference || "",
@@ -408,7 +407,6 @@ const AccountsAudit = () => {
               "Truck No.": formData.truckNo,
               Rate: formData.rate,
               "Truck Qty": formData.truckQty,
-              "Bilty No.": formData.biltyNo,
               "Diff Qty": formData.diffQty,
               "Total Freight": formData.totalFreight,
               "Rate Difference": formData.rateDifference,
@@ -537,7 +535,6 @@ const AccountsAudit = () => {
                       { field: "transporterName", label: "Transporter Name" },
                       { field: "billNo", label: "Bill No." },
                       { field: "dateOfBill", label: "Date Of Bill", type: "date" },
-                      { field: "biltyNo", label: "Bilty No." },
                       { field: "truckNo", label: "Truck No." },
                       { field: "areaLifting", label: "Area Lifting" },
                     ].map(({ field, label }) => (

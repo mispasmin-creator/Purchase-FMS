@@ -854,22 +854,44 @@ export default function BiltyPage() {
 
       <Dialog open={showPopup} onOpenChange={handleClosePopup}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+          <DialogHeader className="space-y-1 pb-1">
             <DialogTitle>Enter Bilty for {selectedLift?.id}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label>Bilty Number *</Label>
-              <Input name="biltyNumber" value={formData.biltyNumber} onChange={handleInputChange} />
-              {formErrors.biltyNumber && <p className="text-red-500 text-xs">{formErrors.biltyNumber}</p>}
+          <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="biltyNumber" className="text-sm font-medium">
+                Bilty Number <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="biltyNumber"
+                name="biltyNumber"
+                value={formData.biltyNumber}
+                onChange={handleInputChange}
+                placeholder="Enter bilty number"
+              />
+              {formErrors.biltyNumber && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.biltyNumber}</p>
+              )}
             </div>
-            <div>
-              <Label>Bilty Image *</Label>
-              <Input name="biltyImageFile" type="file" onChange={handleInputChange} accept="image/*,.pdf" />
-              {formErrors.biltyImageFile && <p className="text-red-500 text-xs">{formErrors.biltyImageFile}</p>}
+            <div className="space-y-2">
+              <Label htmlFor="biltyImageFile" className="text-sm font-medium">
+                Bilty Image <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="biltyImageFile"
+                name="biltyImageFile"
+                type="file"
+                onChange={handleInputChange}
+                accept="image/*,.pdf"
+              />
+              {formErrors.biltyImageFile && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.biltyImageFile}</p>
+              )}
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClosePopup}>Cancel</Button>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={handleClosePopup}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Submitting..." : "Submit Bilty"}
               </Button>
