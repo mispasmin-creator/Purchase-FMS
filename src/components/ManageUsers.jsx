@@ -727,9 +727,6 @@ export default function ManageUsers() {
             </div>
             Manage Users
           </h1>
-          <p className="text-gray-500 mt-1">
-            Configure system access and firm assignments
-          </p>
         </div>
         <Button
           onClick={handleOpenAddDialog}

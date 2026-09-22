@@ -176,7 +176,7 @@ const LIFTS_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "material", toggleable: true },
   { header: "PO Qty", dataKey: "quantity", toggleable: true },
-  { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
+  { header: "Lift Qty", dataKey: "liftingQty", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
   {
     header: "Per MT Transportation Rate",
@@ -365,6 +365,19 @@ const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
           },
         ];
 
+  // Precompute how many line items in this PO share each material name, so the
+  // lifted-qty lookup below can tell whether trusting the PO+material total
+  // (liftedQtyByBaseItem) is unambiguous for a given item.
+  const materialNameCounts = {};
+  rawItems.forEach((it, idx) => {
+    const name = String(
+      it.material || it.productName || fallbackMaterial || `Product ${idx + 1}`,
+    )
+      .trim()
+      .toLowerCase();
+    materialNameCounts[name] = (materialNameCounts[name] || 0) + 1;
+  });
+
   return rawItems.map((item, index) => {
     const materialName = String(
       item.material ||
@@ -382,11 +395,28 @@ const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
     // when the item has NO specific indentId (e.g. old data). If an indentId exists,
     // the specific key result (even 0) is authoritative — otherwise all same-material
     // items under one PO would share each other's lifted qty.
+    //
+    // Exception: when this item's material appears only ONCE in this PO, there's no
+    // ambiguity about which item a lift belongs to — every lift against this
+    // PO+material is necessarily for this item, even if a lift's own "Indent no."
+    // was mistakenly saved as the po_number instead of the Indent Id (older
+    // LIFT-ACCOUNTS rows can have this — seen on both single- and multi-item POs).
+    // Trusting only the specific-id key in that case undercounts what's already
+    // been lifted and leaves an already-lifted PO stuck showing as Pending. Using
+    // the base (PO+material) aggregation instead is safe here since there's only
+    // one item this material's lifts can belong to. When the same material repeats
+    // across 2+ line items of the same PO (rare), this stays off and falls back to
+    // the original specific-id/base-key behavior, since the base total can't be
+    // split between them reliably.
     const hasSpecificId = Boolean(item.indentId || item.id);
+    const isOnlyItemWithThisMaterial =
+      materialNameCounts[materialName.toLowerCase()] === 1;
     const liftedQuantity = roundQuantity(
-      hasSpecificId
-        ? (liftedQtyByItem[key] ?? 0)
-        : (liftedQtyByItem[key] ?? liftedQtyByBaseItem[aggregationKey] ?? 0),
+      isOnlyItemWithThisMaterial
+        ? (liftedQtyByBaseItem[aggregationKey] ?? liftedQtyByItem[key] ?? 0)
+        : hasSpecificId
+          ? (liftedQtyByItem[key] ?? 0)
+          : (liftedQtyByItem[key] ?? liftedQtyByBaseItem[aggregationKey] ?? 0),
     );
     const itemCancelQty = toNumber(item.orderCancelQty || 0);
     const pendingQuantity = Math.max(
@@ -584,7 +614,7 @@ export default function LiftMaterial() {
         { data, error: fetchError },
         { data: liftData, error: liftFetchError },
       ] = await Promise.all([
-        supabase.from("INDENT-PO").select("*").not("Planned4", "is", null),
+        supabase.from("INDENT-PO").select('"id","Indent Id.","po_number","Status","Planned4","Material","Quantity","Total Quantity","Rate","Order Cancel Qty","Pending PO Qty","Firm Name","Vendor name","Vendor","Alumina %","Iron %","Transport Type","Transporter Name","transpoter_rate_type","Transporter Rate","PO Notes","Reason Of Cancel Qty","Delivery Order No."').not("Planned4", "is", null),
         supabase
           .from("LIFT-ACCOUNTS")
           .select('"Indent no.", "Lifting Qty", "Raw Material Name"'),
@@ -815,7 +845,7 @@ export default function LiftMaterial() {
     try {
       let liftQuery = supabase
         .from("LIFT-ACCOUNTS")
-        .select("*", { count: "exact" })
+        .select('"id","Timestamp","Type Of Transporting Rate","Transporter Rate","Lifting Qty","Indent no.","Lift No","Vendor Name","Qty","Raw Material Name","Bill No.","Date Of Bill","Area lifting","From","To","Lead Time To Reach Factory (days)","Type","Transporter Name","Truck No.","Driver No.","Bilty No.","Bilty Image","Rate","Bill Image","Truck Qty","Firm Name"', { count: "exact" })
         .order("Timestamp", { ascending: false });
 
       liftQuery = applyFirmFilter(liftQuery, user?.firmName, "Firm Name");
@@ -1266,15 +1296,13 @@ export default function LiftMaterial() {
         if (item.key !== itemKey) return item;
 
         if (value === "") {
-          return { ...item, quantityToLift: "" };
+          return { ...item, quantityToLift: "", totalAmount: 0 };
         }
-
-        const nextQuantity = roundQuantity(value);
 
         return {
           ...item,
-          quantityToLift: nextQuantity,
-          totalAmount: roundQuantity(nextQuantity * item.rate),
+          quantityToLift: value,
+          totalAmount: roundQuantity(toNumber(value) * item.rate),
         };
       }),
     );
@@ -1286,15 +1314,13 @@ export default function LiftMaterial() {
         if (item.key !== itemKey) return item;
 
         if (value === "") {
-          return { ...item, rate: "" };
+          return { ...item, rate: "", totalAmount: 0 };
         }
-
-        const nextRate = toNumber(value);
 
         return {
           ...item,
-          rate: nextRate,
-          totalAmount: roundQuantity(toNumber(item.quantityToLift) * nextRate),
+          rate: value,
+          totalAmount: roundQuantity(toNumber(item.quantityToLift) * toNumber(value)),
         };
       }),
     );
@@ -1604,6 +1630,7 @@ export default function LiftMaterial() {
       const itemsToSubmit = selectedLiftSummary.activeItems.map((item) => ({
         ...item,
         quantityToLift: toNumber(item.quantityToLift),
+        rate: toNumber(item.rate),
       }));
       const liftIds = await generateLiftIds(itemsToSubmit.length);
       const now = new Date();
@@ -2040,17 +2067,15 @@ export default function LiftMaterial() {
       <Card className="border-none shadow-md">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-lg text-gray-700">
-            <Truck className="h-5 w-5 text-[#7da23a]" /> Step 5: Lift The
-            Material
+            <Truck className="h-5 w-5 text-[#7da23a]" /> Lift
           </CardTitle>
-          <CardDescription className="text-sm text-gray-500">
-            Record material lifting details for purchase orders.
-            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">
-                • Filtered by: {user.firmName}
+          {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
+            <CardDescription className="text-sm text-gray-500">
+              <span className="text-[#7da23a] font-medium">
+                Filtered by: {user.firmName}
               </span>
-            )}
-          </CardDescription>
+            </CardDescription>
+          )}
           {masterDataLoading && (
             <div className="flex items-center gap-2 text-sm text-[#7da23a]">
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -2898,7 +2923,7 @@ export default function LiftMaterial() {
                               <Input
                                 type="number"
                                 min="0"
-                                step="0.01"
+                                step="0.001"
                                 value={item.rate}
                                 onChange={(e) =>
                                   handleLiftItemRateChange(

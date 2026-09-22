@@ -22,6 +22,8 @@ import { supabase } from "../supabase";
 import SuperAdminEditModal from "./SuperAdminEditModal";
 import { uploadFileToStorage } from "../utils/storageUtils";
 import { useRealtime } from "../hooks/useRealtime";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 
 // --- Column Definitions for Tables ---
 const PENDING_BILTY_COLUMNS_META = [
@@ -153,9 +155,9 @@ export default function BiltyPage() {
         { data: poData, error: poErr },
         { data: mismatchData, error: mismatchErr }
       ] = await Promise.all([
-        supabase.from("LIFT-ACCOUNTS").select("*").order("Timestamp", { ascending: false }),
-        supabase.from("INDENT-PO").select("*"),
-        supabase.from("Mismatch").select("*").order("Timestamp", { ascending: false }),
+        supabase.from("LIFT-ACCOUNTS").select('"id","Lift No","Vendor Name","Raw Material Name","Type","Truck No.","Driver No.","Transporter Name","Type Of Transporting Rate","Qty","Total Bill Quantity","Actual Quantity","Indent no.","Bill No.","Date Of Bill","Firm Name","Unload Approval Required","Unload Approval Status","Planned 3","Actual 3","Bilty No.","Bilty Image","Bill Image"').order("Timestamp", { ascending: false }),
+        supabase.from("INDENT-PO").select('"Indent Id.","po_number","Vendor name","Vendor","Material","PO Items","Rate","PO Copy"'),
+        supabase.from("Mismatch").select('"id","Status","Lift Number","Lift ID","Party Name","Bilty No.","Bilty Image","Planned2","Timestamp","Indent Number","Product Name","Truck No.","Transporter Name","Type Of Rate","Qty","Bill No.","Firm Name","Bill Image"').order("Timestamp", { ascending: false }),
       ]);
  
       if (liftErr) throw liftErr;
@@ -433,6 +435,27 @@ export default function BiltyPage() {
     return filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }, [liftData, filters]);
 
+  const pendingPagination = usePagination(100);
+  const historyPagination = usePagination(100);
+
+  useEffect(() => {
+    pendingPagination.setTotalRows(pendingBilty.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBilty.length]);
+
+  useEffect(() => {
+    historyPagination.setTotalRows(biltyHistory.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biltyHistory.length]);
+
+  // Filters changed — go back to page 1 instead of possibly landing past
+  // the end of the (now different) filtered set.
+  useEffect(() => {
+    pendingPagination.resetPage();
+    historyPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
   const uniqueFilterOptions = useMemo(() => {
     const vendors = new Set();
     const materials = new Set();
@@ -595,7 +618,10 @@ export default function BiltyPage() {
     URL.revokeObjectURL(url);
   };
 
-  const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState) => {
+  const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState, pagination) => {
+    // The header count, CSV export, and empty-state check all use the full
+    // filtered `data` (unchanged) — only the rendered rows are paged.
+    const pagedData = data.slice(pagination.from, pagination.to + 1);
     return (
       <Card className="shadow-sm border border-border flex-1 flex flex-col">
         <CardHeader className="py-3 px-4 bg-muted/30">
@@ -680,7 +706,7 @@ export default function BiltyPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {data.map(item => (
+                  {pagedData.map(item => (
                     <tr key={item._id} className="hover:bg-green-50/50 transition-colors border-b border-gray-100">
                       {columnsMeta.filter(col => visibilityState[col.dataKey]).map(column => (
                         <td
@@ -727,6 +753,13 @@ export default function BiltyPage() {
               </table>
             </div>
           )}
+          <PaginationControls
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalRows={pagination.totalRows}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
         </CardContent>
       </Card>
     );
@@ -765,11 +798,8 @@ export default function BiltyPage() {
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
             <Receipt className="h-5 w-5 text-[#7da23a]" />
-            Bilty Page
+            Bilty
           </CardTitle>
-          <CardDescription className="text-gray-500 text-sm">
-            Manage bilty details for material lifts.
-          </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
@@ -810,10 +840,10 @@ export default function BiltyPage() {
             </div>
 
             <TabsContent value="pendingBilty" className="mt-0">
-              {renderTableSection("pendingBilty", "Lifts Pending Bilty", "Awaiting Bilty Number and Image.", pendingBilty, PENDING_BILTY_COLUMNS_META, visiblePendingColumns)}
+              {renderTableSection("pendingBilty", "Lifts Pending Bilty", "Awaiting Bilty Number and Image.", pendingBilty, PENDING_BILTY_COLUMNS_META, visiblePendingColumns, pendingPagination)}
             </TabsContent>
             <TabsContent value="biltyHistory" className="mt-0">
-              {renderTableSection("biltyHistory", "Bilty History", "Completed Bilty entries.", biltyHistory, BILTY_HISTORY_COLUMNS_META, visibleHistoryColumns)}
+              {renderTableSection("biltyHistory", "Bilty History", "Completed Bilty entries.", biltyHistory, BILTY_HISTORY_COLUMNS_META, visibleHistoryColumns, historyPagination)}
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -821,22 +851,44 @@ export default function BiltyPage() {
 
       <Dialog open={showPopup} onOpenChange={handleClosePopup}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+          <DialogHeader className="space-y-1 pb-1">
             <DialogTitle>Enter Bilty for {selectedLift?.id}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label>Bilty Number *</Label>
-              <Input name="biltyNumber" value={formData.biltyNumber} onChange={handleInputChange} />
-              {formErrors.biltyNumber && <p className="text-red-500 text-xs">{formErrors.biltyNumber}</p>}
+          <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="biltyNumber" className="text-sm font-medium">
+                Bilty Number <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="biltyNumber"
+                name="biltyNumber"
+                value={formData.biltyNumber}
+                onChange={handleInputChange}
+                placeholder="Enter bilty number"
+              />
+              {formErrors.biltyNumber && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.biltyNumber}</p>
+              )}
             </div>
-            <div>
-              <Label>Bilty Image *</Label>
-              <Input name="biltyImageFile" type="file" onChange={handleInputChange} accept="image/*,.pdf" />
-              {formErrors.biltyImageFile && <p className="text-red-500 text-xs">{formErrors.biltyImageFile}</p>}
+            <div className="space-y-2">
+              <Label htmlFor="biltyImageFile" className="text-sm font-medium">
+                Bilty Image <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="biltyImageFile"
+                name="biltyImageFile"
+                type="file"
+                onChange={handleInputChange}
+                accept="image/*,.pdf"
+              />
+              {formErrors.biltyImageFile && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.biltyImageFile}</p>
+              )}
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClosePopup}>Cancel</Button>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={handleClosePopup}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Submitting..." : "Submit Bilty"}
               </Button>

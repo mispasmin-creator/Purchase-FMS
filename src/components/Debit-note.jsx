@@ -58,9 +58,22 @@ const normalizeFirmName = (val) => {
   return str;
 };
 
+// Classify the Mismatch record as Rate / Qty / Lab (or a combination), read
+// straight off its own stored difference columns.
+const classifyMismatchType = (m) => {
+  if (!m) return "";
+  const hasRate = Math.abs(parseFloat(m["Rate Difference"] || 0)) > 0.001;
+  const hasQty = m["Qty Diff Status"] === "Mismatch" || Math.abs(parseFloat(m["Quantity Difference"] || m["Diff Qty"] || 0)) > 0.001;
+  const hasLab = ["Alumina Difference", "Iron Difference", "AP Difference", "BD Difference"].some(
+    (key) => Math.abs(parseFloat(m[key] || 0)) > 0.001
+  );
+  return [hasRate && "Rate", hasQty && "Qty", hasLab && "Lab"].filter(Boolean).join(", ");
+};
+
 // Column configuration
 const DEBIT_NOTE_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
+  { header: "Debit Note No.", dataKey: "debitNoteNo", toggleable: true, alwaysVisible: true },
   { header: "Timestamp", dataKey: "timestamp", toggleable: true, alwaysVisible: true },
   { header: "Lift ID", dataKey: "liftId", toggleable: true, alwaysVisible: true },
   { header: "Indent Number", dataKey: "indentNo", toggleable: true, alwaysVisible: true },
@@ -68,17 +81,21 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "partyName", toggleable: true },
   { header: "Product Name", dataKey: "productName", toggleable: true },
-  { header: "PO Qty", dataKey: "qty", toggleable: true },
+  { header: "Qty", dataKey: "totalQty", toggleable: true },
+  { header: "Return Qty", dataKey: "qty", toggleable: true },
   { header: "Product Rate", dataKey: "productRate", toggleable: true },
   { header: "Bill No", dataKey: "billNo", toggleable: true },
   { header: "Bill Image", dataKey: "billImage", toggleable: true },
+  { header: "Weight Slip", dataKey: "weightSlip", toggleable: true },
   { header: "Credit Note", dataKey: "creditNoteUrl", toggleable: true },
   { header: "Transporter Name", dataKey: "transporterName", toggleable: true },
   { header: "Vehicle No", dataKey: "vehicleNo", toggleable: true },
+  { header: "Mismatch Type", dataKey: "mismatchType", toggleable: true },
   { header: "Status", dataKey: "status", toggleable: true },
-  { header: "Qty Diff Status", dataKey: "qtyDifferenceStatus", toggleable: true },
   { header: "Debit Amount", dataKey: "debitAmount", toggleable: true },
   { header: "Debit Image", dataKey: "debitNoteUrl", toggleable: true },
+  { header: "Purchase Return Remark", dataKey: "returnReason", toggleable: true },
+  { header: "PR Remark", dataKey: "prRemark", toggleable: true },
   { header: "Remarks", dataKey: "remarks", toggleable: true },
 ];
 
@@ -191,7 +208,10 @@ export default function DebitNote() {
     }
 
     try {
-      const d = new Date(timestampStr);
+      const normalized = String(timestampStr).includes(" ") && !String(timestampStr).includes("T")
+        ? String(timestampStr).replace(" ", "T")
+        : timestampStr;
+      const d = new Date(normalized);
       if (!isNaN(d.getTime())) {
         return d.toLocaleString("en-GB", {
           day: "2-digit",
@@ -212,7 +232,7 @@ export default function DebitNote() {
 
   // Check if timestamp is valid (not N/A and not null)
   const isValidTimestamp = (timestamp) => {
-    return timestamp && timestamp !== null && timestamp !== "N/A" && String(timestamp).trim() !== "";
+    return Boolean(timestamp && timestamp !== null && timestamp !== "N/A" && timestamp !== "null" && String(timestamp).trim() !== "");
   };
 
   // Categorize data into pending and history
@@ -225,8 +245,14 @@ export default function DebitNote() {
       const hasActual = isValidTimestamp(item.actual);
       const statusLower = (item.status || "").toLowerCase();
 
-      // Pending: Planned exists OR Status is Credit Notes OR sent from Re-Audit (and actual is not set, and not a return)
-      const isEligibleDebitNote = item.isReAuditItem ? item.isFromReAudit : (hasPlanned || statusLower.includes('credit') || item.actionType === "Make Debit Note");
+      // Pending: Planned exists OR Status is Credit Notes OR sent from Re-Audit (and actual is not set, and not a return).
+      // A row can pick up Planned5 (Re-Audit stage) from the audit pipeline
+      // independently of how its debit note was coordinated — e.g. a plain
+      // Mismatch-page "Make Debit Note" action on a row that also happens to
+      // be sitting in Re-Audit. Checking isReAuditItem as an exclusive gate
+      // hid those rows from both Pending and History; OR-ing isFromReAudit
+      // in instead keeps every previously-working path eligible too.
+      const isEligibleDebitNote = hasPlanned || statusLower.includes('credit') || item.actionType === "Make Debit Note" || item.isFromReAudit;
       if (isEligibleDebitNote && !hasActual && !statusLower.includes('return')) {
         pending.push(item);
       } else if (hasActual) {
@@ -299,19 +325,30 @@ export default function DebitNote() {
       // Map to our data structure
       const returnQtyMap = {};
       const vehicleNoMap = {};
+      // Purchase Return No., Product Rate, Bill No, Transporter Name and Credit
+      // Note live on the "Purchase Returns" row (from the PR Approval flow),
+      // not on the Mismatch row itself — keep the latest one per mismatch.
+      const purchaseReturnDetailsMap = {};
       (manualReturnsData || []).forEach(row => {
           const mId = String(row.mismatch_id || "").trim();
           if (mId) {
              returnQtyMap[mId] = row["Return This Time"] || "";
              vehicleNoMap[mId] = row["Vehicle No"] || "";
+             const existing = purchaseReturnDetailsMap[mId];
+             if (!existing || (row.ID || 0) > (existing.ID || 0)) {
+                 purchaseReturnDetailsMap[mId] = row;
+             }
           }
       });
 
-      const formattedData = sourceRows.map((row, index) => {
+      const formattedData = sourceRows.map((row) => {
         const liftId = String(row["Lift ID"] || "").trim();
+        const isCompleted = row["Status"] === "Completed" || Boolean(row["Actual"]);
+        const prDetails = purchaseReturnDetailsMap[String(row.id)];
         return {
-          id: `MISMATCH-${index}`,
+          id: `MISMATCH-${row.id}`,
           supabaseId: row.id,
+          debitNoteNo: `DN-${row.id}`,
           timestamp: formatTimestamp(row["Timestamp"]),
           _rawTimestamp: row["Timestamp"],
           liftId,
@@ -319,14 +356,16 @@ export default function DebitNote() {
           firmName: normalizeFirmName(row["Firm Name"]) || "",
           partyName: String(row["Party Name"] || "").trim(),
           productName: String(row["Product Name"] || "").trim(),
-          transporterName: String(row["Transporter Name"] || "").trim(),
+          transporterName: String(prDetails?.["Transport"] || row["Transporter Name"] || "").trim(),
           vehicleNo: vehicleNoMap[String(row.id)] || row["Truck No."] || "",
-          status: directDebitMismatchIds.has(String(row.id || "").trim())
-            ? "Credit Notes"
-            : String(row["Status"] || "").trim(),
+          status: isCompleted
+            ? "Completed"
+            : directDebitMismatchIds.has(String(row.id || "").trim())
+              ? "Credit Notes"
+              : String(row["Status"] || "").trim(),
           debitAmount: row["Debit Amount"] !== null ? row["Debit Amount"] : "",
           debitNoteUrl: row["Debit Note URL"] || "",
-          remarks: String(row["Remarks"] || "").trim(),
+          remarks: String(row["Remarks"] || row["Remark"] || "").trim(),
           planned: row["Planned"] ? formatTimestamp(row["Planned"]) : null,
           actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
           // Store raw values for updates
@@ -335,17 +374,28 @@ export default function DebitNote() {
           actionType: row["Action Type"] || "",
           isReAuditItem: Boolean(row["Planned5"]),
           isFromReAudit: row["Action Type"] === "Make Debit Note (Re-Audit)",
-          qtyDifferenceStatus: row["Qty Diff Status"] || row["Diff Qty"] || row["Difference Qty"] || "",
-          // Qty from Mismatch table (PO Qty) — shown for Re-Audit rows, or mapped from Purchase Returns if applicable
+          // Mismatch Type — Rate / Qty / Lab, read from this Mismatch row's own stored difference columns
+          mismatchType: classifyMismatchType(row),
+          // Return Qty — the quantity actually returned (Return This Time) from Mismatch table, or mapped from Purchase Returns if applicable
           qty: returnQtyMap[String(row.id)] || row["Qty"] || row["Quantity"] || row["Lifting Quantity"] || "",
-          // Product Rate from Mismatch table
-          productRate: row["Rate"] || "",
-          // Bill No from Mismatch table
-          billNo: row["Bill No."] || row["Bill No"] || "",
+          // Qty — the actual/total received quantity from the linked Purchase Return row's "Total Qty"
+          totalQty: prDetails?.["Total Qty"] || "",
+          // Product Rate — from the linked Purchase Return row when one exists, else the Mismatch table's own value (legacy, non-Purchase-Return debit notes)
+          productRate: prDetails?.["Product Rate"] || row["Rate"] || "",
+          // Bill No — from the linked Purchase Return row when one exists, else the Mismatch table's own value
+          billNo: prDetails?.["Bill No"] || row["Bill No."] || row["Bill No"] || "",
+          // Credit Note image URL from the linked Purchase Return row
+          creditNoteUrl: prDetails?.["Credit Note URL"] || "",
           // Bill Image from Mismatch table
           billImage: row["Bill Image"] || "",
-          // Purchase Return No. from Mismatch table
-          purchaseReturnNo: String(row["Purchase Return No."] || "").trim(),
+          // Weight Slip image from the linked Purchase Return row
+          weightSlip: prDetails?.["Weighslip of Material"] || "",
+          // Purchase Return No. — from the linked Purchase Return row when one exists, else the Mismatch table's own value
+          purchaseReturnNo: String(prDetails?.["Purchase Return No."] || row["Purchase Return No."] || "").trim(),
+          // Purchase Return Remark — the reason entered when submitting the Purchase Return
+          returnReason: prDetails?.["Return Reason"] || "",
+          // PR Remark — the remark entered while approving/rejecting in PR Approval
+          prRemark: prDetails?.["PR Approval Remarks"] || "",
         };
       });
 
@@ -356,9 +406,9 @@ export default function DebitNote() {
           .filter(Boolean)
       );
 
-      // Only include Mismatch rows for lifts that have NO Purchase Return records, unless sent from Re-Audit
+      // Only include Mismatch rows for lifts that have NO Purchase Return records, unless sent from Re-Audit or coordinated as Make Debit Note
       const mismatchOnlyRows = formattedData.filter(
-        (item) => !item.liftId || !prLiftNos.has(item.liftId) || (item.isReAuditItem ? item.isFromReAudit : item.actionType === "Make Debit Note")
+        (item) => !item.liftId || !prLiftNos.has(item.liftId) || (item.actionType === "Make Debit Note" || item.isFromReAudit)
       );
 
       const mismatchOnlyIds = new Set(mismatchOnlyRows.map(item => String(item.supabaseId)));
@@ -366,14 +416,17 @@ export default function DebitNote() {
       const formattedPurchaseReturns = (manualReturnsData || [])
         .filter(row => {
           const mId = String(row.mismatch_id || "").trim();
-          // Exclude Purchase Return rows that are already covered by a Debit Note Mismatch
-          return !mId || !mismatchOnlyIds.has(mId);
+          const hasActual = isValidTimestamp(row["Actual"]);
+          if (hasActual) return false;
+          if (mId && (existingMismatchIds.has(mId) || mismatchOnlyIds.has(mId))) return false;
+          return true;
         })
         .map((row) => {
           const liftId = String(row["Lift No"] || "").trim();
           return {
             id: `MANUAL-${row.ID}`,
             supabaseId: row.ID,
+            debitNoteNo: `DN-${row.ID}`,
             isManualReturn: true,
             timestamp: formatTimestamp(row["Time Stamp"]),
             _rawTimestamp: row["Time Stamp"],
@@ -385,27 +438,35 @@ export default function DebitNote() {
             transporterName: String(row["Transport"] || "").trim(),
             vehicleNo: row["Vehicle No"] || "",
             status: "Credit Notes",
-            debitAmount: "",
-            debitNoteUrl: "",
+            debitAmount: row["Amount"] || "",
+            debitNoteUrl: row["Credit Note URL"] || "",
             remarks: String(row["Return Reason"] || "").trim(),
             planned: null,
-            actual: null,
-            // Qty = Return This Time (from Finalized return tab of Purchase Return page)
+            actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
+            // Return Qty = Return This Time (from Finalized return tab of Purchase Return page)
             qty: row["Return This Time"] || "",
             returnThisTime: row["Return This Time"] || null,
             totalReturnQty: row["Total Return Qty"] || null,
+            // Qty — the actual/total received quantity from the Purchase Return row
+            totalQty: row["Total Qty"] || "",
+            // Purchase Return Remark — the reason entered when submitting the Purchase Return
+            returnReason: String(row["Return Reason"] || "").trim(),
+            // PR Remark — the remark entered while approving/rejecting in PR Approval
+            prRemark: row["PR Approval Remarks"] || "",
             // Product Rate from Purchase Return row
             productRate: row["Product Rate"] || "",
             // Bill No from Purchase Return row
             billNo: row["Bill No"] || "",
             // Bill Image from Purchase Return row
             billImage: row["Bill Image"] || row["Bill Copy"] || "",
+            // Weight Slip image from Purchase Return row
+            weightSlip: row["Weighslip of Material"] || "",
             // Purchase Return No from Purchase Return row
             purchaseReturnNo: String(row["Purchase Return No."] || "").trim(),
             // Credit Note image URL
             creditNoteUrl: row["Credit Note URL"] || "",
             _rawPlanned: null,
-            _rawActual: null,
+            _rawActual: row["Actual"] || null,
           };
       });
 
@@ -442,6 +503,7 @@ export default function DebitNote() {
         targetItem = {
           id: `REAUDIT-${reauditRow.supabaseId || Date.now()}`,
           supabaseId: reauditRow.supabaseId,
+          debitNoteNo: `DN-${reauditRow.supabaseId || Date.now()}`,
           timestamp: reauditRow.timestamp || "",
           liftId: reauditRow.liftNumber || reauditRow.liftId || "",
           indentNo: reauditRow.indentNumber || reauditRow.indentNo || "",
@@ -637,11 +699,13 @@ export default function DebitNote() {
           Status: "Completed",
           coordination_status: "COORDINATED",
           "Action Type": "Make Debit Note",
+          "Remarks": remarks.trim(),
           "Remark": remarks.trim(),
           "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
           "Debit Note URL": publicUrl,
           "Actual": actualTimestamp,
-          "Purchase Return No.": editingItem.purchaseReturnNo || null
+          "Purchase Return No.": editingItem.purchaseReturnNo || null,
+          "debit_note_created": true
         };
 
         const { data: mismatchData, error: mismatchError } = await supabase
@@ -652,10 +716,15 @@ export default function DebitNote() {
 
         if (mismatchError) throw mismatchError;
 
-        // Link mismatch_id to the manual return
+        // Link mismatch_id to the manual return and update Actual, Amount, Credit Note URL
         const { error: prUpdateError } = await supabase
           .from("Purchase Returns")
-          .update({ mismatch_id: mismatchData.id })
+          .update({
+            mismatch_id: String(mismatchData.id),
+            "Actual": actualTimestamp,
+            "Amount": debitAmount ? parseFloat(debitAmount) : null,
+            "Credit Note URL": publicUrl || editingItem.creditNoteUrl || null
+          })
           .eq("ID", editingItem.supabaseId);
 
         if (prUpdateError) throw prUpdateError;
@@ -663,12 +732,14 @@ export default function DebitNote() {
       } else {
         // Update in Supabase - match by ID if available, or fallback to Lift ID & Indent Number
         const updatePayload = {
+          "Remarks": remarks.trim(),
           "Remark": remarks.trim(),
           "Debit Amount": debitAmount ? parseFloat(debitAmount) : null,
           "Debit Note URL": publicUrl,
           "Actual": actualTimestamp,
           "Purchase Return No.": editingItem.purchaseReturnNo || null,
-          "Status": "Completed"
+          "Status": "Completed",
+          "debit_note_created": true
         };
         let query = supabase.from("Mismatch").update(updatePayload);
         if (editingItem.supabaseId) {
@@ -679,6 +750,28 @@ export default function DebitNote() {
         const { data: updateData, error: updateError } = await query.select();
 
         if (updateError) throw updateError;
+
+        // Also sync Purchase Returns table if this Mismatch item has a linked Purchase Return
+        if (editingItem.purchaseReturnNo) {
+          await supabase
+            .from("Purchase Returns")
+            .update({
+              "Actual": actualTimestamp,
+              "Amount": debitAmount ? parseFloat(debitAmount) : null,
+              "Credit Note URL": publicUrl || editingItem.creditNoteUrl || null
+            })
+            .eq("Purchase Return No.", editingItem.purchaseReturnNo);
+        }
+        if (editingItem.supabaseId) {
+          await supabase
+            .from("Purchase Returns")
+            .update({
+              "Actual": actualTimestamp,
+              "Amount": debitAmount ? parseFloat(debitAmount) : null,
+              "Credit Note URL": publicUrl || editingItem.creditNoteUrl || null
+            })
+            .eq("mismatch_id", String(editingItem.supabaseId));
+        }
       }
 
       // Update local state
@@ -686,6 +779,7 @@ export default function DebitNote() {
         item.id === editingRow
           ? {
             ...item,
+            status: "Completed",
             remarks: remarks.trim(),
             debitAmount: debitAmount ? parseFloat(debitAmount) : "",
             debitNoteUrl: publicUrl,
@@ -702,6 +796,7 @@ export default function DebitNote() {
       await fetchMismatchData();
 
       if (location.state?.fromReAudit || editingItem.isFromReAudit) {
+        window.history.replaceState({}, document.title);
         toast.success("Returning to Re-Audit page...");
         setTimeout(() => {
           navigate('/accounts-audit', { state: { returnToTab: 'REAUDIT', openRowId: editingItem.supabaseId || editingItem.id } });
@@ -790,6 +885,25 @@ export default function DebitNote() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
           </svg>
           View Bill
+        </a>
+      ) : (
+        <span className="text-gray-400 text-xs">-</span>
+      );
+    }
+
+    if (column.dataKey === "weightSlip") {
+      return item.weightSlip ? (
+        <a
+          href={String(item.weightSlip).startsWith("http") ? item.weightSlip : `https://${item.weightSlip}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition-colors"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          View
         </a>
       ) : (
         <span className="text-gray-400 text-xs">-</span>
@@ -1102,16 +1216,15 @@ export default function DebitNote() {
         <Card className="shadow-md border-none">
           <CardHeader className="p-4 border-b border-gray-200">
             <CardTitle className="flex items-center gap-2 text-gray-700 text-lg">
-              <FileText className="h-5 w-5 text-[#7da23a]" /> Debit Note Management
+              <FileText className="h-5 w-5 text-[#7da23a]" /> Debit Note
             </CardTitle>
-            <CardDescription className="text-gray-500 text-sm">
-              Manage and update remarks for mismatch entries. Add remarks to track debit note status.
-              {user?.firmName && (
-                <span className="ml-2 text-[#7da23a] font-medium">
-                  • Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
+            {user?.firmName && (
+              <CardDescription className="text-gray-500 text-sm">
+                <span className="text-[#7da23a] font-medium">
+                  Filtered by: {Array.isArray(user.firmName) ? user.firmName.join(", ") : user.firmName}
                 </span>
-              )}
-            </CardDescription>
+              </CardDescription>
+            )}
           </CardHeader>
 
           <CardContent className="p-4">
@@ -1294,13 +1407,34 @@ export default function DebitNote() {
 
               {/* History Tab */}
               <TabsContent value="history" className="space-y-4">
+                <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Filter className="h-4 w-4 text-gray-500" />
+                    <Label className="text-sm font-medium">Filters</Label>
+                    <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+                      Clear All
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div>
+                      <Label className="text-xs mb-1 block">Firm Name</Label>
+                      <SearchableSelect
+                        value={filters.firmName}
+                        onValueChange={(value) => handleFilterChange("firmName", value)}
+                        options={["all", ...uniqueFilterOptions.firmName]}
+                        placeholder="Firms"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                </div>
                 <Card className="shadow-sm border border-border">
                   <CardHeader className="py-3 px-4 bg-gray-50">
                     <div className="flex justify-between items-center">
                       <div>
                         <CardTitle className="flex items-center text-sm font-semibold text-foreground">
                           <History className="h-4 w-4 text-[#7da23a] mr-2" />
-                          History Entries ({history.length})
+                          History Entries ({filteredData.length})
                         </CardTitle>
                         <CardDescription className="text-xs text-muted-foreground mt-0.5">
                           Entries with both planned and actual timestamps. These have been processed.
@@ -1324,7 +1458,7 @@ export default function DebitNote() {
                         <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
                         <p className="text-muted-foreground">Loading history data...</p>
                       </div>
-                    ) : error && history.length === 0 ? (
+                    ) : error && filteredData.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-destructive-foreground bg-destructive/10 rounded-lg mx-4 my-4 text-center">
                         <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
                         <p className="font-medium text-destructive">Error Loading Data</p>
@@ -1333,7 +1467,7 @@ export default function DebitNote() {
                           Retry Loading
                         </Button>
                       </div>
-                    ) : history.length === 0 ? (
+                    ) : filteredData.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-10 px-4 border-2 border-dashed border-green-200/50 bg-green-50/50 rounded-lg mx-4 my-4 text-center">
                         <History className="h-12 w-12 text-green-500 mb-3" />
                         <p className="font-medium text-foreground">No History Entries</p>
@@ -1357,7 +1491,7 @@ export default function DebitNote() {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-100">
-                            {history.map((item) => (
+                            {filteredData.map((item) => (
                               <tr
                                 key={item.id}
                                 className="hover:bg-green-50/50 transition-colors border-b border-gray-100"

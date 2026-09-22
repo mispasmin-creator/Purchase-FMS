@@ -129,7 +129,6 @@ const AccountsAudit = () => {
         truckNo: row.truckNo || "",
         rate: row.rate || "",
         truckQty: row.truckQty || "",
-        biltyNo: row.biltyNo || "",
         diffQty: row.diffQty || "",
         totalFreight: row.totalFreight || "",
         rateDifference: row.rateDifference || "",
@@ -161,7 +160,7 @@ const AccountsAudit = () => {
       // 1. Fetch Mismatch Data (Pending Items)
       const { data: mismatchData, error: fetchError } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('"id","Lift ID","Lift Number","Indent Number","Firm Name","Party Name","Product Name","Transporter Name","Status","Remarks","Timestamp","Planned2","Remark","Type","Bill No.","Qty","Area Lifting","Truck No.","Type Of Rate","Rate","Truck Qty","Bilty No.","Qty Diff Status","Diff Qty","Total Freight","Rate Difference","Alumina Difference","Iron Difference","Quantity Difference","Bill Image","Bilty Image","Weight Slip"')
         .is("Actual2", null)
         .order("Timestamp", { ascending: false });
 
@@ -192,7 +191,7 @@ const AccountsAudit = () => {
         // Fetch matching records
         const { data: liftData, error: liftError } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select("*")
+          .select('"Lift No","Firm Name","Transporter Name","Type","Truck No.","Vendor Name","Raw Material Name","Physical Condition","Moisture","Date Of Receiving","Driver No.","Lead Time To Reach Factory (days)","Bill Image","Bilty Image","Image Of Weight Slip","Physical Image Of Product"')
           .in("Lift No", liftIds);
 
         if (liftError) {
@@ -408,7 +407,6 @@ const AccountsAudit = () => {
               "Truck No.": formData.truckNo,
               Rate: formData.rate,
               "Truck Qty": formData.truckQty,
-              "Bilty No.": formData.biltyNo,
               "Diff Qty": formData.diffQty,
               "Total Freight": formData.totalFreight,
               "Rate Difference": formData.rateDifference,
@@ -537,7 +535,6 @@ const AccountsAudit = () => {
                       { field: "transporterName", label: "Transporter Name" },
                       { field: "billNo", label: "Bill No." },
                       { field: "dateOfBill", label: "Date Of Bill", type: "date" },
-                      { field: "biltyNo", label: "Bilty No." },
                       { field: "truckNo", label: "Truck No." },
                       { field: "areaLifting", label: "Area Lifting" },
                     ].map(({ field, label }) => (

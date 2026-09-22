@@ -282,13 +282,18 @@ export function NotificationProvider({ children }) {
                 const actual2 = row["Actual 2"];
                 return planned2 !== null && planned2 !== "" && (actual2 === null || actual2 === "");
             });
-            
+
+            // Direct Supply To Party lifts skip Lab entirely (they go straight to
+            // Bilty via "Planned 3") — exclude them even if "Planned 2" ends up
+            // set by something outside that flow.
+            filtered = filtered.filter(row => String(row["Area lifting"] || "").trim() !== "Direct Supply To Party");
+
             if (allowedSteps && !allowedSteps.includes("admin") && user?.firmName && String(user.firmName).toLowerCase() !== "all") {
                 const userFirmNameLower = String(user.firmName).toLowerCase();
                 filtered = filtered.filter(row => row["Firm Name"] && String(row["Firm Name"]).toLowerCase() === userFirmNameLower);
             }
             filtered = filtered.filter(row => String(row["Type"] || "").toLowerCase() === "independent");
-            
+
             return filtered.length;
         } catch (error) {
             console.error("Error fetching pending lab tests:", error);

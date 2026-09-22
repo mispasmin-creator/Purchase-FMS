@@ -38,6 +38,8 @@ import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { useRealtime } from "../hooks/useRealtime";
 import { canViewFirm } from "../utils/firmFilter";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 
 import {
   Dialog,
@@ -84,7 +86,8 @@ export default function LogisticsApproval() {
     try {
       const { data, error: fetchError } = await supabase
         .from("INDENT-PO")
-        .select("*");
+        .select('"id","Firm Name","po_number","Indent Id.","Material","Vendor name","Vendor","Total Quantity","Approved Qty","Total Amount","Planned9","ActualLogistics","LogisticsOptions","SelectedTransporter","SelectedTransporterIndex","Actual9"')
+        .not("Planned9", "is", null);
       if (fetchError) throw fetchError;
 
       let filteredData = data || [];
@@ -202,6 +205,39 @@ export default function LogisticsApproval() {
     );
   }, [historyData, historySearchQuery]);
 
+  const pendingPagination = usePagination(100);
+  const historyPagination = usePagination(100);
+
+  useEffect(() => {
+    pendingPagination.setTotalRows(filteredPendingData.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredPendingData.length]);
+
+  useEffect(() => {
+    historyPagination.setTotalRows(filteredHistoryData.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredHistoryData.length]);
+
+  // Search changed — go back to page 1 instead of possibly landing past the end.
+  useEffect(() => {
+    pendingPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  useEffect(() => {
+    historyPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historySearchQuery]);
+
+  const pagedPendingData = useMemo(
+    () => filteredPendingData.slice(pendingPagination.from, pendingPagination.to + 1),
+    [filteredPendingData, pendingPagination.from, pendingPagination.to],
+  );
+  const pagedHistoryData = useMemo(
+    () => filteredHistoryData.slice(historyPagination.from, historyPagination.to + 1),
+    [filteredHistoryData, historyPagination.from, historyPagination.to],
+  );
+
   const onApprove = async () => {
     if (!selectedIndent || selectedTransporterIndex === null) {
       toast.error("Please select a transporter");
@@ -254,11 +290,8 @@ export default function LogisticsApproval() {
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-3">
             <CheckCircle2 className="h-6 w-6 text-[#7da23a]" />
-            Logistics Approval
+            Logistics App.
           </CardTitle>
-          <CardDescription className="text-gray-500 mt-1 text-sm">
-            Review and approve proposed transporter arrangements.
-          </CardDescription>
         </CardHeader>
         <CardContent className="p-4 flex-1 flex flex-col">
           <Tabs
@@ -331,7 +364,7 @@ export default function LogisticsApproval() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
-                      {filteredPendingData.map((item) => (
+                      {pagedPendingData.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
                           <td className="px-4 py-3">
                             <Button
@@ -367,6 +400,13 @@ export default function LogisticsApproval() {
                   </table>
                 </div>
               )}
+              <PaginationControls
+                page={pendingPagination.page}
+                pageSize={pendingPagination.pageSize}
+                totalRows={pendingPagination.totalRows}
+                onPageChange={pendingPagination.setPage}
+                onPageSizeChange={pendingPagination.setPageSize}
+              />
             </TabsContent>
 
             <TabsContent value="history" className="flex-1 mt-0">
@@ -384,7 +424,7 @@ export default function LogisticsApproval() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {filteredHistoryData.map((item) => (
+                    {pagedHistoryData.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
                         <td className="px-4 py-3 font-medium">
                           {item.poNumber}
@@ -404,6 +444,13 @@ export default function LogisticsApproval() {
                   </tbody>
                 </table>
               </div>
+              <PaginationControls
+                page={historyPagination.page}
+                pageSize={historyPagination.pageSize}
+                totalRows={historyPagination.totalRows}
+                onPageChange={historyPagination.setPage}
+                onPageSizeChange={historyPagination.setPageSize}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>

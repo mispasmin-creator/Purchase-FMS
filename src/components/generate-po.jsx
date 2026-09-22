@@ -225,7 +225,7 @@ export default function CreatePO() {
       try {
         const { data, error } = await supabase
           .from("INDENT-PO")
-          .select("*")
+          .select('"Indent Id.","Firm Name","Vendor","Material","Approved Qty","Approved Rate","Rate","Quotation Number 1","Quotation Date 1","Actual2","Planned2","PO Notes","Notes","Alumina %","Iron %","AP Percent Age %","BD Percent Age %","Fineness","Packaging","PO Copy","Advance To Be Paid","To Be Paid Amount","When To Be Paid Amount","Transport Type","Lead Time To Lift (days)","po_number","UOM","id"')
           .not("Planned2", "is", null);
         if (error) throw error;
         const mapped = (data || []).map(mapRow);
@@ -710,12 +710,8 @@ export default function CreatePO() {
           <FilePlus2 size={50} className="text-primary" />
           <div>
             <h1 className="text-2xl font-bold text-primary">
-              Create or Revise PO
+              Make PO
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Create purchase order for approved indents using the current PO
-              flow
-            </p>
           </div>
         </div>
         <Button

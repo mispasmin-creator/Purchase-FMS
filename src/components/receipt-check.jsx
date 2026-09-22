@@ -64,6 +64,8 @@ import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { uploadFileToStorage } from "../utils/storageUtils";
 import { canViewFirm } from "../utils/firmFilter";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 
 // Constants for Google Sheets and Apps Script
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY";
@@ -170,7 +172,7 @@ const PROCESSED_RECEIPTS_COLUMNS_META = [
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
   { header: "PO Qty", dataKey: "qty", toggleable: true },
-  { header: "ACTUAL Qty", dataKey: "actualQuantity_fromSheet", toggleable: true },
+  { header: "Material Qty", dataKey: "actualQuantity_fromSheet", toggleable: true },
   { header: "Billing Quantity", dataKey: "liftingQty", toggleable: true },
   { header: "Rate", dataKey: "rate", toggleable: true },
   {
@@ -929,6 +931,38 @@ export default function ReceiptCheck() {
       });
   }, [allLiftsData, filters, searchQuery, dateRangeFilter]);
 
+  // Sum of quantity for whichever tab/filters are currently active — updates
+  // automatically with every filter (vendor, material, search, date range,
+  // etc.) since it reads from the already-filtered lists above.
+  const filteredTotalQty = useMemo(() => {
+    const rows =
+      activeTab === "awaitingReceipt" ? liftsAwaitingReceipt : derivedMaterialReceipts;
+    const key =
+      activeTab === "awaitingReceipt" ? "liftingQty" : "actualQuantity_fromSheet";
+    return rows.reduce((sum, item) => sum + (parseFloat(item[key]) || 0), 0);
+  }, [activeTab, liftsAwaitingReceipt, derivedMaterialReceipts]);
+
+  const awaitingPagination = usePagination(100);
+  const processedPagination = usePagination(100);
+
+  useEffect(() => {
+    awaitingPagination.setTotalRows(liftsAwaitingReceipt.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liftsAwaitingReceipt.length]);
+
+  useEffect(() => {
+    processedPagination.setTotalRows(derivedMaterialReceipts.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [derivedMaterialReceipts.length]);
+
+  // Filters/search/date-range changed — go back to page 1 instead of
+  // possibly landing past the end of the (now different) filtered set.
+  useEffect(() => {
+    awaitingPagination.resetPage();
+    processedPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, searchQuery, dateRangeFilter]);
+
   const handleInputChange = (e) => {
     const { name, value, type, files } = e.target;
     if (type === "file") {
@@ -1099,7 +1133,7 @@ export default function ReceiptCheck() {
     });
     if (missingTruckQty)
       newErrors.truckQtyByLift =
-        "Enter a valid Truck Qty for every included product.";
+        "Enter a valid Material Qty for every included product.";
     if (
       isPPBagMaterial(selectedLift?.rawMaterialName) &&
       (!formData.totalBagsQty || isNaN(parseFloat(formData.totalBagsQty)))
@@ -1238,7 +1272,7 @@ export default function ReceiptCheck() {
 
       const { data: existingMismatch } = await supabase
         .from("Mismatch")
-        .select("*")
+        .select('"id","Type","Bill No.","Area Lifting","Truck No.","Transporter Name","Transporter","Bill Image","Bilty No.","Type Of Rate","Rate","Truck Qty","Lifting Quantity","Bilty Image","Total Freight","Planned2"')
         .eq('"Lift ID"', lift.id)
         .maybeSingle();
 
@@ -1471,30 +1505,21 @@ export default function ReceiptCheck() {
     data,
     columnsMeta,
     visibilityState,
+    pagination,
   ) => {
     const visibleCols = columnsMeta.filter(
       (col) => visibilityState[col.dataKey],
     );
     const isLoading = loadingData && data.length === 0;
     const hasError = errorData && data.length === 0 && activeTab === tabKey;
+    // The header count, CSV export, and empty-state check below all use the
+    // full filtered `data` (unchanged) — only the rendered rows are paged,
+    // so pagination never changes what "Export CSV" or the count show.
+    const pagedData = data.slice(pagination.from, pagination.to + 1);
     return (
-      <Card className="flex-col flex-1 border shadow-sm border-border">
-        <CardHeader className="px-4 py-3 bg-muted/30">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center font-semibold text-md text-foreground">
-                {tabKey === "awaitingReceipt" ? (
-                  <PackageOpen className="h-5 w-5 text-[#7da23a] mr-2" />
-                ) : (
-                  <PackageCheck className="h-5 w-5 text-[#7da23a] mr-2" />
-                )}
-                {title} ({data.length})
-              </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-0.5">
-                {description}
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col flex-1">
+        <div className="flex flex-wrap items-center justify-end gap-3 px-4 sm:px-5 py-3 border-b border-gray-100">
+          <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-gray-500">From</span>
                 <Input
@@ -1613,8 +1638,7 @@ export default function ReceiptCheck() {
             </Popover>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="flex-col flex-1 p-0">
+        <div className="flex-col flex-1">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center flex-1 py-10">
               <Loader2 className="h-8 w-8 text-[#7da23a] animate-spin mb-3" />
@@ -1664,7 +1688,7 @@ export default function ReceiptCheck() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {data.map((item) => (
+                  {pagedData.map((item) => (
                     <tr
                       key={item._id}
                       className={`hover:bg-green-50/50 transition-colors border-b border-gray-100 ${
@@ -1723,8 +1747,15 @@ export default function ReceiptCheck() {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+          <PaginationControls
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalRows={pagination.totalRows}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </div>
+      </div>
     );
   };
 
@@ -1733,18 +1764,8 @@ export default function ReceiptCheck() {
       <Card className="border-none shadow-md">
         <CardHeader className="p-4 border-b border-gray-200">
           <CardTitle className="flex items-center gap-2 text-lg text-gray-700">
-            <PackageOpen className="h-5 w-5 text-[#7da23a]" /> Step 6: Receipt
-            Of Material / Physical Quality Check
+            <PackageOpen className="h-5 w-5 text-[#7da23a]" /> Receipt
           </CardTitle>
-          <CardDescription className="text-sm text-gray-500">
-            Record receipt details and perform quality checks for incoming
-            materials.
-            {user?.firmName && String(user.firmName).toLowerCase() !== "all" && (
-              <span className="ml-2 text-[#7da23a] font-medium">
-                • Filtered by: {user.firmName}
-              </span>
-            )}
-          </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
           <Tabs
@@ -1752,39 +1773,51 @@ export default function ReceiptCheck() {
             onValueChange={setActiveTab}
             className="flex flex-col flex-1"
           >
-            <TabsList className="grid w-full sm:w-[480px] grid-cols-2 mb-4">
-              <TabsTrigger
-                value="awaitingReceipt"
-                className="flex items-center gap-2"
-              >
-                <FileCheckIcon className="w-4 h-4" /> Awaiting Receipt
-                <Badge
-                  variant="secondary"
-                  className="ml-1.5 px-1.5 py-0.5 text-xs"
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-gray-100">
+              <TabsList className="inline-flex w-auto h-auto">
+                <TabsTrigger
+                  value="awaitingReceipt"
+                  className="flex items-center gap-1 text-xs sm:gap-2 sm:text-sm"
                 >
-                  {liftsAwaitingReceipt.length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger
-                value="processedReceipts"
-                className="flex items-center gap-2"
-              >
-                <History className="w-4 h-4" /> Processed Lifts
-                <Badge
-                  variant="secondary"
-                  className="ml-1.5 px-1.5 py-0.5 text-xs"
+                  <FileCheckIcon className="hidden w-4 h-4 sm:inline-block" />
+                  <span className="truncate">Awaiting Receipt</span>
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 px-1.5 py-0.5 text-xs sm:ml-1.5"
+                  >
+                    {liftsAwaitingReceipt.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="processedReceipts"
+                  className="flex items-center gap-1 text-xs sm:gap-2 sm:text-sm"
                 >
-                  {derivedMaterialReceipts.length}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-            <div className="p-4 mb-4 rounded-lg bg-green-50/50">
-              <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-gray-500" />
-                  <Label className="text-sm font-medium">Filters</Label>
+                  <History className="hidden w-4 h-4 sm:inline-block" />
+                  <span className="truncate">Processed Lifts</span>
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 px-1.5 py-0.5 text-xs sm:ml-1.5"
+                  >
+                    {derivedMaterialReceipts.length}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+              <div className="flex items-baseline gap-1.5 text-right">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                  {activeTab === "awaitingReceipt" ? "Total Lifting Qty:" : "Total Actual Qty:"}
+                </span>
+                <span className="text-base font-bold text-[#7da23a]">
+                  {filteredTotalQty.toLocaleString("en-IN", { maximumFractionDigits: 3 })}
+                </span>
+              </div>
+            </div>
+            <div className="p-3 mb-4 border border-gray-100 rounded-md bg-gray-50/70">
+              <div className="flex flex-col gap-2 mb-3 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Filter className="w-3.5 h-3.5 text-gray-400" />
+                  <Label className="text-xs font-medium text-gray-500">Filters</Label>
                 </div>
-                <div className="sm:ml-4 w-full sm:w-72">
+                <div className="sm:ml-2 w-full sm:w-72">
                   <Input
                     type="text"
                     placeholder="Search..."
@@ -1955,6 +1988,7 @@ export default function ReceiptCheck() {
                 liftsAwaitingReceipt,
                 AWAITING_RECEIPT_COLUMNS_META,
                 visibleAwaitingReceiptColumns,
+                awaitingPagination,
               )}
             </TabsContent>
             <TabsContent
@@ -1968,6 +2002,7 @@ export default function ReceiptCheck() {
                 derivedMaterialReceipts,
                 PROCESSED_RECEIPTS_COLUMNS_META,
                 visibleProcessedReceiptsColumns,
+                processedPagination,
               )}
             </TabsContent>
           </Tabs>
@@ -2096,7 +2131,7 @@ export default function ReceiptCheck() {
                         <th className="px-3 py-2 text-left font-semibold text-gray-600">Date Of Bill</th>
                         <th className="px-3 py-2 text-right font-semibold text-gray-600">Billed Qty</th>
                         <th className="px-3 py-2 text-right font-semibold text-gray-600">
-                          Truck Qty <span className="text-red-500">*</span>
+                          Material Qty <span className="text-red-500">*</span>
                         </th>
                         <th className="px-3 py-2 text-right font-semibold text-gray-600">Share</th>
                       </tr>

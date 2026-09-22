@@ -32,6 +32,7 @@ import Mismatch from "./components/Mis-match";
 import DebitNote from "./components/Debit-note";
 import SaleOfRawMaterial from "./components/SaleOfRawMaterial";
 import PurchaseReturnPage from "./components/PurchaseReturnPage";
+import PurchaseReturnApproval from "./components/PurchaseReturnApproval";
 import ManageUsers from "./components/ManageUsers";
 import POHistory from "./components/POHistory";
 import LabReportPage from "./components/LabReportPage";
@@ -369,16 +370,6 @@ function App() {
       component: <Mismatch />,
     },
     {
-      id: "purchase-return",
-      label: "Purchase Return",
-      path: "/purchase-return",
-      icon: <RotateCcw size={20} />,
-      stepName: "mismatch",
-      showNotification: false,
-      component: <PurchaseReturnPage />,
-      hidden: false,
-    },
-    {
       id: "audit-data",
       label: "Accounts Audit",
       path: "/accounts-audit",
@@ -390,17 +381,6 @@ function App() {
       component: <AuditData />,
     },
     {
-      id: "debit-note",
-      label: "Debit Note",
-      path: "/debit-note",
-      icon: <FileText size={20} />,
-      stepName: "Debit Note",
-      showNotification: true,
-      countKey: "debit-note",
-      countLabel: "Pending",
-      component: <DebitNote />,
-    },
-    {
       id: "fullkitting",
       label: "Fullkitting",
       path: "/fullkitting",
@@ -410,6 +390,38 @@ function App() {
       countKey: "fullkitting",
       countLabel: "Pending",
       component: <FullkittingTransportingPage />,
+    },
+    {
+      id: "purchase-return",
+      label: "Purchase Return",
+      path: "/purchase-return",
+      icon: <RotateCcw size={20} />,
+      stepName: "mismatch",
+      showNotification: false,
+      component: <PurchaseReturnPage />,
+      hidden: false,
+    },
+    {
+      id: "purchase-return-approval",
+      label: "PR Approval",
+      path: "/purchase-return-approval",
+      icon: <CheckCircle2 size={20} />,
+      stepName: "mismatch",
+      showNotification: true,
+      countKey: "purchase-return-approval",
+      countLabel: "Pending",
+      component: <PurchaseReturnApproval />,
+    },
+    {
+      id: "debit-note",
+      label: "Debit Note",
+      path: "/debit-note",
+      icon: <FileText size={20} />,
+      stepName: "Debit Note",
+      showNotification: true,
+      countKey: "debit-note",
+      countLabel: "Pending",
+      component: <DebitNote />,
     },
     // {
     //   id: "sale-of -raw-material",

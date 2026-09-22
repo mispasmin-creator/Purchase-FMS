@@ -39,8 +39,12 @@ const CallTrackerPage = () => {
   const [loadingReChecking, setLoadingReChecking] = useState(true);
   const [loadingBillEntry, setLoadingBillEntry] = useState(true);
   const [loadingRectify, setLoadingRectify] = useState(true); 
-  const [loadingReAudit, setLoadingReAudit] = useState(true); 
-  const [loadingAll, setLoadingAll] = useState(true); 
+  const [loadingReAudit, setLoadingReAudit] = useState(true);
+  const [loadingAll, setLoadingAll] = useState(true);
+  // True until the live LIFT-ACCOUNTS Truck/Lifting Qty map has loaded — kept
+  // true blocks every tab's table from rendering with blank Truck Qty values
+  // during that brief initial window (no fallback exists anymore).
+  const [loadingLiftMeta, setLoadingLiftMeta] = useState(true);
   const [liftAccountsRawData, setLiftAccountsRawData] = useState([]); 
   const [error, setError] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
@@ -480,13 +484,19 @@ const CallTrackerPage = () => {
     const liftId = getLiftKey(row);
     const prodName = getLiftProdKey(row);
     const compositeKey = prodName ? `${liftId}_${prodName}` : liftId;
-    return liftActualQtyMap[compositeKey] || liftActualQtyMap[liftId] || row["Truck Qty"] || row["Actual Quantity"] || '';
+    // No fallback to the Mismatch row's own Truck Qty/Actual Quantity — those
+    // are a stale snapshot from when the Mismatch record was created. Always
+    // use the live value from LIFT-ACCOUNTS.
+    return liftActualQtyMap[compositeKey] || liftActualQtyMap[liftId] || '';
   };
   const getLiftLiftingQty = (row) => {
     const liftId = getLiftKey(row);
     const prodName = getLiftProdKey(row);
     const compositeKey = prodName ? `${liftId}_${prodName}` : liftId;
-    return liftLiftingQtyMap[compositeKey] || liftLiftingQtyMap[liftId] || row["Lifting Quantity"] || row["Lifting Qty"] || '';
+    // No fallback to the Mismatch row's own Lifting Quantity/Lifting Qty —
+    // those are a stale snapshot from when the Mismatch record was created.
+    // Always use the live value from LIFT-ACCOUNTS.
+    return liftLiftingQtyMap[compositeKey] || liftLiftingQtyMap[liftId] || '';
   };
   const getLiftTransporterRate = (row) => liftTransporterRateMap[getLiftKey(row)] || "";
   const getTotalFreightValue = (row) => row["Total Freight"] || getLiftTransporterRate(row) || "";
@@ -1352,6 +1362,8 @@ const CallTrackerPage = () => {
         setLiftDateOfBillMap(dateOfBillMap);
       } catch (e) {
         console.error('Failed to fetch LIFT-ACCOUNTS meta:', e);
+      } finally {
+        setLoadingLiftMeta(false);
       }
     };
     fetchLiftAccountsMeta();
@@ -1379,7 +1391,7 @@ const CallTrackerPage = () => {
           .select('"Bilty Number"'),
         supabase
           .from("LIFT-ACCOUNTS")
-          .select('id, "Timestamp", "Lift No", "Type", "Bill No.", "Date Of Bill", "Vendor Name", "Raw Material Name", "Qty", "Area lifting", "Truck No.", "Transporter Name", "Transporter Rate", "Bill Image", "Bilty No.", "Type Of Transporting Rate", "Rate", "Truck Qty", "Bilty Image", "Image Of Weight Slip", "Status", "Indent no.", "Firm Name", "Actual Quantity", "Date Of Receiving", "Actual 1"')
+          .select('id, "Timestamp", "Lift No", "Type", "Bill No.", "Date Of Bill", "Vendor Name", "Raw Material Name", "Qty", "Area lifting", "Truck No.", "Transporter Name", "Transporter Rate", "Bill Image", "Bilty No.", "Type Of Transporting Rate", "Rate", "Truck Qty", "Lifting Qty", "Bilty Image", "Image Of Weight Slip", "Status", "Indent no.", "Firm Name", "Actual Quantity", "Date Of Receiving", "Actual 1"')
           .not("Actual 1", "is", null)
       ]);
 
@@ -2177,6 +2189,11 @@ const CallTrackerPage = () => {
 
   useEffect(() => {
     fetchData();
+    // Wait for the live LIFT-ACCOUNTS Truck/Lifting Qty map to finish loading
+    // before computing any stage's rows — otherwise they'd get built once
+    // with an empty map (blank Truck Qty) and only get silently corrected on
+    // the next run, which is the flicker this is meant to eliminate.
+    if (loadingLiftMeta) return;
     fetchAuditDataFromSupabase();
     fetchTallyEntryDataFromSupabase();
     fetchReCheckingDataFromSupabase();
@@ -2185,7 +2202,24 @@ const CallTrackerPage = () => {
     fetchReAuditDataFromSupabase();
     fetchAllDataFromSupabase();
     fetchHistoryDataFromSupabase();
-  }, [submittedRows, user, liftWeightSlipMap, liftTransporterRateMap]);
+  }, [user, liftWeightSlipMap, liftTransporterRateMap, loadingLiftMeta]);
+
+  // Every action (approve/reject/edit) adds a key to submittedRows so the row
+  // hides immediately. Re-running the block above on that change would
+  // re-fetch all 8 near-full-table datasets from Supabase for a single row's
+  // action — instead, just drop the matching row from whichever stage array
+  // is already in memory. submittedRows only ever grows, so filtering the
+  // current state further is always safe and gives the identical result the
+  // full refetch used to produce, with no network cost.
+  useEffect(() => {
+    setAuditMismatchData(prev => prev.filter(item => !submittedRows.has(`AUDIT_${item.id}`)));
+    setTallyEntryMismatchData(prev => prev.filter(item => !submittedRows.has(`TALLY_ENTRY_${item.id}`)));
+    setReCheckingMismatchData(prev => prev.filter(item => !submittedRows.has(`RE_CHECKING_${item.id}`)));
+    setBillEntryMismatchData(prev => prev.filter(item => !submittedRows.has(`BILL_ENTRY_${item.id}`)));
+    setRectifyMismatchData(prev => prev.filter(item => !submittedRows.has(`RECTIFY_${item.id}`)));
+    setReAuditMismatchData(prev => prev.filter(item => !submittedRows.has(`RE_AUDIT_${item.id}`)));
+    setAllMismatchData(prev => prev.filter(item => !submittedRows.has(`ALL_${item.id}`)));
+  }, [submittedRows]);
 
   useEffect(() => {
     if (location.state?.returnToTab === 'REAUDIT' && !loadingReAudit && reAuditMismatchData.length > 0) {
@@ -2456,7 +2490,7 @@ const CallTrackerPage = () => {
     }
   };
 
-  if (loading || (activeTab === 'ALL' && (loadingAudit || loadingRectify || loadingTallyEntry || loadingReChecking || loadingReAudit || loadingBillEntry)) || (activeTab === 'AUDIT' && loadingAudit) || (activeTab === 'TALLY_ENTRY' && loadingTallyEntry) || (activeTab === 'RE_CHECKING' && loadingReChecking) || (activeTab === 'BILL_ENTRY' && loadingBillEntry) || (activeTab === 'RECTIFY' && loadingRectify) || (activeTab === 'REAUDIT' && loadingReAudit) || (activeTab === 'HISTORY' && loadingHistory)) {
+  if (loading || loadingLiftMeta || (activeTab === 'ALL' && (loadingAudit || loadingRectify || loadingTallyEntry || loadingReChecking || loadingReAudit || loadingBillEntry)) || (activeTab === 'AUDIT' && loadingAudit) || (activeTab === 'TALLY_ENTRY' && loadingTallyEntry) || (activeTab === 'RE_CHECKING' && loadingReChecking) || (activeTab === 'BILL_ENTRY' && loadingBillEntry) || (activeTab === 'RECTIFY' && loadingRectify) || (activeTab === 'REAUDIT' && loadingReAudit) || (activeTab === 'HISTORY' && loadingHistory)) {
     return (
       <div className="min-h-[400px] bg-linear-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center rounded-xl border border-gray-200 shadow-sm m-4">
         <RefreshCw className="w-12 h-12 animate-spin text-green-500 mx-auto mb-4" />
@@ -2654,7 +2688,6 @@ const CallTrackerPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Accounts Audit</h1>
-                <p className="text-sm text-gray-600 mt-1">Track all stages of account processing</p>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="relative w-64 hidden sm:block">
