@@ -21,6 +21,7 @@ import {
   Save,
   X,
   ShieldCheck,
+  Download,
 } from "lucide-react";
 
 import { supabase } from "../supabase";
@@ -127,6 +128,58 @@ export default function POHistory() {
       return searchMatch && dateMatch;
     });
   }, [poList, searchQuery, dateFilter]);
+
+  const handleExportCSV = useCallback(() => {
+    try {
+      if (!filteredPOs || filteredPOs.length === 0) {
+        toast.error("No PO history data to export");
+        return;
+      }
+
+      const headers = [
+        "PO ID",
+        "Creation Date",
+        "Firm Name",
+        "Vendor Name",
+        "Items",
+        "Amount (INR)",
+        "Status",
+        "PO Copy URL",
+      ];
+
+      const escapeCsv = (val) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const rows = filteredPOs.map((po) => [
+        escapeCsv(po.poId),
+        escapeCsv(formatDate(po.date)),
+        escapeCsv(po.firmName || "-"),
+        escapeCsv(po.vendorName || "-"),
+        escapeCsv(po.items ? po.items.join(", ") : "-"),
+        escapeCsv(po.totalAmount || 0),
+        escapeCsv(po.status),
+        escapeCsv(po.pdfUrl || ""),
+      ]);
+
+      const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `PO_History_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("CSV exported successfully");
+    } catch (err) {
+      console.error("Export CSV error:", err);
+      toast.error("Failed to export CSV: " + err.message);
+    }
+  }, [filteredPOs]);
 
   const openEditModal = (po) => {
     setEditingPO(po);
@@ -297,6 +350,14 @@ export default function POHistory() {
               }}
             >
               Reset
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 gap-1.5"
+            >
+              <Download size={16} />
+              Export CSV
             </Button>
           </div>
         </div>

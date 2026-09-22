@@ -68,7 +68,7 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "partyName", toggleable: true },
   { header: "Product Name", dataKey: "productName", toggleable: true },
-  { header: "Qty", dataKey: "qty", toggleable: true },
+  { header: "PO Qty", dataKey: "qty", toggleable: true },
   { header: "Product Rate", dataKey: "productRate", toggleable: true },
   { header: "Bill No", dataKey: "billNo", toggleable: true },
   { header: "Bill Image", dataKey: "billImage", toggleable: true },
