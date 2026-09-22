@@ -365,6 +365,19 @@ const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
           },
         ];
 
+  // Precompute how many line items in this PO share each material name, so the
+  // lifted-qty lookup below can tell whether trusting the PO+material total
+  // (liftedQtyByBaseItem) is unambiguous for a given item.
+  const materialNameCounts = {};
+  rawItems.forEach((it, idx) => {
+    const name = String(
+      it.material || it.productName || fallbackMaterial || `Product ${idx + 1}`,
+    )
+      .trim()
+      .toLowerCase();
+    materialNameCounts[name] = (materialNameCounts[name] || 0) + 1;
+  });
+
   return rawItems.map((item, index) => {
     const materialName = String(
       item.material ||
@@ -382,11 +395,28 @@ const normalizePoItems = (row, liftedQtyByItem, liftedQtyByBaseItem = {}) => {
     // when the item has NO specific indentId (e.g. old data). If an indentId exists,
     // the specific key result (even 0) is authoritative — otherwise all same-material
     // items under one PO would share each other's lifted qty.
+    //
+    // Exception: when this item's material appears only ONCE in this PO, there's no
+    // ambiguity about which item a lift belongs to — every lift against this
+    // PO+material is necessarily for this item, even if a lift's own "Indent no."
+    // was mistakenly saved as the po_number instead of the Indent Id (older
+    // LIFT-ACCOUNTS rows can have this — seen on both single- and multi-item POs).
+    // Trusting only the specific-id key in that case undercounts what's already
+    // been lifted and leaves an already-lifted PO stuck showing as Pending. Using
+    // the base (PO+material) aggregation instead is safe here since there's only
+    // one item this material's lifts can belong to. When the same material repeats
+    // across 2+ line items of the same PO (rare), this stays off and falls back to
+    // the original specific-id/base-key behavior, since the base total can't be
+    // split between them reliably.
     const hasSpecificId = Boolean(item.indentId || item.id);
+    const isOnlyItemWithThisMaterial =
+      materialNameCounts[materialName.toLowerCase()] === 1;
     const liftedQuantity = roundQuantity(
-      hasSpecificId
-        ? (liftedQtyByItem[key] ?? 0)
-        : (liftedQtyByItem[key] ?? liftedQtyByBaseItem[aggregationKey] ?? 0),
+      isOnlyItemWithThisMaterial
+        ? (liftedQtyByBaseItem[aggregationKey] ?? liftedQtyByItem[key] ?? 0)
+        : hasSpecificId
+          ? (liftedQtyByItem[key] ?? 0)
+          : (liftedQtyByItem[key] ?? liftedQtyByBaseItem[aggregationKey] ?? 0),
     );
     const itemCancelQty = toNumber(item.orderCancelQty || 0);
     const pendingQuantity = Math.max(
