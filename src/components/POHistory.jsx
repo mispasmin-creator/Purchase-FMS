@@ -131,7 +131,6 @@ export default function POHistory() {
     });
   }, [poList, searchQuery, dateFilter]);
 
-<<<<<<< HEAD
   const handleExportCSV = useCallback(() => {
     try {
       if (!filteredPOs || filteredPOs.length === 0) {
@@ -183,7 +182,7 @@ export default function POHistory() {
       toast.error("Failed to export CSV: " + err.message);
     }
   }, [filteredPOs]);
-=======
+
   const pagination = usePagination(100);
 
   useEffect(() => {
@@ -202,7 +201,6 @@ export default function POHistory() {
     () => filteredPOs.slice(pagination.from, pagination.to + 1),
     [filteredPOs, pagination.from, pagination.to],
   );
->>>>>>> 84b9b35a6b781b193f3d160ce3006318dda144c7
 
   const openEditModal = (po) => {
     setEditingPO(po);
