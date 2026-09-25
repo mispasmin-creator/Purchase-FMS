@@ -131,6 +131,7 @@ const PO_COLUMNS_META = [
     dataKey: "indentNo",
     toggleable: true,
   },
+  { header: "Delivery Date", dataKey: "deliveryDate", toggleable: true },
   { header: "Planned Date", dataKey: "planned", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
@@ -614,7 +615,7 @@ export default function LiftMaterial() {
         { data, error: fetchError },
         { data: liftData, error: liftFetchError },
       ] = await Promise.all([
-        supabase.from("INDENT-PO").select('"id","Indent Id.","po_number","Status","Planned4","Material","Quantity","Total Quantity","Rate","Order Cancel Qty","Pending PO Qty","Firm Name","Vendor name","Vendor","Alumina %","Iron %","Transport Type","Transporter Name","transpoter_rate_type","Transporter Rate","PO Notes","Reason Of Cancel Qty","Delivery Order No."').not("Planned4", "is", null),
+        supabase.from("INDENT-PO").select('"id","Indent Id.","po_number","Status","Planned4","Lead Time To Lift (days)","Material","Quantity","Total Quantity","Rate","Order Cancel Qty","Pending PO Qty","Firm Name","Vendor name","Vendor","Alumina %","Iron %","Transport Type","Transporter Name","transpoter_rate_type","Transporter Rate","PO Notes","Reason Of Cancel Qty","Delivery Order No."').not("Planned4", "is", null),
         supabase
           .from("LIFT-ACCOUNTS")
           .select('"Indent no.", "Lifting Qty", "Raw Material Name"'),
@@ -754,6 +755,10 @@ export default function LiftMaterial() {
           plannedRaw: row["Planned4"] || "",
           planned: row["Planned4"]
             ? String(row["Planned4"]).trim().replace("T", " ")
+            : "",
+          deliveryDateRaw: row["Lead Time To Lift (days)"] || "",
+          deliveryDate: row["Lead Time To Lift (days)"]
+            ? String(row["Lead Time To Lift (days)"]).trim().split(" ")[0].split("T")[0]
             : "",
           whatIsToBeDone: String(row["PO Notes"] || "").trim(),
           pendingLiftQty: String(pendingQuantity),
@@ -1220,6 +1225,7 @@ export default function LiftMaterial() {
           String(po.rawMaterialName || "").toLowerCase().includes(searchLower) ||
           String(po.transporterName || "").toLowerCase().includes(searchLower) ||
           String(po.doNumber || "").toLowerCase().includes(searchLower) ||
+          String(po.deliveryDate || "").toLowerCase().includes(searchLower) ||
           String(po.status || "").toLowerCase().includes(searchLower)
         );
       });
