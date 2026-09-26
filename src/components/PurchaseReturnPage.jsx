@@ -318,7 +318,7 @@ export default function PurchaseReturnPage() {
             if (returnMismatchIds.length > 0) {
                 const { data: diffRows } = await supabase
                     .from("Mismatch")
-                    .select('id, "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference"')
+                    .select('id, "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference", pr_remark')
                     .in("id", returnMismatchIds);
                 (diffRows || []).forEach((row) => {
                     mismatchDiffMap[String(row.id)] = row;
@@ -1059,8 +1059,15 @@ export default function PurchaseReturnPage() {
     // created, plus Purchase Return records not yet sent to PR Approval.
     // Mismatch-sourced rows will simply stop appearing once Mismatch no
     // longer feeds Purchase Return — no separate tab needed for them.
+    // Rows sent from the Mismatch page ("To PR") go on top, latest first;
+    // every other row keeps its existing order below them.
+    const sentFromMismatchRows = firmFilteredMismatches
+        .filter((m) => m.sent_to_pr_at)
+        .sort((a, b) => new Date(b.sent_to_pr_at) - new Date(a.sent_to_pr_at));
+    const otherMismatchRows = firmFilteredMismatches.filter((m) => !m.sent_to_pr_at);
+
     const unifiedPendingRows = [
-        ...firmFilteredMismatches.map((m) => ({ key: `mismatch-${m.id}`, source: "mismatch", data: m })),
+        ...[...sentFromMismatchRows, ...otherMismatchRows].map((m) => ({ key: `mismatch-${m.id}`, source: "mismatch", data: m })),
         ...pendingReturnRecords.map((r) => ({ key: `return-${r.id}`, source: "return", data: r })),
     ];
 
@@ -1366,6 +1373,7 @@ export default function PurchaseReturnPage() {
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Pending Qty</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Credit Note</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Mismatch Type</th>
+                                                <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">Mismatch Remark</th>
                                                 <th className="px-4 py-3 text-xs font-bold text-gray-700 uppercase text-left bg-gray-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap">PR Approval</th>
                                             </tr>
                                         </thead>
@@ -1373,8 +1381,11 @@ export default function PurchaseReturnPage() {
                                             {unifiedPendingRows.map((row, idx) => {
                                                 if (row.source === "mismatch") {
                                                     const m = row.data;
+                                                    const isFromMismatch = Boolean(m.sent_to_pr_at);
+                                                    // Until a Return form is filled for a "To PR" row, there is no return qty yet
+                                                    const hideQty = isFromMismatch && !(m.totalReturnQty > 0);
                                                     return (
-                                                        <tr key={row.key} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-orange-50/10'} hover:bg-orange-50/20 transition-colors border-b border-gray-100`}>
+                                                        <tr key={row.key} className={`${isFromMismatch ? 'bg-yellow-100/60 hover:bg-yellow-100' : `${idx % 2 === 0 ? 'bg-white' : 'bg-orange-50/10'} hover:bg-orange-50/20`} transition-colors border-b border-gray-100`}>
                                                             <td className="px-4 py-3 whitespace-nowrap text-left font-medium">
                                                                 <div className="flex items-center justify-start gap-1">
                                                                     <Button
@@ -1421,17 +1432,18 @@ export default function PurchaseReturnPage() {
                                                                     </a>
                                                                 ) : <span className="text-gray-400 text-xs">—</span>}
                                                             </td>
-                                                            <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-800">{m.returnTargetQty > 0 ? m.returnTargetQty : "—"}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-800">{!hideQty && m.returnTargetQty > 0 ? m.returnTargetQty : "—"}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-green-700">{m.returnedQty > 0 ? m.returnedQty.toFixed(2) : "0"}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap">
                                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                                                                    m.pendingQty > 0.001 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
+                                                                    !hideQty && m.pendingQty > 0.001 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
                                                                 }`}>
-                                                                    {m.pendingQty > 0.001 ? m.pendingQty.toFixed(2) : "—"}
+                                                                    {!hideQty && m.pendingQty > 0.001 ? m.pendingQty.toFixed(2) : "—"}
                                                                 </span>
                                                             </td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">{classifyMismatchType(m) || "—"}</td>
+                                                            <td className="px-4 py-3 text-xs text-gray-700 min-w-[160px] max-w-[260px] whitespace-pre-wrap break-words">{m.pr_remark || "—"}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400">—</td>
                                                         </tr>
                                                     );
@@ -1500,6 +1512,7 @@ export default function PurchaseReturnPage() {
                                                         <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-700">
                                                             {classifyMismatchType(mismatchDiffMap[String(rec.mismatch_id)]) || "—"}
                                                         </td>
+                                                        <td className="px-4 py-3 text-xs text-gray-700 min-w-[160px] max-w-[260px] whitespace-pre-wrap break-words">{mismatchDiffMap[String(rec.mismatch_id)]?.pr_remark || "—"}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap">
                                                             {rec["PR Approval Status"] === "Rejected" ? (
                                                                 <div className="flex items-center gap-1.5">
@@ -1533,7 +1546,7 @@ export default function PurchaseReturnPage() {
                                             })}
                                             {unifiedPendingRows.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={16} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
+                                                    <td colSpan={17} className="px-6 py-12 text-center text-gray-400 bg-gray-50/30">
                                                         <div className="flex flex-col items-center justify-center">
                                                             <RotateCcw className="w-10 h-10 text-gray-300 mb-3 opacity-20" />
                                                             <p className="text-sm font-medium">No pending purchase returns found.</p>

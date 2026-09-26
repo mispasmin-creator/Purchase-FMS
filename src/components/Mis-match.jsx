@@ -54,12 +54,23 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AuthContext } from "../context/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
 import SuperAdminEditModal from "./SuperAdminEditModal";
+import { usePagination } from "../hooks/usePagination";
+import { PaginationControls } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
@@ -155,9 +166,20 @@ const HISTORY_COLUMNS_META = [
   },
 ];
 
+const normalizeLookupKey = (value) =>
+  String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
+const numericLookupKey = (value) =>
+  String(value || "").match(/\d+/g)?.join("") || "";
+
 export default function MismatchAnalysis() {
   const { user, isSuperAdmin } = useContext(AuthContext);
   const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
+  const [sendToPRItem, setSendToPRItem] = useState(null);
+  const [sendingToPR, setSendingToPR] = useState(false);
+  const [sendToPRRemark, setSendToPRRemark] = useState("");
   const navigate = useNavigate();
   const [liftAccountsData, setLiftAccountsData] = useState([]);
   const [purchaseOrdersData, setPurchaseOrdersData] = useState([]);
@@ -188,7 +210,7 @@ export default function MismatchAnalysis() {
     try {
       const { data, error: fetchError } = await supabase
         .from("Mismatch")
-        .select('id, Timestamp, "Lift ID", "Lift Number", "Indent Number", "Product Name", "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference", "Party Name", "Firm Name", Status, Remarks, Rate, "Action Type", "Debit Amount", "Debit Note URL", "Total Freight", "Truck No.", "Truck Qty", Qty, "Bill No.", "Area Lifting", "Bill Image", "Bilty No.", "Bilty Image", "Weight Slip", "Type Of Rate"')
+        .select('id, Timestamp, "Lift ID", "Lift Number", "Indent Number", "Product Name", "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference", "Party Name", "Firm Name", Status, Remarks, Rate, "Action Type", "Debit Amount", "Debit Note URL", "Total Freight", "Truck No.", "Truck Qty", Qty, "Bill No.", "Area Lifting", "Bill Image", "Bilty No.", "Bilty Image", "Weight Slip", "Type Of Rate", sent_to_pr_at')
         .order("Timestamp", { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -311,7 +333,7 @@ export default function MismatchAnalysis() {
       if (updateError) throw updateError;
 
       toast.success(`✅ SUCCESS: Record marked as Acknowledged (Proper).`);
-      
+
       // Refresh data
       setTimeout(() => {
         fetchMismatchSheetData();
@@ -319,6 +341,57 @@ export default function MismatchAnalysis() {
     } catch (error) {
       console.error("Acknowledge error:", error);
       toast.error(`❌ UPDATE FAILED: ${error.message}`);
+    }
+  };
+
+  // Sends a Qty/Rate mismatch straight to the Purchase Return page's pending
+  // list, using the exact same condition PurchaseReturnPage.jsx already
+  // queries on (Status="Purchase Return" AND coordination_status="COORDINATED")
+  // — no purchaser_coordinates entry involved. Once someone fills the Return
+  // form there, this row naturally stops being sourced directly into Debit
+  // Note (Debit-note.jsx excludes rows whose Lift No already has a Purchase
+  // Returns record) and instead flows into Debit Note via that Purchase
+  // Return record, same as the existing Purchase-Return-originated flow.
+  const handleSendToPurchaseReturn = (item) => {
+    const recordId = item.id || item.supabaseId;
+    if (!recordId) {
+      toast.error("Cannot send to Purchase Return: Missing record ID");
+      return;
+    }
+    setSendToPRRemark("");
+    setSendToPRItem(item);
+  };
+
+  const confirmSendToPurchaseReturn = async () => {
+    const item = sendToPRItem;
+    if (!item) return;
+    const recordId = item.id || item.supabaseId;
+
+    setSendingToPR(true);
+    try {
+      const { error: updateError } = await supabase
+        .from("Mismatch")
+        .update({
+          Status: "Purchase Return",
+          coordination_status: "COORDINATED",
+          sent_to_pr_at: new Date().toISOString(),
+          pr_remark: sendToPRRemark.trim() || null,
+        })
+        .eq("id", recordId);
+
+      if (updateError) throw updateError;
+
+      toast.success(`✅ Sent to Purchase Return. It will now show up there for a return entry.`);
+      setSendToPRItem(null);
+
+      setTimeout(() => {
+        fetchMismatchSheetData();
+      }, 500);
+    } catch (error) {
+      console.error("Send to Purchase Return error:", error);
+      toast.error(`❌ FAILED: ${error.message}`);
+    } finally {
+      setSendingToPR(false);
     }
   };
 
@@ -685,25 +758,53 @@ export default function MismatchAnalysis() {
     };
   }, [fetchLiftAccountsData]);
 
+  // Lookup indexes so getHybridRow doesn't rescan every lift/PO/TL row for
+  // each mismatch row. Each keeps the FIRST matching row (same as .find()),
+  // and PO candidates keep their original order (same as .filter()).
+  const liftByNo = useMemo(() => {
+    const map = new Map();
+    liftAccountsData.forEach((l) => {
+      const key = String(l.liftNo || "").trim();
+      if (!map.has(key)) map.set(key, l);
+    });
+    return map;
+  }, [liftAccountsData]);
+
+  const poIndex = useMemo(() => {
+    const byKey = new Map();
+    const byNumeric = new Map();
+    const add = (map, key, idx) => {
+      let list = map.get(key);
+      if (!list) {
+        list = [];
+        map.set(key, list);
+      }
+      if (list[list.length - 1] !== idx) list.push(idx);
+    };
+    purchaseOrdersData.forEach((p, idx) => {
+      const values = [p.indentNo, p.indentId, p.poNumber];
+      values.map(normalizeLookupKey).filter(Boolean).forEach((key) => add(byKey, key, idx));
+      values.map(numericLookupKey).filter(Boolean).forEach((key) => add(byNumeric, key, idx));
+    });
+    return { byKey, byNumeric };
+  }, [purchaseOrdersData]);
+
+  const tlByName = useMemo(() => {
+    const map = new Map();
+    tlData.forEach((tl) => {
+      const key = String(tl.productName || "").trim().toLowerCase();
+      if (!map.has(key)) map.set(key, tl);
+    });
+    return map;
+  }, [tlData]);
+
   // Calculate mismatch data (Hybrid: Differences from DB, Details from Source Tables)
   const getHybridRow = useCallback(
     (mismatchItem) => {
-      const normalizeLookupKey = (value) =>
-        String(value || "")
-          .trim()
-          .toUpperCase()
-          .replace(/\s+/g, "");
-      const numericLookupKey = (value) =>
-        String(value || "").match(/\d+/g)?.join("") || "";
-
       const liftId = String(mismatchItem["Lift Number"] || mismatchItem["Lift ID"] || "").trim();
       const indentId = String(mismatchItem["Indent Number"] || mismatchItem["Indent Id."] || "").trim();
 
-      const lift =
-        liftAccountsData.find(
-          (l) =>
-            String(l.liftNo || "").trim() === liftId
-        ) || {};
+      const lift = liftByNo.get(liftId) || {};
 
       const poLookupValues = [
         indentId,
@@ -719,20 +820,12 @@ export default function MismatchAnalysis() {
         mismatchItem["Product Name"] || lift.rawMaterialName || lift.material || "",
       ).trim().toLowerCase();
 
-      const poCandidates = purchaseOrdersData.filter((p) => {
-        const candidateKeys = [
-          p.indentNo,
-          p.indentId,
-          p.poNumber,
-        ].map(normalizeLookupKey).filter(Boolean);
-        const candidateNumericKeys = [
-          p.indentNo,
-          p.indentId,
-          p.poNumber,
-        ].map(numericLookupKey).filter(Boolean);
-        return candidateKeys.some((key) => poLookupKeys.includes(key)) ||
-          candidateNumericKeys.some((key) => poNumericKeys.includes(key));
-      });
+      const poCandidateIdx = new Set();
+      poLookupKeys.forEach((key) => (poIndex.byKey.get(key) || []).forEach((i) => poCandidateIdx.add(i)));
+      poNumericKeys.forEach((key) => (poIndex.byNumeric.get(key) || []).forEach((i) => poCandidateIdx.add(i)));
+      const poCandidates = [...poCandidateIdx]
+        .sort((a, b) => a - b)
+        .map((i) => purchaseOrdersData[i]);
 
       const matchedPo =
         poCandidates.find((p) =>
@@ -755,13 +848,7 @@ export default function MismatchAnalysis() {
       )
         .trim()
         .toLowerCase();
-      const tlRow =
-        tlData.find(
-          (tl) =>
-            String(tl.productName || "")
-              .trim()
-              .toLowerCase() === productNameForTL,
-        ) || {};
+      const tlRow = tlByName.get(productNameForTL) || {};
 
       // 4 Stages: Lift → Receipt → Lab → Mismatch
       let liveStage;
@@ -922,7 +1009,7 @@ export default function MismatchAnalysis() {
         poIron: po.poIron || mismatchItem["PO Fe%"] || mismatchItem["PO Iron"] || mismatchItem["Iron %"] || ""
       };
     },
-    [liftAccountsData, purchaseOrdersData, tlData],
+    [liftByNo, poIndex, purchaseOrdersData, tlByName],
   );
 
   const unifiedMismatchData = useMemo(() => {
@@ -947,7 +1034,8 @@ export default function MismatchAnalysis() {
 
   const historyMismatchData = useMemo(() => {
     const raw = mismatchSheetData
-      .filter(item => item.Status !== "Pending" && item.Status !== "Not Done" && item.Status !== "Purchase Return")
+      // Rows sent via "To PR" keep Status "Purchase Return" but still belong in history
+      .filter(item => item.Status !== "Pending" && item.Status !== "Not Done" && (item.Status !== "Purchase Return" || item.sent_to_pr_at))
       .map(getHybridRow);
 
     if (user?.firmName) {
@@ -1032,6 +1120,31 @@ export default function MismatchAnalysis() {
     }
     return filtered;
   }, [historyMismatchData, filters]);
+
+  // Client-side pagination: only the rendered <tbody> rows are sliced;
+  // counts, export and filters keep using the full filtered arrays.
+  const unifiedPagination = usePagination(100);
+  const historyPagination = usePagination(100);
+
+  useEffect(() => {
+    unifiedPagination.setTotalRows(filteredUnifiedData.length);
+    const maxPage = Math.max(1, Math.ceil(filteredUnifiedData.length / unifiedPagination.pageSize));
+    if (unifiedPagination.page > maxPage) unifiedPagination.setPage(maxPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredUnifiedData.length, unifiedPagination.pageSize]);
+
+  useEffect(() => {
+    historyPagination.setTotalRows(filteredHistoryData.length);
+    const maxPage = Math.max(1, Math.ceil(filteredHistoryData.length / historyPagination.pageSize));
+    if (historyPagination.page > maxPage) historyPagination.setPage(maxPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredHistoryData.length, historyPagination.pageSize]);
+
+  useEffect(() => {
+    unifiedPagination.resetPage();
+    historyPagination.resetPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   // Filter options
   const uniqueFilterOptions = useMemo(() => {
@@ -1143,6 +1256,15 @@ export default function MismatchAnalysis() {
             title="Mark as Proper"
           >
             OK
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-200 font-bold"
+            onClick={() => handleSendToPurchaseReturn(item)}
+            title="Send to Purchase Return"
+          >
+            To PR
           </Button>
           {isSuperAdmin && (
             <button
@@ -1288,7 +1410,11 @@ export default function MismatchAnalysis() {
     data,
     columnsMeta,
     visibilityState,
+    pagination,
   ) => {
+    const pagedData = pagination
+      ? data.slice(pagination.from, pagination.to + 1)
+      : data;
     const visibleCols = columnsMeta.filter(
       (col) => visibilityState[col.dataKey],
     );
@@ -1469,7 +1595,7 @@ export default function MismatchAnalysis() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {data.map((item, index) => (
+                  {pagedData.map((item, index) => (
                     <tr
                       key={`${tabKey}-${item.id || item.liftNo}-${index}`}
                       className="hover:bg-red-50/50 bg-red-100/30 border-l-4 border-l-red-500 transition-colors border-b border-gray-100"
@@ -1496,6 +1622,15 @@ export default function MismatchAnalysis() {
               </table>
             </div>
           )}
+          {pagination && !isLoading && data.length > 0 && (
+            <PaginationControls
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalRows={pagination.totalRows}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
     );
@@ -1503,6 +1638,67 @@ export default function MismatchAnalysis() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
+      <Dialog
+        open={!!sendToPRItem}
+        onOpenChange={(open) => {
+          if (!open && !sendingToPR) setSendToPRItem(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send to Purchase Return</DialogTitle>
+            <DialogDescription>
+              This mismatch will move to the Purchase Return page for a return entry.
+            </DialogDescription>
+          </DialogHeader>
+          {sendToPRItem && (
+            <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
+              <span className="text-gray-500">Lift Number</span>
+              <span className="font-medium">{sendToPRItem.liftIdDisplay || sendToPRItem.liftNo || "-"}</span>
+              <span className="text-gray-500">Party</span>
+              <span className="font-medium">{sendToPRItem.vendorName || "-"}</span>
+              <span className="text-gray-500">Firm</span>
+              <span className="font-medium">{sendToPRItem.firmName || "-"}</span>
+              <span className="text-gray-500">Product</span>
+              <span className="font-medium">{sendToPRItem.material || "-"}</span>
+              <span className="text-gray-500">Issues</span>
+              <span className="font-medium">
+                {(sendToPRItem.mismatchTypes || []).join(", ").toUpperCase() || "-"}
+              </span>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="send-to-pr-remark" className="text-sm">
+              Remark
+            </Label>
+            <Textarea
+              id="send-to-pr-remark"
+              value={sendToPRRemark}
+              onChange={(e) => setSendToPRRemark(e.target.value)}
+              placeholder="Add a remark for Purchase Return (optional)"
+              rows={3}
+              disabled={sendingToPR}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSendToPRItem(null)}
+              disabled={sendingToPR}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={confirmSendToPurchaseReturn}
+              disabled={sendingToPR}
+            >
+              {sendingToPR && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Send to Purchase Return
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {superAdminEditItem && (
         <SuperAdminEditModal
           title={`Edit Mismatch — ${superAdminEditItem.liftIdDisplay || superAdminEditItem.liftNo}`}
@@ -1581,7 +1777,7 @@ export default function MismatchAnalysis() {
               onValueChange={setActiveTab}
               className="flex-1 flex flex-col"
             >
-              <TabsList className="grid w-full sm:w-[400px] grid-cols-2 mb-4">
+              <TabsList className="grid w-full sm:w-fit grid-cols-2 mb-4">
                 <TabsTrigger value="pending" className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" /> Active Mismatches
                   <Badge variant="destructive" className="ml-1.5 px-1.5 py-0.5 text-xs">
@@ -1590,6 +1786,9 @@ export default function MismatchAnalysis() {
                 </TabsTrigger>
                 <TabsTrigger value="history" className="flex items-center gap-2">
                   <History className="h-4 w-4" /> Resolution History
+                  <Badge variant="secondary" className="ml-1.5 px-1.5 py-0.5 text-xs">
+                    {filteredHistoryData.length}
+                  </Badge>
                 </TabsTrigger>
               </TabsList>
 
@@ -1722,6 +1921,7 @@ export default function MismatchAnalysis() {
                   filteredUnifiedData,
                   UNIFIED_MISMATCH_COLUMNS_META,
                   visibleUnifiedColumns,
+                  unifiedPagination,
                 )}
               </TabsContent>
 
@@ -1733,6 +1933,7 @@ export default function MismatchAnalysis() {
                   filteredHistoryData,
                   HISTORY_COLUMNS_META,
                   visibleHistoryColumns,
+                  historyPagination,
                 )}
               </TabsContent>
             </Tabs>
