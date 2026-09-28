@@ -538,7 +538,9 @@ function importLab(ss) {
     var needsUnloadApproval = String(r['Unload Approval Required'] || '').trim().toLowerCase() === 'yes';
     var unloadStatus = String(r['Unload Approval Status'] || '').trim().toLowerCase();
     var isUnloadApproved = unloadStatus === 'approved' || unloadStatus === 'completed';
-    return planned2 && !actual2 && (!needsUnloadApproval || isUnloadApproved);
+    // Direct Supply To Party lifts skip Lab (they go straight to Bilty) — same rule as the React Lab page.
+    var isDirectSupplyToParty = String(r['Area lifting'] || '').trim() === 'Direct Supply To Party';
+    return planned2 && !actual2 && (!needsUnloadApproval || isUnloadApproved) && !isDirectSupplyToParty;
   });
   var history = all.filter(function (r) { return r['Actual 2']; });
   var rows = [];
