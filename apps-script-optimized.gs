@@ -274,15 +274,16 @@ function getOrCreateSheet(ss, name) {
   return sheet;
 }
 
-function writeStepSheet(ss, label, rows) {
+function writeStepSheet(ss, label, rows, headers) {
+  var hdrs = headers || STANDARD_HEADERS;
   var sheet = getOrCreateSheet(ss, label);
   sheet.clearContents();
-  sheet.getRange(1, 1, 1, STANDARD_HEADERS.length).setValues([STANDARD_HEADERS]).setFontWeight('bold').setBackground('#7da23a').setFontColor('#ffffff');
+  sheet.getRange(1, 1, 1, hdrs.length).setValues([hdrs]).setFontWeight('bold').setBackground('#7da23a').setFontColor('#ffffff');
   if (rows.length) {
-    sheet.getRange(2, 1, rows.length, STANDARD_HEADERS.length).setValues(rows);
+    sheet.getRange(2, 1, rows.length, hdrs.length).setValues(rows);
   }
   sheet.setFrozenRows(1);
-  try { sheet.autoResizeColumns(1, STANDARD_HEADERS.length); } catch (e) {  }
+  try { sheet.autoResizeColumns(1, hdrs.length); } catch (e) {  }
   return sheet;
 }
 
@@ -637,6 +638,9 @@ function importLift(ss) {
   var indentToPoMap = {};
   var planned4ByIndent = {};
   var planned4ByPo = {};
+  // Delivery Date = "Lead Time To Lift (days)" on INDENT-PO (same field the React Lift page shows as Delivery Date).
+  var deliveryByIndent = {};
+  var deliveryByPo = {};
   pAll.forEach(function (r) {
     var indent = String(r['Indent Id.'] || '').trim();
     var poNumber = String(r['po_number'] || indent).trim();
@@ -645,6 +649,9 @@ function importLift(ss) {
       planned4ByIndent[indent] = r['Planned4'];
     }
     if (poNumber && !planned4ByPo[poNumber]) planned4ByPo[poNumber] = r['Planned4'];
+    var delivery = r['Lead Time To Lift (days)'];
+    if (indent && delivery) deliveryByIndent[indent] = delivery;
+    if (poNumber && delivery && !deliveryByPo[poNumber]) deliveryByPo[poNumber] = delivery;
   });
 
   var liftRows = getFullTable('LIFT-ACCOUNTS');
@@ -695,7 +702,13 @@ function importLift(ss) {
 
   var history = sortByDateDesc(getFullTable('LIFT-ACCOUNTS'), 'Timestamp');
   var rows = [];
-  pending.forEach(function (r) { rows.push(mkGroupedRow(r, 'Vendor name', 'Firm Name', 'Material', 'Planned4', null, 'Lift', 'Pending')); });
+  pending.forEach(function (r) {
+    var row = mkGroupedRow(r, 'Vendor name', 'Firm Name', 'Material', 'Planned4', null, 'Lift', 'Pending');
+    var indent = String(r['Indent Id.'] || '').trim();
+    var poNumber = String(r['po_number'] || indent).trim();
+    row.push(parseDateAny(r['Lead Time To Lift (days)'] || deliveryByPo[poNumber]) || '');
+    rows.push(row);
+  });
   history.forEach(function (r) {
     // Planned date comes from INDENT-PO.Planned4, matched via the lift's Indent no. (or PO number).
     var indent = String(r['Indent no.'] || '').trim();
@@ -703,9 +716,10 @@ function importLift(ss) {
     var planned = parseDateAny(planned4ByIndent[indent] || planned4ByPo[poNumber]);
     var actual = parseDateAny(r['Timestamp']);
     var delay = planned ? daysBetween(planned, actual) : '';
-    rows.push([r['Lift No'] || '-', r['Vendor Name'] || '-', r['Firm Name'] || '-', r['Raw Material Name'] || '-', 'Lift', planned || '', actual || '', delay, 'History']);
+    var deliveryDate = parseDateAny(deliveryByIndent[indent] || deliveryByPo[poNumber]);
+    rows.push([r['Lift No'] || '-', r['Vendor Name'] || '-', r['Firm Name'] || '-', r['Raw Material Name'] || '-', 'Lift', planned || '', actual || '', delay, 'History', deliveryDate || '']);
   });
-  writeStepSheet(ss, 'Lift', rows);
+  writeStepSheet(ss, 'Lift', rows, STANDARD_HEADERS.concat(['Delivery Date']));
   return { label: 'Lift', source: 'INDENT-PO (grouped by PO, per-item ledger) + LIFT-ACCOUNTS', total: pending.length + history.length, pending: pending.length, history: history.length };
 }
 
