@@ -633,10 +633,16 @@ function importLift(ss) {
   });
 
   var indentToPoMap = {};
+  var planned4ByIndent = {};
+  var planned4ByPo = {};
   pAll.forEach(function (r) {
     var indent = String(r['Indent Id.'] || '').trim();
     var poNumber = String(r['po_number'] || indent).trim();
-    if (indent) indentToPoMap[indent] = poNumber;
+    if (indent) {
+      indentToPoMap[indent] = poNumber;
+      planned4ByIndent[indent] = r['Planned4'];
+    }
+    if (poNumber && !planned4ByPo[poNumber]) planned4ByPo[poNumber] = r['Planned4'];
   });
 
   var liftRows = getFullTable('LIFT-ACCOUNTS');
@@ -689,7 +695,13 @@ function importLift(ss) {
   var rows = [];
   pending.forEach(function (r) { rows.push(mkGroupedRow(r, 'Vendor name', 'Firm Name', 'Material', 'Planned4', null, 'Lift', 'Pending')); });
   history.forEach(function (r) {
-    rows.push([r['Lift No'] || '-', r['Vendor Name'] || '-', r['Firm Name'] || '-', r['Raw Material Name'] || '-', 'Lift', '', parseDateAny(r['Timestamp']) || '', '', 'History']);
+    // Planned date comes from INDENT-PO.Planned4, matched via the lift's Indent no. (or PO number).
+    var indent = String(r['Indent no.'] || '').trim();
+    var poNumber = indentToPoMap[indent] || indent;
+    var planned = parseDateAny(planned4ByIndent[indent] || planned4ByPo[poNumber]);
+    var actual = parseDateAny(r['Timestamp']);
+    var delay = planned ? daysBetween(planned, actual) : '';
+    rows.push([r['Lift No'] || '-', r['Vendor Name'] || '-', r['Firm Name'] || '-', r['Raw Material Name'] || '-', 'Lift', planned || '', actual || '', delay, 'History']);
   });
   writeStepSheet(ss, 'Lift', rows);
   return { label: 'Lift', source: 'INDENT-PO (grouped by PO, per-item ledger) + LIFT-ACCOUNTS', total: pending.length + history.length, pending: pending.length, history: history.length };
