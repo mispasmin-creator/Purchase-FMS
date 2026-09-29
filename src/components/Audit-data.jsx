@@ -110,6 +110,8 @@ const CallTrackerPage = () => {
   const [liftTransporterRateMap, setLiftTransporterRateMap] = useState({}); 
   const [liftActual2Map, setLiftActual2Map] = useState({});
   const [liftTransporterMap, setLiftTransporterMap] = useState({});
+  const [liftAreaLiftingMap, setLiftAreaLiftingMap] = useState({});
+  const [liftActual1Map, setLiftActual1Map] = useState({});
   const [liftDateOfBillMap, setLiftDateOfBillMap] = useState({});
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('AUDIT'); 
@@ -472,7 +474,14 @@ const CallTrackerPage = () => {
     const isBypassed = transporter === "FOR" || transporter === "OWNED TRUCK" || transporter === "BY COMPANY";
     if (isBypassed) {
       const labCompleted = String(row["Actual 2"] || liftActual2Map[normalizedLiftNo] || "").trim();
-      return Boolean(labCompleted);
+      if (labCompleted) return true;
+      // Direct Supply To Party lifts skip Lab entirely, so for them the
+      // receipt (Actual 1) is the last step before Accounts Audit.
+      const areaLifting = String(row["Area lifting"] || row["Area Lifting"] || liftAreaLiftingMap[normalizedLiftNo] || "").trim();
+      if (areaLifting === "Direct Supply To Party") {
+        return Boolean(String(row["Actual 1"] || liftActual1Map[normalizedLiftNo] || "").trim());
+      }
+      return false;
     }
     const biltyNo = String(row["Bilty No."] || row["Bilty No"] || liftBiltyNoMap[normalizedLiftNo] || "").trim();
     const biltyImage = String(row["Bilty Image"] || liftBiltyImageMap[normalizedLiftNo] || "").trim();
@@ -1307,7 +1316,7 @@ const CallTrackerPage = () => {
       try {
         const { data } = await supabase
           .from("LIFT-ACCOUNTS")
-          .select('"Lift No", "Raw Material Name", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Truck Qty", "Lifting Qty", "Date Of Receiving", "Transporter Rate", "Actual 2", "Transporter Name", "Date Of Bill"')
+          .select('"Lift No", "Raw Material Name", "Image Of Weight Slip", "Type", "Bilty No.", "Bilty Image", "Actual Quantity", "Truck Qty", "Lifting Qty", "Date Of Receiving", "Transporter Rate", "Actual 2", "Transporter Name", "Date Of Bill", "Area lifting", "Actual 1"')
           .order("id", { ascending: false });
         const weightSlipMap = {};
         const typeMap = {};
@@ -1319,6 +1328,8 @@ const CallTrackerPage = () => {
         const transporterRateMap = {};
         const actual2Map = {};
         const transporterMap = {};
+        const areaLiftingMap = {};
+        const actual1Map = {};
         const dateOfBillMap = {};
         (data || []).forEach(l => {
           const key = String(l["Lift No"] || "").trim();
@@ -1346,6 +1357,8 @@ const CallTrackerPage = () => {
             transporterRateMap[key] = String(l["Transporter Rate"] || "").trim();
             actual2Map[key] = String(l["Actual 2"] || "").trim();
             transporterMap[key] = String(l["Transporter Name"] || "").trim();
+            areaLiftingMap[key] = String(l["Area lifting"] || "").trim();
+            actual1Map[key] = String(l["Actual 1"] || "").trim();
             dateOfBillMap[key] = String(l["Date Of Bill"] || "").trim();
           }
         });
@@ -1359,6 +1372,8 @@ const CallTrackerPage = () => {
         setLiftTransporterRateMap(transporterRateMap);
         setLiftActual2Map(actual2Map);
         setLiftTransporterMap(transporterMap);
+        setLiftAreaLiftingMap(areaLiftingMap);
+        setLiftActual1Map(actual1Map);
         setLiftDateOfBillMap(dateOfBillMap);
       } catch (e) {
         console.error('Failed to fetch LIFT-ACCOUNTS meta:', e);

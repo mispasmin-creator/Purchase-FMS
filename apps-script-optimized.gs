@@ -1177,7 +1177,7 @@ function importAccountsAuditLive(ss) {
   });
 
   var liftRows = getFullTable('LIFT-ACCOUNTS');
-  var transporterMap = {}, biltyNoMap = {}, biltyImageMap = {}, actual2Map = {};
+  var transporterMap = {}, biltyNoMap = {}, biltyImageMap = {}, actual2Map = {}, areaLiftingMap = {}, actual1Map = {};
   liftRows.forEach(function (l) {
     var key = String(l['Lift No'] || '').trim();
     if (!key) return;
@@ -1185,6 +1185,8 @@ function importAccountsAuditLive(ss) {
     biltyNoMap[key] = String(l['Bilty No.'] || '').trim();
     biltyImageMap[key] = String(l['Bilty Image'] || '').trim();
     actual2Map[key] = String(l['Actual 2'] || '').trim();
+    areaLiftingMap[key] = String(l['Area lifting'] || '').trim();
+    actual1Map[key] = String(l['Actual 1'] || '').trim();
   });
 
   function hasBiltyDetails(row, liftNoOverride) {
@@ -1193,7 +1195,13 @@ function importAccountsAuditLive(ss) {
     var isBypassed = transporter === 'FOR' || transporter === 'OWNED TRUCK' || transporter === 'BY COMPANY';
     if (isBypassed) {
       var labCompleted = String(row['Actual 2'] || actual2Map[normalizedLiftNo] || '').trim();
-      return !!labCompleted;
+      if (labCompleted) return true;
+      // Direct Supply To Party lifts skip Lab, so receipt (Actual 1) is enough
+      var areaLifting = String(row['Area lifting'] || row['Area Lifting'] || areaLiftingMap[normalizedLiftNo] || '').trim();
+      if (areaLifting === 'Direct Supply To Party') {
+        return !!String(row['Actual 1'] || actual1Map[normalizedLiftNo] || '').trim();
+      }
+      return false;
     }
     var biltyNo = String(row['Bilty No.'] || biltyNoMap[normalizedLiftNo] || '').trim();
     var biltyImage = String(row['Bilty Image'] || biltyImageMap[normalizedLiftNo] || '').trim();
