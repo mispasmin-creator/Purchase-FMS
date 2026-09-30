@@ -22,7 +22,9 @@ import {
   History,
   Filter,
   ChevronsUpDown,
+  Download,
 } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -581,6 +583,16 @@ export default function TallyEntry() {
     );
   };
 
+  const exportTableToCSV = (filename, cols, data) => {
+    const exportCols = cols.filter((col) => col.dataKey !== "actionColumn");
+    const headers = exportCols.map((col) => col.header);
+    const rows = data.map((row) =>
+      exportCols.map((col) => row[col.dataKey] ?? "")
+    );
+    exportToCSV(filename, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
   const renderTable = (type, entries, columns, visibleCols, setVisibleCols) => {
     const visibleColumns = columns.filter((col) => visibleCols[col.dataKey]);
     const cardInfo = {
@@ -606,7 +618,18 @@ export default function TallyEntry() {
               </CardTitle>
               <CardDescription className="mt-1 text-xs">{desc}</CardDescription>
             </div>
-            <ColumnVisibilityToggle tab={type} columns={columns} visibleCols={visibleCols} setVisibleCols={setVisibleCols} />
+            <div className="flex items-center gap-2">
+              <Button
+                data-export-btn
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs flex items-center gap-1.5"
+                onClick={() => exportTableToCSV(`po-entry-${type}.csv`, visibleColumns, entries)}
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5 text-[#7da23a]" /> Export CSV
+              </Button>
+              <ColumnVisibilityToggle tab={type} columns={columns} visibleCols={visibleCols} setVisibleCols={setVisibleCols} />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0 flex-1 overflow-hidden">

@@ -36,7 +36,9 @@ import {
   Plus,
   Trash,
   ShieldCheck,
+  Download,
 } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import { useAuth } from "../context/AuthContext";
 import SuperAdminEditModal from "./SuperAdminEditModal";
 import { useNotification } from "../context/NotificationContext";
@@ -315,6 +317,45 @@ export default function ArrangeLogistics() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historySearchQuery, selectedHistoryDate]);
 
+  const handleExportPending = () => {
+    if (!filteredPendingData.length) {
+      toast.error("No pending records to export");
+      return;
+    }
+    const headers = ["PO Number", "Firm Name", "Vendor", "Material", "PO Qty", "Total Amount", "Planned Date"];
+    const rows = filteredPendingData.map((r) => [
+      r.poNumber || "",
+      r.firmName || "",
+      r.vendorName || "",
+      r.material || "",
+      r.totalQuantity || "",
+      r.totalAmount || "",
+      r.plannedLogistics || "",
+    ]);
+    exportToCSV(`Arrange_Logistics_Pending_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("Pending logistics exported to CSV");
+  };
+
+  const handleExportHistory = () => {
+    if (!filteredHistoryData.length) {
+      toast.error("No history records to export");
+      return;
+    }
+    const headers = ["PO Number", "Firm Name", "Vendor", "Material", "PO Qty", "Total Amount", "Transporter", "Completed Date"];
+    const rows = filteredHistoryData.map((r) => [
+      r.poNumber || "",
+      r.firmName || "",
+      r.vendorName || "",
+      r.material || "",
+      r.totalQuantity || "",
+      r.totalAmount || "",
+      r.selectedTransporter?.name || "-",
+      r.actualLogistics || r.planned9 || "",
+    ]);
+    exportToCSV(`Arrange_Logistics_History_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("Logistics history exported to CSV");
+  };
+
   const pagedPendingData = useMemo(
     () => filteredPendingData.slice(pendingPagination.from, pendingPagination.to + 1),
     [filteredPendingData, pendingPagination.from, pendingPagination.to],
@@ -527,14 +568,26 @@ export default function ArrangeLogistics() {
                 </div>
               ) : (
                 <Card className="shadow-none border flex-1 flex flex-col">
-                  <CardHeader className="py-3 px-4 border-b">
-                    <CardTitle className="flex items-center text-base">
-                      <Truck className="w-5 h-5 mr-2 text-[#7da23a]" />
-                      Pending Logistics ({filteredPendingData.length})
-                    </CardTitle>
-                    <CardDescription className="mt-1 text-xs">
-                      POs waiting for transporter arrangement before Tally entry.
-                    </CardDescription>
+                  <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center text-base">
+                        <Truck className="w-5 h-5 mr-2 text-[#7da23a]" />
+                        Pending Logistics ({filteredPendingData.length})
+                      </CardTitle>
+                      <CardDescription className="mt-1 text-xs">
+                        POs waiting for transporter arrangement before Tally entry.
+                      </CardDescription>
+                    </div>
+                    <Button
+                      data-export-btn
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportPending}
+                      className="h-8 text-xs flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#7da23a]" />
+                      Export CSV
+                    </Button>
                   </CardHeader>
                   <CardContent className="p-0 flex-1 overflow-hidden">
                     <div className="overflow-auto max-h-[calc(100vh-450px)] relative custom-scrollbar">
@@ -601,14 +654,26 @@ export default function ArrangeLogistics() {
                 </div>
               ) : (
                 <Card className="shadow-none border flex-1 flex flex-col">
-                  <CardHeader className="py-3 px-4 border-b">
-                    <CardTitle className="flex items-center text-base">
-                      <History className="w-5 h-5 mr-2 text-[#7da23a]" />
-                      Logistics History ({filteredHistoryData.length})
-                    </CardTitle>
-                    <CardDescription className="mt-1 text-xs">
-                      Completed logistics arrangements with selected transporters.
-                    </CardDescription>
+                  <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center text-base">
+                        <History className="w-5 h-5 mr-2 text-[#7da23a]" />
+                        Logistics History ({filteredHistoryData.length})
+                      </CardTitle>
+                      <CardDescription className="mt-1 text-xs">
+                        Completed logistics arrangements with selected transporters.
+                      </CardDescription>
+                    </div>
+                    <Button
+                      data-export-btn
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportHistory}
+                      className="h-8 text-xs flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#7da23a]" />
+                      Export CSV
+                    </Button>
                   </CardHeader>
                   <CardContent className="p-0 flex-1 overflow-hidden">
                     <div className="overflow-auto max-h-[calc(100vh-450px)] relative custom-scrollbar">

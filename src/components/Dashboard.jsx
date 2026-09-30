@@ -30,7 +30,9 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
+  Download,
 } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import {
   Card,
   CardHeader,
@@ -930,6 +932,109 @@ export default function Dashboard() {
     return result;
   }, [partyReportData, partySearch, partyFirmFilter]);
 
+  const handleExportPartiesCSV = () => {
+    if (!filteredParties || filteredParties.length === 0) {
+      toast.info("No party data available to export");
+      return;
+    }
+    const headers = [
+      "Party / Vendor",
+      "Firm",
+      "Total Indents",
+      "Critical",
+      "PO Qty",
+      "Lifted Qty",
+      "Received Qty",
+      "Pending Qty",
+      "Lift Pending",
+      "In Transit",
+      "Lab",
+      "Done"
+    ];
+    const rows = filteredParties.map(p => [
+      p.vendorName || "",
+      p.firmName || "",
+      p.totalIndents ?? 0,
+      p.criticalCount ?? 0,
+      p.totalIndentQty ?? 0,
+      p.totalLiftedQty ?? 0,
+      p.totalReceivedQty ?? 0,
+      p.totalPendingQty ?? 0,
+      p.liftsNotDone ?? 0,
+      p.inTransit ?? 0,
+      p.labPending ?? 0,
+      p.doneCount ?? 0
+    ]);
+    exportToCSV(`Party_Wise_Report_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
+  const handleExportIndentsCSV = () => {
+    if (!selectedPartyData || !selectedPartyData.indents || selectedPartyData.indents.length === 0) {
+      toast.info("No indent data available to export");
+      return;
+    }
+    const headers = [
+      "Indent No.",
+      "Date",
+      "Age (Days)",
+      "Material",
+      "PO Qty",
+      "Lifted Qty",
+      "Received Qty",
+      "Pending Qty",
+      "Lift Status",
+      "Current Stage",
+      "Progress (%)"
+    ];
+    const rows = selectedPartyData.indents.map(indent => {
+      const pendingIdx = indent.steps.findIndex((s) => !s.done);
+      const stageName = pendingIdx === -1 ? "Done" : indent.steps[pendingIdx]?.label || "";
+      return [
+        indent.rlNo || indent.indentNo || "",
+        indent.indentDate || "",
+        indent.daysOld != null ? indent.daysOld : "",
+        indent.material || indent.productName || "",
+        indent.indentQty ?? 0,
+        indent.liftedQty ?? 0,
+        indent.receivedQty ?? 0,
+        indent.pendingQty ?? 0,
+        indent.liftStatus || "",
+        stageName,
+        `${indent.progress}%`
+      ];
+    });
+    exportToCSV(`Indent_Report_${(selectedParty || 'Party').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
+  const handleExportPOListCSV = (type, list) => {
+    if (!list || list.length === 0) {
+      toast.info("No PO data available to export");
+      return;
+    }
+    const headers = [
+      "Indent No.",
+      "PO Date",
+      "Firm",
+      "Vendor",
+      "Material",
+      "PO Qty",
+      "Pending / Qty"
+    ];
+    const rows = list.map(po => [
+      po.rlNo || "",
+      po.date ? (typeof po.date === "string" ? po.date : po.date.toISOString().slice(0, 10)) : "",
+      po.firmName || "",
+      po.vendorName || "",
+      po.material || "",
+      po.poQty ?? "",
+      po.pendingQty ?? ""
+    ]);
+    exportToCSV(`PO_${type}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
   const stepTrackerData = useMemo(() => {
     const hasValue = (value) => value !== null && value !== undefined && String(value).trim() !== "";
     const needsUnloadApproval = (row) =>
@@ -1774,7 +1879,7 @@ export default function Dashboard() {
 
               <TabsContent value="pending-lift">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader className="p-6 border-b border-gray-100 bg-linear-to-r from-amber-50 to-orange-50">
+                  <CardHeader className="p-6 border-b border-gray-100 bg-linear-to-r from-amber-50 to-orange-50 flex flex-row items-center justify-between">
                     <CardTitle className="text-xl flex items-center gap-2">
                       <Hourglass className="h-6 w-6 text-amber-600" />
                       Purchase Orders Pending Lift
@@ -1782,6 +1887,16 @@ export default function Dashboard() {
                         {purchaseTabTables.pendingLift.length}
                       </Badge>
                     </CardTitle>
+                    <Button
+                      data-export-btn
+                      onClick={() => handleExportPOListCSV("Pending_Lift", purchaseTabTables.pendingLift)}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Export CSV
+                    </Button>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
@@ -1867,7 +1982,7 @@ export default function Dashboard() {
 
               <TabsContent value="in-transit">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader className="p-6 border-b border-gray-100 bg-linear-to-r from-green-50 to-emerald-50">
+                  <CardHeader className="p-6 border-b border-gray-100 bg-linear-to-r from-green-50 to-emerald-50 flex flex-row items-center justify-between">
                     <CardTitle className="text-xl flex items-center gap-2">
                       <Truck className="h-6 w-6 text-[#7da23a]" />
                       Materials In-Transit
@@ -1875,6 +1990,16 @@ export default function Dashboard() {
                         {purchaseTabTables.inTransit.length}
                       </Badge>
                     </CardTitle>
+                    <Button
+                      data-export-btn
+                      onClick={() => handleExportPOListCSV("In_Transit", purchaseTabTables.inTransit)}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Export CSV
+                    </Button>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
@@ -1956,7 +2081,7 @@ export default function Dashboard() {
 
               <TabsContent value="received">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader className="p-6 border-b border-gray-100 bg-linear-to-r from-green-50 to-emerald-50">
+                  <CardHeader className="p-6 border-b border-gray-100 bg-linear-to-r from-green-50 to-emerald-50 flex flex-row items-center justify-between">
                     <CardTitle className="text-xl flex items-center gap-2">
                       <CheckCircle2 className="h-6 w-6 text-[#7da23a]" />
                       Received Materials
@@ -1964,6 +2089,16 @@ export default function Dashboard() {
                         {purchaseTabTables.received.length}
                       </Badge>
                     </CardTitle>
+                    <Button
+                      data-export-btn
+                      onClick={() => handleExportPOListCSV("Received", purchaseTabTables.received)}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Export CSV
+                    </Button>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
@@ -2512,13 +2647,25 @@ export default function Dashboard() {
 
                 {/* All Parties Table */}
                 <Card className="border-0 shadow-lg">
-                  <CardHeader className="p-5 border-b border-gray-100">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Users className="h-5 w-5 text-[#7da23a]" />
-                      Party-wise Complete Report
-                      <Badge className="ml-2 bg-green-100 text-[#6b8e2f]">{filteredParties.length} parties</Badge>
-                    </CardTitle>
-                    <CardDescription>Kisi bhi party ki row pe click karein — complete indent report dekhein</CardDescription>
+                  <CardHeader className="p-5 border-b border-gray-100 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Users className="h-5 w-5 text-[#7da23a]" />
+                        Party-wise Complete Report
+                        <Badge className="ml-2 bg-green-100 text-[#6b8e2f]">{filteredParties.length} parties</Badge>
+                      </CardTitle>
+                      <CardDescription>Kisi bhi party ki row pe click karein — complete indent report dekhein</CardDescription>
+                    </div>
+                    <Button
+                      data-export-btn
+                      onClick={handleExportPartiesCSV}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Export CSV
+                    </Button>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
@@ -2737,13 +2884,25 @@ export default function Dashboard() {
 
                 {/* Indent-wise Detailed Table */}
                 <Card className="border-0 shadow-lg">
-                  <CardHeader className="p-5 border-b border-gray-100">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-[#7da23a]" />
-                      Indent-wise Complete Report
-                      <Badge className="ml-2 bg-green-100 text-[#6b8e2f]">{selectedPartyData.indents.length} indents</Badge>
-                    </CardTitle>
-                    <CardDescription>Row pe click karein → step-by-step detail aur lift status dekhein</CardDescription>
+                  <CardHeader className="p-5 border-b border-gray-100 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-[#7da23a]" />
+                        Indent-wise Complete Report
+                        <Badge className="ml-2 bg-green-100 text-[#6b8e2f]">{selectedPartyData.indents.length} indents</Badge>
+                      </CardTitle>
+                      <CardDescription>Row pe click karein → step-by-step detail aur lift status dekhein</CardDescription>
+                    </div>
+                    <Button
+                      data-export-btn
+                      onClick={handleExportIndentsCSV}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Export CSV
+                    </Button>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">

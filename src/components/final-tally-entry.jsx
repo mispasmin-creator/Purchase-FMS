@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useContext } from "react" // Import useContext
-import { CheckCircle, FileText, Loader2, Info, X, AlertTriangle, ClipboardList, History, Filter } from "lucide-react"
+import { CheckCircle, FileText, Loader2, Info, X, AlertTriangle, ClipboardList, History, Filter, Download } from "lucide-react"
 
 // Shadcn/ui components
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AuthContext } from "../context/AuthContext" // Import AuthContext
 import { canViewFirm } from "../utils/firmFilter"
+import { exportToCSV } from "../utils/csvExport"
 
 // --- Google Sheet Configuration ---
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
@@ -394,6 +395,32 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
     })
   }
 
+  const handleExportCSV = (data, title = "Tally_Entries") => {
+    if (!data || data.length === 0) {
+      setToast({
+        message: "No Data",
+        description: "No entries available to export",
+        type: "info",
+      });
+      return;
+    }
+    const headers = ["LIFT-ID", "Vendor", "Material", "Quantity", "Total Amount", "Completed On"];
+    const rows = data.map((entry) => [
+      entry.id || "",
+      entry.vendor || "",
+      entry.material || "",
+      entry.quantity || "",
+      entry.totalAmount || "",
+      entry.BB_timestamp_formatted_value || entry.BB_timestamp_value || "",
+    ]);
+    exportToCSV(`Final_${title}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    setToast({
+      message: "Export Successful",
+      description: "CSV file downloaded successfully",
+      type: "success",
+    });
+  };
+
   const renderTable = (data, showCheckbox = false) => (
     <div className="overflow-x-auto rounded-lg border border-border">
       <Table>
@@ -575,14 +602,26 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
 
               <TabsContent value="approve" className="mt-0">
                 <Card>
-                  <CardHeader className="py-3 px-4">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <ClipboardList className="h-5 w-5 text-[#7da23a]" />
-                      Pending Tally Entries ({pendingEntries.length})
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Items with Invoice No. (Column BA) filled but not yet marked as entered in Tally
-                    </CardDescription>
+                  <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ClipboardList className="h-5 w-5 text-[#7da23a]" />
+                        Pending Tally Entries ({pendingEntries.length})
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Items with Invoice No. (Column BA) filled but not yet marked as entered in Tally
+                      </CardDescription>
+                    </div>
+                    <Button
+                      data-export-btn
+                      onClick={() => handleExportCSV(pendingEntries, "Pending_Tally_Entries")}
+                      variant="outline"
+                      size="sm"
+                      className="border-green-600 text-green-700 hover:bg-green-50"
+                    >
+                      <Download className="mr-1.5 h-4 w-4" />
+                      Export CSV
+                    </Button>
                   </CardHeader>
                   <CardContent className="p-0">
                     {pendingEntries.length === 0 ? (
@@ -600,14 +639,26 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
 
               <TabsContent value="history" className="mt-0">
                 <Card>
-                  <CardHeader className="py-3 px-4">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <History className="h-5 w-5 text-[#7da23a]" />
-                      Completed Tally Entries ({completedEntries.length})
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Items that have been marked as entered in Tally, sorted by completion date (latest first)
-                    </CardDescription>
+                  <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <History className="h-5 w-5 text-[#7da23a]" />
+                        Completed Tally Entries ({completedEntries.length})
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Items that have been marked as entered in Tally, sorted by completion date (latest first)
+                      </CardDescription>
+                    </div>
+                    <Button
+                      data-export-btn
+                      onClick={() => handleExportCSV(completedEntries, "Completed_Tally_Entries")}
+                      variant="outline"
+                      size="sm"
+                      className="border-green-600 text-green-700 hover:bg-green-50"
+                    >
+                      <Download className="mr-1.5 h-4 w-4" />
+                      Export CSV
+                    </Button>
                   </CardHeader>
                   <CardContent className="p-0">
                     {completedEntries.length === 0 ? (

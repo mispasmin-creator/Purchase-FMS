@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   RefreshCw, X, CheckCircle, AlertCircle, Truck,
-  FileText, Package, CreditCard, ClipboardList, Clock, History
+  FileText, Package, CreditCard, ClipboardList, Clock, History, Download
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
+import { exportToCSV } from '../utils/csvExport';
 
 const TABLE_NAME = 'Sale Of Raw Material';
 
@@ -116,6 +117,7 @@ const PurchaseItemsTab = () => {
         columns={columns} 
         data={items} 
         emptyText="No kitted items found from the purchase workflow." 
+        exportTitle="Kitted_Purchase_Items"
       />
     </div>
   );
@@ -579,43 +581,78 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
 // ═══════════════════════════════════════════════════════════════════════
 // Reusable DataTable
 // ═══════════════════════════════════════════════════════════════════════
-const DataTable = ({ columns, data, emptyText }) => (
-  <div className="overflow-x-auto rounded-xl border border-gray-200">
-    <table className="w-full min-w-max text-sm">
-      <thead>
-        <tr className="bg-gray-50 border-b border-gray-200">
-          {columns.map(col => (
-            <th key={col.key} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-              {col.label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody className="bg-white divide-y divide-gray-100">
-        {data.length === 0 ? (
-          <tr>
-            <td colSpan={columns.length} className="px-4 py-10 text-center text-gray-400">
-              <div className="flex flex-col items-center gap-2">
-                <AlertCircle size={32} className="text-gray-300"/>
-                <span>{emptyText || 'No data found'}</span>
-              </div>
-            </td>
-          </tr>
-        ) : (
-          data.map((row, idx) => (
-            <tr key={row['ID'] ?? idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}>
+const DataTable = ({ columns, data, emptyText, exportTitle = "Raw_Material_Sales" }) => {
+  const handleExportCSV = () => {
+    if (!data || data.length === 0) {
+      toast.info("No data available to export");
+      return;
+    }
+    const exportColumns = columns.filter(col => col.key !== 'actions' && col.label !== 'Action' && col.label !== 'Actions');
+    const headers = exportColumns.map(col => col.label || col.key);
+    const rows = data.map(row =>
+      exportColumns.map(col => {
+        const val = row[col.key];
+        if (val === null || val === undefined) return "";
+        return String(val);
+      })
+    );
+    exportToCSV(`${exportTitle}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
+  return (
+    <div className="space-y-3">
+      {data.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            data-export-btn
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-green-600 text-green-700 hover:bg-green-50 text-xs font-semibold rounded-lg shadow-sm transition"
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+        </div>
+      )}
+      <div className="overflow-x-auto rounded-xl border border-gray-200">
+        <table className="w-full min-w-max text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
               {columns.map(col => (
-                <td key={col.key} className="px-4 py-3 whitespace-nowrap text-gray-800">
-                  {col.render ? col.render(row) : (row[col.key] ?? '-')}
-                </td>
+                <th key={col.key} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                  {col.label}
+                </th>
               ))}
             </tr>
-          ))
-        )}
-      </tbody>
-    </table>
-  </div>
-);
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-100">
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-10 text-center text-gray-400">
+                  <div className="flex flex-col items-center gap-2">
+                    <AlertCircle size={32} className="text-gray-300"/>
+                    <span>{emptyText || 'No data found'}</span>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              data.map((row, idx) => (
+                <tr key={row['ID'] ?? idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}>
+                  {columns.map(col => (
+                    <td key={col.key} className="px-4 py-3 whitespace-nowrap text-gray-800">
+                      {col.render ? col.render(row) : (row[col.key] ?? '-')}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
 
 
 
@@ -918,6 +955,7 @@ const MakeInvoiceTab = () => {
                   columns={pendingColumns}
                   data={pending}
                   emptyText="No pending invoice items"
+                  exportTitle="Invoice_Pending"
                 />
               )}
               {subTab === 'history' && (
@@ -925,6 +963,7 @@ const MakeInvoiceTab = () => {
                   columns={historyColumns}
                   data={history}
                   emptyText="No invoice history yet"
+                  exportTitle="Invoice_History"
                 />
               )}
             </>
@@ -1135,6 +1174,7 @@ const MakePaymentTab = () => {
                   columns={pendingColumns}
                   data={pending}
                   emptyText="No pending payments found"
+                  exportTitle="Payment_Pending"
                 />
               )}
               {subTab === 'history' && (
@@ -1142,6 +1182,7 @@ const MakePaymentTab = () => {
                   columns={historyColumns}
                   data={history}
                   emptyText="No payment history yet"
+                  exportTitle="Payment_History"
                 />
               )}
             </>

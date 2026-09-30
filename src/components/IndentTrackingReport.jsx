@@ -41,12 +41,14 @@ import {
     RotateCcw,
     Calculator,
     Save,
-    Building2
+    Building2,
+    Download
 } from "lucide-react";
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { canViewFirm } from "../utils/firmFilter";
 import { toast } from "sonner";
+import { exportToCSV } from "../utils/csvExport";
 
 const STEPS = [
     { id: 1, label: "Indent Created", column: "Planned1", icon: <FileText className="h-4 w-4" /> },
@@ -270,6 +272,37 @@ export default function IndentTrackingReport() {
         return ["all", ...new Set(data.map(item => item.firmName).filter(Boolean))].sort();
     }, [data]);
 
+    const handleExportCSV = () => {
+        if (!filteredData || filteredData.length === 0) {
+            toast.info("No tracking data available to export");
+            return;
+        }
+        const headers = [
+            "Indent / PO",
+            "Material",
+            "Vendor",
+            "Firm Name",
+            "Truck No",
+            "Date",
+            "Current Status",
+            "Last Updated",
+            "Progress (%)"
+        ];
+        const rows = filteredData.map(item => [
+            item.indentId || "",
+            item.material || "",
+            item.vendorName || "",
+            item.firmName || "",
+            item.truckNo || "Not Lifted",
+            formatDateTime(item.createdAt),
+            item.currentStep?.label || "",
+            formatDateTime(item.lastUpdated),
+            `${Math.round(item.progress || 0)}%`
+        ]);
+        exportToCSV(`Indent_Tracking_Report_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+        toast.success("CSV exported successfully");
+    };
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
@@ -397,9 +430,21 @@ export default function IndentTrackingReport() {
                             <CardTitle className="text-xl font-bold text-gray-800">Indent Progression Report</CardTitle>
                             <CardDescription>Real-time status tracking of all purchase indents.</CardDescription>
                         </div>
-                        <Badge variant="outline" className="text-xs bg-slate-50">
-                            Showing {filteredData.length} records
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                data-export-btn
+                                onClick={handleExportCSV}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                            >
+                                <Download className="mr-1.5 h-3.5 w-3.5" />
+                                Export CSV
+                            </Button>
+                            <Badge variant="outline" className="text-xs bg-slate-50">
+                                Showing {filteredData.length} records
+                            </Badge>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">

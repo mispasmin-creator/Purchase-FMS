@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { RefreshCw, Save, X, Edit2, Image, Filter } from 'lucide-react';
+import { RefreshCw, Save, X, Edit2, Image, Filter, Download } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { canViewFirm } from '../utils/firmFilter';
+import { toast } from 'sonner';
+import { exportToCSV } from '../utils/csvExport';
 
 const RectifyMistake2Page = () => {
   const { user } = useContext(AuthContext);
@@ -458,6 +460,63 @@ const RectifyMistake2Page = () => {
     );
   };
 
+  const handleExportCSV = () => {
+    if (!accountsData || accountsData.length === 0) {
+      toast.info("No data available to export");
+      return;
+    }
+    const headers = [
+      "Timestamp",
+      "Lift Number",
+      "Type",
+      "Bill No.",
+      "Party Name",
+      "Product Name",
+      "Qty",
+      "Area Lifting",
+      "Truck No.",
+      "Transporter",
+      "Bill Image",
+      "Bilty No.",
+      "Type Of Rate",
+      "Rate",
+      "Truck Qty",
+      "Bilty Image",
+      "Qty Diff Status",
+      "Diff Qty",
+      "Weight Slip",
+      "Total Freight",
+      "Status",
+      "Remarks"
+    ];
+    const rows = accountsData.map((row) => [
+      row.timestamp || "",
+      row.liftNumber || "",
+      row.type || "",
+      row.billNo || "",
+      row.partyName || "",
+      row.productName || "",
+      row.qty || "",
+      row.areaLifting || "",
+      row.truckNo || "",
+      row.transporterName || "",
+      row.billImage || "",
+      row.biltyNo || "",
+      row.typeOfRate || "",
+      row.rate || "",
+      row.truckQty || "",
+      row.biltyImage || "",
+      row.qtyDifferenceStatus || "",
+      row.differenceQty || "",
+      row.weightSlip || "",
+      row.totalFreight || "",
+      row.status || "",
+      row.remarks || ""
+    ]);
+    exportToCSV(`Rectify_Mistake_2_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
       {renderModal()}
@@ -548,6 +607,15 @@ const RectifyMistake2Page = () => {
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh
+                </button>
+
+                <button
+                  data-export-btn
+                  onClick={handleExportCSV}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-green-700 bg-white border border-green-600 hover:bg-green-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors duration-200"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
                 </button>
               </div>
             </div>

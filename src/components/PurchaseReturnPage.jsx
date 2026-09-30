@@ -10,7 +10,9 @@ import {
     Edit,
     ShieldCheck,
     Send,
+    Download,
 } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -1071,13 +1073,82 @@ export default function PurchaseReturnPage() {
         ...pendingReturnRecords.map((r) => ({ key: `return-${r.id}`, source: "return", data: r })),
     ];
 
+    const handleExportReturnsCSV = (title, rows) => {
+        if (!rows || rows.length === 0) {
+            toast.error("No records to export");
+            return;
+        }
+        const headers = [
+            "PR No.", "Lift No", "Firm Name", "PO No.", "Party Name", "Product Name",
+            "Product Rate", "Bill No", "Qty", "Total Return Qty", "Return This Time",
+            "Credit Note", "Mismatch Type", "PR Approval"
+        ];
+        const csvRows = rows.map((rec) => [
+            rec.pr_no || "",
+            rec.lift_no || "",
+            rec.firm_name || "",
+            rec.po_no || "",
+            rec.party_name || "",
+            rec.product_name || "",
+            rec.product_rate || "",
+            rec.bill_no || "",
+            rec.qty || "",
+            rec.total_return_qty || "",
+            rec.return_this_time || "",
+            rec.credit_note || "",
+            rec.mismatch_type || "",
+            rec.pr_approval || "",
+        ]);
+        exportToCSV(`${title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`, headers, csvRows);
+        toast.success("CSV exported successfully");
+    };
+
+    const handleExportPendingCSV = (rows) => {
+        if (!rows || rows.length === 0) {
+            toast.error("No records to export");
+            return;
+        }
+        const headers = [
+            "PR No.", "Lift No", "Firm Name", "PO No.", "Party Name", "Product Name",
+            "Total Return Qty", "Returned", "Pending Qty", "Credit Note", "Mismatch Type"
+        ];
+        const csvRows = rows.map((item) => {
+            const isReturn = item.source === "return";
+            const row = item.data;
+            return [
+                isReturn ? row.pr_no : row.prNo || "",
+                isReturn ? row.lift_no : row.liftNo || "",
+                isReturn ? row.firm_name : row.firmName || "",
+                isReturn ? row.po_no : row.poNo || "",
+                isReturn ? row.party_name : row.vendorName || row.partyName || "",
+                isReturn ? row.product_name : row.material || row.productName || "",
+                isReturn ? row.total_return_qty : row.totalShortage || row.billedQty || "",
+                isReturn ? row.returned_qty || 0 : row.returnedQty || 0,
+                isReturn ? row.pending_return_qty || 0 : row.pendingShortage || 0,
+                isReturn ? row.credit_note || "-" : row.creditNote || "-",
+                isReturn ? row.mismatch_type || "-" : row.mismatchType || "-",
+            ];
+        });
+        exportToCSV(`Pending_Purchase_Returns_${new Date().toISOString().slice(0, 10)}.csv`, headers, csvRows);
+        toast.success("CSV exported successfully");
+    };
+
     const renderReturnsTable = (rows, { title, loadingLabel, emptyLabel }) => (
         <Card className="shadow-sm border border-border overflow-hidden flex flex-col">
-            <CardHeader className="pb-3 border-b border-gray-100 bg-gray-50/30">
+            <CardHeader className="pb-3 border-b border-gray-100 bg-gray-50/30 flex flex-row items-center justify-between">
                 <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
                     <FileText className="w-4 h-4 text-[#7da23a]" />
-                    {title}
+                    {title} ({rows.length})
                 </CardTitle>
+                <Button
+                    data-export-btn
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs flex items-center gap-1.5"
+                    onClick={() => handleExportReturnsCSV(title, rows)}
+                >
+                    <Download className="mr-1.5 h-3.5 w-3.5 text-[#7da23a]" /> Export CSV
+                </Button>
             </CardHeader>
             <CardContent className="p-0 flex-1 flex flex-col">
                 {loading ? (
@@ -1341,11 +1412,20 @@ export default function PurchaseReturnPage() {
 
                 <TabsContent value="pending">
                     <Card className="shadow-sm border border-border overflow-hidden flex flex-col">
-                        <CardHeader className="pb-3 border-b border-orange-100 bg-orange-50/20">
+                        <CardHeader className="pb-3 border-b border-orange-100 bg-orange-50/20 flex flex-row items-center justify-between">
                             <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
                                 <RotateCcw className="w-4 h-4 text-orange-500" />
-                                Pending Purchase Returns
+                                Pending Purchase Returns ({unifiedPendingRows.length})
                             </CardTitle>
+                            <Button
+                                data-export-btn
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs flex items-center gap-1.5"
+                                onClick={() => handleExportPendingCSV(unifiedPendingRows)}
+                            >
+                                <Download className="mr-1.5 h-3.5 w-3.5 text-[#7da23a]" /> Export CSV
+                            </Button>
                         </CardHeader>
                         <CardContent className="p-0 flex-1 flex flex-col">
                             {loading ? (

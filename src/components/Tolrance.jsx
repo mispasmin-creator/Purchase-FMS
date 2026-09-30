@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useContext } from "react"
-import { Scale, Loader2, AlertTriangle, FileText, Search, Filter } from "lucide-react"
+import { Scale, Loader2, AlertTriangle, FileText, Search, Filter, Download } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { AuthContext } from "../context/AuthContext"
 import { canViewFirm } from "../utils/firmFilter"
+import { toast } from "sonner"
+import { exportToCSV } from "../utils/csvExport"
 
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
 const TL_SHEET_NAME = "TL"
@@ -118,6 +120,23 @@ export default function TolerancePage() {
     setFilterColumn("all")
   }
 
+  const handleExportCSV = () => {
+    if (!filteredData || filteredData.length === 0) {
+      toast.info("No data available to export");
+      return;
+    }
+    const headers = columns;
+    const rows = filteredData.map(record =>
+      columns.map(column => {
+        const val = record[column];
+        if (val === null || val === undefined) return "";
+        return String(val);
+      })
+    );
+    exportToCSV(`Tolerance_Data_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
   return (
     <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen text-base">
       <Card className="shadow-md border-none">
@@ -194,19 +213,31 @@ export default function TolerancePage() {
                     Material tolerance data and specifications from TL sheet.
                   </CardDescription>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={fetchToleranceData}
-                  className="h-8 text-xs bg-transparent"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    "Refresh"
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    data-export-btn
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportCSV}
+                    className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                    Export CSV
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={fetchToleranceData}
+                    className="h-8 text-xs bg-transparent"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Refresh"
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">

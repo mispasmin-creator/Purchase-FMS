@@ -32,7 +32,9 @@ import {
   Truck,
   Search,
   CheckCircle2,
+  Download,
 } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
@@ -229,6 +231,46 @@ export default function LogisticsApproval() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historySearchQuery]);
 
+  const handleExportCSV = () => {
+    if (activeTab === "pending") {
+      if (!filteredPendingData.length) {
+        toast.error("No pending records to export");
+        return;
+      }
+      const headers = ["PO Number", "Firm Name", "Vendor", "Material", "PO Qty", "Total Amount", "Proposed Transporter", "Proposed Cost"];
+      const rows = filteredPendingData.map((r) => [
+        r.poNumber || "",
+        r.firmName || "",
+        r.vendorName || "",
+        r.material || "",
+        r.totalQuantity || "",
+        r.totalAmount || "",
+        r.proposedTransporter?.name || "-",
+        r.proposedTransporter?.cost || "-",
+      ]);
+      exportToCSV(`Logistics_Approval_Pending_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+      toast.success("Pending logistics approvals exported to CSV");
+    } else {
+      if (!filteredHistoryData.length) {
+        toast.error("No history records to export");
+        return;
+      }
+      const headers = ["PO Number", "Firm Name", "Vendor", "Material", "PO Qty", "Total Amount", "Approved Transporter", "Approved Date"];
+      const rows = filteredHistoryData.map((r) => [
+        r.poNumber || "",
+        r.firmName || "",
+        r.vendorName || "",
+        r.material || "",
+        r.totalQuantity || "",
+        r.totalAmount || "",
+        r.selectedTransporter?.name || "-",
+        r.actual9 || "",
+      ]);
+      exportToCSV(`Logistics_Approval_History_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+      toast.success("Logistics approval history exported to CSV");
+    }
+  };
+
   const pagedPendingData = useMemo(
     () => filteredPendingData.slice(pendingPagination.from, pendingPagination.to + 1),
     [filteredPendingData, pendingPagination.from, pendingPagination.to],
@@ -314,8 +356,8 @@ export default function LogisticsApproval() {
               </TabsTrigger>
             </TabsList>
 
-            <div className="mb-4">
-              <div className="relative max-w-sm">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <div className="relative max-w-sm flex-1">
                 <Search className="absolute h-4 w-4 left-3 top-2.5 text-gray-400" />
                 <Input
                   value={
@@ -330,6 +372,16 @@ export default function LogisticsApproval() {
                   placeholder="Search by PO, Vendor, material..."
                 />
               </div>
+              <Button
+                data-export-btn
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                className="h-9 px-3 text-xs bg-white text-gray-700 hover:bg-gray-100 border-gray-200 shadow-sm flex items-center gap-1.5 shrink-0"
+              >
+                <Download className="w-3.5 h-3.5 text-[#7da23a]" />
+                Export CSV
+              </Button>
             </div>
 
             <TabsContent value="pending" className="flex-1 mt-0">

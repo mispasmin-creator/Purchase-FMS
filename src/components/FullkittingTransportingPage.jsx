@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { PackageSearch, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X, Save, ShieldCheck } from "lucide-react";
+import { PackageSearch, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X, Save, ShieldCheck, Download } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { useAuth } from "../context/AuthContext";
 import SuperAdminEditModal from "./SuperAdminEditModal";
@@ -770,6 +771,22 @@ export default function FullkittingTransportingPage() {
     };
 
 
+    const exportTableToCSV = (filename, columnsMeta, data, visibilityState) => {
+        if (!data || data.length === 0) {
+            toast.error("No records to export");
+            return;
+        }
+        const exportCols = columnsMeta.filter(
+            (col) => col.dataKey !== "actionColumn" && (visibilityState[col.dataKey] ?? true),
+        );
+        const headers = exportCols.map((col) => col.header);
+        const rows = data.map((row) =>
+            exportCols.map((col) => row[col.dataKey] ?? "")
+        );
+        exportToCSV(filename, headers, rows);
+        toast.success("CSV exported successfully");
+    };
+
     const renderTableSection = (tabKey, title, description, data, columnsMeta, visibilityState, isLoading, hasError, emptyMessage, pagination) => {
         const visibleCols = columnsMeta.filter((col) => visibilityState[col.dataKey]);
         const isLocalLoading = isLoading;
@@ -791,6 +808,15 @@ export default function FullkittingTransportingPage() {
                             <CardDescription className="text-sm text-muted-foreground mt-0.5">{description}</CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
+                            <Button
+                                data-export-btn
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs bg-white flex items-center gap-1.5"
+                                onClick={() => exportTableToCSV(`fullkitting-${tabKey}_${new Date().toISOString().slice(0, 10)}.csv`, columnsMeta, data, visibilityState)}
+                            >
+                                <Download className="mr-1.5 h-3.5 w-3.5 text-[#7da23a]" /> Export CSV
+                            </Button>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 text-xs bg-white">

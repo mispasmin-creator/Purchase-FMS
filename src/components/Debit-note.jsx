@@ -22,6 +22,7 @@ import {
   UploadCloud,
   ExternalLink,
   ShieldCheck,
+  Download,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -38,6 +39,7 @@ import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
 import { useRealtime } from "../hooks/useRealtime";
+import { exportToCSV } from "../utils/csvExport";
 
 const normalizeFirmName = (val) => {
   if (!val) return null;
@@ -615,6 +617,24 @@ export default function DebitNote() {
       transporterName: "all",
       status: "all",
     });
+  };
+
+  const handleExportCSV = (tabType = "pending") => {
+    if (!filteredData || filteredData.length === 0) {
+      toast.info("No data available to export");
+      return;
+    }
+    const exportColumns = DEBIT_NOTE_COLUMNS_META.filter(c => c.dataKey !== "actions");
+    const headers = exportColumns.map(c => c.header);
+    const rows = filteredData.map(item =>
+      exportColumns.map(col => {
+        const val = item[col.dataKey];
+        if (val === null || val === undefined) return "";
+        return String(val);
+      })
+    );
+    exportToCSV(`Debit_Note_${tabType}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
   };
 
   // Handle edit click
@@ -1330,15 +1350,27 @@ export default function DebitNote() {
                             Entries with planned timestamp but no actual timestamp. Add remarks to move to history.
                           </CardDescription>
                         </div>
-                        <Button
-                          onClick={fetchMismatchData}
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs bg-white"
-                        >
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5" />
-                          Refresh
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            data-export-btn
+                            onClick={() => handleExportCSV("pending")}
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                          >
+                            <Download className="mr-1.5 h-3.5 w-3.5" />
+                            Export CSV
+                          </Button>
+                          <Button
+                            onClick={fetchMismatchData}
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs bg-white"
+                          >
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5" />
+                            Refresh
+                          </Button>
+                        </div>
                       </div>
                     </CardHeader>
 
@@ -1440,15 +1472,27 @@ export default function DebitNote() {
                           Entries with both planned and actual timestamps. These have been processed.
                         </CardDescription>
                       </div>
-                      <Button
-                        onClick={fetchMismatchData}
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs bg-white"
-                      >
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5" />
-                        Refresh
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          data-export-btn
+                          onClick={() => handleExportCSV("history")}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                        >
+                          <Download className="mr-1.5 h-3.5 w-3.5" />
+                          Export CSV
+                        </Button>
+                        <Button
+                          onClick={fetchMismatchData}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs bg-white"
+                        >
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5" />
+                          Refresh
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
 

@@ -113,6 +113,7 @@ const VIEW_ONLY_SAFE_SELECTOR = [
   '[data-slot="popover-trigger"]',
   '[data-slot="sheet-trigger"]',
   '[data-slot="sheet-close"]',
+  '[data-export-btn]',
 ].join(", ");
 
 function App() {

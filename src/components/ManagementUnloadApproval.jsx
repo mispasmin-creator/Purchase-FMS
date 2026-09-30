@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, History, Info, Loader2, Search } from "lucide-react";
+import { AlertTriangle, History, Info, Loader2, Search, Download } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { canViewFirm } from "../utils/firmFilter";
@@ -168,6 +169,27 @@ export default function ManagementUnloadApproval() {
     );
   }, [historyData, historySearchQuery]);
 
+  const handleExportCSV = (isHistory) => {
+    const list = isHistory ? filteredHistory : filteredPending;
+    if (!list || list.length === 0) {
+      toast.error("No records to export");
+      return;
+    }
+    const headers = ["Lift No", "RI Number", "Firm Name", "Vendor Name", "Material", "Trigger", "Status", isHistory ? "Closed On" : "Receipt On"];
+    const rows = list.map((item) => [
+      item.liftNo || "",
+      item.indentNo || "",
+      item.firmName || "",
+      item.vendorName || "",
+      item.rawMaterialName || "",
+      item.unloadApprovalTrigger || "",
+      item.unloadApprovalStatus || (isHistory ? "" : "Pending"),
+      formatDateTime(isHistory ? item.actualUnloadApproval : item.receiptTime || item.plannedUnloadApproval),
+    ]);
+    exportToCSV(`Unload_Approval_${isHistory ? "History" : "Pending"}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
   const submitDecision = async (status) => {
     if (!selectedRow) return;
     setIsSubmitting(true);
@@ -314,27 +336,51 @@ export default function ManagementUnloadApproval() {
           </TabsList>
 
           <TabsContent value="pending" className="space-y-4">
-            <div className="relative">
-              <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
-              <Input
-                className="pl-9"
-                placeholder="Search lift, PO, vendor, trigger..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search lift, PO, vendor, trigger..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Button
+                data-export-btn
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportCSV(false)}
+                className="h-10 px-3 text-xs bg-white text-gray-700 hover:bg-gray-100 border-gray-200 shadow-sm flex items-center gap-1.5 shrink-0"
+              >
+                <Download className="w-3.5 h-3.5 text-[#7da23a]" />
+                Export CSV
+              </Button>
             </div>
             {renderTable(filteredPending)}
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
-            <div className="relative">
-              <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
-              <Input
-                className="pl-9"
-                placeholder="Search lift history..."
-                value={historySearchQuery}
-                onChange={(e) => setHistorySearchQuery(e.target.value)}
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search lift history..."
+                  value={historySearchQuery}
+                  onChange={(e) => setHistorySearchQuery(e.target.value)}
+                />
+              </div>
+              <Button
+                data-export-btn
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportCSV(true)}
+                className="h-10 px-3 text-xs bg-white text-gray-700 hover:bg-gray-100 border-gray-200 shadow-sm flex items-center gap-1.5 shrink-0"
+              >
+                <Download className="w-3.5 h-3.5 text-[#7da23a]" />
+                Export CSV
+              </Button>
             </div>
             {renderTable(filteredHistory, true)}
           </TabsContent>

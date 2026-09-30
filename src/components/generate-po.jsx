@@ -22,7 +22,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { ScrollArea } from "./ui/scroll-area";
-import { Search } from "lucide-react";
+import { Search, Download } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
@@ -281,6 +282,30 @@ export default function CreatePO() {
   );
   const vendorGroups = mode === "create" ? pendingGroups : createdGroups;
   const [poSearch, setPoSearch] = useState("");
+
+  const handleExportItemsCSV = () => {
+    if (!formData.indents || formData.indents.length === 0) {
+      toast.error("No items to export");
+      return;
+    }
+    const headers = [
+      "S/N", "Internal Code", "Product", "Description", "Quantity", "Unit", "Rate", "GST (%)", "Discount (%)", "Amount"
+    ];
+    const rows = formData.indents.map((item, idx) => [
+      idx + 1,
+      item.indentNumber || "",
+      item.productName || "",
+      item.specifications || "",
+      item.quantity || 0,
+      item.unit || "",
+      item.rate || 0,
+      item.tax || 0,
+      item.discount || 0,
+      item.amount || 0,
+    ]);
+    exportToCSV(`PO_${formData.poNumber || "Items"}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("PO items exported to CSV");
+  };
 
   const poNumbers = useMemo(() => {
     return Array.from(
@@ -1221,7 +1246,22 @@ export default function CreatePO() {
               )}
             </div>
 
-            <hr />
+            <div className="flex items-center justify-between mx-4 mb-2">
+              <span className="font-semibold text-sm text-gray-700">PO Items ({formData.indents.length})</span>
+              {formData.indents.length > 0 && (
+                <Button
+                  data-export-btn
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportItemsCSV}
+                  className="h-8 text-xs flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#7da23a]" />
+                  Export CSV
+                </Button>
+              )}
+            </div>
 
             <div className="grid mx-4">
               <div className="min-w-full w-full overflow-auto rounded-lg border border-gray-200 max-h-[500px] relative custom-scrollbar">

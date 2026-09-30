@@ -24,8 +24,10 @@ import {
   ExternalLink,
   ChevronsUpDown,
   History,
-  FileClock
+  FileClock,
+  Download,
 } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
 import { supabase } from "../supabase";
@@ -315,6 +317,20 @@ export default function OriginalBillsFiledPage() {
     // Sort logic removed to simply show all history
     return applyFilters(history);
   }, [sheetData, applyFilters]);
+
+  const exportDataToCSV = (filename, entries) => {
+    if (!entries || entries.length === 0) {
+      toast.error("No records to export");
+      return;
+    }
+    const exportCols = columns.filter((c) => c.dataKey !== "selectAction" && c.dataKey !== "paymentAction");
+    const headers = exportCols.map((c) => c.header);
+    const rows = entries.map((entry) =>
+      exportCols.map((c) => entry[c.dataKey] ?? "")
+    );
+    exportToCSV(filename, headers, rows);
+    toast.success("CSV exported successfully");
+  };
 
   const getUniqueValues = (field) => {
     const values = sheetData.map((entry) => entry[field]).filter((value) => value && value.trim() !== "");
@@ -706,14 +722,23 @@ export default function OriginalBillsFiledPage() {
                         POs waiting for Payment (Planned5 set, Actual5 empty)
                       </CardDescription>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        data-export-btn
+                        variant="outline"
+                        size="sm"
+                        onClick={() => exportDataToCSV(`advance-payment-pending_${new Date().toISOString().slice(0, 10)}.csv`, pendingEntries)}
+                        className="h-9 px-3 text-xs flex items-center gap-1.5"
+                      >
+                        <Download className="mr-1.5 h-3.5 w-3.5 text-[#7da23a]" /> Export CSV
+                      </Button>
                       {someSelected && (
                         <Button
                           onClick={handleSubmitSelected}
-                          disabled={Object.values(processingEntries).some(v => v)}
+                          disabled={Object.values(processingEntries).some((v) => v)}
                           className="bg-[#7da23a] hover:bg-[#6b8e2f]"
                         >
-                          {Object.values(processingEntries).some(v => v) ? (
+                          {Object.values(processingEntries).some((v) => v) ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Submitting...
@@ -721,7 +746,7 @@ export default function OriginalBillsFiledPage() {
                           ) : (
                             <>
                               <CheckCircle className="mr-2 h-4 w-4" />
-                              Submit Selected ({Object.values(selectedEntries).filter(v => v).length})
+                              Submit Selected ({Object.values(selectedEntries).filter((v) => v).length})
                             </>
                           )}
                         </Button>
@@ -754,7 +779,16 @@ export default function OriginalBillsFiledPage() {
                         Completed payments (Planned5 and Actual5 set)
                       </CardDescription>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        data-export-btn
+                        variant="outline"
+                        size="sm"
+                        onClick={() => exportDataToCSV(`advance-payment-history_${new Date().toISOString().slice(0, 10)}.csv`, historyEntries)}
+                        className="h-9 px-3 text-xs flex items-center gap-1.5"
+                      >
+                        <Download className="mr-1.5 h-3.5 w-3.5 text-[#7da23a]" /> Export CSV
+                      </Button>
                       <ColumnVisibilityToggle />
                     </div>
                   </div>

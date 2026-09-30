@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ExternalLink, Info, Loader2, Search } from "lucide-react";
+import { CheckCircle2, ExternalLink, Info, Loader2, Search, Download } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { canViewFirm } from "../utils/firmFilter";
@@ -178,6 +179,32 @@ export default function PurchaseReturnApproval() {
         item.approvalStatus.toLowerCase().includes(query)),
     );
   }, [historyData, historySearchQuery, firmFilter]);
+
+  const handleExportCSV = (isHistory) => {
+    const list = isHistory ? filteredHistory : filteredPending;
+    if (!list || list.length === 0) {
+      toast.error("No records to export");
+      return;
+    }
+    const headers = [
+      "Lift No", "Firm Name", "PR No.", "Party", "Product", "Return Qty",
+      "Credit Note", "Mismatch Type", "Status", isHistory ? "Decided On" : "Submitted On"
+    ];
+    const rows = list.map((item) => [
+      item.liftNo || "",
+      item.firmName || "",
+      item.purchaseReturnNo || "",
+      item.partyName || "",
+      item.productName || "",
+      item.returnQty ?? "",
+      item.creditNote || "-",
+      item.mismatchType || "-",
+      item.approvalStatus || (isHistory ? "" : "Pending"),
+      formatDateTime(isHistory ? item.actualApprovalTime : item.submittedTime),
+    ]);
+    exportToCSV(`PR_Approval_${isHistory ? "History" : "Pending"}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
 
   const submitDecision = async (decision) => {
     if (!selectedRow) return;
@@ -370,6 +397,16 @@ export default function PurchaseReturnApproval() {
                   <option key={firm} value={firm}>{firm}</option>
                 ))}
               </select>
+              <Button
+                data-export-btn
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportCSV(false)}
+                className="h-9 px-3 text-xs bg-white text-gray-700 hover:bg-gray-100 border-gray-200 shadow-sm flex items-center gap-1.5 shrink-0"
+              >
+                <Download className="w-3.5 h-3.5 text-[#7da23a]" />
+                Export CSV
+              </Button>
             </div>
             {renderTable(filteredPending)}
           </TabsContent>
@@ -395,6 +432,16 @@ export default function PurchaseReturnApproval() {
                   <option key={firm} value={firm}>{firm}</option>
                 ))}
               </select>
+              <Button
+                data-export-btn
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportCSV(true)}
+                className="h-9 px-3 text-xs bg-white text-gray-700 hover:bg-gray-100 border-gray-200 shadow-sm flex items-center gap-1.5 shrink-0"
+              >
+                <Download className="w-3.5 h-3.5 text-[#7da23a]" />
+                Export CSV
+              </Button>
             </div>
             {renderTable(filteredHistory, true)}
           </TabsContent>

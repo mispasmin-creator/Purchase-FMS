@@ -17,7 +17,9 @@ import {
   ShieldCheck,
   AlertTriangle,
   Eye,
+  Download,
 } from "lucide-react";
+import { exportToCSV } from "../utils/csvExport";
 import {
   Card,
   CardHeader,
@@ -717,6 +719,68 @@ export default function ManageUsers() {
     return accessible.some(page => page.id === sidebarPageFilter || page.label.toLowerCase() === sidebarPageFilter.toLowerCase());
   });
 
+  const handleExportUsersCSV = () => {
+    if (!filteredUsers || filteredUsers.length === 0) {
+      toast.info("No users available to export");
+      return;
+    }
+    const headers = ["Name", "Username", "Firm Name", "Access Type", "Allowed Pages"];
+    const rows = filteredUsers.map((u) => {
+      const parsedFirms = parseFirms(u["Firm Name"]);
+      const firmStr = parsedFirms.length === 0 ? "N/A" : parsedFirms.includes("all") ? "All Firms" : parsedFirms.join(", ");
+      
+      const role = (u["Role"] || "").toLowerCase();
+      const isAdminUser = role === "admin" || role === "superadmin";
+      const isViewOnlyUser = role === "view_only";
+      let accessType = "Custom Permissions";
+      if (isAdminUser) accessType = "Administrator";
+      else if (isViewOnlyUser) accessType = "View Only";
+
+      const accessiblePages = getAccessibleSidebarPages(u).map(p => p.label).join("; ");
+
+      return [
+        u["Name"] || "",
+        u["User Name"] || "",
+        firmStr,
+        accessType,
+        accessiblePages
+      ];
+    });
+    exportToCSV(`Users_List_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
+  const handleExportSidebarAccessCSV = () => {
+    if (!filteredSidebarUsers || filteredSidebarUsers.length === 0) {
+      toast.info("No records available to export");
+      return;
+    }
+    const headers = ["Name", "Username", "Firm Name", "Access Level", "Allowed Sidebar Pages"];
+    const rows = filteredSidebarUsers.map((u) => {
+      const parsedFirms = parseFirms(u["Firm Name"]);
+      const firmStr = parsedFirms.length === 0 ? "N/A" : parsedFirms.includes("all") ? "All Firms" : parsedFirms.join(", ");
+      
+      const role = (u["Role"] || "").toLowerCase();
+      const isAdminUser = role === "admin" || role === "superadmin";
+      const isViewOnlyUser = role === "view_only";
+      let accessType = "Custom Access";
+      if (isAdminUser) accessType = "Administrator";
+      else if (isViewOnlyUser) accessType = "View Only";
+
+      const accessiblePages = getAccessibleSidebarPages(u).map(p => p.label).join("; ");
+
+      return [
+        u["Name"] || "",
+        u["User Name"] || "",
+        firmStr,
+        accessType,
+        accessiblePages
+      ];
+    });
+    exportToCSV(`Sidebar_Access_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("CSV exported successfully");
+  };
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -757,6 +821,16 @@ export default function ManageUsers() {
                   />
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    data-export-btn
+                    onClick={handleExportUsersCSV}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50"
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                    Export CSV
+                  </Button>
                   <Badge
                     variant="outline"
                     className="bg-white px-3 py-1 border-gray-200"
@@ -946,6 +1020,16 @@ export default function ManageUsers() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <Button
+                    data-export-btn
+                    onClick={handleExportSidebarAccessCSV}
+                    variant="outline"
+                    size="sm"
+                    className="h-10 text-xs bg-white border-green-600 text-green-700 hover:bg-green-50 shrink-0"
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                    Export CSV
+                  </Button>
                 </div>
 
                 <div className="overflow-x-auto border border-gray-100 rounded-lg">
