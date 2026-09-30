@@ -1172,7 +1172,9 @@ function importAccountsAuditLive(ss) {
 
   var mismatchLiftIds = {};
   allMismatch.forEach(function (r) {
-    var id = String(r['Lift ID'] || r['Lift Number'] || '').trim();
+    // Dashboard keys this set on "Lift ID" only — including "Lift Number" here
+    // hid LIFT-ACCOUNTS rows the dashboard's Audit tab shows.
+    var id = String(r['Lift ID'] || '').trim();
     if (id) mismatchLiftIds[id] = true;
   });
 
@@ -1220,57 +1222,34 @@ function importAccountsAuditLive(ss) {
     var material = r['Product Name'] || '-';
 
     if (!hasBiltyDetails(r)) return;
+    // Pending entries mirror the dashboard tab queries, which do NOT filter on
+    // the Mismatch "Actual" column — gating pending on it silently dropped rows
+    // that the dashboard still shows. Only history is limited to open rows.
     var rowIsClosed = !isNullVal(r['Actual']);
-
-    if (!rowIsClosed) {
-      if (isNullVal(r['Actual2'])) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'AUDIT', planned: r['Planned2'], actual: null, status: 'Pending' });
-      } else {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'AUDIT', planned: r['Planned2'], actual: r['Actual2'], status: 'History' });
-      }
+    function add(subStage, planned, actual, status) {
+      if (status === 'History' && rowIsClosed) return;
+      entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: subStage, planned: planned, actual: actual, status: status });
     }
 
-    if (!rowIsClosed) {
-      if (!isNullVal(r['Planned3']) && isNullVal(r['Actual3']) && r['Status2'] === 'Not Done') {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'RECTIFY', planned: r['Planned3'], actual: null, status: 'Pending' });
-      } else if (!isNullVal(r['Actual3'])) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'RECTIFY', planned: r['Planned3'], actual: r['Actual3'], status: 'History' });
-      }
-    }
+    if (isNullVal(r['Actual2'])) add('AUDIT', r['Planned2'], null, 'Pending');
+    else add('AUDIT', r['Planned2'], r['Actual2'], 'History');
 
-    if (!rowIsClosed) {
-      var tallyGate = !isNullVal(r['Planned4']) || (!isNullVal(r['Actual2']) && isAuditDone(r)) || (!isNullVal(r['Actual5']) && isReAuditDone(r));
-      var tallyPlanned = r['Planned4'] || r['Actual5'] || r['Actual2'];
-      if (isNullVal(r['Actual4']) && tallyGate) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'TALLY_ENTRY', planned: tallyPlanned, actual: null, status: 'Pending' });
-      } else if (!isNullVal(r['Actual4'])) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'TALLY_ENTRY', planned: tallyPlanned, actual: r['Actual4'], status: 'History' });
-      }
-    }
+    if (!isNullVal(r['Planned3']) && isNullVal(r['Actual3']) && r['Status2'] === 'Not Done') add('RECTIFY', r['Planned3'], null, 'Pending');
+    else if (!isNullVal(r['Actual3'])) add('RECTIFY', r['Planned3'], r['Actual3'], 'History');
 
-    if (!rowIsClosed) {
-      if (!isNullVal(r['Planned8']) && isNullVal(r['Actual8'])) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'RE_CHECKING', planned: r['Planned8'], actual: null, status: 'Pending' });
-      } else if (!isNullVal(r['Actual8'])) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'RE_CHECKING', planned: r['Planned8'], actual: r['Actual8'], status: 'History' });
-      }
-    }
+    var tallyGate = !isNullVal(r['Planned4']) || (!isNullVal(r['Actual2']) && isAuditDone(r)) || (!isNullVal(r['Actual5']) && isReAuditDone(r));
+    var tallyPlanned = r['Planned4'] || r['Actual5'] || r['Actual2'];
+    if (isNullVal(r['Actual4']) && tallyGate) add('TALLY_ENTRY', tallyPlanned, null, 'Pending');
+    else if (!isNullVal(r['Actual4'])) add('TALLY_ENTRY', tallyPlanned, r['Actual4'], 'History');
 
-    if (!rowIsClosed) {
-      if (!isNullVal(r['Planned5']) && isNullVal(r['Actual5'])) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'RE_AUDIT', planned: r['Planned5'], actual: null, status: 'Pending' });
-      } else if (!isNullVal(r['Actual5'])) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'RE_AUDIT', planned: r['Planned5'], actual: r['Actual5'], status: 'History' });
-      }
-    }
+    if (!isNullVal(r['Planned8']) && isNullVal(r['Actual8'])) add('RE_CHECKING', r['Planned8'], null, 'Pending');
+    else if (!isNullVal(r['Actual8'])) add('RE_CHECKING', r['Planned8'], r['Actual8'], 'History');
 
-    if (!rowIsClosed) {
-      if (!isNullVal(r['Planned6']) && isNullVal(r['Actual6'])) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'BILL_ENTRY', planned: r['Planned6'], actual: null, status: 'Pending' });
-      } else if (!isNullVal(r['Actual6'])) {
-        entries.push({ ref: ref, party: party, firm: firm, material: material, subStage: 'BILL_ENTRY', planned: r['Planned6'], actual: r['Actual6'], status: 'History' });
-      }
-    }
+    if (!isNullVal(r['Planned5']) && isNullVal(r['Actual5'])) add('RE_AUDIT', r['Planned5'], null, 'Pending');
+    else if (!isNullVal(r['Actual5'])) add('RE_AUDIT', r['Planned5'], r['Actual5'], 'History');
+
+    if (!isNullVal(r['Planned6']) && isNullVal(r['Actual6'])) add('BILL_ENTRY', r['Planned6'], null, 'Pending');
+    else if (!isNullVal(r['Actual6'])) add('BILL_ENTRY', r['Planned6'], r['Actual6'], 'History');
   });
 
   liftRows.forEach(function (l) {
