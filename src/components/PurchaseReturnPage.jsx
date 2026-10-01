@@ -884,10 +884,6 @@ export default function PurchaseReturnPage() {
             toast.warning(`Return This Time cannot exceed pending return quantity (${Math.max(0, remainingReturnQty)}).`);
             return;
         }
-        if (!creditNoteImageFile && !form.creditNoteUrl) {
-            toast.warning("Please upload a Credit Note Image.");
-            return;
-        }
 
         setSubmitting(true);
         try {
@@ -1873,7 +1869,7 @@ export default function PurchaseReturnPage() {
                                     </div>
                                     <div className="sm:col-span-2">
                                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                                            Credit Note Image <span className="text-red-500">*</span>
+                                            Credit Note Image
                                         </label>
                                         <input
                                             type="file"
