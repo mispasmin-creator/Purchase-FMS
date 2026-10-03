@@ -1,36 +1,39 @@
 /**
- * CALL TRACKER MIS  (Planned Date vs Actual Date)
- * ------------------------------------------------
- * Har unique Enquiry No. (Call Tracker sheet, Col A) ke liye
- * "Call Track" sheet se data laata hai:
- *   - Actual Date  = Call Track Col A (Timestamp) ka LAST (sabse latest) entry
- *   - Planned Date = usi last entry ka Call Track Col F (Next Call Date & Time)
+ * CALL TRACKER MIS  (Firm-wise Planned vs Actual)
+ * -----------------------------------------------
+ * "Mis" sheet (Q:AI) + "FInal MIS" sheet ka kaam ek hi script me, bina manual paste ke.
  *
- * Call Track me ek enquiry tab tak repeat hoti hai jab tak Col E
- * (Order Received) "Expected" hai. Script har enquiry ki sirf latest row
- * uthata hai, isliye manual update ki zarurat nahi.
+ * Logic (Call Track sheet se):
+ *   - Har wo call jiska Col E (Order Received) = "Expected" hai, ek row banti hai.
+ *   - Planned = us call ka Col F (Next Call Date & Time)
+ *   - Actual  = usi Enquiry No. (Col B) ki AGLI call ka Col A (Timestamp)
+ *               (agli call abhi nahi hui to Actual khali = Pending)
+ *   - Delay   = Actual (ya pending ho to aaj) - Planned, din me (0 se kam nahi)
+ *   - Sirf wo rows jinka Planned <= aaj + 1 din (FInal MIS jaisa filter)
  *
- * Use:  Menu "📊 Call MIS" > "Refresh MIS"  ya  refreshCallMIS() run karein.
+ * Output: "Call MIS" sheet me firm-wise blocks (PMMPL | RKL | PURAB).
+ * Use: Menu "📊 Call MIS" > "Refresh MIS"  ya  refreshCallMIS() run karein.
  */
 
 const MIS_CONFIG = {
-  SOURCE_LIST_SHEET: 'Call Tracker', // unique enquiry list yahan se
-  SOURCE_LIST_COL: 1,                // Col A = Enquiry No.
-  SOURCE_LIST_FIRST_ROW: 3,          // Row 1 = count, Row 2 = header
-
   CALL_TRACK_SHEET: 'Call Track',
-  CALL_TRACK_FIRST_ROW: 2,           // Row 1 = header
-  CT_COL_TIMESTAMP: 1,               // A
-  CT_COL_ENQUIRY: 2,                 // B
-  CT_COL_STATUS: 3,                  // C
-  CT_COL_ORDER_RECEIVED: 5,          // E
-  CT_COL_NEXT_CALL: 6,               // F
-  CT_COL_FIRM: 10,                   // J
-  CT_COL_PARTY: 11,                  // K
+  CALL_TRACK_FIRST_ROW: 2,       // Row 1 = header
+  CT_COL_TIMESTAMP: 1,           // A
+  CT_COL_ENQUIRY: 2,             // B
+  CT_COL_ORDER_RECEIVED: 5,      // E
+  CT_COL_NEXT_CALL: 6,           // F
+  CT_COL_FIRM: 10,               // J
+  CT_COL_CALL_NO: 12,            // L
 
-  OUTPUT_SHEET: 'Call MIS',          // naya sheet, script khud bana dega
+  FIRMS: ['PMMPL', 'RKL', 'PURAB'], // FInal MIS wala order
+  OPEN_STATUS: 'expected',
+  PLANNED_UPTO_DAYS: 1,          // Planned <= aaj + 1 (FInal MIS jaisa). null = sab rows
+
+  OUTPUT_SHEET: 'Call MIS',      // naya sheet, script khud bana dega
   DATE_FORMAT: 'dd/MM/yyyy HH:mm'
 };
+
+const MIS_HEADERS = ['Firm Name', 'Enquiry No.', 'Call-Unique No', 'Planned', 'Actual', 'Delay (Days)'];
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -43,106 +46,74 @@ function onOpen() {
 function refreshCallMIS() {
   const C = MIS_CONFIG;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const listSheet = ss.getSheetByName(C.SOURCE_LIST_SHEET);
   const ctSheet = ss.getSheetByName(C.CALL_TRACK_SHEET);
-  if (!listSheet) throw new Error('Sheet nahi mili: ' + C.SOURCE_LIST_SHEET);
   if (!ctSheet) throw new Error('Sheet nahi mili: ' + C.CALL_TRACK_SHEET);
 
-  // 1) Call Tracker Col A se unique enquiry numbers (order same rahega)
-  const enquiries = [];
-  const seen = {};
-  const listLastRow = listSheet.getLastRow();
-  if (listLastRow >= C.SOURCE_LIST_FIRST_ROW) {
-    listSheet
-      .getRange(C.SOURCE_LIST_FIRST_ROW, C.SOURCE_LIST_COL, listLastRow - C.SOURCE_LIST_FIRST_ROW + 1, 1)
-      .getDisplayValues()
-      .forEach(function (r) {
-        const display = String(r[0]).trim();
-        const key = normKey_(display);
-        if (key && !seen[key]) {
-          seen[key] = true;
-          enquiries.push(display);
-        }
-      });
-  }
-
-  // 2) Call Track ki har enquiry ki LATEST row (max timestamp) + total calls
-  const latest = {}; // key -> { row, ts, count }
-  const ctLastRow = ctSheet.getLastRow();
-  if (ctLastRow >= C.CALL_TRACK_FIRST_ROW) {
-    const numRows = ctLastRow - C.CALL_TRACK_FIRST_ROW + 1;
-    const numCols = Math.max(C.CT_COL_PARTY, C.CT_COL_NEXT_CALL, C.CT_COL_ORDER_RECEIVED);
-    const range = ctSheet.getRange(C.CALL_TRACK_FIRST_ROW, 1, numRows, numCols);
+  // 1) Call Track padho
+  const calls = [];
+  const lastRow = ctSheet.getLastRow();
+  if (lastRow >= C.CALL_TRACK_FIRST_ROW) {
+    const range = ctSheet.getRange(C.CALL_TRACK_FIRST_ROW, 1, lastRow - C.CALL_TRACK_FIRST_ROW + 1, C.CT_COL_CALL_NO);
     const values = range.getValues();
     const display = range.getDisplayValues();
-
     for (let i = 0; i < values.length; i++) {
-      const key = normKey_(display[i][C.CT_COL_ENQUIRY - 1]);
-      if (!key) continue;
+      const enq = display[i][C.CT_COL_ENQUIRY - 1].trim();
       const ts = toDate_(values[i][C.CT_COL_TIMESTAMP - 1]);
-      const tsNum = ts ? ts.getTime() : -1;
-
-      const cur = latest[key];
-      if (!cur) {
-        latest[key] = { row: values[i], ts: tsNum, count: 1 };
-      } else {
-        cur.count++;
-        // ">=" : same timestamp ho to neeche wali (baad me bhari gayi) row lo
-        if (tsNum >= cur.ts) {
-          cur.row = values[i];
-          cur.ts = tsNum;
-        }
-      }
+      if (!enq || !ts) continue;
+      calls.push({
+        idx: i,
+        key: normKey_(enq),
+        enq: enq,
+        ts: ts,
+        status: display[i][C.CT_COL_ORDER_RECEIVED - 1].trim().toLowerCase(),
+        planned: toDate_(values[i][C.CT_COL_NEXT_CALL - 1]),
+        firm: display[i][C.CT_COL_FIRM - 1].trim().toUpperCase(),
+        callNo: display[i][C.CT_COL_CALL_NO - 1]
+      });
     }
   }
 
-  // 3) Output rows banao
-  const out = enquiries.map(function (enq, idx) {
-    const hit = latest[normKey_(enq)];
-    if (!hit) {
-      return [idx + 1, enq, '', '', 0, '', '', '', 'No Call Yet'];
-    }
-    const r = hit.row;
-    const orderRec = String(r[C.CT_COL_ORDER_RECEIVED - 1]).trim();
-    const o = orderRec.toLowerCase();
-    const status = (o === 'yes' || o === 'no') ? 'Closed (' + orderRec + ')' : 'Open';
-    return [
-      idx + 1,
-      enq,
-      r[C.CT_COL_FIRM - 1],
-      r[C.CT_COL_PARTY - 1],
-      hit.count,
-      orderRec,
-      toDate_(r[C.CT_COL_NEXT_CALL - 1]) || r[C.CT_COL_NEXT_CALL - 1], // Planned (Col F)
-      toDate_(r[C.CT_COL_TIMESTAMP - 1]) || r[C.CT_COL_TIMESTAMP - 1], // Actual (last Col A)
-      status
-    ];
+  // 2) Har enquiry ki calls time ke order me -> agli call ka timestamp = Actual
+  const byEnq = {};
+  calls.forEach(function (c) { (byEnq[c.key] = byEnq[c.key] || []).push(c); });
+  Object.keys(byEnq).forEach(function (k) {
+    const list = byEnq[k].sort(function (a, b) { return (a.ts - b.ts) || (a.idx - b.idx); });
+    for (let i = 0; i < list.length; i++) list[i].actual = i + 1 < list.length ? list[i + 1].ts : null;
   });
 
-  // 4) Output sheet me likho
-  let outSheet = ss.getSheetByName(C.OUTPUT_SHEET);
-  if (!outSheet) outSheet = ss.insertSheet(C.OUTPUT_SHEET);
-  outSheet.clearContents();
+  // 3) Firm-wise rows (Call Track ke order me, jaise QUERY deta tha)
+  const now = new Date();
+  const limit = C.PLANNED_UPTO_DAYS == null ? null : startOfDay_(addDays_(now, C.PLANNED_UPTO_DAYS));
+  const blocks = C.FIRMS.map(function () { return []; });
+  calls.forEach(function (c) {
+    if (c.status !== C.OPEN_STATUS) return;
+    const f = C.FIRMS.indexOf(c.firm);
+    if (f === -1 || !c.planned) return;
+    if (limit && c.planned > limit) return;
+    const delay = Math.max(0, dayDiff_(c.planned, c.actual || now));
+    blocks[f].push([c.firm, c.enq, c.callNo, c.planned, c.actual || 'Pending', delay]);
+  });
 
-  const headers = [[
-    'S.No.', 'Enquiry No.', 'Firm Name', 'Party Name', 'Total Calls',
-    'Order Received (Latest)', 'Planned Date', 'Actual Date', 'Status'
-  ]];
-  outSheet.getRange(1, 1).setValue(
-    'Call MIS  |  Last Updated: ' +
-    Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), C.DATE_FORMAT) +
-    '  |  Total Enquiries: ' + out.length
-  ).setFontWeight('bold');
-  outSheet.getRange(2, 1, 1, headers[0].length).setValues(headers)
-    .setFontWeight('bold').setBackground('#1f4e78').setFontColor('#ffffff');
+  // 4) Output sheet me likho: har firm ka block, beech me 1 khali column
+  let out = ss.getSheetByName(C.OUTPUT_SHEET) || ss.insertSheet(C.OUTPUT_SHEET);
+  out.clear();
+  const w = MIS_HEADERS.length;
+  out.getRange(1, 1).setValue('Call MIS  |  Last Updated: ' +
+    Utilities.formatDate(now, ss.getSpreadsheetTimeZone(), C.DATE_FORMAT)).setFontWeight('bold');
 
-  if (out.length) {
-    outSheet.getRange(3, 1, out.length, headers[0].length).setValues(out);
-    outSheet.getRange(3, 7, out.length, 2).setNumberFormat(C.DATE_FORMAT);
-  }
-  outSheet.setFrozenRows(2);
+  blocks.forEach(function (rows, b) {
+    const col = 1 + b * (w + 1);
+    out.getRange(2, col).setValue(C.FIRMS[b] + '  (' + rows.length + ')').setFontWeight('bold');
+    out.getRange(3, col, 1, w).setValues([MIS_HEADERS])
+      .setFontWeight('bold').setBackground('#1f4e78').setFontColor('#ffffff');
+    if (rows.length) {
+      out.getRange(4, col, rows.length, w).setValues(rows);
+      out.getRange(4, col + 3, rows.length, 2).setNumberFormat(C.DATE_FORMAT);
+    }
+  });
+  out.setFrozenRows(3);
 
-  ss.toast('MIS update ho gaya: ' + out.length + ' enquiries', 'Call MIS', 5);
+  ss.toast('MIS update ho gaya', 'Call MIS', 5);
 }
 
 /** Har 1 ghante me auto refresh (sirf ek baar run karein) */
@@ -164,4 +135,21 @@ function toDate_(v) {
   if (v === '' || v == null) return null;
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
+}
+
+function addDays_(d, n) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+function startOfDay_(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+// Sirf date ka farak (time ignore), jaise 26/07 -> 29/07 = 3
+function dayDiff_(from, to) {
+  const a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const b = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((b - a) / 86400000);
 }
