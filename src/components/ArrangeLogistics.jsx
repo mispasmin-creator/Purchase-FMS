@@ -212,10 +212,11 @@ export default function ArrangeLogistics() {
             transportType: row["Transport Type"] || "",
             plannedLogistics: row["PlannedLogistics"] || "",
             actualLogistics: row["ActualLogistics"] || "",
+            planned9: row["Planned9"] || "",
             actual2: row["Actual2"] || "",
             logisticsOptions: Array.isArray(row["LogisticsOptions"]) ? row["LogisticsOptions"] : [],
           }))
-          .filter((row) => row.plannedLogistics && !row.actualLogistics && !row.Planned9 && row.actual2)
+          .filter((row) => row.plannedLogistics && !row.actualLogistics && !row.planned9 && row.actual2)
           .sort((a, b) => new Date(b.plannedLogistics).getTime() - new Date(a.plannedLogistics).getTime());
 
         const history = groupedData
