@@ -334,7 +334,7 @@ export default function DebitNote() {
       (manualReturnsData || []).forEach(row => {
           const mId = String(row.mismatch_id || "").trim();
           if (mId) {
-             returnQtyMap[mId] = row["Return This Time"] || "";
+             returnQtyMap[mId] = row["Return This Time"] ?? "";
              vehicleNoMap[mId] = row["Vehicle No"] || "";
              const existing = purchaseReturnDetailsMap[mId];
              if (!existing || (row.ID || 0) > (existing.ID || 0)) {
@@ -379,7 +379,10 @@ export default function DebitNote() {
           // Mismatch Type — Rate / Qty / Lab, read from this Mismatch row's own stored difference columns
           mismatchType: classifyMismatchType(row),
           // Return Qty — the quantity actually returned (Return This Time) from Mismatch table, or mapped from Purchase Returns if applicable
-          qty: returnQtyMap[String(row.id)] || row["Qty"] || row["Quantity"] || row["Lifting Quantity"] || "",
+          // A 0 "Return This Time" (shortage entry, nothing sent back) is kept as 0
+          qty: (returnQtyMap[String(row.id)] !== undefined && returnQtyMap[String(row.id)] !== "")
+            ? returnQtyMap[String(row.id)]
+            : (row["Qty"] || row["Quantity"] || row["Lifting Quantity"] || ""),
           // Qty — the actual/total received quantity from the linked Purchase Return row's "Total Qty"
           totalQty: prDetails?.["Total Qty"] || "",
           // Product Rate — from the linked Purchase Return row when one exists, else the Mismatch table's own value (legacy, non-Purchase-Return debit notes)
@@ -446,7 +449,7 @@ export default function DebitNote() {
             planned: null,
             actual: row["Actual"] ? formatTimestamp(row["Actual"]) : null,
             // Return Qty = Return This Time (from Finalized return tab of Purchase Return page)
-            qty: row["Return This Time"] || "",
+            qty: row["Return This Time"] ?? "",
             returnThisTime: row["Return This Time"] || null,
             totalReturnQty: row["Total Return Qty"] || null,
             // Qty — the actual/total received quantity from the Purchase Return row

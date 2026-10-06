@@ -79,6 +79,15 @@ const EMPTY_FORM = {
     id: null,
 };
 
+// A Purchase Return filed for a shortage, with nothing physically sent back (0 / 0).
+const isZeroReturnRecord = (r) =>
+    Boolean(r) &&
+    r["Total Return Qty"] !== null &&
+    r["Total Return Qty"] !== undefined &&
+    r["Total Return Qty"] !== "" &&
+    parseFloat(r["Total Return Qty"]) === 0 &&
+    (parseFloat(r["Return This Time"]) || 0) === 0;
+
 export default function PurchaseReturnPage() {
     const { user, isSuperAdmin: isSuperAdminContext } = useContext(AuthContext);
     const isSuperAdmin = !!(isSuperAdminContext || user?.isSuperAdmin);
@@ -179,10 +188,15 @@ export default function PurchaseReturnPage() {
             const totalReturnQtyMap = {};      // by mismatch_id
             const returnedQtyByLiftMap = {};   // by Lift No (covers records with no mismatch_id)
             const totalReturnQtyByLiftMap = {};// by Lift No
+            const zeroReturnIds = new Set();   // mismatch_id / Lift No with a 0 / 0 shortage entry
 
             fetchedReturns.forEach(r => {
                 const mId = String(r.mismatch_id || "").trim();
                 const liftNo = String(r["Lift No"] || "").trim();
+                if (isZeroReturnRecord(r)) {
+                    if (mId) zeroReturnIds.add(`m:${mId}`);
+                    if (liftNo) zeroReturnIds.add(`l:${liftNo}`);
+                }
                 const returnedThisTime = parseFloat(r["Return This Time"]) || parseFloat(r["Qty"]) || 0;
                 const configuredTotal = parseFloat(r["Total Return Qty"]) || 0;
 
@@ -263,7 +277,8 @@ export default function PurchaseReturnPage() {
                 // A mismatch is still "pending" if:
                 // 1. pendingQty > 0.001 (more to return), OR
                 // 2. No returns have been made at all and target qty is known
-                const isStillPending = pendingQty > 0.001 || (returnedQty === 0 && returnTargetQty > 0);
+                const hasZeroReturnEntry = zeroReturnIds.has(`m:${mId}`) || (liftNo && zeroReturnIds.has(`l:${liftNo}`));
+                const isStillPending = !hasZeroReturnEntry && (pendingQty > 0.001 || (returnedQty === 0 && returnTargetQty > 0));
                 return {
                     ...m,
                     pendingQty: pendingQty,
@@ -799,8 +814,10 @@ export default function PurchaseReturnPage() {
             0
         );
         const returnTargetQty = configuredTotalReturnQty || totalQty;
+        // A 0 / 0 shortage entry closes the return: nothing is left to send back.
+        const hasZeroReturnEntry = (allReturns || []).some(isZeroReturnRecord);
 
-        return { totalReturned, returnTargetQty, isFullyReturned: totalReturned >= returnTargetQty };
+        return { totalReturned, returnTargetQty, isFullyReturned: hasZeroReturnEntry || totalReturned >= returnTargetQty };
     };
 
     const updateMismatchStatus = async (mismatchId, actionType) => {
@@ -867,12 +884,14 @@ export default function PurchaseReturnPage() {
         const returnThisTime = parseFloat(form.returnThisTime);
         const returnedQtyBefore = parseFloat(form.returnedQtyBefore) || 0;
         const remainingReturnQty = totalReturnQty - returnedQtyBefore;
+        // 0 / 0 = shortage entry: no material goes back, but the form still has to be filed
+        const isZeroReturn = totalReturnQty === 0 && returnThisTime === 0;
 
-        if (!form.purchaseReturnNo || !form.liftNo || !form.poNo || !totalReturnQty || !returnThisTime) {
+        if (!form.purchaseReturnNo || !form.liftNo || !form.poNo || ((!totalReturnQty || !returnThisTime) && !isZeroReturn)) {
             toast.warning("Please provide PR No., Lift No., PO / Indent No, Total Return Qty and Return This Time.");
             return;
         }
-        if (totalReturnQty <= 0 || returnThisTime <= 0) {
+        if (!isZeroReturn && (totalReturnQty <= 0 || returnThisTime <= 0)) {
             toast.warning("Return quantities must be greater than zero.");
             return;
         }
@@ -880,7 +899,7 @@ export default function PurchaseReturnPage() {
             toast.warning(`Total Return Qty cannot exceed received quantity (${form.maxReturnQty}).`);
             return;
         }
-        if (remainingReturnQty <= 0 || returnThisTime > remainingReturnQty + 0.000001) {
+        if (!isZeroReturn && (remainingReturnQty <= 0 || returnThisTime > remainingReturnQty + 0.000001)) {
             toast.warning(`Return This Time cannot exceed pending return quantity (${Math.max(0, remainingReturnQty)}).`);
             return;
         }
