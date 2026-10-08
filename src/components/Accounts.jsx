@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { Search, X, Settings, Eye, Download, RefreshCw } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import { matchesUniversalSearch } from '../utils/searchUtils';
 
 const Accounts = () => {
   const { user } = useContext(AuthContext);
@@ -207,9 +208,7 @@ const formatDate = (dateString) => {
     }
 
     return baseData.filter(item => {
-      const matchesSearch = Object.values(item).some(value => 
-        value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const matchesSearch = matchesUniversalSearch(item, searchTerm);
 
       const matchesFilters = Object.entries(filters).every(([key, value]) => {
         if (value === 'All') return true;

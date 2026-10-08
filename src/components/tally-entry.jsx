@@ -23,6 +23,8 @@ import {
   Filter,
   ChevronsUpDown,
   Download,
+  Search,
+  X,
 } from "lucide-react";
 import { exportToCSV } from "../utils/csvExport";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
@@ -30,6 +32,7 @@ import { AuthContext } from "../context/AuthContext";
 import { Input } from "@/components/ui/input";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination";
 
@@ -52,7 +55,7 @@ const SearchableSelect = ({
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredOptions = options.filter(option =>
-    option.toLowerCase().includes(searchTerm.toLowerCase())
+    String(option || "").toLowerCase().includes(searchTerm.trim().toLowerCase())
   );
 
   return (
@@ -192,6 +195,7 @@ export default function TallyEntry() {
   const [error, setError] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState("approve");
+  const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
     vendorName: "all",
     rawMaterialName: "all",
@@ -293,9 +297,12 @@ export default function TallyEntry() {
         filtered = filtered.filter((entry) => entry.approvedQty === filters.approvedQty);
       if (filters.deliveryOrderNo !== "all")
         filtered = filtered.filter((entry) => entry.deliveryOrderNo === filters.deliveryOrderNo);
+      if (searchQuery.trim()) {
+        filtered = filtered.filter((entry) => matchesUniversalSearch(entry, searchQuery));
+      }
       return filtered;
     },
-    [filters]
+    [filters, searchQuery]
   );
 
   const { pendingEntries, completedEntries } = useMemo(() => {
@@ -335,13 +342,13 @@ export default function TallyEntry() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completedEntries.length]);
 
-  // Filters changed — the filtered set shrank/grew, so go back to page 1
+  // Filters/search changed — the filtered set shrank/grew, so go back to page 1
   // instead of possibly landing past the end.
   useEffect(() => {
     pendingPagination.resetPage();
     historyPagination.resetPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters, searchQuery]);
 
   const pagedPendingEntries = useMemo(
     () => pendingEntries.slice(pendingPagination.from, pendingPagination.to + 1),
@@ -503,6 +510,7 @@ export default function TallyEntry() {
   };
 
   const clearAllFilters = () => {
+    setSearchQuery("");
     setFilters({
       vendorName: "all",
       rawMaterialName: "all",
@@ -736,10 +744,31 @@ export default function TallyEntry() {
               </TabsTrigger>
             </TabsList>
             <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <Label className="text-sm font-medium">Filters</Label>
-                <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-gray-500" />
+                  <Label className="text-sm font-medium">Filters</Label>
+                </div>
+                <div className="relative w-full sm:w-80 sm:ml-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search anything (PO No, Vendor, Material, DO No...)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-8 text-xs bg-white pl-8 pr-8"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" onClick={clearAllFilters} className="sm:ml-auto bg-white h-8 text-xs">
                   Clear All
                 </Button>
               </div>

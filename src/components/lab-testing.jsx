@@ -69,6 +69,7 @@ import { AuthContext } from "../context/AuthContext";
 import SuperAdminEditModal from "./SuperAdminEditModal";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination";
 
@@ -333,7 +334,7 @@ const SearchableSelect = ({
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredOptions = options.filter((option) =>
-    option.toLowerCase().includes(searchTerm.toLowerCase()),
+    String(option || "").toLowerCase().includes(searchTerm.trim().toLowerCase()),
   );
 
   return (
@@ -932,21 +933,7 @@ export default function LabTesting() {
       );
     }
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((lift) => {
-        return (
-          (lift.liftNo && lift.liftNo.toLowerCase().includes(q)) ||
-          (lift.indentNo && lift.indentNo.toLowerCase().includes(q)) ||
-          (lift.poNumber && lift.poNumber.toLowerCase().includes(q)) ||
-          (lift.vendorName && lift.vendorName.toLowerCase().includes(q)) ||
-          (lift.rawMaterialName && lift.rawMaterialName.toLowerCase().includes(q)) ||
-          (lift.billNo && lift.billNo.toLowerCase().includes(q)) ||
-          (lift.truckNo && lift.truckNo.toLowerCase().includes(q)) ||
-          (lift.firmName && lift.firmName.toLowerCase().includes(q)) ||
-          (lift.type && lift.type.toLowerCase().includes(q)) ||
-          (lift.transporterName && lift.transporterName.toLowerCase().includes(q))
-        );
-      });
+      filtered = filtered.filter((lift) => matchesUniversalSearch(lift, searchQuery));
     }
 
     return filtered;
@@ -995,22 +982,7 @@ export default function LabTesting() {
       );
     }
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((lift) => {
-        return (
-          (lift.liftNo && lift.liftNo.toLowerCase().includes(q)) ||
-          (lift.indentNo && lift.indentNo.toLowerCase().includes(q)) ||
-          (lift.poNumber && lift.poNumber.toLowerCase().includes(q)) ||
-          (lift.vendorName && lift.vendorName.toLowerCase().includes(q)) ||
-          (lift.rawMaterialName && lift.rawMaterialName.toLowerCase().includes(q)) ||
-          (lift.billNo && lift.billNo.toLowerCase().includes(q)) ||
-          (lift.truckNo && lift.truckNo.toLowerCase().includes(q)) ||
-          (lift.firmName && lift.firmName.toLowerCase().includes(q)) ||
-          (lift.type && lift.type.toLowerCase().includes(q)) ||
-          (lift.alStatus_val && lift.alStatus_val.toLowerCase().includes(q)) ||
-          (lift.transporterName && lift.transporterName.toLowerCase().includes(q))
-        );
-      });
+      filtered = filtered.filter((lift) => matchesUniversalSearch(lift, searchQuery));
     }
 
     return filtered.sort((a, b) => {
@@ -1889,14 +1861,23 @@ export default function LabTesting() {
                     Filters
                   </Label>
                 </div>
-                <div className="sm:ml-4 w-full sm:w-72">
+                <div className="sm:ml-4 w-full sm:w-80 relative">
                   <Input
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search anything (Lift, PO, Vendor, Material, Truck...)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-8 text-xs bg-white border-gray-300 focus:border-[#7da23a] focus:ring-[#7da23a]"
+                    className="h-8 text-xs bg-white border-gray-300 pr-8 focus:border-[#7da23a] focus:ring-[#7da23a]"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <Button
                   variant="outline"

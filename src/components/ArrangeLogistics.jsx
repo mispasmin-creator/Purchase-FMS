@@ -45,6 +45,7 @@ import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { fetchMasterData } from "../utils/masterDataUtils";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination";
 import {
@@ -264,13 +265,7 @@ export default function ArrangeLogistics() {
       filtered = filtered.filter((item) => new Date(item.plannedLogistics).toISOString().split("T")[0] === selectedDate);
     }
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((item) =>
-        String(item.indentId).toLowerCase().includes(query) ||
-        String(item.firmName).toLowerCase().includes(query) ||
-        String(item.vendorName).toLowerCase().includes(query) ||
-        String(item.material).toLowerCase().includes(query),
-      );
+      filtered = filtered.filter((item) => matchesUniversalSearch(item, searchQuery));
     }
     setFilteredPendingData(filtered);
   }, [pendingData, searchQuery, selectedDate]);
@@ -281,14 +276,7 @@ export default function ArrangeLogistics() {
       filtered = filtered.filter((item) => new Date(item.actualLogistics).toISOString().split("T")[0] === selectedHistoryDate);
     }
     if (historySearchQuery.trim()) {
-      const query = historySearchQuery.toLowerCase();
-      filtered = filtered.filter((item) =>
-        String(item.indentId).toLowerCase().includes(query) ||
-        String(item.firmName).toLowerCase().includes(query) ||
-        String(item.vendorName).toLowerCase().includes(query) ||
-        String(item.material).toLowerCase().includes(query) ||
-        String(item.selectedTransporter?.name || "").toLowerCase().includes(query),
-      );
+      filtered = filtered.filter((item) => matchesUniversalSearch(item, historySearchQuery));
     }
     setFilteredHistoryData(filtered);
   }, [historyData, historySearchQuery, selectedHistoryDate]);

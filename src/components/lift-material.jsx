@@ -62,6 +62,7 @@ import { PaginationControls } from "@/components/ui/pagination";
 import { fetchMasterDataForSelects } from "../utils/masterDataUtils";
 import { uploadFileToStorage } from "../utils/storageUtils";
 import { canViewFirm, applyFirmFilter } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 
 function formatTimestamp(timestampStr) {
   if (!timestampStr || typeof timestampStr !== "string") {
@@ -543,7 +544,7 @@ export default function LiftMaterial() {
     const [searchTerm, setSearchTerm] = useState("");
 
     const filteredOptions = options.filter((option) =>
-      option.toLowerCase().includes(searchTerm.toLowerCase()),
+      String(option || "").toLowerCase().includes(searchTerm.trim().toLowerCase()),
     );
 
     return (
@@ -1214,21 +1215,8 @@ export default function LiftMaterial() {
         (po) => po.transporterName === filters.transporterName,
       );
     }
-    const searchLower = searchQuery.trim().toLowerCase();
-    if (searchLower) {
-      filtered = filtered.filter((po) => {
-        return (
-          String(po.poNumber || "").toLowerCase().includes(searchLower) ||
-          String(po.indentNo || "").toLowerCase().includes(searchLower) ||
-          String(po.firmName || "").toLowerCase().includes(searchLower) ||
-          String(po.vendorName || "").toLowerCase().includes(searchLower) ||
-          String(po.rawMaterialName || "").toLowerCase().includes(searchLower) ||
-          String(po.transporterName || "").toLowerCase().includes(searchLower) ||
-          String(po.doNumber || "").toLowerCase().includes(searchLower) ||
-          String(po.deliveryDate || "").toLowerCase().includes(searchLower) ||
-          String(po.status || "").toLowerCase().includes(searchLower)
-        );
-      });
+    if (searchQuery.trim()) {
+      filtered = filtered.filter((po) => matchesUniversalSearch(po, searchQuery));
     }
     filtered = filtered.filter((po) =>
       isWithinExportDateRange(po.plannedRaw || po.planned, exportDateRanges.pending),
@@ -2136,14 +2124,23 @@ export default function LiftMaterial() {
                   <Filter className="w-4 h-4 text-gray-500" />
                   <Label className="text-sm font-medium">Filters</Label>
                 </div>
-                <div className="sm:ml-4 w-full sm:w-72">
+                <div className="sm:ml-4 w-full sm:w-80 relative">
                   <Input
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search anything (Lift, PO, Vendor, Material, Truck...)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-8 text-xs bg-white border-gray-300 focus:border-[#7da23a] focus:ring-[#7da23a]"
+                    className="h-8 text-xs bg-white border-gray-300 pr-8 focus:border-[#7da23a] focus:ring-[#7da23a]"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <Button
                   variant="outline"

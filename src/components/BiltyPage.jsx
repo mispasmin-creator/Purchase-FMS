@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useContext, useRef } from "react";
-import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter, ShieldCheck, Edit2, Download } from "lucide-react";
+import React, { useState, useEffect, useRef, useContext, useMemo, useCallback } from "react";
+
+import { Receipt, FileText, Loader2, Upload, X, History, FileCheck, AlertTriangle, Info, ExternalLink, Filter, ShieldCheck, Edit2, Download, Search } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 
 // Shadcn UI components
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -106,6 +108,7 @@ export default function BiltyPage() {
   }, [firmNameFilterKey]);
 
   // Filter State
+  const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
     vendorName: "all",
     materialName: "all",
@@ -119,6 +122,7 @@ export default function BiltyPage() {
   };
 
   const clearAllFilters = () => {
+    setSearchQuery("");
     setFilters({
       vendorName: "all",
       materialName: "all",
@@ -417,23 +421,25 @@ export default function BiltyPage() {
 
   const pendingBilty = useMemo(() => {
     let filtered = liftData.filter(lift => lift.isPending);
+    if (searchQuery.trim()) filtered = filtered.filter(lift => matchesUniversalSearch(lift, searchQuery));
     if (filters.vendorName !== "all") filtered = filtered.filter(lift => lift.vendorName === filters.vendorName);
     if (filters.materialName !== "all") filtered = filtered.filter(lift => lift.rawMaterialName === filters.materialName);
     if (filters.liftType !== "all") filtered = filtered.filter(lift => lift.liftType === filters.liftType);
     if (filters.orderNumber !== "all") filtered = filtered.filter(lift => lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
     if (filters.firmName !== "all") filtered = filtered.filter(lift => lift.firmName === filters.firmName);
     return filtered;
-  }, [liftData, filters]);
+  }, [liftData, filters, searchQuery]);
 
   const biltyHistory = useMemo(() => {
     let filtered = liftData.filter(lift => lift.isHistory);
+    if (searchQuery.trim()) filtered = filtered.filter(lift => matchesUniversalSearch(lift, searchQuery));
     if (filters.vendorName !== "all") filtered = filtered.filter(lift => lift.vendorName === filters.vendorName);
     if (filters.materialName !== "all") filtered = filtered.filter(lift => lift.rawMaterialName === filters.materialName);
     if (filters.liftType !== "all") filtered = filtered.filter(lift => lift.liftType === filters.liftType);
     if (filters.orderNumber !== "all") filtered = filtered.filter(lift => lift.indentNo === filters.orderNumber || lift.billNo === filters.orderNumber);
     if (filters.firmName !== "all") filtered = filtered.filter(lift => lift.firmName === filters.firmName);
     return filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [liftData, filters]);
+  }, [liftData, filters, searchQuery]);
 
   const pendingPagination = usePagination(100);
   const historyPagination = usePagination(100);
@@ -454,7 +460,7 @@ export default function BiltyPage() {
     pendingPagination.resetPage();
     historyPagination.resetPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters, searchQuery]);
 
   const uniqueFilterOptions = useMemo(() => {
     const vendors = new Set();
@@ -814,29 +820,48 @@ export default function BiltyPage() {
               </TabsTrigger>
             </TabsList>
             
-            <div className="mb-4 p-4 bg-green-50/50 rounded-lg grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="mb-4 p-4 bg-green-50/50 rounded-lg flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search anything (Lift, PO, Bill, Truck, Vendor, Material...)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 text-xs bg-white pl-8 pr-8"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               <Select value={filters.vendorName} onValueChange={(value) => handleFilterChange("vendorName", value)}>
-                <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Vendors" /></SelectTrigger>
+                <SelectTrigger className="h-9 bg-white w-full md:w-44"><SelectValue placeholder="All Vendors" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Vendors</SelectItem>
                   {uniqueFilterOptions.vendorName.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filters.materialName} onValueChange={(value) => handleFilterChange("materialName", value)}>
-                <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Materials" /></SelectTrigger>
+                <SelectTrigger className="h-9 bg-white w-full md:w-44"><SelectValue placeholder="All Materials" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Materials</SelectItem>
                   {uniqueFilterOptions.materialName.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filters.firmName} onValueChange={(value) => handleFilterChange("firmName", value)}>
-                <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="All Firms" /></SelectTrigger>
+                <SelectTrigger className="h-9 bg-white w-full md:w-44"><SelectValue placeholder="All Firms" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Firms</SelectItem>
                   {uniqueFilterOptions.firmName.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" onClick={clearAllFilters}>Clear Filters</Button>
+              <Button variant="outline" size="sm" onClick={clearAllFilters} className="bg-white shrink-0">Clear Filters</Button>
             </div>
 
             <TabsContent value="pendingBilty" className="mt-0">

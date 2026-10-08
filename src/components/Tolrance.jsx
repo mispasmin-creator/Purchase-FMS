@@ -13,6 +13,7 @@ import { AuthContext } from "../context/AuthContext"
 import { canViewFirm } from "../utils/firmFilter"
 import { toast } from "sonner"
 import { exportToCSV } from "../utils/csvExport"
+import { matchesUniversalSearch } from "../utils/searchUtils"
 
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
 const TL_SHEET_NAME = "TL"
@@ -104,14 +105,10 @@ export default function TolerancePage() {
 
     if (!searchTerm && filterColumn === "all") return true
     
-    const searchLower = searchTerm.toLowerCase()
-    
     if (filterColumn === "all") {
-      return Object.values(record).some(value => 
-        String(value).toLowerCase().includes(searchLower)
-      )
+      return matchesUniversalSearch(record, searchTerm)
     } else {
-      return String(record[filterColumn] || "").toLowerCase().includes(searchLower)
+      return matchesUniversalSearch(record[filterColumn], searchTerm)
     }
   })
 

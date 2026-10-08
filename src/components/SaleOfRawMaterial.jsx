@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   RefreshCw, X, CheckCircle, AlertCircle, Truck,
-  FileText, Package, CreditCard, ClipboardList, Clock, History, Download
+  FileText, Package, CreditCard, ClipboardList, Clock, History, Download, Search
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
 import { exportToCSV } from '../utils/csvExport';
+import { matchesUniversalSearch } from '../utils/searchUtils';
 
 const TABLE_NAME = 'Sale Of Raw Material';
 
@@ -582,14 +583,21 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
 // Reusable DataTable
 // ═══════════════════════════════════════════════════════════════════════
 const DataTable = ({ columns, data, emptyText, exportTitle = "Raw_Material_Sales" }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredData = useMemo(() => {
+    if (!searchQuery.trim()) return data;
+    return data.filter((item) => matchesUniversalSearch(item, searchQuery));
+  }, [data, searchQuery]);
+
   const handleExportCSV = () => {
-    if (!data || data.length === 0) {
+    if (!filteredData || filteredData.length === 0) {
       toast.info("No data available to export");
       return;
     }
     const exportColumns = columns.filter(col => col.key !== 'actions' && col.label !== 'Action' && col.label !== 'Actions');
     const headers = exportColumns.map(col => col.label || col.key);
-    const rows = data.map(row =>
+    const rows = filteredData.map(row =>
       exportColumns.map(col => {
         const val = row[col.key];
         if (val === null || val === undefined) return "";
@@ -602,19 +610,38 @@ const DataTable = ({ columns, data, emptyText, exportTitle = "Raw_Material_Sales
 
   return (
     <div className="space-y-3">
-      {data.length > 0 && (
-        <div className="flex justify-end">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search anything..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full text-xs border border-gray-200 rounded-lg pl-8 pr-8 py-1.5 bg-white focus:ring-2 focus:ring-[#6b8e2f] outline-none"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        {filteredData.length > 0 && (
           <button
             type="button"
             data-export-btn
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-green-600 text-green-700 hover:bg-green-50 text-xs font-semibold rounded-lg shadow-sm transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-green-600 text-green-700 hover:bg-green-50 text-xs font-semibold rounded-lg shadow-sm transition shrink-0"
           >
             <Download size={14} />
             Export CSV
           </button>
-        </div>
-      )}
+        )}
+      </div>
       <div className="overflow-x-auto rounded-xl border border-gray-200">
         <table className="w-full min-w-max text-sm">
           <thead>
@@ -627,7 +654,7 @@ const DataTable = ({ columns, data, emptyText, exportTitle = "Raw_Material_Sales
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
-            {data.length === 0 ? (
+            {filteredData.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-10 text-center text-gray-400">
                   <div className="flex flex-col items-center gap-2">
@@ -637,7 +664,7 @@ const DataTable = ({ columns, data, emptyText, exportTitle = "Raw_Material_Sales
                 </td>
               </tr>
             ) : (
-              data.map((row, idx) => (
+              filteredData.map((row, idx) => (
                 <tr key={row['ID'] ?? idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}>
                   {columns.map(col => (
                     <td key={col.key} className="px-4 py-3 whitespace-nowrap text-gray-800">

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { AuthContext } from '../context/AuthContext';
 import SuperAdminEditModal from './SuperAdminEditModal';
 import { canViewFirm } from '../utils/firmFilter';
+import { matchesUniversalSearch } from '../utils/searchUtils';
 
 // Modular Component Imports
 import AuditEntryModal from './audit/AuditEntryModal';
@@ -2388,16 +2389,7 @@ const CallTrackerPage = () => {
     if (!matchesFirm) return false;
 
     if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      String(item.liftNumber || '').toLowerCase().includes(searchLower) ||
-      String(item.partyName || '').toLowerCase().includes(searchLower) ||
-      String(item.productName || '').toLowerCase().includes(searchLower) ||
-      String(item.billNo || '').toLowerCase().includes(searchLower) ||
-      String(item.indentNumber || '').toLowerCase().includes(searchLower) ||
-      String(item.firmName || '').toLowerCase().includes(searchLower) ||
-      String(item.transporterName || '').toLowerCase().includes(searchLower)
-    );
+    return matchesUniversalSearch(item, searchTerm);
   }).sort((a, b) => {
     const liftA = String(a.liftNumber || '');
     const liftB = String(b.liftNumber || '');

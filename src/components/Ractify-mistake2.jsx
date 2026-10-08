@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { RefreshCw, Save, X, Edit2, Image, Filter, Download } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
+import { RefreshCw, Save, X, Edit2, Image, Filter, Download, Search } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { canViewFirm } from '../utils/firmFilter';
 import { toast } from 'sonner';
 import { exportToCSV } from '../utils/csvExport';
+import { matchesUniversalSearch } from '../utils/searchUtils';
 
 const RectifyMistake2Page = () => {
   const { user } = useContext(AuthContext);
   const [accountsData, setAccountsData] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
@@ -460,8 +462,13 @@ const RectifyMistake2Page = () => {
     );
   };
 
+  const filteredAccountsData = useMemo(() => {
+    if (!searchQuery.trim()) return accountsData;
+    return accountsData.filter((item) => matchesUniversalSearch(item, searchQuery));
+  }, [accountsData, searchQuery]);
+
   const handleExportCSV = () => {
-    if (!accountsData || accountsData.length === 0) {
+    if (!filteredAccountsData || filteredAccountsData.length === 0) {
       toast.info("No data available to export");
       return;
     }
@@ -489,7 +496,7 @@ const RectifyMistake2Page = () => {
       "Status",
       "Remarks"
     ];
-    const rows = accountsData.map((row) => [
+    const rows = filteredAccountsData.map((row) => [
       row.timestamp || "",
       row.liftNumber || "",
       row.type || "",
@@ -535,7 +542,27 @@ const RectifyMistake2Page = () => {
                   </span>
                 )}
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative w-64">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search anything..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg pl-8 pr-8 py-1.5 bg-white focus:ring-2 focus:ring-[#6b8e2f] outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
                 {/* Column Filter Dropdown */}
                 <div className="relative">
                   <button
@@ -622,7 +649,7 @@ const RectifyMistake2Page = () => {
           </div>
           <div className="px-6 py-3">
             <p className="text-sm text-gray-500">
-              Showing {accountsData.length} records available for secondary rectification
+              Showing {filteredAccountsData.length} records available for secondary rectification
             </p>
           </div>
         </div>
@@ -660,7 +687,7 @@ const RectifyMistake2Page = () => {
               </thead>
 
               <tbody className="bg-white divide-y divide-gray-200">
-                {accountsData.length === 0 ? (
+                {filteredAccountsData.length === 0 ? (
                   <tr>
                     <td colSpan={Object.values(columnVisibility).filter(Boolean).length} className="px-6 py-12 text-center text-gray-500">
                       <div className="flex flex-col items-center">
@@ -670,7 +697,7 @@ const RectifyMistake2Page = () => {
                     </td>
                   </tr>
                 ) : (
-                  accountsData.map((row, index) => (
+                  filteredAccountsData.map((row, index) => (
                     <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       {columnVisibility.timestamp && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.timestamp || '-'}</td>}
                       {columnVisibility.liftNumber && <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.liftNumber || '-'}</td>}

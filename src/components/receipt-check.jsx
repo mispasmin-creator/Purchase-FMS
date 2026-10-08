@@ -64,6 +64,7 @@ import { toast } from "sonner";
 import { supabase } from "../supabase";
 import { uploadFileToStorage } from "../utils/storageUtils";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination";
 
@@ -811,21 +812,7 @@ export default function ReceiptCheck() {
         matches = matches && lift.areaLifting === filters.areaLifting;
       matches = matches && isWithinDateRangeFilter(lift.dateOfBill, dateRangeFilter);
 
-      const searchLower = searchQuery.trim().toLowerCase();
-      if (searchLower) {
-        matches =
-          matches &&
-          ((lift.id && lift.id.toLowerCase().includes(searchLower)) ||
-            (lift.indentNo && lift.indentNo.toLowerCase().includes(searchLower)) ||
-            (lift.firmName && lift.firmName.toLowerCase().includes(searchLower)) ||
-            (lift.billNo && lift.billNo.toLowerCase().includes(searchLower)) ||
-            (lift.vendorName && lift.vendorName.toLowerCase().includes(searchLower)) ||
-            (lift.rawMaterialName && lift.rawMaterialName.toLowerCase().includes(searchLower)) ||
-            (lift.areaLifting && lift.areaLifting.toLowerCase().includes(searchLower)) ||
-            (lift.truckNo && lift.truckNo.toLowerCase().includes(searchLower)) ||
-            (lift.driverNo && lift.driverNo.toLowerCase().includes(searchLower)) ||
-            (lift.transporterName && lift.transporterName.toLowerCase().includes(searchLower)));
-      }
+      matches = matches && matchesUniversalSearch(lift, searchQuery);
 
       return matches;
     });
@@ -889,21 +876,7 @@ export default function ReceiptCheck() {
           matches &&
           isWithinDateRangeFilter(lift.dateOfReceiving_fromSheet, dateRangeFilter);
 
-        const searchLower = searchQuery.trim().toLowerCase();
-        if (searchLower) {
-          matches =
-            matches &&
-            ((lift.id && lift.id.toLowerCase().includes(searchLower)) ||
-              (lift.indentNo && lift.indentNo.toLowerCase().includes(searchLower)) ||
-              (lift.firmName && lift.firmName.toLowerCase().includes(searchLower)) ||
-              (lift.billNo && lift.billNo.toLowerCase().includes(searchLower)) ||
-              (lift.vendorName && lift.vendorName.toLowerCase().includes(searchLower)) ||
-              (lift.rawMaterialName && lift.rawMaterialName.toLowerCase().includes(searchLower)) ||
-              (lift.areaLifting && lift.areaLifting.toLowerCase().includes(searchLower)) ||
-              (lift.truckNo && lift.truckNo.toLowerCase().includes(searchLower)) ||
-              (lift.driverNo && lift.driverNo.toLowerCase().includes(searchLower)) ||
-              (lift.transporterName && lift.transporterName.toLowerCase().includes(searchLower)));
-        }
+        matches = matches && matchesUniversalSearch(lift, searchQuery);
 
         return matches;
       })
@@ -1817,14 +1790,23 @@ export default function ReceiptCheck() {
                   <Filter className="w-3.5 h-3.5 text-gray-400" />
                   <Label className="text-xs font-medium text-gray-500">Filters</Label>
                 </div>
-                <div className="sm:ml-2 w-full sm:w-72">
+                <div className="sm:ml-2 w-full sm:w-80 relative">
                   <Input
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search anything (Lift, PO, Vendor, Bill, Truck...)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-8 text-xs bg-white border-gray-300 focus:border-[#7da23a] focus:ring-[#7da23a]"
+                    className="h-8 text-xs bg-white border-gray-300 pr-8 focus:border-[#7da23a] focus:ring-[#7da23a]"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <Button
                   variant="outline"

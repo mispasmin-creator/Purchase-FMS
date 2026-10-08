@@ -49,6 +49,7 @@ import { useAuth } from "../context/AuthContext";
 import { canViewFirm } from "../utils/firmFilter";
 import { toast } from "sonner";
 import { exportToCSV } from "../utils/csvExport";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 
 const STEPS = [
     { id: 1, label: "Indent Created", column: "Planned1", icon: <FileText className="h-4 w-4" /> },
@@ -234,11 +235,7 @@ export default function IndentTrackingReport() {
 
     const filteredData = useMemo(() => {
         return data.filter(item => {
-            const matchesSearch =
-                String(item.indentId || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                String(item.poNumber || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                String(item.material || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                String(item.firmName || "").toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesSearch = matchesUniversalSearch(item, searchQuery);
 
             const matchesFirm = selectedFirm === "all" || item.firmName === selectedFirm;
 
@@ -379,11 +376,20 @@ export default function IndentTrackingReport() {
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
-                                placeholder="Search Indent ID, PO, Material..."
-                                className="pl-10 h-10"
+                                placeholder="Search anything (Indent, PO, Material, Vendor, Firm, Truck...)..."
+                                className="pl-10 pr-8 h-10"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchQuery("")}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <XCircle size={14} />
+                                </button>
+                            )}
                         </div>
                         <div className="flex gap-2">
                             <div className="w-48">

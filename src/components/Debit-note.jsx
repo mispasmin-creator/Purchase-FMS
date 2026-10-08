@@ -16,6 +16,7 @@ import {
   ChevronsUpDown,
   Edit,
   Save,
+  Search,
   X,
   Clock,
   History,
@@ -40,6 +41,7 @@ import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
 import { useRealtime } from "../hooks/useRealtime";
 import { exportToCSV } from "../utils/csvExport";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 
 const normalizeFirmName = (val) => {
   if (!val) return null;
@@ -114,7 +116,7 @@ const SearchableSelect = ({
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredOptions = options.filter(option =>
-    option.toLowerCase().includes(searchTerm.toLowerCase())
+    String(option || "").toLowerCase().includes(searchTerm.trim().toLowerCase())
   );
 
   return (
@@ -196,6 +198,7 @@ export default function DebitNote() {
   const [debitImageFile, setDebitImageFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("pending");
+  const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
     firmName: "all",
     partyName: "all",
@@ -601,6 +604,10 @@ export default function DebitNote() {
   const filteredData = useMemo(() => {
     let filtered = getActiveTabData();
 
+    if (searchQuery.trim()) {
+      filtered = filtered.filter((item) => matchesUniversalSearch(item, searchQuery));
+    }
+
     if (filters.firmName !== "all") {
       filtered = filtered.filter((item) => item.firmName === filters.firmName);
     }
@@ -618,7 +625,7 @@ export default function DebitNote() {
     }
 
     return filtered;
-  }, [getActiveTabData, filters]);
+  }, [getActiveTabData, filters, searchQuery]);
 
   // Handle filter changes
   const handleFilterChange = (key, value) => {
@@ -626,6 +633,7 @@ export default function DebitNote() {
   };
 
   const clearAllFilters = () => {
+    setSearchQuery("");
     setFilters({
       firmName: "all",
       partyName: "all",
@@ -1293,12 +1301,35 @@ export default function DebitNote() {
               {activeTab === "pending" && (
                 <TabsContent value="pending" className="space-y-4">
                   <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Filter className="h-4 w-4 text-gray-500" />
-                      <Label className="text-sm font-medium">Filters</Label>
-                      <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-                        Clear All
-                      </Button>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-gray-500" />
+                        <Label className="text-sm font-medium">Filters</Label>
+                      </div>
+                      <div className="flex items-center gap-2 flex-1 sm:justify-end">
+                        <div className="relative w-full sm:w-80">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <Input
+                            type="text"
+                            placeholder="Search anything (PO, Lift, Firm, Party, Material...)..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-8 text-xs bg-white pl-8 pr-8"
+                          />
+                          {searchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setSearchQuery("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <Button variant="outline" size="sm" onClick={clearAllFilters} className="bg-white shrink-0">
+                          Clear All
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -1462,12 +1493,35 @@ export default function DebitNote() {
               {/* History Tab */}
               <TabsContent value="history" className="space-y-4">
                 <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Filter className="h-4 w-4 text-gray-500" />
-                    <Label className="text-sm font-medium">Filters</Label>
-                    <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-                      Clear All
-                    </Button>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4 text-gray-500" />
+                      <Label className="text-sm font-medium">Filters</Label>
+                    </div>
+                    <div className="flex items-center gap-2 flex-1 sm:justify-end">
+                      <div className="relative w-full sm:w-80">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          type="text"
+                          placeholder="Search anything (PO, Lift, Firm, Party, Material...)..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="h-8 text-xs bg-white pl-8 pr-8"
+                        />
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <Button variant="outline" size="sm" onClick={clearAllFilters} className="bg-white shrink-0">
+                        Clear All
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div>

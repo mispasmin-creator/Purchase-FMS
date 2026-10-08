@@ -20,6 +20,8 @@ import {
   CheckCircle2,
   ShieldCheck,
   Download,
+  Search,
+  X,
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import {
@@ -71,6 +73,7 @@ import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 
 const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Actions", dataKey: "actions", toggleable: false, alwaysVisible: true },
@@ -194,6 +197,7 @@ export default function MismatchAnalysis() {
   const [visibleHistoryColumns, setVisibleHistoryColumns] = useState({});
   const [mismatchSheetData, setMismatchSheetData] = useState([]);
   const [submittedRows] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [filters, setFilters] = useState({
     vendorName: "all",
@@ -1049,6 +1053,9 @@ export default function MismatchAnalysis() {
     let filtered = unifiedMismatchData.filter(
       (item) => !submittedRows.has(`mismatch_${item.liftNo}`),
     );
+    if (searchQuery.trim()) {
+      filtered = filtered.filter((item) => matchesUniversalSearch(item, searchQuery));
+    }
     if (filters.vendorName !== "all") {
       filtered = filtered.filter(
         (item) => item.vendorName === filters.vendorName,
@@ -1082,10 +1089,13 @@ export default function MismatchAnalysis() {
       });
     }
     return filtered;
-  }, [unifiedMismatchData, filters, submittedRows]);
+  }, [unifiedMismatchData, filters, submittedRows, searchQuery]);
 
   const filteredHistoryData = useMemo(() => {
     let filtered = historyMismatchData;
+    if (searchQuery.trim()) {
+      filtered = filtered.filter((item) => matchesUniversalSearch(item, searchQuery));
+    }
     if (filters.vendorName !== "all") {
       filtered = filtered.filter(
         (item) => item.vendorName === filters.vendorName,
@@ -1119,7 +1129,7 @@ export default function MismatchAnalysis() {
       });
     }
     return filtered;
-  }, [historyMismatchData, filters]);
+  }, [historyMismatchData, filters, searchQuery]);
 
   // Client-side pagination: only the rendered <tbody> rows are sliced;
   // counts, export and filters keep using the full filtered arrays.
@@ -1144,7 +1154,7 @@ export default function MismatchAnalysis() {
     unifiedPagination.resetPage();
     historyPagination.resetPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters, searchQuery]);
 
   // Filter options
   const uniqueFilterOptions = useMemo(() => {
@@ -1176,6 +1186,7 @@ export default function MismatchAnalysis() {
   };
 
   const clearAllFilters = () => {
+    setSearchQuery("");
     setFilters({
       vendorName: "all",
       materialName: "all",
@@ -1794,17 +1805,40 @@ export default function MismatchAnalysis() {
 
               {/* Filters */}
               <div className="mb-4 p-4 bg-red-50/50 rounded-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <Filter className="h-4 w-4 text-gray-500" />
-                  <Label className="text-sm font-medium">Filters</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    className="ml-auto bg-white"
-                  >
-                    Clear All
-                  </Button>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-gray-500" />
+                    <Label className="text-sm font-medium">Filters</Label>
+                  </div>
+                  <div className="flex items-center gap-2 flex-1 sm:justify-end">
+                    <div className="relative w-full sm:w-80">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        type="text"
+                        placeholder="Search anything (PO, Lift, Truck, Vendor, Material...)..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-8 text-xs bg-white pl-8 pr-8"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearAllFilters}
+                      className="bg-white shrink-0"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   <Select

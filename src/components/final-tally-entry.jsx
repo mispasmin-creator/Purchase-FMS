@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useContext } from "react" // Import useContext
-import { CheckCircle, FileText, Loader2, Info, X, AlertTriangle, ClipboardList, History, Filter, Download } from "lucide-react"
+import { CheckCircle, FileText, Loader2, Info, X, AlertTriangle, ClipboardList, History, Filter, Download, Search } from "lucide-react"
 
 // Shadcn/ui components
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
@@ -9,12 +9,14 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AuthContext } from "../context/AuthContext" // Import AuthContext
 import { canViewFirm } from "../utils/firmFilter"
 import { exportToCSV } from "../utils/csvExport"
+import { matchesUniversalSearch } from "../utils/searchUtils"
 
 // --- Google Sheet Configuration ---
 const SHEET_ID = "13_sHCFkVxAzPbel-k9BuUBFY-E11vdKJAOgvzhBMLMY"
@@ -121,6 +123,7 @@ export default function FinalTallyEntry() {
   const [activeTab, setActiveTab] = useState("approve")
 
   // Filter states
+  const [searchQuery, setSearchQuery] = useState("")
   const [filters, setFilters] = useState({
     vendor: "all",
     material: "all",
@@ -319,6 +322,10 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
   const pendingEntries = useMemo(() => {
     let filtered = eligibleEntries.filter((entry) => !entry.isCompleted)
 
+    if (searchQuery.trim()) {
+      filtered = filtered.filter((entry) => matchesUniversalSearch(entry, searchQuery))
+    }
+
     // Apply filters
     if (filters.vendor !== "all") {
       filtered = filtered.filter((entry) => entry.vendor === filters.vendor)
@@ -334,10 +341,14 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
     }
 
     return filtered
-  }, [eligibleEntries, filters])
+  }, [eligibleEntries, filters, searchQuery])
 
   const completedEntries = useMemo(() => {
     let filtered = eligibleEntries.filter((entry) => entry.isCompleted)
+
+    if (searchQuery.trim()) {
+      filtered = filtered.filter((entry) => matchesUniversalSearch(entry, searchQuery))
+    }
 
     // Apply filters
     if (filters.vendor !== "all") {
@@ -366,7 +377,7 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
       }
       return parseDate(b.BB_timestamp_value) - parseDate(a.BB_timestamp_value)
     })
-  }, [eligibleEntries, filters])
+  }, [eligibleEntries, filters, searchQuery])
 
   // Get unique values for filters
   const getUniqueValues = (field) => {
@@ -387,6 +398,7 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
   }
 
   const clearAllFilters = () => {
+    setSearchQuery("")
     setFilters({
       vendor: "all",
       material: "all",
@@ -533,12 +545,35 @@ const handleFinalTallyMarkDone = async (entryId, checked) => {
 
               {/* Filters Section */}
               <div className="mb-4 p-4 bg-green-50/50 rounded-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <Label className="text-sm font-medium">Filters</Label>
-                  <Button variant="outline" size="sm" onClick={clearAllFilters} className="ml-auto bg-white">
-                    Clear All
-                  </Button>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm font-medium">Filters</Label>
+                  </div>
+                  <div className="flex items-center gap-2 flex-1 sm:justify-end">
+                    <div className="relative w-full sm:w-80">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        type="text"
+                        placeholder="Search anything (Lift ID, Vendor, Material...)..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-8 text-xs bg-white pl-8 pr-8"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={clearAllFilters} className="bg-white shrink-0">
+                      Clear All
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Select size="sm" value={filters.vendor} onValueChange={(value) => handleFilterChange("vendor", value)}>

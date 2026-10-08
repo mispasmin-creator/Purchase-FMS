@@ -11,7 +11,10 @@ import {
     ShieldCheck,
     Send,
     Download,
+    Search,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { exportToCSV } from "../utils/csvExport";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +107,7 @@ export default function PurchaseReturnPage() {
     const [superAdminEditItem, setSuperAdminEditItem] = useState(null);
     const [superAdminEditMismatch, setSuperAdminEditMismatch] = useState(null);
     const [firmFilter, setFirmFilter] = useState("all");
+    const [searchQuery, setSearchQuery] = useState("");
     const [mismatchDiffMap, setMismatchDiffMap] = useState({});
     const [dropdownPendingLiftNos, setDropdownPendingLiftNos] = useState(new Set());
 
@@ -1088,6 +1092,14 @@ export default function PurchaseReturnPage() {
         ...pendingReturnRecords.map((r) => ({ key: `return-${r.id}`, source: "return", data: r })),
     ];
 
+    const searchedPendingRows = searchQuery.trim()
+        ? unifiedPendingRows.filter((row) => matchesUniversalSearch(row.data, searchQuery))
+        : unifiedPendingRows;
+
+    const searchedFinalizedRecords = searchQuery.trim()
+        ? finalizedReturnRecords.filter((rec) => matchesUniversalSearch(rec, searchQuery))
+        : finalizedReturnRecords;
+
     const handleExportReturnsCSV = (title, rows) => {
         if (!rows || rows.length === 0) {
             toast.error("No records to export");
@@ -1385,7 +1397,26 @@ export default function PurchaseReturnPage() {
                         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Purchase Return</h1>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative w-full sm:w-72">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                            type="text"
+                            placeholder="Search anything (PR, Lift, PO, Party, Material...)..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-10 text-xs bg-white pl-8 pr-8 rounded-xl"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery("")}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
                     <select
                         value={firmFilter}
                         onChange={(e) => setFirmFilter(e.target.value)}
@@ -1410,15 +1441,15 @@ export default function PurchaseReturnPage() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                 <TabsList className="bg-white border rounded-lg p-1">
                     <TabsTrigger value="pending" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700 h-9 px-4">
-                        Pending ({unifiedPendingRows.length})
+                        Pending ({searchedPendingRows.length})
                     </TabsTrigger>
                     <TabsTrigger value="finalized" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 h-9 px-4">
-                        Finalized Returns ({finalizedReturnRecords.length})
+                        Finalized Returns ({searchedFinalizedRecords.length})
                     </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="finalized">
-                    {renderReturnsTable(finalizedReturnRecords, {
+                    {renderReturnsTable(searchedFinalizedRecords, {
                         title: "Finalized Return Records",
                         loadingLabel: "Loading finalized returns...",
                         emptyLabel: "No finalized returns found.",
@@ -1430,14 +1461,14 @@ export default function PurchaseReturnPage() {
                         <CardHeader className="pb-3 border-b border-orange-100 bg-orange-50/20 flex flex-row items-center justify-between">
                             <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
                                 <RotateCcw className="w-4 h-4 text-orange-500" />
-                                Pending Purchase Returns ({unifiedPendingRows.length})
+                                Pending Purchase Returns ({searchedPendingRows.length})
                             </CardTitle>
                             <Button
                                 data-export-btn
                                 variant="outline"
                                 size="sm"
                                 className="h-8 text-xs flex items-center gap-1.5"
-                                onClick={() => handleExportPendingCSV(unifiedPendingRows)}
+                                onClick={() => handleExportPendingCSV(searchedPendingRows)}
                             >
                                 <Download className="mr-1.5 h-3.5 w-3.5 text-[#7da23a]" /> Export CSV
                             </Button>
@@ -1473,7 +1504,7 @@ export default function PurchaseReturnPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-100">
-                                            {unifiedPendingRows.map((row, idx) => {
+                                            {searchedPendingRows.map((row, idx) => {
                                                 if (row.source === "mismatch") {
                                                     const m = row.data;
                                                     const isFromMismatch = Boolean(m.sent_to_pr_at);

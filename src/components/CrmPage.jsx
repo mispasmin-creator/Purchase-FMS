@@ -63,6 +63,7 @@ import { supabase } from "../supabase";
 import { AuthContext } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination";
 
@@ -332,20 +333,7 @@ export default function CrmPage() {
       }
 
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matches =
-          (row.id && row.id.toLowerCase().includes(q)) ||
-          (row.indentNo && row.indentNo.toLowerCase().includes(q)) ||
-          (row.riNo && row.riNo.toLowerCase().includes(q)) ||
-          (row.firmName && row.firmName.toLowerCase().includes(q)) ||
-          (row.vendorName && row.vendorName.toLowerCase().includes(q)) ||
-          (row.material && row.material.toLowerCase().includes(q)) ||
-          (row.truckNo && row.truckNo.toLowerCase().includes(q)) ||
-          (row.driverNo && row.driverNo.toLowerCase().includes(q)) ||
-          (row.transporterName && row.transporterName.toLowerCase().includes(q)) ||
-          (row.billNo && row.billNo.toLowerCase().includes(q)) ||
-          (row.crmStatus && row.crmStatus.toLowerCase().includes(q));
-        if (!matches) return false;
+        if (!matchesUniversalSearch(row, searchQuery)) return false;
       }
 
       return true;

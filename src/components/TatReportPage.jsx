@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 
 // Helper to parse diverse date formats from Supabase / Google Sheets
 const parseDate = (v) => {
@@ -369,14 +370,7 @@ export default function TatReportPage() {
 
     // Text Search Filter
     if (searchTerm.trim()) {
-      const s = searchTerm.toLowerCase();
-      result = result.filter(r => 
-        r.liftNo.toLowerCase().includes(s) ||
-        r.poNumber.toLowerCase().includes(s) ||
-        r.partyName.toLowerCase().includes(s) ||
-        r.productName.toLowerCase().includes(s) ||
-        r.indentId.toLowerCase().includes(s)
-      );
+      result = result.filter((r) => matchesUniversalSearch(r, searchTerm));
     }
 
     // Sorting
@@ -935,12 +929,22 @@ export default function TatReportPage() {
               <Input
                 id="search-input"
                 type="text"
-                placeholder="Search Lift/PO/Indent..."
+                placeholder="Search anything (Lift, PO, Indent, Party, Product...)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-9 pr-8 text-xs focus:ring-1 focus:ring-[#7da23a]"
               />
-              <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-gray-400" />
+              {searchTerm ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : (
+                <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-gray-400" />
+              )}
             </div>
           </div>
         </CardContent>

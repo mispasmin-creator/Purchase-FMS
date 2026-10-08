@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { PackageSearch, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X, Save, ShieldCheck, Download } from "lucide-react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { PackageSearch, Loader2, AlertTriangle, Info, History, FileCheck, ExternalLink, Filter, X, Save, ShieldCheck, Download, Search } from "lucide-react";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { exportToCSV } from "../utils/csvExport";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { useAuth } from "../context/AuthContext";
@@ -74,6 +75,7 @@ export default function FullkittingTransportingPage() {
     const [isUpdatingHistory, setIsUpdatingHistory] = useState(false);
 
     // State for filters
+    const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState({
         partyName: "all",
         productName: "all",
@@ -374,6 +376,10 @@ export default function FullkittingTransportingPage() {
             );
         }
 
+        if (searchQuery.trim()) {
+            baseData = baseData.filter(item => matchesUniversalSearch(item, searchQuery));
+        }
+
         // Apply general filters
         if (filters.partyName !== "all") {
             baseData = baseData.filter(item => item.partyName === filters.partyName);
@@ -395,7 +401,7 @@ export default function FullkittingTransportingPage() {
             pendingKitting: baseData.filter(d => d.isPending),
             historyKitting: baseData.filter(d => d.isHistory)
         };
-    }, [kittingData, filters, user, hasAllFirmAccess]);
+    }, [kittingData, filters, user, hasAllFirmAccess, searchQuery]);
 
     const pendingPagination = usePagination(100);
     const historyPagination = usePagination(100);
@@ -416,13 +422,14 @@ export default function FullkittingTransportingPage() {
         pendingPagination.resetPage();
         historyPagination.resetPage();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filters]);
+    }, [filters, searchQuery]);
 
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
     };
 
     const clearAllFilters = () => {
+        setSearchQuery("");
         setFilters({
             partyName: "all",
             productName: "all",
@@ -987,7 +994,29 @@ export default function FullkittingTransportingPage() {
                 </CardHeader>
                 <CardContent className="p-4">
                     {/* Filters Section */}
-                    <div className="flex flex-wrap gap-4 mb-6 p-4 bg-muted/20 rounded-xl border border-muted-foreground/10">
+                    <div className="flex flex-wrap gap-4 mb-6 p-4 bg-muted/20 rounded-xl border border-muted-foreground/10 items-end">
+                        <div className="flex flex-col gap-1.5 flex-1 min-w-[240px]">
+                            <Label className="text-xs font-semibold text-muted-foreground ml-1">Search Anything</Label>
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <Input
+                                    type="text"
+                                    placeholder="Search anything (Lift, Party, Product, Bill, Truck, Transporter...)..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="h-9 text-xs bg-white pl-8 pr-8"
+                                />
+                                {searchQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSearchQuery("")}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                         <div className="flex flex-col gap-1.5 min-w-[180px]">
                             <Label className="text-xs font-semibold text-muted-foreground ml-1">Party Name</Label>
                             <Select value={filters.partyName} onValueChange={(val) => handleFilterChange("partyName", val)}>

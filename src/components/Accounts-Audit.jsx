@@ -15,11 +15,13 @@ import {
   AlertCircle,
   ShieldCheck,
   Download,
+  Search,
 } from "lucide-react";
 import { supabase } from "../supabase";
 import { AuthContext } from "../context/AuthContext";
 import { toast } from "sonner";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 
 // Define all columns based on schemas provided
 const COLUMN_DEFINITIONS = [
@@ -80,6 +82,7 @@ const AccountsAudit = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submittedRows, setSubmittedRows] = useState(new Set());
   const [firmFilter, setFirmFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [uniqueFirms, setUniqueFirms] = useState([]);
 
   // Initialize with all columns visible by default
@@ -685,13 +688,17 @@ const AccountsAudit = () => {
       data = data.filter((item) => canViewFirm(user.firmName, item.firmName));
     }
 
+    if (searchQuery.trim()) {
+      data = data.filter((item) => matchesUniversalSearch(item, searchQuery));
+    }
+
     // 2. Interactive UI filter
     if (firmFilter !== "all") {
       data = data.filter((item) => item.firmName === firmFilter);
     }
 
     return data;
-  }, [auditData, firmFilter, user]);
+  }, [auditData, firmFilter, user, searchQuery]);
 
   const exportAuditCSV = () => {
     const exportCols = columns.filter((col) => visibleColumns[col.key]);
@@ -736,8 +743,27 @@ const AccountsAudit = () => {
                   Review and process pending audit items
                 </p>
               </div>
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2 mr-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative w-64">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search anything..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg pl-8 pr-8 py-1.5 bg-white focus:ring-2 focus:ring-[#6b8e2f] outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
                   <Filter className="w-4 h-4 text-gray-500" />
                   <select
                     value={firmFilter}

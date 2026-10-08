@@ -6,6 +6,7 @@ import { PaginationControls } from "@/components/ui/pagination";
 import { AuthContext } from "../context/AuthContext";
 import { RefreshCw, Filter, X, Download, Settings, Check, FileDown, TrendingUp, Truck, AlertTriangle, Info, Edit2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import SuperAdminEditModal from "./SuperAdminEditModal";
@@ -294,15 +295,7 @@ export default function LabReportPage() {
     }
 
     if (!search) return true;
-    const s = search.toLowerCase();
-    return (
-      r.liftNo.toLowerCase().includes(s) ||
-      r.poNumber.toLowerCase().includes(s) ||
-      r.billNo.toLowerCase().includes(s) ||
-      r.partyName.toLowerCase().includes(s) ||
-      r.productName.toLowerCase().includes(s) ||
-      (r.firmName && r.firmName.toLowerCase().includes(s))
-    );
+    return matchesUniversalSearch(r, search);
   });
 
   const tested = filtered.filter((r) => r.dateOfTest && String(r.dateOfTest).trim() !== "").length;
@@ -725,14 +718,7 @@ export default function LabReportPage() {
   const filteredRateRows = rateRows.filter((r) => {
     if (rateFirmFilter !== "all" && r.firmName !== rateFirmFilter) return false;
     if (!rateSearch) return true;
-    const s = rateSearch.toLowerCase();
-    return (
-      (r.liftNo || "").toLowerCase().includes(s) ||
-      (r.indentNo || "").toLowerCase().includes(s) ||
-      (r.partyName || "").toLowerCase().includes(s) ||
-      (r.productName || "").toLowerCase().includes(s) ||
-      (r.billNo || "").toLowerCase().includes(s)
-    );
+    return matchesUniversalSearch(r, rateSearch);
   });
 
   const indentFirmOptions = ["all", ...Array.from(new Set(indentRows.map((r) => r.firmName).filter(Boolean))).sort()];
@@ -740,13 +726,7 @@ export default function LabReportPage() {
   const filteredIndentRows = indentRows.filter((r) => {
     if (indentFirmFilter !== "all" && r.firmName !== indentFirmFilter) return false;
     if (!indentSearch) return true;
-    const s = indentSearch.toLowerCase();
-    return (
-      (r.indentNo || "").toLowerCase().includes(s) ||
-      (r.partyName || "").toLowerCase().includes(s) ||
-      (r.productName || "").toLowerCase().includes(s) ||
-      (r.firmName || "").toLowerCase().includes(s)
-    );
+    return matchesUniversalSearch(r, indentSearch);
   });
 
   const ratePagination = usePagination(100);

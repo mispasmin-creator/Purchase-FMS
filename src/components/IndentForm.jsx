@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useCallback } from "react";
 import {
   Card,
@@ -75,7 +75,7 @@ export default function IndentForm() {
     normalizedIndentType.includes("traiding") ||
     normalizedIndentType.includes("trading");
   const filteredRawMaterials = dropdownOptions.rawMaterialName.filter((option) =>
-    option.toLowerCase().includes(rawMaterialSearch.trim().toLowerCase()),
+    String(option || "").toLowerCase().includes(rawMaterialSearch.trim().toLowerCase()),
   );
 
   const fetchLatestRINumber = useCallback(async () => {

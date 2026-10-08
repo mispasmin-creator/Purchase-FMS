@@ -40,6 +40,7 @@ import { useNotification } from "../context/NotificationContext";
 import { supabase } from "../supabase";
 import { useRealtime } from "../hooks/useRealtime";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination";
 
@@ -182,28 +183,14 @@ export default function LogisticsApproval() {
 
 
   useEffect(() => {
-    const query = searchQuery.toLowerCase();
     setFilteredPendingData(
-      pendingData.filter(
-        (item) =>
-          item.indentId.toLowerCase().includes(query) ||
-          item.firmName.toLowerCase().includes(query) ||
-          item.vendorName.toLowerCase().includes(query) ||
-          item.material.toLowerCase().includes(query),
-      ),
+      pendingData.filter((item) => matchesUniversalSearch(item, searchQuery)),
     );
   }, [pendingData, searchQuery]);
 
   useEffect(() => {
-    const query = historySearchQuery.toLowerCase();
     setFilteredHistoryData(
-      historyData.filter(
-        (item) =>
-          item.indentId.toLowerCase().includes(query) ||
-          item.firmName.toLowerCase().includes(query) ||
-          item.vendorName.toLowerCase().includes(query) ||
-          item.material.toLowerCase().includes(query),
-      ),
+      historyData.filter((item) => matchesUniversalSearch(item, historySearchQuery)),
     );
   }, [historyData, historySearchQuery]);
 

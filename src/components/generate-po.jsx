@@ -880,18 +880,18 @@ export default function CreatePO() {
                       {poDropdownOpen && (
                         <div className="absolute z-50 w-full mt-1 overflow-x-hidden overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg max-h-60">
                           {poNumbers.filter((po) =>
-                            po
+                            String(po || "")
                               .toLowerCase()
                               .includes(
-                                (formData.poNumber || "").toLowerCase(),
+                                String(formData.poNumber || "").trim().toLowerCase(),
                               ),
                           ).length > 0 ? (
                             poNumbers
                               .filter((po) =>
-                                po
+                                String(po || "")
                                   .toLowerCase()
                                   .includes(
-                                    (formData.poNumber || "").toLowerCase(),
+                                    String(formData.poNumber || "").trim().toLowerCase(),
                                   ),
                               )
                               .map((po) => (

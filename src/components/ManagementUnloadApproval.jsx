@@ -6,6 +6,7 @@ import { exportToCSV } from "../utils/csvExport";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { supabase } from "../supabase";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -146,27 +147,11 @@ export default function ManagementUnloadApproval() {
   }, [fetchData]);
 
   const filteredPending = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return pendingData.filter(
-      (item) =>
-        item.liftNo.toLowerCase().includes(query) ||
-        item.indentNo.toLowerCase().includes(query) ||
-        item.vendorName.toLowerCase().includes(query) ||
-        item.rawMaterialName.toLowerCase().includes(query) ||
-        item.unloadApprovalTrigger.toLowerCase().includes(query),
-    );
+    return pendingData.filter((item) => matchesUniversalSearch(item, searchQuery));
   }, [pendingData, searchQuery]);
 
   const filteredHistory = useMemo(() => {
-    const query = historySearchQuery.trim().toLowerCase();
-    return historyData.filter(
-      (item) =>
-        item.liftNo.toLowerCase().includes(query) ||
-        item.indentNo.toLowerCase().includes(query) ||
-        item.vendorName.toLowerCase().includes(query) ||
-        item.rawMaterialName.toLowerCase().includes(query) ||
-        item.unloadApprovalStatus.toLowerCase().includes(query),
-    );
+    return historyData.filter((item) => matchesUniversalSearch(item, historySearchQuery));
   }, [historyData, historySearchQuery]);
 
   const handleExportCSV = (isHistory) => {

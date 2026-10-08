@@ -166,6 +166,9 @@ export default function ManagementApprovals() {
               `"Indent Id.".ilike.%${q2}%`,
               `"Firm Name".ilike.%${q2}%`,
               `"Material".ilike.%${q2}%`,
+              `"Vendor Name 1".ilike.%${q2}%`,
+              `"Vendor Name 2".ilike.%${q2}%`,
+              `"Vendor Name 3".ilike.%${q2}%`,
             ].join(","),
           );
         }
@@ -263,6 +266,9 @@ export default function ManagementApprovals() {
             `"Firm Name".ilike.%${q}%`,
             `"Material".ilike.%${q}%`,
             `"Approved Vendor Name".ilike.%${q}%`,
+            `"Vendor Name 1".ilike.%${q}%`,
+            `"Vendor Name 2".ilike.%${q}%`,
+            `"Vendor Name 3".ilike.%${q}%`,
           ].join(","),
         );
       }
@@ -323,6 +329,9 @@ export default function ManagementApprovals() {
             `"Indent Id.".ilike.%${q2}%`,
             `"Firm Name".ilike.%${q2}%`,
             `"Material".ilike.%${q2}%`,
+            `"Vendor Name 1".ilike.%${q2}%`,
+            `"Vendor Name 2".ilike.%${q2}%`,
+            `"Vendor Name 3".ilike.%${q2}%`,
           ].join(","),
         );
       }
@@ -381,6 +390,10 @@ export default function ManagementApprovals() {
             `"Indent Id.".ilike.%${q}%`,
             `"Firm Name".ilike.%${q}%`,
             `"Material".ilike.%${q}%`,
+            `"Approved Vendor Name".ilike.%${q}%`,
+            `"Vendor Name 1".ilike.%${q}%`,
+            `"Vendor Name 2".ilike.%${q}%`,
+            `"Vendor Name 3".ilike.%${q}%`,
           ].join(","),
         );
       }

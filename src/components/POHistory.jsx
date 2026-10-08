@@ -27,6 +27,7 @@ import {
 import { supabase } from "../supabase";
 import { useAuth } from "../context/AuthContext";
 import { canViewFirm } from "../utils/firmFilter";
+import { matchesUniversalSearch } from "../utils/searchUtils";
 import { toast } from "sonner";
 import { usePagination } from "../hooks/usePagination";
 import { PaginationControls } from "@/components/ui/pagination";
@@ -117,13 +118,7 @@ export default function POHistory() {
 
   const filteredPOs = useMemo(() => {
     return poList.filter((po) => {
-      const searchMatch =
-        po.poId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        po.vendorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (po.firmName &&
-          po.firmName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        po.items.join(", ").toLowerCase().includes(searchQuery.toLowerCase());
-
+      const searchMatch = matchesUniversalSearch(po, searchQuery);
       const dateMatch =
         !dateFilter || (po.date && po.date.startsWith(dateFilter));
 
@@ -347,11 +342,20 @@ export default function POHistory() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Search PO ID, Vendor, or Material..."
-              className="pl-10"
+              placeholder="Search anything (PO ID, Vendor, Material, Amount, Status...)"
+              className="pl-10 pr-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
           <div className="flex gap-2">
             <div className="relative">
