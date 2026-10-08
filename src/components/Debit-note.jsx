@@ -96,6 +96,7 @@ const DEBIT_NOTE_COLUMNS_META = [
   { header: "Status", dataKey: "status", toggleable: true },
   { header: "Debit Amount", dataKey: "debitAmount", toggleable: true },
   { header: "Debit Image", dataKey: "debitNoteUrl", toggleable: true },
+  { header: "Mismatch Remark", dataKey: "mismatchRemark", toggleable: true },
   { header: "Purchase Return Remark", dataKey: "returnReason", toggleable: true },
   { header: "PR Remark", dataKey: "prRemark", toggleable: true },
   { header: "Remarks", dataKey: "remarks", toggleable: true },
@@ -302,9 +303,12 @@ export default function DebitNote() {
           .map((item) => String(item.mismatch_id || "").trim())
           .filter(Boolean),
       );
-      const coordinatedMismatchIds = Array.from(directDebitMismatchIds).filter(
-        (id) => !existingMismatchIds.has(id),
-      );
+      const manualMismatchIds = (manualReturnsData || [])
+        .map((item) => String(item.mismatch_id || "").trim())
+        .filter(Boolean);
+      const coordinatedMismatchIds = Array.from(
+        new Set([...directDebitMismatchIds, ...manualMismatchIds])
+      ).filter((id) => !existingMismatchIds.has(id));
 
       if (coordinatedMismatchIds.length > 0) {
         const { data: fallbackRows, error: fallbackError } = await supabase
@@ -317,7 +321,7 @@ export default function DebitNote() {
           ...sourceRows,
           ...(fallbackRows || []).map((row) => ({
             ...row,
-            Status: "Credit Notes",
+            Status: row.Status || "Credit Notes",
             coordination_status: row.coordination_status || "COORDINATED",
             "Action Type": row["Action Type"] || "Make Debit Note",
           })),
@@ -327,6 +331,11 @@ export default function DebitNote() {
       // Map to our data structure
       const returnQtyMap = {};
       const vehicleNoMap = {};
+      const mismatchRemarkMap = {};
+      sourceRows.forEach((r) => {
+        if (r.id) mismatchRemarkMap[String(r.id)] = r.pr_remark || "";
+        if (r["Lift ID"]) mismatchRemarkMap[String(r["Lift ID"]).trim()] = r.pr_remark || "";
+      });
       // Purchase Return No., Product Rate, Bill No, Transporter Name and Credit
       // Note live on the "Purchase Returns" row (from the PR Approval flow),
       // not on the Mismatch row itself — keep the latest one per mismatch.
@@ -397,6 +406,8 @@ export default function DebitNote() {
           weightSlip: prDetails?.["Weighslip of Material"] || "",
           // Purchase Return No. — from the linked Purchase Return row when one exists, else the Mismatch table's own value
           purchaseReturnNo: String(prDetails?.["Purchase Return No."] || row["Purchase Return No."] || "").trim(),
+          // Mismatch Remark — the remark entered when sending to Purchase Return from Mismatch page
+          mismatchRemark: row["pr_remark"] || "",
           // Purchase Return Remark — the reason entered when submitting the Purchase Return
           returnReason: prDetails?.["Return Reason"] || "",
           // PR Remark — the remark entered while approving/rejecting in PR Approval
@@ -454,6 +465,8 @@ export default function DebitNote() {
             totalReturnQty: row["Total Return Qty"] || null,
             // Qty — the actual/total received quantity from the Purchase Return row
             totalQty: row["Total Qty"] || "",
+            // Mismatch Remark — the remark entered when sending to Purchase Return from Mismatch page
+            mismatchRemark: (row.mismatch_id && mismatchRemarkMap[String(row.mismatch_id)]) || mismatchRemarkMap[String(row["Lift No"] || "").trim()] || "",
             // Purchase Return Remark — the reason entered when submitting the Purchase Return
             returnReason: String(row["Return Reason"] || "").trim(),
             // PR Remark — the remark entered while approving/rejecting in PR Approval
@@ -627,7 +640,11 @@ export default function DebitNote() {
       toast.info("No data available to export");
       return;
     }
-    const exportColumns = DEBIT_NOTE_COLUMNS_META.filter(c => c.dataKey !== "actions");
+    const exportColumns = DEBIT_NOTE_COLUMNS_META.filter(c => {
+      if (c.dataKey === "actions") return false;
+      if (tabType === "pending" && (c.dataKey === "status" || c.dataKey === "debitAmount" || c.dataKey === "debitNoteUrl")) return false;
+      return true;
+    });
     const headers = exportColumns.map(c => c.header);
     const rows = filteredData.map(item =>
       exportColumns.map(col => {
@@ -1208,6 +1225,7 @@ export default function DebitNote() {
               { label: "Qty Diff Status", dbKey: "qtyDifferenceStatus", value: superAdminEditItem.qtyDifferenceStatus || "", type: "text", skipSave: true, readOnly: true },
               { label: "Debit Amount", dbKey: "Amount", value: superAdminEditItem.debitAmount || "", type: "number" },
               { label: "Debit Image URL", dbKey: "debitNoteUrl", value: superAdminEditItem.debitNoteUrl || "", type: "text", skipSave: true, readOnly: true },
+              { label: "Mismatch Remark", dbKey: "pr_remark", value: superAdminEditItem.mismatchRemark || "", type: "text", readOnly: true, skipSave: true },
               { label: "Remarks", dbKey: "Return Reason", value: superAdminEditItem.remarks, type: "textarea" },
             ] : [
               { label: "Timestamp", dbKey: "Timestamp", value: superAdminEditItem._rawTimestamp || superAdminEditItem.timestamp, type: "text" },
@@ -1227,6 +1245,7 @@ export default function DebitNote() {
               { label: "Qty Diff Status", dbKey: "Qty Diff Status", value: superAdminEditItem.qtyDifferenceStatus || "", type: "text" },
               { label: "Debit Amount", dbKey: "Debit Amount", value: superAdminEditItem.debitAmount, type: "number" },
               { label: "Debit Image URL", dbKey: "Debit Note URL", value: superAdminEditItem.debitNoteUrl, type: "text" },
+              { label: "Mismatch Remark", dbKey: "pr_remark", value: superAdminEditItem.mismatchRemark || "", type: "textarea" },
               { label: "Remarks", dbKey: "Remarks", value: superAdminEditItem.remarks, type: "textarea" },
             ]
           }
@@ -1405,7 +1424,7 @@ export default function DebitNote() {
                           <table className="w-full text-sm border-collapse">
                             <thead className="sticky top-0 z-30">
                               <tr className="bg-yellow-50 border-b border-yellow-200">
-                                {DEBIT_NOTE_COLUMNS_META.filter(col => col.dataKey !== "status").map((col) => (
+                                {DEBIT_NOTE_COLUMNS_META.filter(col => col.dataKey !== "status" && col.dataKey !== "debitAmount" && col.dataKey !== "debitNoteUrl").map((col) => (
                                   <th
                                     key={col.dataKey}
                                     className={`px-3 py-3 text-xs font-bold text-yellow-800 uppercase text-left bg-yellow-50/95 backdrop-blur-sm shadow-sm whitespace-nowrap ${col.dataKey === "actions" ? "w-[150px]" : ""}`}
@@ -1421,7 +1440,7 @@ export default function DebitNote() {
                                   key={item.id}
                                   className={`hover:bg-yellow-50/50 transition-colors border-b border-gray-100 ${editingRow === item.id ? "bg-yellow-100 ring-1 ring-yellow-300" : ""}`}
                                 >
-                                  {DEBIT_NOTE_COLUMNS_META.filter(col => col.dataKey !== "status").map((column) => (
+                                  {DEBIT_NOTE_COLUMNS_META.filter(col => col.dataKey !== "status" && col.dataKey !== "debitAmount" && col.dataKey !== "debitNoteUrl").map((column) => (
                                     <td
                                       key={`${item.id}-${column.dataKey}`}
                                       className={`text-xs px-3 py-2 ${column.dataKey === "actions" ? "w-[150px]" : ""}`}
