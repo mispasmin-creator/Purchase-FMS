@@ -133,7 +133,7 @@ const PO_COLUMNS_META = [
     toggleable: true,
   },
   { header: "Delivery Date", dataKey: "deliveryDate", toggleable: true },
-  { header: "Planned Date", dataKey: "planned", toggleable: true },
+  // { header: "Planned Date", dataKey: "planned", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
