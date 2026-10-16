@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from "react";
+import React, { useState, useEffect, useCallback, useContext, useMemo } from "react";
 import {
     Loader2,
     Plus,
@@ -44,7 +44,7 @@ const normalizeFirmName = (val) => {
             if (Array.isArray(parsed)) {
                 return parsed[0] || null;
             }
-        } catch (e) {
+        } catch {
             // Ignore parse error
         }
     }
@@ -91,6 +91,9 @@ const isZeroReturnRecord = (r) =>
     parseFloat(r["Total Return Qty"]) === 0 &&
     (parseFloat(r["Return This Time"]) || 0) === 0;
 
+const isFinalTallyCompleted = (lift) =>
+    String(lift?.["Actual 4"] ?? "").trim() !== "";
+
 export default function PurchaseReturnPage() {
     const { user, isSuperAdmin: isSuperAdminContext } = useContext(AuthContext);
     const isSuperAdmin = !!(isSuperAdminContext || user?.isSuperAdmin);
@@ -109,7 +112,24 @@ export default function PurchaseReturnPage() {
     const [firmFilter, setFirmFilter] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [mismatchDiffMap, setMismatchDiffMap] = useState({});
-    const [dropdownPendingLiftNos, setDropdownPendingLiftNos] = useState(new Set());
+
+    const eligibleLiftOptions = useMemo(() => {
+        const uniqueLifts = new Map();
+
+        availableLifts.forEach((lift) => {
+            const liftNo = String(lift["Lift No"] || "").trim();
+            if (!liftNo || isFinalTallyCompleted(lift)) return;
+
+            const normalizedLiftNo = liftNo.toLowerCase();
+            if (!uniqueLifts.has(normalizedLiftNo)) {
+                uniqueLifts.set(normalizedLiftNo, { ...lift, liftNo });
+            }
+        });
+
+        return Array.from(uniqueLifts.values()).sort((a, b) =>
+            a.liftNo.localeCompare(b.liftNo, undefined, { numeric: true, sensitivity: "base" })
+        );
+    }, [availableLifts]);
 
     // ── Fetch all records ──────────────────────────────────────────────────
     const fetchRecords = useCallback(async () => {
@@ -128,7 +148,6 @@ export default function PurchaseReturnPage() {
                 { data: mismatchData, error: mismatchError },
                 { data: coordinatedReturnData, error: coordinatedReturnError },
                 { data: liftAccountsData, error: liftAccountsError },
-                { data: openMismatchData, error: openMismatchError },
             ] = await Promise.all([
                 supabase
                     .from("Mismatch")
@@ -144,18 +163,11 @@ export default function PurchaseReturnPage() {
                     .from("LIFT-ACCOUNTS")
                     .select("*")
                     .order("Timestamp", { ascending: false }),
-                // Every mismatch still open on the Mismatch page (same exclusion
-                // list it uses for its own "Pending" tab) — used only to scope
-                // the Lift No dropdown in the manual Purchase Return popup.
-                supabase
-                    .from("Mismatch")
-                    .select('"Lift Number", "Lift ID", "Firm Name", "Status", "Rate Difference", "Quantity Difference", "Diff Qty", "Qty Diff Status", "Alumina Difference", "Iron Difference", "AP Difference", "BD Difference"'),
             ]);
 
             if (mismatchError) throw mismatchError;
             if (coordinatedReturnError) throw coordinatedReturnError;
             if (liftAccountsError) throw liftAccountsError;
-            if (openMismatchError) throw openMismatchError;
 
             let fetchedReturns = returnData || [];
             let fetchedMismatches = mismatchData || [];
@@ -346,31 +358,10 @@ export default function PurchaseReturnPage() {
                 });
             }
 
-            // Mirrors Mis-match.jsx's own "Pending" exclusion list exactly, including
-            // its handling of a null/unset Status (still counted as open there),
-            // plus its requirement that a real Rate/Qty/Lab difference exists.
-            let openMismatches = (openMismatchData || []).filter(
-                (m) =>
-                    m["Status"] !== "Credit Notes" &&
-                    m["Status"] !== "Others" &&
-                    m["Status"] !== "Purchase Return" &&
-                    m["Status"] !== "Acknowledge" &&
-                    m["Status"] !== "Completed" &&
-                    m["Status"] !== "Resolved - Return" &&
-                    Boolean(classifyMismatchType(m))
-            );
-            if (user?.firmName) {
-                openMismatches = openMismatches.filter((m) => canViewFirm(user.firmName, m["Firm Name"]));
-            }
-            const openLiftNos = new Set(
-                openMismatches.map((m) => String(m["Lift Number"] || m["Lift ID"] || "").trim()).filter(Boolean)
-            );
-
             setRecords(mappedReturns);
             setPendingMismatches(fetchedMismatches);
             setAvailableLifts(fetchedLifts);
             setMismatchDiffMap(mismatchDiffMap);
-            setDropdownPendingLiftNos(openLiftNos);
         } catch (err) {
             console.error("Failed to fetch records:", err);
             toast.error("Failed to load records.");
@@ -689,6 +680,24 @@ export default function PurchaseReturnPage() {
         const liftNo = String(value || "").trim();
         if (!liftNo) return;
 
+        const selectedLift = availableLifts.find(
+            (lift) => String(lift["Lift No"] || "").trim().toLowerCase() === liftNo.toLowerCase()
+        );
+
+        if (!selectedLift) {
+            toast.warning(`Lift No. ${liftNo} available list mein nahi mila.`);
+            setForm((prev) => ({ ...prev, liftNo: "" }));
+            return;
+        }
+
+        if (isFinalTallyCompleted(selectedLift)) {
+            toast.warning(`Lift No. ${liftNo} ki Final Tally Entry already complete hai.`);
+            setForm((prev) => ({ ...prev, liftNo: "" }));
+            return;
+        }
+
+        const canonicalLiftNo = String(selectedLift["Lift No"] || "").trim();
+
         try {
             const [
                 { data: liftData, error: liftError },
@@ -697,12 +706,12 @@ export default function PurchaseReturnPage() {
                 supabase
                     .from("LIFT-ACCOUNTS")
                     .select("*")
-                    .eq("Lift No", liftNo)
+                    .eq("Lift No", canonicalLiftNo)
                     .maybeSingle(),
                 supabase
                     .from("Purchase Returns")
                     .select('ID, mismatch_id, "Qty", "Return This Time"')
-                    .eq("Lift No", liftNo)
+                    .eq("Lift No", canonicalLiftNo)
                     .not("ID", "is", null),
             ]);
 
@@ -734,7 +743,7 @@ export default function PurchaseReturnPage() {
 
             setForm((prev) => ({
                 ...prev,
-                liftNo,
+                liftNo: canonicalLiftNo,
                 poNo:
                     liftData["Indent no."] ||
                     liftData["Indent Number"] ||
@@ -894,6 +903,19 @@ export default function PurchaseReturnPage() {
         if (!form.purchaseReturnNo || !form.liftNo || !form.poNo || ((!totalReturnQty || !returnThisTime) && !isZeroReturn)) {
             toast.warning("Please provide PR No., Lift No., PO / Indent No, Total Return Qty and Return This Time.");
             return;
+        }
+        if (!form.mismatch_id && form.id === null) {
+            const selectedLift = availableLifts.find(
+                (lift) => String(lift["Lift No"] || "").trim().toLowerCase() === String(form.liftNo).trim().toLowerCase()
+            );
+            if (!selectedLift) {
+                toast.warning("Please select a valid Lift No. from the available suggestions.");
+                return;
+            }
+            if (isFinalTallyCompleted(selectedLift)) {
+                toast.warning(`Lift No. ${form.liftNo} ki Final Tally Entry already complete hai.`);
+                return;
+            }
         }
         if (!isZeroReturn && (totalReturnQty <= 0 || returnThisTime <= 0)) {
             toast.warning("Return quantities must be greater than zero.");
@@ -1746,29 +1768,25 @@ export default function PurchaseReturnPage() {
                                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 outline-none cursor-not-allowed"
                                             />
                                         ) : (
-                                            <select
-                                                value={form.liftNo}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    handleChange("liftNo", val);
-                                                    handleLiftNoBlur(val);
-                                                }}
-                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 bg-white"
-                                            >
-                                                <option value="">Select Lift No.</option>
-                                                {(() => {
-                                                    return Array.from(new Set(availableLifts.map(l => String(l["Lift No"] || "").trim()).filter(Boolean)))
-                                                        .filter(liftNum => dropdownPendingLiftNos.has(liftNum))
-                                                        .map(liftNum => {
-                                                            const lift = availableLifts.find(l => String(l["Lift No"] || "").trim() === liftNum);
-                                                            return (
-                                                                <option key={liftNum} value={liftNum}>
-                                                                    {liftNum} {lift ? `(${lift["Vendor Name"] || lift["Party Name"] || "No Vendor"})` : ""}
-                                                                </option>
-                                                            );
-                                                        });
-                                                })()}
-                                            </select>
+                                            <>
+                                                <input
+                                                    type="text"
+                                                    list="purchase-return-lift-options"
+                                                    value={form.liftNo}
+                                                    onChange={(e) => handleChange("liftNo", e.target.value)}
+                                                    onBlur={(e) => handleLiftNoBlur(e.target.value)}
+                                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 bg-white"
+                                                    placeholder="Type or select Lift No."
+                                                    autoComplete="off"
+                                                />
+                                                <datalist id="purchase-return-lift-options">
+                                                    {eligibleLiftOptions.map((lift) => (
+                                                        <option key={lift.liftNo.toLowerCase()} value={lift.liftNo}>
+                                                            {lift["Vendor Name"] || lift["Party Name"] || "No Vendor"}
+                                                        </option>
+                                                    ))}
+                                                </datalist>
+                                            </>
                                         )}
                                     </div>
                                     <div>
