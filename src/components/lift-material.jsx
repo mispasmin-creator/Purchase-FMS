@@ -132,6 +132,7 @@ const PO_COLUMNS_META = [
     dataKey: "indentNo",
     toggleable: true,
   },
+  { header: "PO Date", dataKey: "poDate", toggleable: true },
   { header: "Delivery Date", dataKey: "deliveryDate", toggleable: true },
   // { header: "Planned Date", dataKey: "planned", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
@@ -167,13 +168,14 @@ const PO_COLUMNS_META = [
     dataKey: "cancelAction",
     toggleable: false,
     alwaysVisible: true,
-  },
+  }, 
 ];
 const LIFTS_COLUMNS_META = [
   { header: "Lift ID", dataKey: "id", toggleable: true, alwaysVisible: true },
   { header: "Lifted On", dataKey: "createdAt", toggleable: true },
   { header: "PO NUMBER", dataKey: "indentNo", toggleable: true },
   { header: "RI Number", dataKey: "riNo", toggleable: true },
+  { header: "PO Date", dataKey: "poDate", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "material", toggleable: true },
@@ -279,7 +281,7 @@ const makeLiftItemKey = (poNumber, material, uniqueId = "") => {
 // Shapes a raw LIFT-ACCOUNTS row into the display object used by both the
 // paginated table (fetchMaterialLifts) and the CSV export (which fetches its
 // own unpaginated, date-scoped result set).
-const mapLiftRow = (row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberMap) => {
+const mapLiftRow = (row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberMap, poDateMap = {}) => {
   let createdAt = "";
   if (row["Timestamp"]) {
     try {
@@ -348,6 +350,7 @@ const mapLiftRow = (row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberM
     orderCancelQty: cancelQtyMap[resolvedPo] || "0",
     cancelReason: cancelReasonMap[resolvedPo] || "",
     doNumber: doNumberMap[resolvedPo] || "",
+    poDate: poDateMap[resolvedPo] || "",
   };
 };
 
@@ -616,7 +619,7 @@ export default function LiftMaterial() {
         { data, error: fetchError },
         { data: liftData, error: liftFetchError },
       ] = await Promise.all([
-        supabase.from("INDENT-PO").select('"id","Indent Id.","po_number","Status","Planned4","Lead Time To Lift (days)","Material","Quantity","Total Quantity","Rate","Order Cancel Qty","Pending PO Qty","Firm Name","Vendor name","Vendor","Alumina %","Iron %","Transport Type","Transporter Name","transpoter_rate_type","Transporter Rate","PO Notes","Reason Of Cancel Qty","Delivery Order No."').not("Planned4", "is", null),
+        supabase.from("INDENT-PO").select('"id","Indent Id.","po_number","Status","Planned4","Actual2","Lead Time To Lift (days)","Material","Quantity","Total Quantity","Rate","Order Cancel Qty","Pending PO Qty","Firm Name","Vendor name","Vendor","Alumina %","Iron %","Transport Type","Transporter Name","transpoter_rate_type","Transporter Rate","PO Notes","Reason Of Cancel Qty","Delivery Order No."').not("Planned4", "is", null),
         supabase
           .from("LIFT-ACCOUNTS")
           .select('"Indent no.", "Lifting Qty", "Raw Material Name"'),
@@ -740,7 +743,7 @@ export default function LiftMaterial() {
             items.length > 1
               ? items.map(it => it.material).join(", ")
               : items[0]?.material || String(row["Material"] || "").trim(),
-          quantity: String(items.reduce((sum, item) => sum + item.quantity, 0) || totalQty || ""),
+          quantity: String(items.reduce((sum, item) => sum + item.maxQuantity, 0) || totalQty || ""),
           _rowIndex: row.id,
           dbRowIds,
           rate: String(row["Rate"] || "").trim(),
@@ -756,6 +759,9 @@ export default function LiftMaterial() {
           plannedRaw: row["Planned4"] || "",
           planned: row["Planned4"]
             ? String(row["Planned4"]).trim().replace("T", " ")
+            : "",
+          poDate: row["Actual2"]
+            ? String(row["Actual2"]).trim().split(" ")[0].split("T")[0]
             : "",
           deliveryDateRaw: row["Lead Time To Lift (days)"] || "",
           deliveryDate: row["Lead Time To Lift (days)"]
@@ -871,8 +877,24 @@ export default function LiftMaterial() {
       }
       const searchTrimmed = searchQuery.trim().replace(/[%,"]/g, "");
       if (searchTrimmed) {
+        // LIFT-ACCOUNTS has no PO number column (only "Indent no." / RI number),
+        // so resolve matching PO numbers to their Indent Ids via INDENT-PO.
+        const { data: poMatches } = await supabase
+          .from("INDENT-PO")
+          .select('"Indent Id."')
+          .ilike("po_number", `%${searchTrimmed}%`);
+        const poIndentIds = Array.from(
+          new Set(
+            (poMatches || [])
+              .map((r) => String(r["Indent Id."] || "").replace(/[%,"()]/g, "").trim())
+              .filter(Boolean),
+          ),
+        );
         liftQuery = liftQuery.or(
           [
+            ...(poIndentIds.length
+              ? [`"Indent no.".in.(${poIndentIds.map((id) => `"${id}"`).join(",")})`]
+              : []),
             `"Lift No".ilike.%${searchTrimmed}%`,
             `"Indent no.".ilike.%${searchTrimmed}%`,
             `"Vendor Name".ilike.%${searchTrimmed}%`,
@@ -895,7 +917,7 @@ export default function LiftMaterial() {
         supabase
           .from("INDENT-PO")
           .select(
-            'id, "Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty", po_number, "Delivery Order No."',
+            'id, "Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty", po_number, "Delivery Order No.", "Actual2"',
           ),
       ]);
 
@@ -908,11 +930,14 @@ export default function LiftMaterial() {
       const cancelQtyMap = {};
       const cancelReasonMap = {};
       const doNumberMap = {};
+      const poDateMap = {};
       (poData || []).forEach((row) => {
         const poNumber = String(
           row.po_number || row["Indent Id."] || "",
         ).trim();
         if (poNumber) {
+          if (row["Actual2"])
+            poDateMap[poNumber] = String(row["Actual2"]).trim().split(" ")[0].split("T")[0];
           cancelQtyMap[poNumber] = String(row["Order Cancel Qty"] || "").trim();
           cancelReasonMap[poNumber] = String(
             row["Reason Of Cancel Qty"] || "",
@@ -929,7 +954,7 @@ export default function LiftMaterial() {
       }, {});
 
       let formattedData = (data || []).map((row) =>
-        mapLiftRow(row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberMap),
+        mapLiftRow(row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberMap, poDateMap),
       );
 
       setMaterialLifts(formattedData);
@@ -2002,7 +2027,7 @@ export default function LiftMaterial() {
             supabase
               .from("INDENT-PO")
               .select(
-                'id, "Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty", po_number, "Delivery Order No."',
+                'id, "Indent Id.", "Order Cancel Qty", "Reason Of Cancel Qty", po_number, "Delivery Order No.", "Actual2"',
               ),
           ]);
         if (fetchError) throw fetchError;
@@ -2011,9 +2036,12 @@ export default function LiftMaterial() {
         const cancelQtyMap = {};
         const cancelReasonMap = {};
         const doNumberMap = {};
+        const poDateMap = {};
         (poData || []).forEach((row) => {
           const poNumber = String(row.po_number || row["Indent Id."] || "").trim();
           if (poNumber) {
+            if (row["Actual2"])
+              poDateMap[poNumber] = String(row["Actual2"]).trim().split(" ")[0].split("T")[0];
             cancelQtyMap[poNumber] = String(row["Order Cancel Qty"] || "").trim();
             cancelReasonMap[poNumber] = String(row["Reason Of Cancel Qty"] || "").trim();
             doNumberMap[poNumber] = String(row["Delivery Order No."] || "").trim();
@@ -2027,7 +2055,7 @@ export default function LiftMaterial() {
         }, {});
 
         rows = (data || []).map((row) =>
-          mapLiftRow(row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberMap),
+          mapLiftRow(row, indentToPoMap, cancelQtyMap, cancelReasonMap, doNumberMap, poDateMap),
         );
       } catch (err) {
         toast.error(`Failed to prepare export: ${err.message}`);
