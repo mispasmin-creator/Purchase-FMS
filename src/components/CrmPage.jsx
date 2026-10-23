@@ -161,17 +161,20 @@ export default function CrmPage() {
             .order("id", { ascending: false }),
           supabase
             .from("INDENT-PO")
-            .select('"Indent Id.", po_number, "Firm Name"'),
+            .select('"Indent Id.", po_number, "Firm Name", "UOM"'),
         ]);
 
       if (fetchError) throw fetchError;
       if (poError) console.warn("Failed to load PO map:", poError);
 
       const indentToPoMap = {};
+      const indentToUomMap = {};
       (poData || []).forEach((row) => {
         const indent = String(row["Indent Id."] || "").trim();
         const po = String(row.po_number || indent).trim();
+        const uom = String(row["UOM"] || "").trim().toUpperCase();
         if (indent) indentToPoMap[indent] = po;
+        if (indent) indentToUomMap[indent] = uom || "MT";
       });
 
       const processed = (data || []).map((row) => {
@@ -192,6 +195,7 @@ export default function CrmPage() {
           timestampFormatted: formatTimestamp(row["Timestamp"]),
           indentNo: resolvedPo,
           riNo: indentKey,
+          uom: indentToUomMap[indentKey] || "MT",
           firmName: String(row["Firm Name"] || "").trim(),
           vendorName: String(row["Vendor Name"] || "").trim(),
           material: String(row["Raw Material Name"] || "").trim(),
@@ -1087,7 +1091,9 @@ export default function CrmPage() {
                 </div>
                 <div>
                   <span className="text-gray-500 block">Billing Qty:</span>
-                  <span className="font-bold text-[#7da23a]">{selectedLift.liftingQty} MT</span>
+                  <span className="font-bold text-[#7da23a]">
+                    {selectedLift.liftingQty} {selectedLift.uom}
+                  </span>
                 </div>
                 <div>
                   <span className="text-gray-500 block">Truck No:</span>
@@ -1151,7 +1157,7 @@ export default function CrmPage() {
                   <ul className="list-disc pl-4 space-y-0.5 text-amber-900">
                     {siblingLifts.map((s) => (
                       <li key={s._dbId}>
-                        {s.id}: <b>{s.material}</b> ({s.liftingQty} MT)
+                        {s.id}: <b>{s.material}</b> ({s.liftingQty} {s.uom})
                       </li>
                     ))}
                   </ul>
