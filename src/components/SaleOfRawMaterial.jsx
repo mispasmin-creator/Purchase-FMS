@@ -199,7 +199,7 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
     try {
       const { data, error } = await supabase
         .from(TABLE_NAME)
-        .select('*')
+        .select('ID, "Order No."')
         .order('ID', { ascending: false })
         .limit(1);
 
@@ -260,7 +260,7 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
 
         const { error: uploadError } = await supabase.storage
           .from('image')
-          .upload(filePath, form.poCopyFile);
+          .upload(filePath, form.poCopyFile, { cacheControl: '31536000', upsert: false });
 
         if (uploadError) throw uploadError;
 
@@ -278,7 +278,7 @@ const ReceiveOrderTab = ({ onOrderSubmitted }) => {
         const fileExt = form.weightmentSlipFile.name.split('.').pop();
         const fileName = `${Date.now()}_weight_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `sales of raw material/${fileName}`;
-        const { error: weightError } = await supabase.storage.from('image').upload(filePath, form.weightmentSlipFile);
+        const { error: weightError } = await supabase.storage.from('image').upload(filePath, form.weightmentSlipFile, { cacheControl: '31536000', upsert: false });
         if (weightError) throw weightError;
         weightmentSlipUrl = supabase.storage.from('image').getPublicUrl(filePath).data.publicUrl;
       }
@@ -704,7 +704,7 @@ const InvoiceModal = ({ row, onClose, onSaved }) => {
 
       const { error: uploadError } = await supabase.storage
         .from('image')
-        .upload(filePath, billFile);
+        .upload(filePath, billFile, { cacheControl: '31536000', upsert: false });
 
       if (uploadError) throw uploadError;
 

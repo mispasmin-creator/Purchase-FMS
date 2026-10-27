@@ -85,7 +85,7 @@ export default function PurchaseReturnApproval() {
     try {
       const { data, error: fetchError } = await supabase
         .from("Purchase Returns")
-        .select("*")
+        .select('ID, mismatch_id, "Lift No", "Po No.", "Purchase Return No.", "Firm Name", "Party Name", "Product Name", "Return This Time", Qty, "Vehicle No", "Bill No", "Return Reason", "Credit Note URL", "Weighslip of Material", "PR Approval Status", "PR Approval Remarks", "PR Planned", "PR Actual"')
         .not("PR Planned", "is", null)
         .order("PR Planned", { ascending: false });
       if (fetchError) throw fetchError;

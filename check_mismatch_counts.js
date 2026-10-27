@@ -1,7 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = "https://jcgmyvxcamstnhuwmemc.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjZ215dnhjYW1zdG5odXdtZW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwMDgyODAsImV4cCI6MjA4NTU4NDI4MH0.wMKYEcXGOgrRwy7DKBlBz-a_mWhAuZaknG_iXYvKLLo";
+const environment = globalThis.process?.env || {};
+const supabaseUrl = environment.SUPABASE_URL || environment.VITE_SUPABASE_URL;
+const supabaseAnonKey = environment.SUPABASE_ANON_KEY || environment.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error("Set SUPABASE_URL and SUPABASE_ANON_KEY before running this diagnostic.");
+}
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -11,7 +16,7 @@ async function run() {
   // 1. Fetch all mismatch rows
   const { data: mismatchData, error: mismatchError } = await supabase
     .from("Mismatch")
-    .select("*");
+    .select('"Lift Number", "Lift ID", "Bilty No.", "Bilty Image", Actual2, Actual4, Actual6');
     
   if (mismatchError) {
     console.error("Mismatch Error:", mismatchError);
@@ -21,7 +26,7 @@ async function run() {
   // 2. Fetch all fullkittin rows
   const { data: fkData, error: fkError } = await supabase
     .from("fullkittin")
-    .select("*");
+    .select('"Lift No", "Bilty Number"');
     
   if (fkError) {
     console.error("fullkittin Error:", fkError);

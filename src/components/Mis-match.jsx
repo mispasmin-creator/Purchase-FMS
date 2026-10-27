@@ -704,7 +704,9 @@ export default function MismatchAnalysis() {
   const fetchTLData = useCallback(async () => {
     setLoadingTL(true);
     try {
-      const { data, error: fetchError } = await supabase.from("TL").select("*");
+      const { data, error: fetchError } = await supabase
+        .from("TL")
+        .select('NAME, "TL Alumina", "TL Iron", "AP%", "BD%"');
 
       if (fetchError) throw fetchError;
 
@@ -757,19 +759,39 @@ export default function MismatchAnalysis() {
   ]);
 
   // Realtime subscription - auto-update Stage column when any module updates LIFT-ACCOUNTS
+  // Many updates can arrive in a burst (every workflow step touches
+  // LIFT-ACCOUNTS), so coalesce them into a single refetch and skip it while
+  // the tab is in the background — it refreshes when the tab is shown again.
   useEffect(() => {
+    let timer = null;
+    let dirty = false;
+
+    const run = () => {
+      timer = null;
+      if (document.hidden) return; // picked up by onVisible below
+      dirty = false;
+      fetchLiftAccountsData();
+    };
+    const onVisible = () => {
+      if (!document.hidden && dirty && !timer) run();
+    };
+
     const channel = supabase
       .channel("lift-accounts-stage-watch")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "LIFT-ACCOUNTS" },
         () => {
-          fetchLiftAccountsData();
+          dirty = true;
+          if (!timer) timer = setTimeout(run, 20000);
         },
       )
       .subscribe();
 
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
   }, [fetchLiftAccountsData]);

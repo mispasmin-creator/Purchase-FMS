@@ -307,7 +307,7 @@ export default function ManageUsers() {
     try {
       const { data, error } = await supabase
         .from("Login")
-        .select("*")
+        .select('id, "User Name", Password, Name, Pages, "Firm Name"')
         .order("User Name", { ascending: true });
 
       if (error) throw error;

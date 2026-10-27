@@ -81,7 +81,7 @@ export function AuthProvider({ children }) {
       // Query Supabase Login table
       const { data, error } = await supabase
         .from("Login")
-        .select("*")
+        .select('"User Name", Pages, "Firm Name"')
         .ilike("User Name", username)
 
       if (error) throw error
@@ -194,7 +194,7 @@ export function AuthProvider({ children }) {
         // Query Supabase Login table
         const { data, error } = await supabase
           .from("Login")
-          .select("*")
+          .select('"User Name", Password, Pages, "Firm Name"')
           .ilike("User Name", username)
 
         if (error) throw error

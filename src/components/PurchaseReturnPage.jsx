@@ -94,6 +94,9 @@ const isZeroReturnRecord = (r) =>
 const isFinalTallyCompleted = (lift) =>
     String(lift?.["Actual 4"] ?? "").trim() !== "";
 
+const PURCHASE_RETURN_LIFT_SELECT = '"Lift No", Timestamp, "Actual 4", "Firm Name", "Indent no.", "Vendor Name", "Raw Material Name", "Actual Quantity", "Truck Qty", Qty, "Lifting Qty", "Total Bill Quantity", "Weight Slip Qty", "Bill No.", "Bill Image", "Image Of Weight Slip", Rate';
+const PURCHASE_RETURN_MISMATCH_FORM_SELECT = 'id, "Lift Number", "Lift ID", "Firm Name", Qty, "Truck Qty", "Lifting Quantity", "Indent Number", "Action Type", "Party Name", "Product Name", Remarks, "Bill No.", "Bill Image", Rate';
+
 export default function PurchaseReturnPage() {
     const { user, isSuperAdmin: isSuperAdminContext } = useContext(AuthContext);
     const isSuperAdmin = !!(isSuperAdminContext || user?.isSuperAdmin);
@@ -156,12 +159,12 @@ export default function PurchaseReturnPage() {
                     .eq("coordination_status", "COORDINATED"),
                 supabase
                     .from("purchaser_coordinates")
-                    .select("*")
+                    .select("mismatch_id")
                     .eq("status", "COORDINATED")
                     .eq("type", "Return Material and Make Debit Note"),
                 supabase
                     .from("LIFT-ACCOUNTS")
-                    .select("*")
+                    .select(PURCHASE_RETURN_LIFT_SELECT)
                     .order("Timestamp", { ascending: false }),
             ]);
 
@@ -415,7 +418,7 @@ export default function PurchaseReturnPage() {
             try {
                 const { data } = await supabase
                     .from("LIFT-ACCOUNTS")
-                    .select("*")
+                    .select(PURCHASE_RETURN_LIFT_SELECT)
                     .eq("Lift No", liftNo)
                     .maybeSingle();
                 if (data) liftData = data;
@@ -593,7 +596,7 @@ export default function PurchaseReturnPage() {
             if (!liftData) {
                 const { data } = await supabase
                     .from("LIFT-ACCOUNTS")
-                    .select("*")
+                    .select(PURCHASE_RETURN_LIFT_SELECT)
                     .ilike("Indent no.", cleanPoNo)
                     .limit(1)
                     .maybeSingle();
@@ -605,7 +608,7 @@ export default function PurchaseReturnPage() {
             if (!liftData) {
                 const { data: mData } = await supabase
                     .from("Mismatch")
-                    .select("*")
+                    .select(PURCHASE_RETURN_MISMATCH_FORM_SELECT)
                     .ilike("Indent Number", cleanPoNo)
                     .limit(1)
                     .maybeSingle();
@@ -617,7 +620,7 @@ export default function PurchaseReturnPage() {
             if (!liftData && !mismatchData) {
                 const { data: iData } = await supabase
                     .from("INDENT-PO")
-                    .select("*")
+                    .select('"Indent Id.", po_number, "Total Quantity", Quantity, "Approved Qty", Vendor, "Vendor name", Material, Rate, "Firm Name"')
                     .or(`"Indent Id.".ilike.${cleanPoNo},po_number.ilike.${cleanPoNo}`)
                     .limit(1)
                     .maybeSingle();
@@ -705,7 +708,7 @@ export default function PurchaseReturnPage() {
             ] = await Promise.all([
                 supabase
                     .from("LIFT-ACCOUNTS")
-                    .select("*")
+                    .select(PURCHASE_RETURN_LIFT_SELECT)
                     .eq("Lift No", canonicalLiftNo)
                     .maybeSingle(),
                 supabase
@@ -779,7 +782,7 @@ export default function PurchaseReturnPage() {
     const getReturnProgress = async (mismatchId) => {
         const { data: mismatch, error: mismatchFetchError } = await supabase
             .from("Mismatch")
-            .select("*")
+            .select('"Lift Number", "Lift ID", Qty, "Truck Qty", "Lifting Quantity"')
             .eq("id", mismatchId)
             .single();
 
@@ -943,7 +946,7 @@ export default function PurchaseReturnPage() {
                 const fileName = `credit-note/${form.liftNo || 'unknown'}_cn_${Date.now()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage
                     .from('image')
-                    .upload(fileName, creditNoteImageFile);
+                    .upload(fileName, creditNoteImageFile, { cacheControl: '31536000', upsert: false });
                 if (uploadError) throw uploadError;
                 const { data: publicUrlData } = supabase.storage
                     .from('image')
