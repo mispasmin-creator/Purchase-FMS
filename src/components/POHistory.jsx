@@ -491,6 +491,6 @@ export default function POHistory() {
           onPageSizeChange={pagination.setPageSize}
         />
       </CardContent>
-    </Card>
+    </Card> 
   );
 }

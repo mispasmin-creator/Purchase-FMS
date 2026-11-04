@@ -29,7 +29,7 @@ export async function uploadFileToStorage(file, bucket = 'image', path = '') {
             .from(bucket)
             .upload(filePath, fileBuffer, {
                 contentType: file.type,
-                cacheControl: '3600',
+                cacheControl: '31536000',
                 upsert: false
             });
 

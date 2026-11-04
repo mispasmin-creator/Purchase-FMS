@@ -424,12 +424,24 @@ export default function MismatchAnalysis() {
         return;
       }
 
-      const { data, error: fetchError } = await supabase
+      // A single .in() with thousands of ids hits Supabase's 1000-row cap / URL
+      // length limit, so lifts were silently dropped. Fetch in chunks instead.
+      const LIFT_CHUNK_SIZE = 200;
+      const liftChunks = [];
+      for (let i = 0; i < liftIds.length; i += LIFT_CHUNK_SIZE) {
+        liftChunks.push(liftIds.slice(i, i + LIFT_CHUNK_SIZE));
+      }
+
+      const chunkResults = await Promise.all(
+        liftChunks.map((chunk) => supabase
         .from("LIFT-ACCOUNTS")
         .select('"Lift No", "Indent no.", "Vendor Name", "Qty", "Raw Material Name", "Planned 1", "Actual 1", "Planned 2", "Actual 2", "Planned 3", "Actual 3", "Bill No.", "Date Of Bill", "Area lifting", "Lead Time To Reach Factory (days)", "Lifting Qty", "Type", "Transporter Name", "Truck No.", "Driver No.", "Bilty No.", "Type Of Transporting Rate", "Rate", "Bill Image", "Truck Qty", "Date Of Receiving", "Total Bill Quantity", "Actual Quantity", "Physical Condition", "Moisture", "Physical Image Of Product", "Image Of Weight Slip", "Bilty No. 2", "Bilty Image", "Status", "Date Of Test", "Moisture Percent Age %", "BD Percent Age %", "AP Percent Age %", "Alumina Percent Age %", "Iron Percent Age %", "Sieve Analysis", "LOI %", "SIO2 %", "CaO %", "MgO %", "TiO2 %", "K2O + Na2O %", "Free Iron %", "Firm Name", "Weight Slip Qty", "Transporter Rate", "Transporting Rate", "Testing Certificate", "Timestamp"')
-        .in("Lift No", liftIds);
+        .in("Lift No", chunk))
+      );
 
-      if (fetchError) throw fetchError;
+      const chunkError = chunkResults.find((r) => r.error)?.error;
+      if (chunkError) throw chunkError;
+      const data = chunkResults.flatMap((r) => r.data || []);
 
       let formattedData = (data || []).map((row) => {
         let createdAt = "";
@@ -693,7 +705,9 @@ export default function MismatchAnalysis() {
   const fetchTLData = useCallback(async () => {
     setLoadingTL(true);
     try {
-      const { data, error: fetchError } = await supabase.from("TL").select("*");
+      const { data, error: fetchError } = await supabase
+        .from("TL")
+        .select('NAME, "TL Alumina", "TL Iron", "AP%", "BD%"');
 
       if (fetchError) throw fetchError;
 
@@ -746,19 +760,39 @@ export default function MismatchAnalysis() {
   ]);
 
   // Realtime subscription - auto-update Stage column when any module updates LIFT-ACCOUNTS
+  // Many updates can arrive in a burst (every workflow step touches
+  // LIFT-ACCOUNTS), so coalesce them into a single refetch and skip it while
+  // the tab is in the background — it refreshes when the tab is shown again.
   useEffect(() => {
+    let timer = null;
+    let dirty = false;
+
+    const run = () => {
+      timer = null;
+      if (document.hidden) return; // picked up by onVisible below
+      dirty = false;
+      fetchLiftAccountsData();
+    };
+    const onVisible = () => {
+      if (!document.hidden && dirty && !timer) run();
+    };
+
     const channel = supabase
       .channel("lift-accounts-stage-watch")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "LIFT-ACCOUNTS" },
         () => {
-          fetchLiftAccountsData();
+          dirty = true;
+          if (!timer) timer = setTimeout(run, 20000);
         },
       )
       .subscribe();
 
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
   }, [fetchLiftAccountsData]);
@@ -937,7 +971,7 @@ export default function MismatchAnalysis() {
       const billQtyVal = parseFloat(lift.liftingQty || mismatchItem["Lifting Quantity"] || mismatchItem["Lifting Qty"]);
       const actQtyVal = parseFloat(lift.actualQuantity || lift.truckQty || mismatchItem["Truck Qty"] || mismatchItem["Actual Quantity"]);
       const diffBillRecVal = (!isNaN(billQtyVal) && !isNaN(actQtyVal))
-        ? parseFloat((billQtyVal - actQtyVal).toFixed(3))
+        ? parseFloat((actQtyVal - billQtyVal).toFixed(3))
         : "N/A";
 
       return {
@@ -1391,9 +1425,9 @@ export default function MismatchAnalysis() {
       return (
         <span
           className={
-            numValue > 0
+            numValue < 0
               ? "text-red-600 font-semibold"
-              : numValue < 0
+              : numValue > 0
                 ? "text-[#7da23a] font-semibold"
                 : "text-gray-700 font-medium"
           }

@@ -63,6 +63,7 @@ const defaultForm = () => ({
   description: "",
   notes: "",
   destination: "",
+  billingAddress: "",
   transportType: "",
   advanceToBePaid: "no",
   toBePaidAmount: "",
@@ -163,6 +164,7 @@ export default function CreatePO() {
   const [errors, setErrors] = useState({});
   const [termEditIndex, setTermEditIndex] = useState(-1);
   const [editDestination, setEditDestination] = useState(false);
+  const [editBilling, setEditBilling] = useState(false);
   const [formData, setFormData] = useState(defaultForm());
   const [firms, setFirms] = useState([]);
   const [selectedFirm, setSelectedFirm] = useState(null);
@@ -443,6 +445,7 @@ export default function CreatePO() {
     setErrors({});
     setTermEditIndex(-1);
     setEditDestination(false);
+    setEditBilling(false);
     setFormData(defaultForm());
     // The poNumber will be recalculated by the useEffect that watches refreshTrigger
   };
@@ -480,6 +483,7 @@ export default function CreatePO() {
     companyAddress:
       selectedFirm?.address || "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
     billingAddress:
+      formData.billingAddress ||
       selectedFirm?.billing_address ||
       "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
     destinationAddress: formData.destination,
@@ -1158,13 +1162,47 @@ export default function CreatePO() {
               </Card>
               <Card className="gap-0 rounded-[3px] p-0 shadow-xs">
                 <CardHeader className="px-5 py-2 bg-muted">
-                  <CardTitle className="text-center">Billing Address</CardTitle>
+                  <CardTitle className="flex items-center justify-between text-center">
+                    Billing Address
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (!editBilling && !formData.billingAddress) {
+                          setField(
+                            "billingAddress",
+                            selectedFirm?.billing_address ||
+                              "Kh No 297/2, Akoli, Block Dharsiwa, Raipur",
+                          );
+                        }
+                        setEditBilling((prev) => !prev);
+                      }}
+                      className="w-6 h-6 p-0 hover:bg-gray-200"
+                    >
+                      {editBilling ? (
+                        <Save size={14} className="text-green-600" />
+                      ) : (
+                        <Pencil size={14} className="text-gray-600" />
+                      )}
+                    </Button>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-5 text-sm">
-                  <p>
-                    {selectedFirm?.billing_address ||
-                      "Kh No 297/2, Akoli, Block Dharsiwa, Raipur"}
-                  </p>
+                  {editBilling ? (
+                    <Textarea
+                      value={formData.billingAddress}
+                      onChange={(e) => setField("billingAddress", e.target.value)}
+                      className="text-sm"
+                      placeholder="Enter billing address"
+                    />
+                  ) : (
+                    <p>
+                      {formData.billingAddress ||
+                        selectedFirm?.billing_address ||
+                        "Kh No 297/2, Akoli, Block Dharsiwa, Raipur"}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
               <Card className="gap-0 rounded-[3px] p-0 shadow-xs">

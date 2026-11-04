@@ -63,6 +63,7 @@ import {
   ChevronsUpDown,
   ShieldCheck,
   Download,
+  X
 } from "lucide-react";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { AuthContext } from "../context/AuthContext";
@@ -253,6 +254,7 @@ const ELIGIBLE_TESTS_COLUMNS_META = [
   { header: "Date Of Bill", dataKey: "dateOfBill", toggleable: true },
   { header: "Party Name", dataKey: "vendorName", toggleable: true },
   { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
+  { header: "Actual Qty", dataKey: "actualQty_fromReceipt", toggleable: true },
   { header: "Truck Number", dataKey: "truckNo", toggleable: true },
 ];
 
@@ -318,6 +320,8 @@ const RECORDED_TESTS_COLUMNS_META = [
     toggleable: true,
   },
   { header: "Reason", dataKey: "baReason_val", toggleable: true },
+  { header: "Product Name", dataKey: "rawMaterialName", toggleable: true },
+  { header: "Actual Qty", dataKey: "actualQty_fromReceipt", toggleable: true },
   { header: "Truck Number", dataKey: "truckNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
 ];

@@ -519,7 +519,7 @@ export default function ReceiptCheck() {
         ] = await Promise.all([
           supabase
             .from("LIFT-ACCOUNTS")
-            .select("*")
+            .select('id, "Lift No", Timestamp, "Indent no.", "Vendor Name", "Raw Material Name", "Bill No.", "Date Of Bill", Qty, "Lifting Qty", Type, "Bill Image", "Driver No.", "Area lifting", "Truck No.", "Transporter Name", "Transporter Rate", "Type Of Transporting Rate", Rate, "Truck Qty", "Bilty No.", "Bilty Image", "Planned 1", "Actual 1", "CRM Date", "CRM Status", "Actual 4", "Planned 2", "Actual 2", "Date Of Receiving", "Total Bill Quantity", "Actual Quantity", "Physical Condition", Moisture, "Physical Image Of Product", "Image Of Weight Slip", "Weight Slip Qty", "Total Bags Qty", "Firm Name", "Unload Approval Required", "Unload Approval Status", "Planned Unload Approval", "Actual Unload Approval", "Unload Approval Trigger", "Unload Approval Remarks", "Unload Approval By"')
             .order("Timestamp", { ascending: false }),
           supabase
             .from("INDENT-PO")

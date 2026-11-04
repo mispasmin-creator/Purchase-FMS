@@ -709,7 +709,7 @@ export default function DebitNote() {
         const fileName = `debit-notes/${editingItem.liftId}_debit_${Date.now()}.${fileExt}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('image')
-          .upload(fileName, debitImageFile);
+          .upload(fileName, debitImageFile, { cacheControl: '31536000', upsert: false });
 
         if (uploadError) throw uploadError;
 
