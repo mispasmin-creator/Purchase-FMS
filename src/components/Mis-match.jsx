@@ -80,6 +80,7 @@ const UNIFIED_MISMATCH_COLUMNS_META = [
   { header: "Stage", dataKey: "stage", toggleable: true, alwaysVisible: true },
   { header: "Detected Issues", dataKey: "mismatchTypes", toggleable: true, alwaysVisible: true },
   { header: "Lift Number", dataKey: "liftIdDisplay", toggleable: true, alwaysVisible: true },
+  { header: "Planned Date", dataKey: "timestamp", toggleable: true, alwaysVisible: true },
   { header: "Truck No.", dataKey: "truckNo", toggleable: true },
   { header: "PO Number", dataKey: "indentNo", toggleable: true },
   { header: "Firm Name", dataKey: "firmName", toggleable: true },
@@ -99,7 +100,7 @@ const UNIFIED_MISMATCH_COLUMNS_META = [
 
 const HISTORY_COLUMNS_META = [
   {
-    header: "Date",
+    header: "Planned Date",
     dataKey: "timestamp",
     toggleable: true,
     alwaysVisible: true,
