@@ -9,24 +9,29 @@
 
 const SOURCE_LABEL = "Purchase FMS Po Advance";
 
+const PMMPL_ENTRIES = {
+  indentId: "entry.1200639812",
+  source: "entry.604194301",
+  vendor: "entry.1091308719",
+  amount: "entry.1486176123",
+  notes: "entry.2102057582",
+};
+
 const FIRM_FORMS = {
   pmmpl: {
     base: "https://docs.google.com/forms/d/e/1FAIpQLScn8tHEUldlOM_8DKpHUfHHiRImDVjkpkhhfduaZUIxpxlJrA/viewform",
-    entries: {
-      indentId: "entry.1200639812",
-      source: "entry.604194301",
-      vendor: "entry.1091308719",
-      amount: "entry.1486176123",
-      notes: "entry.2102057582",
-    },
+    entries: PMMPL_ENTRIES,
   },
+  // Rkl / Purab currently reuse the Pmmpl entry ids (works only if their forms
+  // are copies of the Pmmpl form). If a field opens blank, replace with the
+  // ids from that form's own "Get pre-filled link".
   rkl: {
     base: "https://docs.google.com/forms/d/e/1FAIpQLScJJFvh6zchRosSzX0mU-u7-oeMaQW6iv1osE70hRDoE-uVrg/viewform",
-    entries: null, // TODO: paste entry ids from Rkl pre-filled link
+    entries: PMMPL_ENTRIES,
   },
   purab: {
     base: "https://docs.google.com/forms/d/e/1FAIpQLSdLWKfGPNXK62Orndb137GPKadFiRQZS8W_MM0c11HvdR4KkA/viewform",
-    entries: null, // TODO: paste entry ids from Purab pre-filled link
+    entries: PMMPL_ENTRIES,
   },
 };
 

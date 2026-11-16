@@ -534,15 +534,19 @@ export default function OriginalBillsFiledPage() {
   const allSelected = pendingEntries.length > 0 && pendingEntries.every(entry => selectedEntries[entry._id]);
   const someSelected = Object.values(selectedEntries).some(v => v);
 
+  // History tab: Action column (Make Payment / Fill Form) is hidden
+  const getTableColumns = (isHistory) =>
+    isHistory ? visibleColumns.filter((c) => c.dataKey !== "paymentAction") : visibleColumns;
+
   const renderTable = (entries, isHistory) => (
     <div className="overflow-auto h-full rounded-md border">
       <Table>
         <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
           <TableRow>
-            {visibleColumns.map((col) => (
+            {getTableColumns(isHistory).map((col) => (
               <TableHead
                 key={col.dataKey}
-                className={col.dataKey === "selectAction" || col.dataKey === "paymentAction" ? "w-[120px] text-center" : ""}
+                className={col.dataKey === "selectAction" ? "w-[120px] text-center" : col.dataKey === "paymentAction" ? "w-[120px] min-w-[220px] text-center" : ""}
               >
                 {col.dataKey === "selectAction" ? (
                   !isHistory ? (
@@ -560,14 +564,14 @@ export default function OriginalBillsFiledPage() {
         <TableBody>
           {entries.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={visibleColumns.length} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={getTableColumns(isHistory).length} className="h-24 text-center text-muted-foreground">
                 No {isHistory ? "history" : "pending"} records found.
               </TableCell>
             </TableRow>
           ) : (
             entries.map((entry) => (
               <TableRow key={entry._id} className="hover:bg-muted/50">
-                {visibleColumns.map((col) => (
+                {getTableColumns(isHistory).map((col) => (
                   <TableCell key={col.dataKey} className="py-2.5 px-3 text-xs">
                     {col.dataKey === "selectAction" ? (
                       <div className="flex justify-center items-center">
@@ -587,24 +591,44 @@ export default function OriginalBillsFiledPage() {
                         )}
                       </div>
                     ) : col.dataKey === "paymentAction" ? (
-                      <div className="flex justify-center items-center">
+                      <div className="flex justify-center items-center gap-2">
                         {(() => {
-                          const formUrl = getAdvancePaymentFormUrl(entry);
-                          const savedLink = entry.paymentLink && entry.paymentLink.trim() !== "" && entry.paymentLink !== "-" ? entry.paymentLink : "";
-                          const finalLink = formUrl || (savedLink ? (savedLink.startsWith("http") ? savedLink : `https://${savedLink}`) : "");
-                          return finalLink ? (
-                          <Button
-                            size="sm"
-                            className={`text-xs h-7 ${isHistory ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-[#7da23a] hover:bg-[#6b8e2f] text-white"}`}
-                            variant={isHistory ? "ghost" : "default"}
-                            onClick={() => window.open(finalLink, "_blank")}
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            {isHistory ? "View Link" : "Make Payment"}
-                          </Button>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">No Link</span>
-                        );
+                          // Firm-wise pre-filled Google Form: pending tab only
+                          const formUrl = !isHistory ? getAdvancePaymentFormUrl(entry) : "";
+                          const hasSavedLink = entry.paymentLink && entry.paymentLink.trim() !== "" && entry.paymentLink !== "-";
+                          return (
+                            <>
+                              {hasSavedLink ? (
+                                <Button
+                                  size="sm"
+                                  className={`text-xs h-7 ${isHistory ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-[#7da23a] hover:bg-[#6b8e2f] text-white"}`}
+                                  variant={isHistory ? "ghost" : "default"}
+                                  onClick={() => {
+                                    const link = entry.paymentLink.startsWith("http")
+                                      ? entry.paymentLink
+                                      : `https://${entry.paymentLink}`;
+                                    window.open(link, "_blank");
+                                  }}
+                                >
+                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  {isHistory ? "View Link" : "Make Payment"}
+                                </Button>
+                              ) : !formUrl ? (
+                                <span className="text-muted-foreground text-xs">No Link</span>
+                              ) : null}
+                              {formUrl && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-7"
+                                  onClick={() => window.open(formUrl, "_blank")}
+                                >
+                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  Fill Form
+                                </Button>
+                              )}
+                            </>
+                          );
                         })()}
                       </div>
                     ) : (
