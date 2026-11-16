@@ -35,6 +35,7 @@ import { AuthContext } from "../context/AuthContext";
 import { supabase } from "../supabase";
 import { canViewFirm } from "../utils/firmFilter";
 import { matchesUniversalSearch } from "../utils/searchUtils";
+import { getAdvancePaymentFormUrl } from "../utils/advancePaymentForms";
 
 // Helper Functions
 const cleanIndentId = (indentId) => {
@@ -587,24 +588,24 @@ export default function OriginalBillsFiledPage() {
                       </div>
                     ) : col.dataKey === "paymentAction" ? (
                       <div className="flex justify-center items-center">
-                        {entry.paymentLink && entry.paymentLink.trim() !== "" && entry.paymentLink !== "-" ? (
+                        {(() => {
+                          const formUrl = getAdvancePaymentFormUrl(entry);
+                          const savedLink = entry.paymentLink && entry.paymentLink.trim() !== "" && entry.paymentLink !== "-" ? entry.paymentLink : "";
+                          const finalLink = formUrl || (savedLink ? (savedLink.startsWith("http") ? savedLink : `https://${savedLink}`) : "");
+                          return finalLink ? (
                           <Button
                             size="sm"
                             className={`text-xs h-7 ${isHistory ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-[#7da23a] hover:bg-[#6b8e2f] text-white"}`}
                             variant={isHistory ? "ghost" : "default"}
-                            onClick={() => {
-                              const link = entry.paymentLink.startsWith("http")
-                                ? entry.paymentLink
-                                : `https://${entry.paymentLink}`;
-                              window.open(link, "_blank");
-                            }}
+                            onClick={() => window.open(finalLink, "_blank")}
                           >
                             <ExternalLink className="h-3 w-3 mr-1" />
                             {isHistory ? "View Link" : "Make Payment"}
                           </Button>
                         ) : (
                           <span className="text-muted-foreground text-xs">No Link</span>
-                        )}
+                        );
+                        })()}
                       </div>
                     ) : (
                       <span title={typeof entry[col.dataKey] === "string" ? entry[col.dataKey] : ""}>
